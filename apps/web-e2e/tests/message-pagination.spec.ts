@@ -93,7 +93,7 @@ test.describe("Message pagination", () => {
   });
 
   test("scrolling down loads newer messages after jumping to old message", async ({ page, testWorkspace }) => {
-    test.setTimeout(120000);
+    test.setTimeout(60000);
 
     const channelName = `load-newer-${Date.now()}`;
     const channel = await testWorkspace.api.createChannel(channelName);

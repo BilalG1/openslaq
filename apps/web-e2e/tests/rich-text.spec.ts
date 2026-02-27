@@ -227,7 +227,7 @@ test.describe("Rich text formatting", () => {
 
     // Wait for Shiki-highlighted code block (async via MarkdownHooks)
     const codeBlock = page.locator("pre.shiki").filter({ hasText: String(ts) });
-    await expect(codeBlock).toBeVisible({ timeout: 15000 });
+    await expect(codeBlock).toBeVisible({ timeout: 10000 });
     // Verify syntax highlighting produces styled spans inside <code>
     await expect(codeBlock.locator("code.language-ts span.line").first()).toBeVisible();
     // Verify language label
@@ -247,7 +247,7 @@ test.describe("Rich text formatting", () => {
 
     // Wait for Shiki-highlighted code block
     const codeBlock = page.locator("pre.shiki").filter({ hasText: String(ts) });
-    await expect(codeBlock).toBeVisible({ timeout: 15000 });
+    await expect(codeBlock).toBeVisible({ timeout: 10000 });
 
     // The code wrapper div (group/code) is the parent of the <pre>
     const codeWrapper = codeBlock.locator("xpath=..");
@@ -512,7 +512,7 @@ test.describe("Rich text formatting", () => {
     await expect(page.getByText("Welcome to the new project channel")).toBeVisible();
     await expect(page.getByText("Let's ship it")).toBeVisible();
     // Wait for Shiki code blocks to render (async highlighting)
-    await expect(page.locator("pre.shiki").first()).toBeVisible({ timeout: 15000 });
+    await expect(page.locator("pre.shiki").first()).toBeVisible({ timeout: 10000 });
 
     await page.screenshot({ path: "test-results/channel-rich-text.png" });
   });

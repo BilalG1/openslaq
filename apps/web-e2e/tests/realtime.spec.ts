@@ -105,7 +105,7 @@ test.describe("Multi-user message visibility", () => {
 
     await context.setOffline(true);
     // Brief pause ensures Socket.IO detects the network loss before we restore it
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(200);
     await context.setOffline(false);
 
     const messageAfterReconnect = `post-reconnect-${Date.now()}`;

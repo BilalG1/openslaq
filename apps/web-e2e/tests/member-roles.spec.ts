@@ -68,7 +68,6 @@ test.describe("Member roles", () => {
 
     // Find role select for the member and change to admin
     const trigger = page.getByTestId(`role-select-${SECOND_USER.userId}`);
-    await trigger.waitFor();
     await trigger.click();
     await page.getByRole("option", { name: "admin" }).click();
 
@@ -89,9 +88,7 @@ test.describe("Member roles", () => {
     // Accept the confirm dialog
     page.on("dialog", (dialog) => dialog.accept());
 
-    const removeBtn = page.getByTestId(`remove-btn-${SECOND_USER.userId}`);
-    await removeBtn.waitFor();
-    await removeBtn.click();
+    await page.getByTestId(`remove-btn-${SECOND_USER.userId}`).click();
 
     // Verify member is gone
     await expect(page.getByTestId(`member-row-${SECOND_USER.userId}`)).not.toBeVisible();
@@ -119,7 +116,6 @@ test.describe("Member roles", () => {
     });
 
     const trigger = page.getByTestId(`role-select-${SECOND_USER.userId}`);
-    await trigger.waitFor();
     await trigger.click();
     await page.getByRole("option", { name: "admin" }).click();
 
@@ -162,7 +158,6 @@ test.describe("Member roles", () => {
     await expect(page.getByRole("heading", { name: "Delete Workspace" })).toBeVisible();
 
     const confirmInput = page.getByTestId("delete-workspace-input");
-    await confirmInput.waitFor();
     const workspaceName = await confirmInput.getAttribute("placeholder");
 
     // The delete button should be disabled before confirmation

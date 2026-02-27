@@ -11,7 +11,7 @@ async function openWorkspaceWithRetry(page: Page, workspaceSlug: string) {
       continue;
     }
     const general = page.getByText("# general");
-    if (await general.isVisible({ timeout: 10000 }).catch(() => false)) {
+    if (await general.isVisible({ timeout: 5000 }).catch(() => false)) {
       return;
     }
   }
@@ -110,12 +110,12 @@ test.describe("Dark mode", () => {
 
     // Wait for the menu to fully close before re-opening
     await expect(page.getByText("Theme: Light")).not.toBeVisible();
-    // Small delay for the UserButton popover internal state to reset
-    await page.waitForTimeout(500);
 
-    // Re-open menu and cycle back to light
-    await userButtonTrigger.click();
-    await expect(page.getByText("Theme: Dark")).toBeVisible({ timeout: 5000 });
+    // Re-open menu and cycle back to light (retry if popover not yet ready)
+    await expect(async () => {
+      await userButtonTrigger.click();
+      await expect(page.getByText("Theme: Dark")).toBeVisible({ timeout: 1000 });
+    }).toPass({ timeout: 5000, intervals: [500, 1000] });
     await page.getByText("Theme: Dark").click();
 
     hasDark = await page.evaluate(() =>

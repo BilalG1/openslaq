@@ -19,7 +19,7 @@ async function openGeneralChannel(page: Page, workspaceSlug: string) {
 
   // Wait generously for channels to load (under parallel test load, API can be slow)
   const generalButton = page.getByRole("button", { name: "# general" });
-  await expect(generalButton).toBeVisible({ timeout: 30000 });
+  await expect(generalButton).toBeVisible({ timeout: 15000 });
   await generalButton.click();
 }
 
@@ -104,7 +104,7 @@ test.describe("Threads", () => {
     await expect(page.getByText("loading-thread-")).toBeVisible();
 
     await page.route(`**/api/workspaces/${testWorkspace.slug}/channels/${channel.id}/messages/${msg.id}/replies**`, async (route) => {
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(100);
       await route.continue();
     });
 
@@ -153,7 +153,7 @@ test.describe("Threads", () => {
   });
 
   test("thread panel loads newest replies first, loads older on scroll up", async ({ page, testWorkspace }) => {
-    test.setTimeout(180000);
+    test.setTimeout(90000);
 
     const channel = await testWorkspace.api.getChannelByName("general");
     const parentContent = `thread-parent-${Date.now()}`;
@@ -180,7 +180,7 @@ test.describe("Threads", () => {
 
     // Wait for initial replies to load — newest replies should be visible first
     // (reply-051 is the newest, should be in the initial page)
-    await expect(page.getByText("reply-051")).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("reply-051")).toBeVisible({ timeout: 10000 });
 
     // Scroll to top of thread panel to trigger loading older replies.
     // Use toPass() to retry scrolling — the first scroll may not trigger pagination
@@ -191,7 +191,7 @@ test.describe("Threads", () => {
         el.scrollTop = 0;
       });
       await expect(page.getByText("reply-001")).toBeVisible({ timeout: 5000 });
-    }).toPass({ timeout: 60_000, intervals: [500, 1000, 2000, 3000] });
+    }).toPass({ timeout: 30_000, intervals: [500, 1000, 2000] });
   });
 
   test("send reply via thread panel UI", async ({ page, testWorkspace }) => {

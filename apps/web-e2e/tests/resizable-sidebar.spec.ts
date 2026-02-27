@@ -97,7 +97,7 @@ test.describe("Resizable Sidebars", () => {
 
     // Reload
     await page.reload();
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
     await expect(page.getByText("# general")).toBeVisible();
 
     const afterReload = await sidebarChild.boundingBox();

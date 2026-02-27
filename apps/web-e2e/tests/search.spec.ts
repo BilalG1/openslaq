@@ -198,7 +198,7 @@ test.describe("Search", () => {
   });
 
   test("search pagination loads more results", async ({ page, testWorkspace }) => {
-    test.setTimeout(90_000);
+    test.setTimeout(60_000);
     const channel = await testWorkspace.api.getChannelByName("general");
     const uniqueWord = `paginate${Date.now()}`;
 
@@ -240,8 +240,6 @@ test.describe("Search", () => {
     page,
     testWorkspace,
   }) => {
-    test.setTimeout(120000);
-
     const randomChannel = await testWorkspace.api.getChannelByName("random");
     const uniqueWord = `scrolltarget${Date.now()}`;
 
@@ -338,6 +336,6 @@ test.describe("Search", () => {
     await expect(page.getByText("Padding msg 030")).toBeVisible({ timeout: 10_000 });
 
     // Wait for highlight-fade setTimeout(2000) to fire for coverage
-    await page.waitForTimeout(2500);
+    await page.waitForTimeout(2100);
   });
 });

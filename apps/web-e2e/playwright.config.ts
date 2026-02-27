@@ -9,7 +9,7 @@ export default defineConfig({
   reporter: "html",
   globalSetup: "./global-setup.ts",
   expect: {
-    timeout: 10_000,
+    timeout: 5_000,
   },
   use: {
     baseURL: "http://localhost:3000",

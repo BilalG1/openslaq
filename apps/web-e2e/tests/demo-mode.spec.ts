@@ -32,7 +32,7 @@ test.describe("Demo Mode", () => {
     await expect(page.getByText(unique)).toBeVisible();
 
     await page.getByText("# random").click();
-    await expect(page.getByText("Demo update").first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText("Demo update").first()).toBeVisible({ timeout: 10_000 });
 
     await page.getByText("# general").click();
     await page.getByText(unique).hover();
@@ -301,13 +301,13 @@ test.describe("Demo Mode", () => {
     const initialBadge = await randomButton.locator("span").filter({ hasText: /\d+/ }).textContent();
     const initialCount = parseInt(initialBadge ?? "0", 10);
 
-    // Wait for the 8s simulation interval to fire
-    await page.waitForTimeout(9000);
-
-    // The unread count should have increased
-    const updatedBadge = await randomButton.locator("span").filter({ hasText: /\d+/ }).textContent();
-    const updatedCount = parseInt(updatedBadge ?? "0", 10);
-    expect(updatedCount).toBeGreaterThan(initialCount);
+    // Poll for the simulation interval to fire instead of hard-waiting 9s
+    await expect
+      .poll(async () => {
+        const badge = await randomButton.locator("span").filter({ hasText: /\d+/ }).textContent();
+        return parseInt(badge ?? "0", 10);
+      }, { timeout: 15000, intervals: [1000, 2000, 2000, 2000] })
+      .toBeGreaterThan(initialCount);
   });
 
   test("join existing reaction adds current user to group", async ({ page }) => {

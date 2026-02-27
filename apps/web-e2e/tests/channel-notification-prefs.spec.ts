@@ -53,7 +53,7 @@ test.describe("Channel notification preferences", () => {
 
     // Wait for workspace to fully load before interacting
     await page.getByText("# general").click();
-    await page.waitForTimeout(1000);
+    await expect(page.locator(".tiptap")).toBeVisible();
 
     // Verify persisted
     await page.getByTestId("channel-notification-button").click();
