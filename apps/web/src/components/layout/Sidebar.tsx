@@ -145,7 +145,7 @@ export function Sidebar({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="w-full p-4 font-bold text-lg text-white bg-transparent border-none border-b border-gray-800 cursor-pointer flex items-center justify-between text-left"
+            className="w-full p-4 font-bold text-lg text-white bg-transparent border-none border-b border-gray-800 cursor-pointer flex items-center justify-between text-left focus:outline-none"
           >
             <span className="overflow-hidden text-ellipsis whitespace-nowrap">
               {workspaceName}
