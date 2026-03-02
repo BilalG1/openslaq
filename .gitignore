@@ -3,7 +3,6 @@ dist
 .env
 *.local
 .vite
-drizzle
 test-results/
 playwright-report/
 blob-report/

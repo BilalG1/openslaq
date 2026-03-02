@@ -1,0 +1,1 @@
+ALTER TABLE "messages" ADD COLUMN "shared_message_id" uuid;
