@@ -87,14 +87,14 @@ async function main() {
   const prefix = pickPrefix(used);
   const prefixStr = String(prefix);
 
-  console.log(`Creating worktree "${name}" with port prefix ${prefixStr}...`);
+  console.error(`Creating worktree "${name}" with port prefix ${prefixStr}...`);
 
   // Ensure .worktrees directory exists
   mkdirSync(worktreesDir, { recursive: true });
 
   // Create git worktree on a new branch based on HEAD
   const branch = `wt/${name}`;
-  await $`git worktree add -b ${branch} ${worktreePath} HEAD`.cwd(repoRoot);
+  await $`git worktree add -b ${branch} ${worktreePath} HEAD`.cwd(repoRoot).quiet();
 
   // Generate .env
   const rootEnvPath = join(repoRoot, ".env");
@@ -113,23 +113,15 @@ async function main() {
     writeFileSync(livekitPath, rewriteLivekitYaml(livekitContent, prefix));
   }
 
-  // Install dependencies
-  console.log("Installing dependencies...");
-  await $`bun install`.cwd(worktreePath);
+  console.error("");
+  console.error("=".repeat(60));
+  console.error(`Worktree created: .worktrees/${name}`);
+  console.error(`Port prefix:      ${prefixStr}`);
+  console.error(`Ports:            ${prefixStr}00 (web), ${prefixStr}01 (api), ${prefixStr}02 (pg), ${prefixStr}03 (s3), ${prefixStr}04-06 (livekit)`);
+  console.error("=".repeat(60));
 
-  console.log("");
-  console.log("=".repeat(60));
-  console.log(`Worktree created: .worktrees/${name}`);
-  console.log(`Port prefix:      ${prefixStr}`);
-  console.log(`Ports:            ${prefixStr}00 (web), ${prefixStr}01 (api), ${prefixStr}02 (pg), ${prefixStr}03 (s3), ${prefixStr}04-06 (livekit)`);
-  console.log("");
-  console.log("Next steps:");
-  console.log(`  cd .worktrees/${name}`);
-  console.log("  docker compose up -d");
-  console.log("  bun run --filter @openslaq/api db:migrate");
-  console.log("  bun run --filter @openslaq/api db:seed");
-  console.log("  bun run dev");
-  console.log("=".repeat(60));
+  // Print path to stdout so a shell wrapper can `cd` into it
+  console.log(worktreePath);
 }
 
 main();

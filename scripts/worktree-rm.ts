@@ -26,24 +26,7 @@ function getPrefix(worktreePath: string): string | null {
   return match ? match[1] : null;
 }
 
-async function main() {
-  let name = process.argv[2];
-
-  if (!name) {
-    const available = listWorktrees();
-    if (available.length === 0) {
-      console.log("No worktrees found in .worktrees/");
-      process.exit(0);
-    }
-    console.log("Available worktrees:");
-    for (const wt of available) {
-      const prefix = getPrefix(join(worktreesDir, wt));
-      console.log(`  ${wt}${prefix ? ` (prefix ${prefix})` : ""}`);
-    }
-    console.error("\nUsage: bun run wt:rm <name>");
-    process.exit(1);
-  }
-
+async function removeWorktree(name: string) {
   const worktreePath = join(worktreesDir, name);
   if (!existsSync(worktreePath)) {
     console.error(`Error: Worktree "${name}" not found at ${worktreePath}`);
@@ -72,6 +55,41 @@ async function main() {
   await $`git worktree remove ${worktreePath} --force`.cwd(repoRoot);
 
   console.log(`Worktree "${name}" removed.`);
+}
+
+async function main() {
+  const arg = process.argv[2];
+
+  if (arg === "-a") {
+    const available = listWorktrees();
+    if (available.length === 0) {
+      console.log("No worktrees found in .worktrees/");
+      process.exit(0);
+    }
+    console.log(`Removing all ${available.length} worktree(s)...\n`);
+    for (const name of available) {
+      await removeWorktree(name);
+      console.log("");
+    }
+    return;
+  }
+
+  if (!arg) {
+    const available = listWorktrees();
+    if (available.length === 0) {
+      console.log("No worktrees found in .worktrees/");
+      process.exit(0);
+    }
+    console.log("Available worktrees:");
+    for (const wt of available) {
+      const prefix = getPrefix(join(worktreesDir, wt));
+      console.log(`  ${wt}${prefix ? ` (prefix ${prefix})` : ""}`);
+    }
+    console.error("\nUsage: bun run wt:rm <name>  or  bun run wt:rm -a");
+    process.exit(1);
+  }
+
+  await removeWorktree(arg);
 }
 
 main();
