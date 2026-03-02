@@ -1,15 +1,17 @@
-import { Fragment } from "react";
+import { useMemo } from "react";
 import ReactMarkdown, { MarkdownHooks } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeShiki from "@shikijs/rehype";
 import type { Components } from "react-markdown";
-import type { Mention } from "@openslaq/shared";
+import type { Mention, CustomEmoji } from "@openslaq/shared";
+import { findCustomEmoji } from "@openslaq/client-core";
 import { CodeBlock } from "./CodeBlock";
 
 interface MessageContentProps {
   content: string;
   mentions?: Mention[];
   onOpenProfile?: (userId: string) => void;
+  customEmojis?: CustomEmoji[];
 }
 
 const sharedComponents: Components = {
@@ -41,15 +43,62 @@ const sharedComponents: Components = {
   ol: ({ children }) => <ol className="my-1 pl-6 list-decimal">{children}</ol>,
 };
 
-// Stable references — MarkdownHooks' useEffect depends on plugin array identity
-const remarkPlugins = [remarkGfm];
+// Remark plugin: split text nodes on mention/emoji tokens into custom inline nodes
+const TOKEN_PATTERN = /<@([^>]+)>|:custom:([a-z0-9][a-z0-9_-]*[a-z0-9]):/g;
+
+function remarkTokens() {
+  function walk(node: any) {
+    if (!node.children) return;
+    const next: any[] = [];
+    let changed = false;
+    for (const child of node.children) {
+      if (child.type !== "text") {
+        walk(child);
+        next.push(child);
+        continue;
+      }
+      TOKEN_PATTERN.lastIndex = 0;
+      const val: string = child.value;
+      let last = 0;
+      let m: RegExpExecArray | null;
+      const parts: any[] = [];
+      while ((m = TOKEN_PATTERN.exec(val)) !== null) {
+        if (m.index > last) parts.push({ type: "text", value: val.slice(last, m.index) });
+        if (m[1]) {
+          parts.push({
+            type: "mention-token",
+            data: { hName: "mention-badge", hProperties: { token: m[1] } },
+            children: [],
+          });
+        } else if (m[2]) {
+          parts.push({
+            type: "emoji-token",
+            data: { hName: "custom-emoji-inline", hProperties: { name: m[2] } },
+            children: [],
+          });
+        }
+        last = m.index + m[0].length;
+      }
+      if (parts.length === 0) {
+        next.push(child);
+      } else {
+        if (last < val.length) parts.push({ type: "text", value: val.slice(last) });
+        next.push(...parts);
+        changed = true;
+      }
+    }
+    if (changed) node.children = next;
+  }
+  return (tree: any) => { walk(tree); };
+}
+
+// Stable plugin arrays — MarkdownHooks' useEffect depends on array identity
+const remarkPluginsWithTokens = [remarkGfm, remarkTokens];
 const rehypePlugins = [[rehypeShiki, {
   themes: { light: "light-plus", dark: "dark-plus" },
   addLanguageClass: true,
   langAlias: { typescriptreact: "tsx" },
 }] as [typeof rehypeShiki, Parameters<typeof rehypeShiki>[0]]];
-
-const MENTION_REGEX = /<@([^>]+)>/g;
 
 function MentionBadge({
   token,
@@ -89,71 +138,45 @@ function MentionBadge({
   );
 }
 
-function renderContentWithMentions(
-  content: string,
-  mentions: Mention[],
-  onOpenProfile?: (userId: string) => void,
-  hasCodeBlock?: boolean,
-) {
-  // If no mentions in content, render normally
-  if (!MENTION_REGEX.test(content)) {
-    return hasCodeBlock ? (
-      <MarkdownHooks
-        remarkPlugins={remarkPlugins}
-        rehypePlugins={rehypePlugins}
-        components={sharedComponents}
-        fallback={<ReactMarkdown remarkPlugins={remarkPlugins} components={sharedComponents}>{content}</ReactMarkdown>}
-      >
-        {content}
-      </MarkdownHooks>
-    ) : (
-      <ReactMarkdown remarkPlugins={remarkPlugins} components={sharedComponents}>
-        {content}
-      </ReactMarkdown>
-    );
+function CustomEmojiInline({ name, customEmojis }: { name: string; customEmojis?: CustomEmoji[] }) {
+  const emoji = customEmojis ? findCustomEmoji(name, customEmojis) : undefined;
+  if (emoji) {
+    return <img src={emoji.url} alt={`:${name}:`} title={`:${name}:`} className="inline w-5 h-5 align-text-bottom" />;
   }
-
-  // Split on mention tokens and render alternating text/mention segments
-  const segments: Array<{ type: "text"; value: string } | { type: "mention"; token: string }> = [];
-  let lastIndex = 0;
-
-  // Reset regex state
-  MENTION_REGEX.lastIndex = 0;
-  let match: RegExpExecArray | null;
-  while ((match = MENTION_REGEX.exec(content)) !== null) {
-    if (match.index > lastIndex) {
-      segments.push({ type: "text", value: content.slice(lastIndex, match.index) });
-    }
-    segments.push({ type: "mention", token: match[1]! });
-    lastIndex = match.index + match[0].length;
-  }
-  if (lastIndex < content.length) {
-    segments.push({ type: "text", value: content.slice(lastIndex) });
-  }
-
-  return (
-    <>
-      {segments.map((seg, i) =>
-        seg.type === "mention" ? (
-          <MentionBadge key={i} token={seg.token} mentions={mentions} onOpenProfile={onOpenProfile} />
-        ) : (
-          <Fragment key={i}>
-            <ReactMarkdown remarkPlugins={remarkPlugins} components={sharedComponents}>
-              {seg.value}
-            </ReactMarkdown>
-          </Fragment>
-        ),
-      )}
-    </>
-  );
+  return <span>:{name}:</span>;
 }
 
-export function MessageContent({ content, mentions = [], onOpenProfile }: MessageContentProps) {
+export function MessageContent({ content, mentions = [], onOpenProfile, customEmojis }: MessageContentProps) {
   const hasCodeBlock = content.includes("```");
+
+  const components = useMemo(() => ({
+    ...sharedComponents,
+    "mention-badge": (props: any) => {
+      const token: string | undefined = props.token;
+      return token ? <MentionBadge token={token} mentions={mentions} onOpenProfile={onOpenProfile} /> : null;
+    },
+    "custom-emoji-inline": (props: any) => {
+      const name: string | undefined = props.name;
+      return name ? <CustomEmojiInline name={name} customEmojis={customEmojis} /> : null;
+    },
+  } as Components), [mentions, onOpenProfile, customEmojis]);
 
   return (
     <div className="text-sm leading-normal mt-0.5">
-      {renderContentWithMentions(content, mentions, onOpenProfile, hasCodeBlock)}
+      {hasCodeBlock ? (
+        <MarkdownHooks
+          remarkPlugins={remarkPluginsWithTokens}
+          rehypePlugins={rehypePlugins}
+          components={components}
+          fallback={<ReactMarkdown remarkPlugins={remarkPluginsWithTokens} components={components}>{content}</ReactMarkdown>}
+        >
+          {content}
+        </MarkdownHooks>
+      ) : (
+        <ReactMarkdown remarkPlugins={remarkPluginsWithTokens} components={components}>
+          {content}
+        </ReactMarkdown>
+      )}
     </div>
   );
 }

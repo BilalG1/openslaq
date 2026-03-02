@@ -16,6 +16,12 @@ import searchRoutes from "../search/routes";
 import botAdminRoutes from "../bots/admin-routes";
 import allUnreadsRoutes from "../channels/unreads-routes";
 import groupDmRoutes from "../group-dm/routes";
+import savedMessageRoutes from "../messages/saved-routes";
+import scheduledMessageRoutes from "../messages/scheduled-routes";
+import fileBrowserRoutes from "../uploads/file-browser-routes";
+import customEmojiRoutes from "../emoji/routes";
+import bookmarkRoutes from "../channels/bookmark-routes";
+import commandRoutes from "../commands/routes";
 import { okSchema, errorSchema } from "../openapi/schemas";
 
 const resolveWorkspace = createMiddleware<WorkspaceEnv>(async (c, next) => {
@@ -60,6 +66,7 @@ const routes = app
   })
   .route("/channels", channelRoutes)
   .route("/channels", channelMessageRoutes)
+  .route("/channels", bookmarkRoutes)
   .route("/members", memberRoutes)
   .route("/dm", dmRoutes)
   .route("/invites", inviteRoutes)
@@ -68,6 +75,11 @@ const routes = app
   .route("/presence", presenceRoutes)
   .route("/search", searchRoutes)
   .route("/group-dm", groupDmRoutes)
+  .route("/saved-messages", savedMessageRoutes)
+  .route("/scheduled-messages", scheduledMessageRoutes)
+  .route("/files", fileBrowserRoutes)
+  .route("/emoji", customEmojiRoutes)
+  .route("/commands", commandRoutes)
   .route("/", botAdminRoutes);
 
 export default routes;

@@ -5,6 +5,8 @@ import type { Message } from "@openslaq/shared";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { MessageContent } from "./MessageContent";
 import { MessageAttachments } from "./MessageAttachments";
+import { LinkPreviewCard } from "./LinkPreviewCard";
+import { SharedMessageCard } from "./SharedMessageCard";
 
 interface Props {
   message: Message;
@@ -85,6 +87,9 @@ export function MessageBubble({
           </Text>
         )}
       </View>
+      {message.sharedMessage && (
+        <SharedMessageCard sharedMessage={message.sharedMessage} />
+      )}
       <View testID={`message-content-${message.id}`}>
         <MessageContent
           content={message.content}
@@ -93,6 +98,13 @@ export function MessageBubble({
       </View>
       {message.attachments.length > 0 && (
         <MessageAttachments attachments={message.attachments} />
+      )}
+      {message.linkPreviews && message.linkPreviews.length > 0 && (
+        <View className="mt-1 gap-1.5">
+          {message.linkPreviews.map((p) => (
+            <LinkPreviewCard key={p.url} preview={p} />
+          ))}
+        </View>
       )}
       {message.reactions && message.reactions.length > 0 && (
         <View className="flex-row flex-wrap mt-1 gap-1">

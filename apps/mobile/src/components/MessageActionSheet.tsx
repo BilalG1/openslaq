@@ -8,10 +8,18 @@ interface Props {
   visible: boolean;
   message: Message | null;
   currentUserId?: string;
+  isSaved?: boolean;
   onReaction: (messageId: string, emoji: string) => void;
   onOpenEmojiPicker: () => void;
   onEditMessage: (message: Message) => void;
   onDeleteMessage: (messageId: string) => void;
+  onPinMessage?: (messageId: string) => void;
+  onUnpinMessage?: (messageId: string) => void;
+  onSaveMessage?: (messageId: string) => void;
+  onUnsaveMessage?: (messageId: string) => void;
+  onCopyText?: (message: Message) => void;
+  onCopyLink?: (message: Message) => void;
+  onShareMessage?: (message: Message) => void;
   onClose: () => void;
 }
 
@@ -19,10 +27,18 @@ export function MessageActionSheet({
   visible,
   message,
   currentUserId,
+  isSaved,
   onReaction,
   onOpenEmojiPicker,
   onEditMessage,
   onDeleteMessage,
+  onPinMessage,
+  onUnpinMessage,
+  onSaveMessage,
+  onUnsaveMessage,
+  onCopyText,
+  onCopyLink,
+  onShareMessage,
   onClose,
 }: Props) {
   const { theme } = useMobileTheme();
@@ -39,6 +55,41 @@ export function MessageActionSheet({
   const handleOpenPicker = () => {
     onClose();
     onOpenEmojiPicker();
+  };
+
+  const handlePin = () => {
+    onClose();
+    onPinMessage?.(message.id);
+  };
+
+  const handleUnpin = () => {
+    onClose();
+    onUnpinMessage?.(message.id);
+  };
+
+  const handleSave = () => {
+    onClose();
+    onSaveMessage?.(message.id);
+  };
+
+  const handleUnsave = () => {
+    onClose();
+    onUnsaveMessage?.(message.id);
+  };
+
+  const handleCopyText = () => {
+    onClose();
+    onCopyText?.(message);
+  };
+
+  const handleCopyLink = () => {
+    onClose();
+    onCopyLink?.(message);
+  };
+
+  const handleShareMessage = () => {
+    onClose();
+    onShareMessage?.(message);
   };
 
   const handleEdit = () => {
@@ -124,9 +175,112 @@ export function MessageActionSheet({
           {/* Divider */}
           <View style={{ height: 1, backgroundColor: theme.colors.borderDefault, marginBottom: 8 }} />
 
-          {/* Actions */}
+          {/* Pin/Unpin — available to all users */}
+          {message.isPinned ? (
+            <Pressable
+              testID="action-unpin-message"
+              onPress={handleUnpin}
+              style={({ pressed }) => ({
+                paddingVertical: 14,
+                paddingHorizontal: 8,
+                borderRadius: 8,
+                backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
+              })}
+            >
+              <Text style={{ fontSize: 16, color: theme.colors.textPrimary }}>Unpin Message</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              testID="action-pin-message"
+              onPress={handlePin}
+              style={({ pressed }) => ({
+                paddingVertical: 14,
+                paddingHorizontal: 8,
+                borderRadius: 8,
+                backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
+              })}
+            >
+              <Text style={{ fontSize: 16, color: theme.colors.textPrimary }}>Pin Message</Text>
+            </Pressable>
+          )}
+
+          {/* Save / Unsave */}
+          {isSaved ? (
+            <Pressable
+              testID="action-unsave-message"
+              onPress={handleUnsave}
+              style={({ pressed }) => ({
+                paddingVertical: 14,
+                paddingHorizontal: 8,
+                borderRadius: 8,
+                backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
+              })}
+            >
+              <Text style={{ fontSize: 16, color: theme.colors.textPrimary }}>Remove from Saved</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              testID="action-save-message"
+              onPress={handleSave}
+              style={({ pressed }) => ({
+                paddingVertical: 14,
+                paddingHorizontal: 8,
+                borderRadius: 8,
+                backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
+              })}
+            >
+              <Text style={{ fontSize: 16, color: theme.colors.textPrimary }}>Save for Later</Text>
+            </Pressable>
+          )}
+
+          {/* Copy Text */}
+          <Pressable
+            testID="action-copy-text"
+            onPress={handleCopyText}
+            style={({ pressed }) => ({
+              paddingVertical: 14,
+              paddingHorizontal: 8,
+              borderRadius: 8,
+              backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
+            })}
+          >
+            <Text style={{ fontSize: 16, color: theme.colors.textPrimary }}>Copy Text</Text>
+          </Pressable>
+
+          {/* Copy Link */}
+          <Pressable
+            testID="action-copy-link"
+            onPress={handleCopyLink}
+            style={({ pressed }) => ({
+              paddingVertical: 14,
+              paddingHorizontal: 8,
+              borderRadius: 8,
+              backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
+            })}
+          >
+            <Text style={{ fontSize: 16, color: theme.colors.textPrimary }}>Copy Link</Text>
+          </Pressable>
+
+          {/* Share Message */}
+          {onShareMessage && (
+            <Pressable
+              testID="action-share-message"
+              onPress={handleShareMessage}
+              style={({ pressed }) => ({
+                paddingVertical: 14,
+                paddingHorizontal: 8,
+                borderRadius: 8,
+                backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
+              })}
+            >
+              <Text style={{ fontSize: 16, color: theme.colors.textPrimary }}>Share Message</Text>
+            </Pressable>
+          )}
+
+          {/* Owner-only actions */}
           {isOwnMessage && (
             <>
+              <View style={{ height: 1, backgroundColor: theme.colors.borderDefault, marginVertical: 8 }} />
               <Pressable
                 testID="action-edit-message"
                 onPress={handleEdit}

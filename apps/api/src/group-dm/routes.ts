@@ -140,10 +140,11 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
   })
   .openapi(addMemberRoute, async (c) => {
     const user = c.get("user");
+    const workspace = c.get("workspace");
     const channelId = c.req.param("channelId");
     const { userId } = c.req.valid("json");
 
-    const result = await addGroupDmMember(channelId, user.id, userId);
+    const result = await addGroupDmMember(channelId, user.id, userId, workspace.id);
     if ("error" in result) {
       return c.json({ error: result.error }, 400);
     }
@@ -152,9 +153,10 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
   })
   .openapi(leaveRoute, async (c) => {
     const user = c.get("user");
+    const workspace = c.get("workspace");
     const channelId = c.req.param("channelId");
 
-    const result = await leaveGroupDm(channelId, user.id);
+    const result = await leaveGroupDm(channelId, user.id, workspace.id);
     if ("error" in result) {
       return c.json({ error: result.error }, 400);
     }
@@ -163,10 +165,11 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
   })
   .openapi(renameRoute, async (c) => {
     const user = c.get("user");
+    const workspace = c.get("workspace");
     const channelId = c.req.param("channelId");
     const { displayName } = c.req.valid("json");
 
-    const result = await renameGroupDm(channelId, user.id, displayName);
+    const result = await renameGroupDm(channelId, user.id, displayName, workspace.id);
     if ("error" in result) {
       return c.json({ error: result.error }, 400);
     }

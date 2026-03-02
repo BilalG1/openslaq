@@ -18,6 +18,7 @@ import rateLimitTestRoutes from "./rate-limit/test-routes";
 import botApiRoutes from "./bots/bot-api-routes";
 import interactionRoutes from "./bots/interaction-routes";
 import authRoutes from "./auth/routes";
+import pushRoutes from "./push/routes";
 
 const app = new OpenAPIHono();
 
@@ -69,7 +70,7 @@ const routes = app
       credentials: true,
     }),
   )
-  .route("/api/test", env.E2E_TEST_SECRET ? rateLimitTestRoutes : new Hono())
+  .route("/api/test", env.E2E_TEST_SECRET && process.env.NODE_ENV !== "production" ? rateLimitTestRoutes : new Hono())
   .route("/api", uploadDownloadRoutes)
   .route("/api/workspaces", workspaceRoutes)
   .route("/api/workspaces/:slug", workspaceScopedRoutes)
@@ -82,7 +83,8 @@ const routes = app
   .route("/api", huddleRoutes)
   .route("/api/bot", botApiRoutes)
   .route("/api/bot-interactions", interactionRoutes)
-  .route("/api/auth", authRoutes);
+  .route("/api/auth", authRoutes)
+  .route("/api", pushRoutes);
 
 // Export the app type for Hono RPC client (end-to-end type safety)
 export type AppType = typeof routes;

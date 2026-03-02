@@ -32,6 +32,7 @@ export {
 } from "./channels";
 export type { BrowseChannel } from "./channels";
 export { getInvite, acceptInvite } from "./invites";
+export { listInvites, createInvite, revokeInvite } from "./invite-management";
 export {
   listWorkspaceMembers,
   updateMemberRole,
@@ -63,6 +64,13 @@ export {
   fetchPinnedMessages,
 } from "./pins";
 export {
+  saveMessageOp,
+  unsaveMessageOp,
+  fetchSavedMessages,
+  fetchSavedMessageIds,
+} from "./saved";
+export type { SavedMessageItem } from "./saved";
+export {
   listBots,
   createBot,
   updateBot,
@@ -78,3 +86,22 @@ export { getCurrentUser, updateCurrentUser, setUserStatus, clearUserStatus } fro
 export type { UserProfile } from "./user-profile";
 export { fetchAllUnreads, markAllAsRead } from "./unreads-view";
 export { shareMessage as shareMessageOp } from "./share";
+export {
+  createScheduledMessageOp,
+  fetchScheduledMessages,
+  fetchScheduledCountForChannel,
+  updateScheduledMessageOp,
+  deleteScheduledMessageOp,
+} from "./scheduled";
+export type { ScheduledMessageItem } from "./scheduled";
+export { fetchFiles } from "./files";
+export type { FetchFilesParams, FetchFilesResult } from "./files";
+export { fetchCustomEmojis, uploadCustomEmoji, deleteCustomEmoji } from "./emoji";
+export { fetchBookmarks, addBookmarkOp, removeBookmarkOp } from "./bookmarks";
+export {
+  registerPushToken,
+  unregisterPushToken,
+  getGlobalNotificationPrefs,
+  updateGlobalNotificationPrefs,
+} from "./push";
+export { fetchSlashCommands, executeSlashCommand } from "./slash-commands";

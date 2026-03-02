@@ -4,6 +4,7 @@ import { createMessageSchema, messagesPaginationSchema, shareMessageSchema } fro
 import { getMessages, createMessage, getMessageById, getThreadReplies, createThreadReply, getMessagesAround, AttachmentLinkError, createSharedMessage } from "./service";
 import { isChannelMember } from "../channels/service";
 import { pinMessage, unpinMessage, getPinnedMessageIds } from "./pinned-service";
+import { saveMessage, unsaveMessage } from "./saved-service";
 import { unfurlMessageLinks } from "./link-preview-service";
 import { getIO } from "../socket/io";
 import { resolveChannel, requireChannelMember } from "../channels/middleware";
@@ -12,6 +13,7 @@ import { rlMessageSend, rlRead, rlPin } from "../rate-limit";
 import { messageListSchema, messageSchema, messagesAroundSchema, errorSchema, okSchema } from "../openapi/schemas";
 import { jsonResponse } from "../openapi/responses";
 import { webhookDispatcher } from "../bots/webhook-dispatcher";
+import { scheduleMessagePush } from "../push/service";
 
 const channelIdParam = z.object({ id: z.string().describe("Channel ID") });
 
@@ -235,6 +237,44 @@ const shareMessageRoute = createRoute({
   },
 });
 
+const saveMessageRoute = createRoute({
+  method: "post",
+  path: "/:id/messages/:messageId/save",
+  tags: ["Saved Messages"],
+  summary: "Save message",
+  description: "Saves a message for later reference. Private to the current user.",
+  security: [{ Bearer: [] }],
+  middleware: [rlPin, resolveChannel, requireChannelMember] as const,
+  request: { params: messageIdParam },
+  responses: {
+    200: {
+      content: { "application/json": { schema: okSchema } },
+      description: "Message saved",
+    },
+    404: {
+      content: { "application/json": { schema: errorSchema } },
+      description: "Message not found",
+    },
+  },
+});
+
+const unsaveMessageRoute = createRoute({
+  method: "delete",
+  path: "/:id/messages/:messageId/save",
+  tags: ["Saved Messages"],
+  summary: "Unsave message",
+  description: "Removes a message from saved items.",
+  security: [{ Bearer: [] }],
+  middleware: [rlPin, resolveChannel, requireChannelMember] as const,
+  request: { params: messageIdParam },
+  responses: {
+    200: {
+      content: { "application/json": { schema: okSchema } },
+      description: "Message unsaved",
+    },
+  },
+});
+
 const app = new OpenAPIHono<WorkspaceMemberEnv>()
   .openapi(getMessagesRoute, async (c) => {
     const channel = c.get("channel");
@@ -258,6 +298,7 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
       io.to(`channel:${channel.id}`).emit("message:new", message);
       webhookDispatcher.dispatch({ type: "message:new", channelId: channel.id, workspaceId: c.get("workspace").id, data: message });
       unfurlMessageLinks(message.id, channel.id, content).catch(console.error);
+      scheduleMessagePush(message, c.get("workspace").slug).catch(console.error);
       return jsonResponse(c, message, 201);
     } catch (e) {
       if (e instanceof AttachmentLinkError) {
@@ -308,6 +349,7 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
       io.to(`channel:${channel.id}`).emit("thread:updated", result.threadUpdate);
       webhookDispatcher.dispatch({ type: "message:new", channelId: channel.id, workspaceId: c.get("workspace").id, data: result.reply });
       unfurlMessageLinks(result.reply.id, channel.id, content).catch(console.error);
+      scheduleMessagePush(result.reply, c.get("workspace").slug).catch(console.error);
 
       return jsonResponse(c, result.reply, 201);
     } catch (e) {
@@ -411,6 +453,25 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     io.to(`channel:${channel.id}`).emit("message:new", message);
 
     return jsonResponse(c, message, 201);
+  })
+  .openapi(saveMessageRoute, async (c) => {
+    const user = c.get("user");
+    const messageId = asMessageId(c.req.valid("param").messageId);
+
+    const result = await saveMessage(user.id, messageId);
+    if (!result) {
+      return c.json({ error: "Message not found" }, 404);
+    }
+
+    return c.json({ ok: true as const }, 200);
+  })
+  .openapi(unsaveMessageRoute, async (c) => {
+    const user = c.get("user");
+    const messageId = asMessageId(c.req.valid("param").messageId);
+
+    await unsaveMessage(user.id, messageId);
+
+    return c.json({ ok: true as const }, 200);
   });
 
 export default app;

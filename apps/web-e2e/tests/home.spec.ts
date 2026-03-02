@@ -8,6 +8,9 @@ test.describe("Home page (authenticated)", () => {
 
     await page.goto(`/w/${testWorkspace.slug}`);
 
+    // Wait for workspace bootstrap to complete (channels loaded + auto-selected)
+    await expect(page.getByText("# general")).toBeVisible({ timeout: 20_000 });
+
     // Sidebar header
     await expect(page.getByText("OpenSlaq")).toBeVisible();
 
@@ -15,7 +18,6 @@ test.describe("Home page (authenticated)", () => {
     await expect(page.getByText("Alice Johnson")).toBeVisible();
 
     // Seeded channels appear
-    await expect(page.getByText("# general")).toBeVisible();
     await expect(page.getByText("# random")).toBeVisible();
 
     // #general is auto-selected on load — message input should be visible

@@ -15,4 +15,5 @@ export const env = {
     "VITE_STACK_PUBLISHABLE_CLIENT_KEY",
   ),
   VITE_LIVEKIT_WS_URL: optional("VITE_LIVEKIT_WS_URL"),
+  VITE_E2E_TEST_SECRET: optional("VITE_E2E_TEST_SECRET"),
 } as const;

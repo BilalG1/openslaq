@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useUser } from "@stackframe/react";
+import { useCurrentUser } from "../../hooks/useCurrentUser";
 import clsx from "clsx";
 import { api } from "../../api";
 import { authorizedRequest } from "../../lib/api-client";
@@ -23,7 +23,7 @@ interface UserSettingsDialogProps {
 }
 
 export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogProps) {
-  const user = useUser();
+  const user = useCurrentUser();
   const [displayName, setDisplayName] = useState("");
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("profile");
@@ -41,7 +41,7 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
     if (!displayName.trim()) return;
     setSaving(true);
     try {
-      await user.update({ displayName: displayName.trim() });
+      await user.update?.({ displayName: displayName.trim() });
       await authorizedRequest(user, (headers) =>
         api.api.users.me.$patch(
           { json: { displayName: displayName.trim() } },
@@ -54,7 +54,7 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
   };
 
   const handleSaveProfileImage = async (base64Url: string) => {
-    await user.update({ profileImageUrl: base64Url });
+    await user.update?.({ profileImageUrl: base64Url });
     await authorizedRequest(user, (headers) =>
       api.api.users.me.$patch(
         { json: { avatarUrl: base64Url } },

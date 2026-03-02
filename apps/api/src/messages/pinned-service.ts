@@ -75,11 +75,3 @@ export async function batchPinStatus(
   }
   return map;
 }
-
-export async function getPinnedCount(channelId: ChannelId): Promise<number> {
-  const rows = await db
-    .select({ messageId: pinnedMessages.messageId })
-    .from(pinnedMessages)
-    .where(eq(pinnedMessages.channelId, channelId));
-  return rows.length;
-}

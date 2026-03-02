@@ -1,9 +1,15 @@
-import { useUser } from "@stackframe/react";
+import { useEffect } from "react";
 import { Route, Routes } from "react-router-dom";
+import { useCurrentUser } from "../hooks/useCurrentUser";
+import { redirectToAuth } from "../lib/auth";
 import { AppLayout } from "../components/layout/AppLayout";
 
 export function HomePage() {
-  const user = useUser({ or: "redirect" });
+  const user = useCurrentUser();
+
+  useEffect(() => {
+    if (!user) void redirectToAuth();
+  }, [user]);
 
   if (!user) return null;
 

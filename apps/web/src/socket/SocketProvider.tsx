@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { createContext, useEffect, useMemo, useRef, useState } from "react";
-import { useUser } from "@stackframe/react";
+import { useCurrentUser } from "../hooks/useCurrentUser";
 import type { ChannelId } from "@openslaq/shared";
 import {
   SocketManager,
@@ -30,7 +30,7 @@ interface SocketProviderProps {
 }
 
 export function SocketProvider({ children }: SocketProviderProps) {
-  const user = useUser();
+  const user = useCurrentUser();
   const managerRef = useRef<SocketManager | null>(null);
   if (!managerRef.current) {
     managerRef.current = new SocketManager({ apiUrl: env.VITE_API_URL });

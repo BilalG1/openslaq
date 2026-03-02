@@ -1,7 +1,27 @@
-import { Redirect, Stack } from "expo-router";
+import { Redirect, Stack, useGlobalSearchParams } from "expo-router";
+import type { ChannelId } from "@openslaq/shared";
 import { useAuth } from "@/contexts/AuthContext";
-import { ChatStoreProvider } from "@/contexts/ChatStoreProvider";
+import { ChatStoreProvider, useChatStore } from "@/contexts/ChatStoreProvider";
+import { HuddleProvider } from "@/contexts/HuddleProvider";
 import { SocketProvider } from "@/contexts/SocketProvider";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { api } from "@/lib/api";
+
+function PushNotificationSetup() {
+  const { authProvider } = useAuth();
+  const { state } = useChatStore();
+  const params = useGlobalSearchParams<{ workspaceSlug?: string }>();
+
+  const activeChannelId = (state.activeChannelId ?? state.activeDmId ?? null) as ChannelId | null;
+
+  usePushNotifications({
+    deps: { api, auth: authProvider },
+    activeChannelId,
+    workspaceSlug: params.workspaceSlug ?? null,
+  });
+
+  return null;
+}
 
 export default function AppLayout() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -12,7 +32,12 @@ export default function AppLayout() {
   return (
     <ChatStoreProvider>
       <SocketProvider>
-        <Stack screenOptions={{ headerShown: false }} />
+        <HuddleProvider>
+          <PushNotificationSetup />
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="create-workspace" options={{ headerShown: true, title: "Create Workspace", headerBackTitle: "Back" }} />
+          </Stack>
+        </HuddleProvider>
       </SocketProvider>
     </ChatStoreProvider>
   );

@@ -4,10 +4,14 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./app": "./src/app.ts"
+    "./app": {
+      "types": "./dist/app.d.ts",
+      "default": "./src/app.ts"
+    }
   },
   "scripts": {
     "dev": "bun --env-file=../../.env run --hot src/index.ts",
+    "build:types": "tsgo --emitDeclarationOnly --noEmit false --outDir dist",
     "typecheck": "tsgo --noEmit",
     "db:generate": "bun --env-file=../../.env drizzle-kit generate",
     "db:migrate": "bun --env-file=../../.env run src/db/migrate.ts",
@@ -27,6 +31,7 @@
     "jose": "^6.0.8",
     "livekit-server-sdk": "^2.15.0",
     "postgres": "^3.4.5",
+    "sharp": "^0.34.5",
     "socket.io": "^4.8.1",
     "zod": "^3.24.2"
   },

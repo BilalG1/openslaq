@@ -44,20 +44,26 @@ test.describe("Channel notification preferences", () => {
     await page.goto(`/w/${testWorkspace.slug}`);
     await page.getByText("# general").click();
 
-    // Set to mentions only
+    // Set to mentions only — wait for the API call to complete before reloading
     await page.getByTestId("channel-notification-button").click();
+    const prefSaved = page.waitForResponse(
+      (res) => res.url().includes("/notification-pref") && res.status() < 400,
+    );
     await page.getByTestId("notify-level-mentions").click();
+    await prefSaved;
 
     // Reload
     await page.reload();
 
     // Wait for workspace to fully load before interacting
     await page.getByText("# general").click();
-    await page.waitForTimeout(1000);
+    await expect(page.locator(".tiptap")).toBeVisible();
 
-    // Verify persisted
-    await page.getByTestId("channel-notification-button").click();
-    await expect(page.getByTestId("notify-level-mentions")).toContainText("\u2713");
+    // Verify persisted — use retry loop since prefs load asynchronously
+    await expect(async () => {
+      await page.getByTestId("channel-notification-button").click();
+      await expect(page.getByTestId("notify-level-mentions")).toContainText("\u2713");
+    }).toPass({ timeout: 10_000 });
   });
 
   test("set back to all clears preference", async ({ page, testWorkspace }) => {

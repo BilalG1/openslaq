@@ -14,7 +14,11 @@ export function useGalleryMode(): boolean {
 /** Minimal user shape that satisfies hooks (AuthJsonUser) and component usage (user?.id). */
 export interface MockUser {
   id: string;
+  displayName?: string | null;
+  primaryEmail?: string | null;
+  profileImageUrl?: string | null;
   getAuthJson: () => Promise<{ accessToken?: string | null }>;
+  update?: (data: Record<string, unknown>) => Promise<void>;
 }
 
 const MockUserContext = createContext<MockUser | null>(null);

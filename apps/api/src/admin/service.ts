@@ -128,8 +128,8 @@ export async function getWorkspaces({
 
   const searchCondition = search
     ? or(
-        ilike(workspaces.name, `%${search}%`),
-        ilike(workspaces.slug, `%${search}%`),
+        ilike(workspaces.name, `%${escapeLike(search)}%`),
+        ilike(workspaces.slug, `%${escapeLike(search)}%`),
       )
     : undefined;
 

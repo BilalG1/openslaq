@@ -121,6 +121,9 @@ export function setupSocketHandlers(
         socket.join(`workspace:${wsId}`);
       }
 
+      // Join user-private room for scheduled message events etc.
+      socket.join(`user:${userId}`);
+
       // Track presence
       const cameOnline = addSocket(userId, socket.id);
       if (cameOnline) {

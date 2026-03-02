@@ -3,6 +3,8 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import istanbul from "vite-plugin-istanbul";
 
+const portPrefix = process.env.PORT_PREFIX || "30";
+
 export default defineConfig({
   plugins: [
     react(),
@@ -18,7 +20,7 @@ export default defineConfig({
     "process.env": "{}",
   },
   server: {
-    port: 3000,
+    port: parseInt(`${portPrefix}00`),
     strictPort: true,
   },
   build: {

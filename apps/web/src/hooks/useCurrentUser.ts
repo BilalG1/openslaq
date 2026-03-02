@@ -1,12 +1,20 @@
+import { useMemo } from "react";
 import { useUser } from "@stackframe/react";
 import { useMockUser } from "../gallery/gallery-context";
+import { getDevSession, createDevUser } from "../lib/dev-auth";
 
 /**
  * Wrapper around Stack Auth's useUser().
- * In gallery mode, returns the mock user from context instead.
+ * Priority: gallery mock > dev session (localStorage) > Stack Auth.
  */
 export function useCurrentUser() {
   const mockUser = useMockUser();
   const realUser = useUser();
-  return mockUser ?? realUser;
+
+  const devUser = useMemo(() => {
+    const session = getDevSession();
+    return session ? createDevUser(session) : null;
+  }, []);
+
+  return mockUser ?? devUser ?? realUser;
 }

@@ -5,7 +5,7 @@ import { signTestJwt, type TestUser } from "@openslaq/test-utils";
 export { signTestJwt };
 export type { TestUser };
 
-function getBaseUrl() {
+export function getBaseUrl() {
   return process.env.API_BASE_URL || "http://localhost:3001";
 }
 

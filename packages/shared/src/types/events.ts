@@ -1,8 +1,12 @@
 import type { MessageId, ChannelId, UserId } from "./ids";
+import type { ScheduledMessage } from "./scheduled-message";
 import type { Channel } from "./channel";
 import type { Message } from "./message";
 import type { ReactionGroup } from "./reaction";
 import type { HuddleState } from "./huddle";
+import type { CustomEmoji } from "./custom-emoji";
+import type { ChannelBookmark } from "./bookmark";
+import type { EphemeralMessage } from "./slash-command";
 
 export interface SocketData {
   userId: UserId;
@@ -68,4 +72,14 @@ export interface ServerToClientEvents {
   "channel:member-removed": (payload: { channelId: ChannelId; userId: UserId }) => void;
   "message:pinned": (payload: { messageId: MessageId; channelId: ChannelId; pinnedBy: UserId; pinnedAt: string }) => void;
   "message:unpinned": (payload: { messageId: MessageId; channelId: ChannelId }) => void;
+  "scheduledMessage:created": (payload: { id: string; channelId: ChannelId; scheduledFor: string; status: ScheduledMessage["status"] }) => void;
+  "scheduledMessage:updated": (payload: { id: string; channelId: ChannelId; scheduledFor: string; status: ScheduledMessage["status"] }) => void;
+  "scheduledMessage:deleted": (payload: { id: string; channelId: ChannelId }) => void;
+  "scheduledMessage:sent": (payload: { id: string; channelId: ChannelId; messageId: MessageId }) => void;
+  "scheduledMessage:failed": (payload: { id: string; channelId: ChannelId; failureReason: string }) => void;
+  "emoji:added": (payload: { emoji: CustomEmoji }) => void;
+  "emoji:deleted": (payload: { emojiId: string }) => void;
+  "bookmark:added": (payload: { bookmark: ChannelBookmark }) => void;
+  "bookmark:removed": (payload: { channelId: ChannelId; bookmarkId: string }) => void;
+  "command:ephemeral": (payload: EphemeralMessage) => void;
 }

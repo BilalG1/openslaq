@@ -1,15 +1,29 @@
 import { useRef, useState } from "react";
 import clsx from "clsx";
-import type { ReactionGroup } from "@openslaq/shared";
+import type { ReactionGroup, CustomEmoji } from "@openslaq/shared";
+import { parseCustomEmojiName, findCustomEmoji } from "@openslaq/client-core";
 import { EmojiPicker } from "./EmojiPicker";
 
 interface ReactionBarProps {
   reactions: ReactionGroup[];
   currentUserId: string;
   onToggleReaction: (emoji: string) => void;
+  customEmojis?: CustomEmoji[];
 }
 
-export function ReactionBar({ reactions, currentUserId, onToggleReaction }: ReactionBarProps) {
+function EmojiDisplay({ emoji, customEmojis }: { emoji: string; customEmojis?: CustomEmoji[] }) {
+  const customName = parseCustomEmojiName(emoji);
+  if (customName && customEmojis) {
+    const found = findCustomEmoji(customName, customEmojis);
+    if (found) {
+      return <img src={found.url} alt={customName} className="inline w-5 h-5 align-text-bottom" />;
+    }
+    return <span title={`Unknown: ${customName}`}>:{customName}:</span>;
+  }
+  return <span>{emoji}</span>;
+}
+
+export function ReactionBar({ reactions, currentUserId, onToggleReaction, customEmojis }: ReactionBarProps) {
   const [showPicker, setShowPicker] = useState(false);
   const addButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -34,7 +48,7 @@ export function ReactionBar({ reactions, currentUserId, onToggleReaction }: Reac
                 : "border border-border-default bg-surface-secondary",
             )}
           >
-            <span>{r.emoji}</span>
+            <EmojiDisplay emoji={r.emoji} customEmojis={customEmojis} />
             <span className="text-[11px] text-muted">{r.count}</span>
           </button>
         );
@@ -50,6 +64,7 @@ export function ReactionBar({ reactions, currentUserId, onToggleReaction }: Reac
       {showPicker && (
         <EmojiPicker
           anchorRef={addButtonRef}
+          customEmojis={customEmojis?.map((e) => ({ id: e.id, name: e.name, url: e.url }))}
           onSelect={(emoji) => {
             onToggleReaction(emoji);
             setShowPicker(false);

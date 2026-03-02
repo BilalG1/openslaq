@@ -103,9 +103,14 @@ test.describe("Rich text formatting", () => {
     // Click link button to open the link dialog
     await page.locator("button").filter({ hasText: "🔗" }).click();
 
-    // Fill in the URL in the link dialog and save
+    // Wait for link dialog to appear, fill in the URL and save
+    await expect(page.getByTestId("link-dialog-url")).toBeVisible();
     await page.getByTestId("link-dialog-url").fill("https://example.com");
     await page.getByTestId("link-dialog-save").click();
+
+    // Wait for dialog to close and editor to regain focus
+    await expect(page.getByTestId("link-dialog-url")).not.toBeVisible();
+    await editor.click();
 
     // Send the message
     const sent = page.waitForResponse(

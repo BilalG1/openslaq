@@ -9,7 +9,8 @@ export type BotScope =
   | "users:read"
   | "presence:read"
   | "channels:members:read"
-  | "channels:members:write";
+  | "channels:members:write"
+  | "commands:write";
 
 // Subscribable event types
 export type BotEventType =
@@ -23,7 +24,8 @@ export type BotEventType =
   | "message:pinned"
   | "message:unpinned"
   | "presence:updated"
-  | "interaction";
+  | "interaction"
+  | "slash_command";
 
 // Bot app info (returned by API)
 export interface BotApp {
@@ -53,7 +55,7 @@ export interface MessageActionButton {
 
 // Webhook payload sent to bot
 export interface WebhookEventPayload {
-  type: "event" | "interaction";
+  type: "event" | "interaction" | "slash_command";
   event?: {
     type: BotEventType;
     data: unknown;
@@ -65,6 +67,13 @@ export interface WebhookEventPayload {
     actionId: string;
     value?: string;
     messageId: string;
+    channelId: string;
+    userId: string;
+    timestamp: string;
+  };
+  slashCommand?: {
+    command: string;
+    args: string;
     channelId: string;
     userId: string;
     timestamp: string;

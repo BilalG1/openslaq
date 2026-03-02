@@ -9,6 +9,7 @@ interface BootstrapResolvers {
   dms?: () => Promise<Response>;
   unread?: () => Promise<Response>;
   presence?: () => Promise<Response>;
+  emoji?: () => Promise<Response>;
 }
 
 function jsonResponse(status: number, body: unknown): Promise<Response> {
@@ -50,6 +51,9 @@ function makeDeps(resolvers: BootstrapResolvers, state: ChatStoreState = initial
             },
             presence: {
               $get: () => (resolvers.presence ?? (() => jsonResponse(200, [])))(),
+            },
+            emoji: {
+              $get: () => (resolvers.emoji ?? (() => jsonResponse(200, { emojis: [] })))(),
             },
           },
         },

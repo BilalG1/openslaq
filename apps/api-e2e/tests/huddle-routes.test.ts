@@ -8,6 +8,7 @@ import type { Message } from "@openslaq/shared";
 import { addToWorkspace, createTestClient, createTestWorkspace, testId } from "./helpers/api-client";
 import { roomManager } from "../../api/src/huddle/routes";
 import { _resetForTests, getHuddleForChannel, joinHuddle } from "../../api/src/huddle/service";
+import { closeOrphanedHuddleMessages } from "../../api/src/messages/service";
 
 function getBaseUrl() {
   return process.env.API_BASE_URL || "http://localhost:3001";
@@ -313,6 +314,51 @@ describe("huddle routes", () => {
     const messagesBody = (await messagesRes.json()) as { messages: Message[] };
     const huddleMsgs = messagesBody.messages.filter((m) => m.type === "huddle");
     expect(huddleMsgs).toHaveLength(1);
+  });
+
+  test("closeOrphanedHuddleMessages sets huddleEndedAt on open huddle messages", async () => {
+    const owner = await createTestClient({ id: `huddle-orphan-${testId()}`, email: `huddle-orphan-${testId()}@openslaq.dev` });
+    const ws = await createTestWorkspace(owner.client);
+    const channelsRes = await owner.client.api.workspaces[":slug"].channels.$get({
+      param: { slug: ws.slug },
+    });
+    const channels = (await channelsRes.json()) as Array<{ id: string; name: string }>;
+    const general = channels.find((c) => c.name === "general")!;
+
+    roomManager.listParticipants = async () => [];
+    roomManager.ensureRoom = async (channelId: string) => webhookRoomName(channelId);
+
+    // Join to create a huddle system message
+    const joinRes = await fetch(`${getBaseUrl()}/api/huddle/join`, {
+      method: "POST",
+      headers: { ...owner.headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ channelId: general.id }),
+    });
+    expect(joinRes.status).toBe(200);
+
+    // Verify the huddle message exists without huddleEndedAt
+    const msgsRes = await owner.client.api.workspaces[":slug"].channels[":id"].messages.$get({
+      param: { slug: ws.slug, id: general.id },
+      query: {},
+    });
+    const msgsBody = (await msgsRes.json()) as { messages: Message[] };
+    const huddleMsg = msgsBody.messages.find((m) => m.type === "huddle");
+    expect(huddleMsg).toBeDefined();
+    expect(huddleMsg!.metadata!.huddleEndedAt).toBeUndefined();
+
+    // Close orphaned huddle messages
+    const closed = await closeOrphanedHuddleMessages();
+    expect(closed).toBeGreaterThanOrEqual(1);
+
+    // Verify the message now has huddleEndedAt
+    const msgsRes2 = await owner.client.api.workspaces[":slug"].channels[":id"].messages.$get({
+      param: { slug: ws.slug, id: general.id },
+      query: {},
+    });
+    const msgsBody2 = (await msgsRes2.json()) as { messages: Message[] };
+    const updatedMsg = msgsBody2.messages.find((m) => m.id === huddleMsg!.id);
+    expect(updatedMsg).toBeDefined();
+    expect(updatedMsg!.metadata!.huddleEndedAt).toBeTruthy();
   });
 
   test("huddle end updates system message with duration and participants", async () => {

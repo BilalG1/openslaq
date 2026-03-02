@@ -16,9 +16,11 @@ import {
   DURATION_OPTIONS,
   DURATION_LABELS,
   durationToExpiresAt,
+  setUserStatus,
+  clearUserStatus,
+  handleUserStatusUpdated,
   type DurationOption,
-} from "./status-presets";
-import { setUserStatus, clearUserStatus, handleUserStatusUpdated } from "@openslaq/client-core";
+} from "@openslaq/client-core";
 import { api } from "../../api";
 import { useAuthProvider } from "../../lib/api-client";
 import { useChatStore } from "../../state/chat-store";

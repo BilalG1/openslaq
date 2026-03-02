@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { useUser } from "@stackframe/react";
+import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useWorkspacesApi, type WorkspaceInfo } from "../hooks/api/useWorkspacesApi";
 import { getErrorMessage } from "../lib/errors";
 import { redirectToAuth } from "../lib/auth";
@@ -22,7 +22,7 @@ function roleBadgeClass(role: string): string {
 export function WorkspaceListPage() {
   const isGallery = useGalleryMode();
   const galleryMockData = useGalleryMockData();
-  const user = useUser();
+  const user = useCurrentUser();
   const navigate = useNavigate();
   const [workspaces, setWorkspaces] = useState<WorkspaceInfo[]>([]);
   const [loading, setLoading] = useState(!isGallery);

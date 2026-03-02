@@ -20,6 +20,9 @@ export function useScrollToMessage(
     if (isGallery) return;
     if (!scrollTarget || !currentChannelId || !workspaceSlug || !user || processingRef.current) return;
 
+    let cancelled = false;
+    let rafId: number | undefined;
+
     async function handleScrollTarget() {
       if (!scrollTarget || !currentChannelId || !workspaceSlug || !user) return;
       processingRef.current = true;
@@ -38,6 +41,7 @@ export function useScrollToMessage(
               { headers },
             ),
           );
+          if (cancelled) { processingRef.current = false; return; }
           const data = (await response.json()) as {
             messages: Message[];
             targetFound: boolean;
@@ -58,15 +62,18 @@ export function useScrollToMessage(
             });
           }
         } catch {
-          dispatch({ type: "navigation/clearScrollTarget" });
+          if (!cancelled) dispatch({ type: "navigation/clearScrollTarget" });
           processingRef.current = false;
           return;
         }
       }
 
+      if (cancelled) { processingRef.current = false; return; }
+
       // Poll for the element — React may need several frames to render after dispatch
       let attempts = 0;
       const poll = () => {
+        if (cancelled) { processingRef.current = false; return; }
         const el = document.querySelector(`[data-message-id="${highlightMessageId}"]`);
         if (el) {
           el.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -78,15 +85,20 @@ export function useScrollToMessage(
           processingRef.current = false;
         } else if (attempts < 30) {
           attempts++;
-          requestAnimationFrame(poll);
+          rafId = requestAnimationFrame(poll);
         } else {
           dispatch({ type: "navigation/clearScrollTarget" });
           processingRef.current = false;
         }
       };
-      requestAnimationFrame(poll);
+      rafId = requestAnimationFrame(poll);
     }
 
     void handleScrollTarget();
+
+    return () => {
+      cancelled = true;
+      if (rafId !== undefined) cancelAnimationFrame(rafId);
+    };
   }, [isGallery, scrollTarget, currentChannelId, workspaceSlug, user, state.channelMessageIds, dispatch]);
 }

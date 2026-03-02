@@ -127,8 +127,9 @@ test.describe("Demo Mode", () => {
     await expect(dialog.getByRole("heading", { name: "New Direct Message" })).toBeVisible();
     await expect(dialog.getByText("Carol Davis")).toBeVisible();
 
-    // Click Carol Davis (no existing DM) to create a brand new DM
+    // Select Carol Davis (no existing DM) and confirm
     await dialog.getByText("Carol Davis").click();
+    await dialog.getByTestId("dm-go-button").click();
 
     // DM should now be active — send a message in it
     await expect(page.locator(".tiptap")).toBeVisible();
@@ -145,10 +146,11 @@ test.describe("Demo Mode", () => {
     await page.getByTestId("dms-section-header").hover();
     await page.getByTestId("new-dm-button").click();
 
-    // Click Bob Chen (who already has an existing DM) — should switch to existing DM
+    // Select Bob Chen (who already has an existing DM) and confirm
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByText("Bob Chen")).toBeVisible();
     await dialog.getByText("Bob Chen").click();
+    await dialog.getByTestId("dm-go-button").click();
 
     // Should switch to the existing DM conversation view
     await expect(page.locator(".tiptap")).toBeVisible();

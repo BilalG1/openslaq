@@ -15,9 +15,18 @@ import { ChatStoreProvider } from "./state/chat-store";
 import { ThemeProvider } from "./theme/ThemeProvider";
 import { TooltipProvider } from "./components/ui";
 import { DeepLinkListener } from "./hooks/useDeepLink";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 const GalleryPage = import.meta.env.DEV
   ? lazy(() => import("./gallery/GalleryPage").then((m) => ({ default: m.GalleryPage })))
+  : () => null;
+
+const ShowcasePage = import.meta.env.DEV
+  ? lazy(() => import("./showcase/ShowcasePage").then((m) => ({ default: m.ShowcasePage })))
+  : () => null;
+
+const DevQuickSignInButton = import.meta.env.DEV
+  ? lazy(() => import("./components/dev/DevQuickSignInButton").then((m) => ({ default: m.DevQuickSignInButton })))
   : () => null;
 
 const AdminPage = lazy(() =>
@@ -27,27 +36,54 @@ const AdminPage = lazy(() =>
 function HandlerRoutes() {
   const location = useLocation();
   return (
-    <StackHandler location={location.pathname} fullPage />
+    <>
+      {import.meta.env.DEV && location.pathname === "/handler/sign-in" && (
+        <Suspense fallback={null}>
+          <DevQuickSignInButton />
+        </Suspense>
+      )}
+      <StackHandler location={location.pathname} fullPage />
+    </>
   );
 }
 
 export function App() {
+  // Showcase uses hash navigation — render outside BrowserRouter
+  if (import.meta.env.DEV && window.location.pathname.startsWith("/dev/components")) {
+    return (
+      <ErrorBoundary>
+        <Suspense fallback={null}>
+          <ThemeProvider>
+            <TooltipProvider>
+              <StackProvider app={stackApp}>
+                <ShowcasePage />
+              </StackProvider>
+            </TooltipProvider>
+          </ThemeProvider>
+        </Suspense>
+      </ErrorBoundary>
+    );
+  }
+
   // Gallery has its own MemoryRouter — render outside BrowserRouter to avoid nesting
   if (import.meta.env.DEV && window.location.pathname.startsWith("/dev/gallery")) {
     return (
-      <Suspense fallback={null}>
-        <ThemeProvider>
-          <TooltipProvider>
-            <StackProvider app={stackApp}>
-              <GalleryPage />
-            </StackProvider>
-          </TooltipProvider>
-        </ThemeProvider>
-      </Suspense>
+      <ErrorBoundary>
+        <Suspense fallback={null}>
+          <ThemeProvider>
+            <TooltipProvider>
+              <StackProvider app={stackApp}>
+                <GalleryPage />
+              </StackProvider>
+            </TooltipProvider>
+          </ThemeProvider>
+        </Suspense>
+      </ErrorBoundary>
     );
   }
 
   return (
+    <ErrorBoundary>
     <Suspense fallback={null}>
       <BrowserRouter>
         <ThemeProvider>
@@ -98,5 +134,6 @@ export function App() {
         </ThemeProvider>
       </BrowserRouter>
     </Suspense>
+    </ErrorBoundary>
   );
 }

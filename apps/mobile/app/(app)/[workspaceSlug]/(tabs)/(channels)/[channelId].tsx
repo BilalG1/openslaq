@@ -17,7 +17,18 @@ import {
   listWorkspaceMembers,
   leaveChannel as coreLeaveChannel,
   updateChannelDescription,
+  setChannelNotificationPrefOp as setChannelNotificationPref,
+  starChannelOp,
+  unstarChannelOp,
+  pinMessageOp,
+  unpinMessageOp,
+  fetchPinnedMessages,
+  saveMessageOp,
+  unsaveMessageOp,
+  shareMessageOp,
 } from "@openslaq/client-core";
+import * as Clipboard from "expo-clipboard";
+import type { ChannelNotifyLevel } from "@openslaq/shared";
 import type { MentionSuggestionItem } from "@/hooks/useMentionAutocomplete";
 import { useAuth } from "@/contexts/AuthContext";
 import { useChatStore } from "@/contexts/ChatStoreProvider";
@@ -34,6 +45,9 @@ import { TypingIndicator } from "@/components/TypingIndicator";
 import { MessageActionSheet } from "@/components/MessageActionSheet";
 import { EmojiPickerSheet } from "@/components/EmojiPickerSheet";
 import { EditTopicModal } from "@/components/EditTopicModal";
+import { PinnedMessagesSheet } from "@/components/PinnedMessagesSheet";
+import { ShareMessageModal } from "@/components/ShareMessageModal";
+import { HuddleHeaderButton } from "@/components/huddle/HuddleHeaderButton";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 
 export default function ChannelScreen() {
@@ -63,6 +77,10 @@ export default function ChannelScreen() {
   const [emojiPickerMessageId, setEmojiPickerMessageId] = useState<string | null>(null);
   const [members, setMembers] = useState<MentionSuggestionItem[]>([]);
   const [showTopicEdit, setShowTopicEdit] = useState(false);
+  const [showPinnedSheet, setShowPinnedSheet] = useState(false);
+  const [pinnedMessages, setPinnedMessages] = useState<Message[]>([]);
+  const [pinnedLoading, setPinnedLoading] = useState(false);
+  const [shareMessage, setShareMessage] = useState<Message | null>(null);
 
   const { emitTyping } = useTypingEmitter(channelId);
   const typingUsers = useTypingTracking(channelId, user?.id, members);
@@ -90,8 +108,52 @@ export default function ChannelScreen() {
     ]);
   }, [authProvider, channelId, dispatch, router, socket, state, workspaceSlug]);
 
+  const handleNotificationPref = useCallback(() => {
+    const currentLevel = state.channelNotificationPrefs[channelId] ?? "all";
+    const levels: { label: string; value: ChannelNotifyLevel }[] = [
+      { label: "All messages", value: "all" },
+      { label: "Mentions only", value: "mentions" },
+      { label: "Muted", value: "muted" },
+    ];
+    Alert.alert(
+      "Notifications",
+      "Choose notification level for this channel",
+      [
+        ...levels.map((l) => ({
+          text: l.value === currentLevel ? `${l.label} \u2713` : l.label,
+          onPress: () => {
+            if (l.value !== currentLevel) {
+              const deps = { api, auth: authProvider, dispatch, getState: () => state };
+              void setChannelNotificationPref(deps, {
+                slug: workspaceSlug,
+                channelId,
+                level: l.value,
+              });
+            }
+          },
+        })),
+        { text: "Cancel", style: "cancel" },
+      ],
+    );
+  }, [authProvider, channelId, dispatch, state, workspaceSlug]);
+
+  const isStarred = state.starredChannelIds.includes(channelId);
+
+  const handleToggleStar = useCallback(() => {
+    const deps = { api, auth: authProvider, dispatch, getState: () => state };
+    if (isStarred) {
+      void unstarChannelOp(deps, { slug: workspaceSlug, channelId });
+    } else {
+      void starChannelOp(deps, { slug: workspaceSlug, channelId });
+    }
+  }, [authProvider, channelId, dispatch, isStarred, state, workspaceSlug]);
+
   const handleShowOptions = useCallback(() => {
     Alert.alert("Channel Options", undefined, [
+      {
+        text: isStarred ? "Unstar Channel" : "Star Channel",
+        onPress: handleToggleStar,
+      },
       {
         text: "View Members",
         onPress: () =>
@@ -105,27 +167,17 @@ export default function ChannelScreen() {
         onPress: () => setShowTopicEdit(true),
       },
       {
+        text: "Notifications",
+        onPress: handleNotificationPref,
+      },
+      {
         text: "Leave Channel",
         style: "destructive",
         onPress: handleLeaveChannel,
       },
       { text: "Cancel", style: "cancel" },
     ]);
-  }, [channelId, handleLeaveChannel, router, workspaceSlug]);
-
-  // Set the header title and options button
-  useEffect(() => {
-    if (channel) {
-      navigation.setOptions({
-        title: `# ${channel.name}`,
-        headerRight: () => (
-          <Pressable testID="channel-options-button" onPress={handleShowOptions} hitSlop={8}>
-            <Text style={{ color: theme.brand.primary, fontSize: 20 }}>...</Text>
-          </Pressable>
-        ),
-      });
-    }
-  }, [channel, handleShowOptions, navigation, theme.brand.primary]);
+  }, [channelId, handleLeaveChannel, handleNotificationPref, handleToggleStar, isStarred, router, workspaceSlug]);
 
   // Select the channel in state
   useEffect(() => {
@@ -221,6 +273,123 @@ export default function ChannelScreen() {
   const messages = messageIds
     .map((id) => state.messagesById[id])
     .filter((m): m is Message => Boolean(m));
+
+  const pinCount = messages.filter((m) => m.isPinned).length;
+
+  const handleOpenPinnedMessages = useCallback(async () => {
+    if (!workspaceSlug || !channelId) return;
+    setShowPinnedSheet(true);
+    setPinnedLoading(true);
+    try {
+      const deps = { api, auth: authProvider, dispatch, getState: () => state };
+      const msgs = await fetchPinnedMessages(deps, { workspaceSlug, channelId });
+      setPinnedMessages(msgs);
+    } finally {
+      setPinnedLoading(false);
+    }
+  }, [authProvider, channelId, dispatch, state, workspaceSlug]);
+
+  const handlePinMessage = useCallback(
+    async (messageId: string) => {
+      if (!workspaceSlug) return;
+      const deps = { api, auth: authProvider, dispatch, getState: () => state };
+      await pinMessageOp(deps, { workspaceSlug, channelId, messageId });
+    },
+    [authProvider, channelId, dispatch, state, workspaceSlug],
+  );
+
+  const handleUnpinMessage = useCallback(
+    async (messageId: string) => {
+      if (!workspaceSlug) return;
+      const deps = { api, auth: authProvider, dispatch, getState: () => state };
+      await unpinMessageOp(deps, { workspaceSlug, channelId, messageId });
+      setPinnedMessages((prev) => prev.filter((m) => m.id !== messageId));
+    },
+    [authProvider, channelId, dispatch, state, workspaceSlug],
+  );
+
+  const handleSaveMessage = useCallback(
+    async (messageId: string) => {
+      if (!workspaceSlug || !channelId) return;
+      const deps = { api, auth: authProvider, dispatch, getState: () => state };
+      await saveMessageOp(deps, { workspaceSlug, channelId, messageId });
+    },
+    [authProvider, channelId, dispatch, state, workspaceSlug],
+  );
+
+  const handleUnsaveMessage = useCallback(
+    async (messageId: string) => {
+      if (!workspaceSlug || !channelId) return;
+      const deps = { api, auth: authProvider, dispatch, getState: () => state };
+      await unsaveMessageOp(deps, { workspaceSlug, channelId, messageId });
+    },
+    [authProvider, channelId, dispatch, state, workspaceSlug],
+  );
+
+  const handleCopyText = useCallback(
+    (message: Message) => {
+      void Clipboard.setStringAsync(message.content);
+      Alert.alert("Copied", "Message text copied to clipboard");
+    },
+    [],
+  );
+
+  const handleCopyLink = useCallback(
+    (message: Message) => {
+      const link = `openslaq://${workspaceSlug}/c/${channelId}/p/${message.id}`;
+      void Clipboard.setStringAsync(link);
+      Alert.alert("Copied", "Message link copied to clipboard");
+    },
+    [workspaceSlug, channelId],
+  );
+
+  const handleShareMessage = useCallback((message: Message) => {
+    setShareMessage(message);
+  }, []);
+
+  const handleConfirmShare = useCallback(
+    async (destinationChannelId: string, destinationName: string, comment: string) => {
+      if (!shareMessage || !workspaceSlug) return;
+      try {
+        const deps = { api, auth: authProvider, dispatch, getState: () => state };
+        await shareMessageOp(deps, {
+          workspaceSlug,
+          destinationChannelId,
+          sharedMessageId: shareMessage.id,
+          comment,
+        });
+        Alert.alert("Shared", `Message shared to ${destinationName}`);
+      } catch {
+        Alert.alert("Error", "Failed to share message");
+      }
+      setShareMessage(null);
+    },
+    [authProvider, dispatch, shareMessage, state, workspaceSlug],
+  );
+
+  // Set the header title and options button
+  useEffect(() => {
+    if (channel) {
+      navigation.setOptions({
+        title: `# ${channel.name}`,
+        headerRight: () => (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <HuddleHeaderButton channelId={channel.id} />
+            {pinCount > 0 && (
+              <Pressable testID="pinned-messages-button" onPress={handleOpenPinnedMessages} hitSlop={8}>
+                <Text style={{ color: theme.brand.primary, fontSize: 14 }}>
+                  {"\u{1F4CC}"}{pinCount}
+                </Text>
+              </Pressable>
+            )}
+            <Pressable testID="channel-options-button" onPress={handleShowOptions} hitSlop={8}>
+              <Text style={{ color: theme.brand.primary, fontSize: 20 }}>...</Text>
+            </Pressable>
+          </View>
+        ),
+      });
+    }
+  }, [channel, handleOpenPinnedMessages, handleShowOptions, navigation, pinCount, theme.brand.primary]);
 
   const isLoading = channelId
     ? state.ui.channelMessagesLoading[channelId]
@@ -319,6 +488,7 @@ export default function ChannelScreen() {
     [authProvider, channelId, dispatch, state, workspaceSlug],
   );
 
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -396,10 +566,18 @@ export default function ChannelScreen() {
         visible={actionSheetMessage != null}
         message={actionSheetMessage}
         currentUserId={user?.id}
+        isSaved={actionSheetMessage != null && state.savedMessageIds.includes(actionSheetMessage.id)}
         onReaction={handleToggleReaction}
         onOpenEmojiPicker={handleOpenEmojiPicker}
         onEditMessage={handleStartEdit}
         onDeleteMessage={handleDeleteMessage}
+        onPinMessage={handlePinMessage}
+        onUnpinMessage={handleUnpinMessage}
+        onSaveMessage={handleSaveMessage}
+        onUnsaveMessage={handleUnsaveMessage}
+        onCopyText={handleCopyText}
+        onCopyLink={handleCopyLink}
+        onShareMessage={handleShareMessage}
         onClose={() => setActionSheetMessage(null)}
       />
       <EmojiPickerSheet
@@ -415,6 +593,22 @@ export default function ChannelScreen() {
         onClose={() => setShowTopicEdit(false)}
         currentDescription={channel?.description}
         onSave={handleSaveTopic}
+      />
+      <PinnedMessagesSheet
+        visible={showPinnedSheet}
+        messages={pinnedMessages}
+        loading={pinnedLoading}
+        onUnpin={(messageId) => void handleUnpinMessage(messageId)}
+        onClose={() => setShowPinnedSheet(false)}
+      />
+      <ShareMessageModal
+        visible={shareMessage != null}
+        message={shareMessage}
+        channels={state.channels.filter((c) => !c.isArchived)}
+        dms={state.dms}
+        groupDms={state.groupDms}
+        onShare={handleConfirmShare}
+        onClose={() => setShareMessage(null)}
       />
     </KeyboardAvoidingView>
   );

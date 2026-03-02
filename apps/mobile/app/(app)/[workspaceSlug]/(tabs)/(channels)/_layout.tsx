@@ -6,7 +6,9 @@ import { useMobileTheme } from "@/theme/ThemeProvider";
 import { useAuth } from "@/contexts/AuthContext";
 import { useChatStore } from "@/contexts/ChatStoreProvider";
 import { CreateChannelModal } from "@/components/CreateChannelModal";
+import { NewDmModal } from "@/components/NewDmModal";
 import { HeaderAvatarButton } from "@/components/HeaderAvatarButton";
+import { WorkspaceIconButton } from "@/components/workspace/WorkspaceIconButton";
 import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
 import { api } from "@/lib/api";
 
@@ -36,21 +38,38 @@ function CreateChannelButton({ onPress }: { onPress: () => void }) {
   );
 }
 
+function NewDmButton({ onPress }: { onPress: () => void }) {
+  const { theme } = useMobileTheme();
+
+  return (
+    <Pressable testID="new-dm-button" onPress={onPress} hitSlop={8} style={{ marginRight: 12 }}>
+      <Text style={{ color: theme.brand.primary, fontSize: 20 }}>{"\u{270F}\u{FE0F}"}</Text>
+    </Pressable>
+  );
+}
+
 export default function ChannelsLayout() {
-  const { workspaceSlug } = useLocalSearchParams<{ workspaceSlug: string }>();
-  const { authProvider } = useAuth();
+  const { workspaceSlug: urlSlug } = useLocalSearchParams<{ workspaceSlug: string }>();
+  const { authProvider, user } = useAuth();
   const { state, dispatch } = useChatStore();
   const router = useRouter();
   const [showCreate, setShowCreate] = useState(false);
+  const [showNewDm, setShowNewDm] = useState(false);
   const { profile } = useCurrentUserProfile();
 
+  const workspaceSlug = state.workspaceSlug ?? urlSlug;
   const currentWorkspace = state.workspaces.find((ws) => ws.slug === workspaceSlug);
   const isAdmin = currentWorkspace?.role === "admin" || currentWorkspace?.role === "owner";
   const deps = { api, auth: authProvider, dispatch, getState: () => state };
 
-  const handleCreated = (channel: Channel) => {
+  const handleChannelCreated = (channel: Channel) => {
     setShowCreate(false);
     router.push(`/(app)/${workspaceSlug}/(channels)/${channel.id}`);
+  };
+
+  const handleDmCreated = (channelId: string) => {
+    setShowNewDm(false);
+    router.push(`/(app)/${workspaceSlug}/(tabs)/(channels)/dm/${channelId}`);
   };
 
   return (
@@ -59,10 +78,12 @@ export default function ChannelsLayout() {
         <Stack.Screen
           name="index"
           options={{
-            title: "Channels",
+            title: currentWorkspace?.name ?? "Home",
+            headerLeft: () => <WorkspaceIconButton />,
             headerRight: () => (
               <View style={{ flexDirection: "row", alignItems: "center" }}>
                 <SearchButton workspaceSlug={workspaceSlug} />
+                <NewDmButton onPress={() => setShowNewDm(true)} />
                 <CreateChannelButton onPress={() => setShowCreate(true)} />
                 <View style={{ marginLeft: 12 }}>
                   <HeaderAvatarButton
@@ -87,6 +108,10 @@ export default function ChannelsLayout() {
           name="channel-members"
           options={{ title: "Members", headerBackTitle: "Back" }}
         />
+        <Stack.Screen
+          name="dm/[channelId]"
+          options={{ title: "", headerBackTitle: "Back" }}
+        />
       </Stack>
       <CreateChannelModal
         visible={showCreate}
@@ -94,7 +119,15 @@ export default function ChannelsLayout() {
         workspaceSlug={workspaceSlug}
         canCreatePrivate={isAdmin}
         deps={deps}
-        onCreated={handleCreated}
+        onCreated={handleChannelCreated}
+      />
+      <NewDmModal
+        visible={showNewDm}
+        onClose={() => setShowNewDm(false)}
+        workspaceSlug={workspaceSlug}
+        currentUserId={user?.id ?? ""}
+        deps={deps}
+        onCreated={handleDmCreated}
       />
     </>
   );

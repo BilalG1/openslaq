@@ -8,6 +8,8 @@ export interface WorkspaceMember {
   email: string;
   avatarUrl: string | null;
   role: string;
+  createdAt: string;
+  joinedAt: string;
 }
 
 export async function listWorkspaceMembers(

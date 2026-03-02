@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useUser } from "@stackframe/react";
+import { useCurrentUser } from "../../hooks/useCurrentUser";
 import clsx from "clsx";
 import type { BotApp } from "@openslaq/shared";
 import { useWorkspaceMembersApi } from "../../hooks/api/useWorkspaceMembersApi";
@@ -9,6 +9,7 @@ import { useChatStore } from "../../state/chat-store";
 import { getErrorMessage } from "../../lib/errors";
 import { BotCreateDialog } from "./BotCreateDialog";
 import { BotConfigDialog } from "./BotConfigDialog";
+import { CustomEmojiManager } from "./CustomEmojiManager";
 import {
   Dialog,
   DialogContent,
@@ -41,7 +42,7 @@ interface WorkspaceSettingsDialogProps {
 }
 
 export function WorkspaceSettingsDialog({ open, onOpenChange, workspaceSlug }: WorkspaceSettingsDialogProps) {
-  const user = useUser();
+  const user = useCurrentUser();
   const [members, setMembers] = useState<Member[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [workspaceName, setWorkspaceName] = useState("");
@@ -302,7 +303,7 @@ export function WorkspaceSettingsDialog({ open, onOpenChange, workspaceSlug }: W
                 </div>
               </div>
 
-              {canManage && bots.length >= 0 && (
+              {canManage && (
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <h2 className="text-sm font-semibold text-primary m-0">
@@ -366,6 +367,8 @@ export function WorkspaceSettingsDialog({ open, onOpenChange, workspaceSlug }: W
                   )}
                 </div>
               )}
+
+              <CustomEmojiManager workspaceSlug={workspaceSlug} />
 
               {isOwner && (
                 <div className="bg-surface-secondary rounded-lg border border-danger-border p-4">

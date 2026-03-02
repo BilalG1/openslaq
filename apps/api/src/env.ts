@@ -15,6 +15,11 @@ const envSchema = z.object({
   LIVEKIT_API_SECRET: z.string().optional(),
   LIVEKIT_API_URL: z.string().default("http://localhost:3004"),
   LIVEKIT_WS_URL: z.string().default("ws://localhost:3004"),
+  APNS_KEY_ID: z.string().optional(),
+  APNS_TEAM_ID: z.string().optional(),
+  APNS_KEY_PATH: z.string().optional(),
+  APNS_BUNDLE_ID: z.string().default("com.openslaq.mobile"),
+  APNS_ENVIRONMENT: z.enum(["sandbox", "production"]).default("sandbox"),
 });
 
 const parsed = envSchema.parse(process.env);

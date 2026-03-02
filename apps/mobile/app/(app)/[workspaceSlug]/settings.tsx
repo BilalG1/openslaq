@@ -10,8 +10,10 @@ import {
   Alert,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { getCurrentUser, updateCurrentUser, type UserProfile } from "@openslaq/client-core";
 import { useAuth } from "@/contexts/AuthContext";
+import { useChatStore } from "@/contexts/ChatStoreProvider";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { api } from "@/lib/api";
 
@@ -27,6 +29,11 @@ function getInitials(name?: string | null): string {
 export default function SettingsScreen() {
   const { authProvider, signOut } = useAuth();
   const { theme } = useMobileTheme();
+  const { workspaceSlug } = useLocalSearchParams<{ workspaceSlug: string }>();
+  const { state } = useChatStore();
+  const router = useRouter();
+  const currentWorkspace = state.workspaces.find((ws) => ws.slug === workspaceSlug);
+  const isAdminOrOwner = currentWorkspace?.role === "admin" || currentWorkspace?.role === "owner";
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -116,6 +123,71 @@ export default function SettingsScreen() {
       style={{ flex: 1, backgroundColor: theme.colors.surface }}
       contentContainerStyle={{ paddingVertical: 24, paddingHorizontal: 24 }}
     >
+      {/* Workspace Settings link (admin/owner only) */}
+      {isAdminOrOwner && (
+        <Pressable
+          testID="workspace-settings-link"
+          onPress={() => router.push(`/(app)/${workspaceSlug}/workspace-settings`)}
+          style={({ pressed }) => ({
+            backgroundColor: pressed ? theme.colors.surfaceSecondary : theme.colors.surfaceTertiary,
+            borderRadius: 10,
+            paddingVertical: 14,
+            paddingHorizontal: 16,
+            marginBottom: 24,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          })}
+        >
+          <Text style={{ color: theme.colors.textPrimary, fontSize: 16, fontWeight: "500" }}>
+            Workspace Settings
+          </Text>
+          <Text style={{ color: theme.colors.textSecondary, fontSize: 16 }}>{"\u203A"}</Text>
+        </Pressable>
+      )}
+
+      {/* Notifications link */}
+      <Pressable
+        testID="notification-settings-link"
+        onPress={() => router.push(`/(app)/${workspaceSlug}/notification-settings`)}
+        style={({ pressed }) => ({
+          backgroundColor: pressed ? theme.colors.surfaceSecondary : theme.colors.surfaceTertiary,
+          borderRadius: 10,
+          paddingVertical: 14,
+          paddingHorizontal: 16,
+          marginBottom: 12,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+        })}
+      >
+        <Text style={{ color: theme.colors.textPrimary, fontSize: 16, fontWeight: "500" }}>
+          Notifications
+        </Text>
+        <Text style={{ color: theme.colors.textSecondary, fontSize: 16 }}>{"\u203A"}</Text>
+      </Pressable>
+
+      {/* Preferences link */}
+      <Pressable
+        testID="preferences-link"
+        onPress={() => router.push(`/(app)/${workspaceSlug}/preferences`)}
+        style={({ pressed }) => ({
+          backgroundColor: pressed ? theme.colors.surfaceSecondary : theme.colors.surfaceTertiary,
+          borderRadius: 10,
+          paddingVertical: 14,
+          paddingHorizontal: 16,
+          marginBottom: 24,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+        })}
+      >
+        <Text style={{ color: theme.colors.textPrimary, fontSize: 16, fontWeight: "500" }}>
+          Preferences
+        </Text>
+        <Text style={{ color: theme.colors.textSecondary, fontSize: 16 }}>{"\u203A"}</Text>
+      </Pressable>
+
       {/* Avatar section */}
       <View style={{ alignItems: "center", marginBottom: 32 }}>
         {profile?.avatarUrl ? (

@@ -1,120 +1,329 @@
 # Mobile Backlog (Active)
 
 How to use this doc:
-- Track mobile parity and mobile-native UX gaps.
-- Keep only open or in-progress items here.
-- Move completed work to archive snapshots.
+- Track mobile features needed to match Slack mobile and our own web app.
+- Keep only open or in-progress work here.
+- Move completed initiatives to an archive snapshot.
 
-## M-001: Thread Pagination
-- Status: Complete
-- Impact: Medium
-- Owner: Mobile team
-- Estimate: Medium
-- Dependencies: API pagination behavior for thread replies
-- Summary: Add "load more replies" in thread view.
-- Acceptance criteria:
-  - User can load older replies in pages.
-  - Scroll position remains stable when older replies are prepended.
+## Tier 1: Web Parity
 
-## M-002: Search Experience
-- Status: Complete
+Backend and shared client-core operations already exist for all of these. Only mobile UI work is needed.
+
+### MM-001: Link Previews
+- Status: Done
 - Impact: High
-- Owner: Mobile team
-- Estimate: Medium
-- Dependencies: search APIs and result-navigation behavior
-- Summary: Deliver full-text search with filters and result navigation.
+- Estimate: Small
+- Dependencies: None — API already returns `linkPreviews` on messages
+- Summary: Render link preview cards below messages containing URLs.
 - Acceptance criteria:
-  - Search returns message matches by text.
-  - Filters for channel, user, and date range are available.
-  - Tapping a result opens the relevant conversation and message context.
+  - Messages with URLs show a preview card with title, description, thumbnail, and favicon.
+  - Tapping a preview opens the URL in the system browser.
+- Key files: `LinkPreviewCard.tsx`, `MessageBubble.tsx`
 
-## M-003: Huddles on Mobile
+### MM-002: Shared Message Display
+- Status: Done
+- Impact: High
+- Estimate: Small
+- Dependencies: None — API already returns `sharedMessage` on messages
+- Summary: Render forwarded/quoted messages as embedded quote cards.
+- Acceptance criteria:
+  - Messages with a `sharedMessage` field render a quoted block showing sender, content, channel name, and timestamp.
+  - Tapping the quote navigates to the original message.
+- Key files: `MessageBubble.tsx`, web ref `SharedMessageBlock.tsx`
+
+### MM-003: Starred Channels
+- Status: Done
+- Impact: High
+- Estimate: Small
+- Dependencies: None — `operations/stars.ts` fully built, reducer tracks `starredChannelIds`
+- Summary: Let users star channels to pin them at the top of the channel list.
+- Acceptance criteria:
+  - Star icon toggle on channel rows or channel header.
+  - "Starred" section at the top of the channels tab.
+  - Star state persists across sessions.
+- Key files: `packages/client-core/src/operations/stars.ts`, channel list `index.tsx`
+
+### MM-004: Pinned Messages
+- Status: Done
+- Impact: High
+- Estimate: Small
+- Dependencies: None — `operations/pins.ts` fully built
+- Summary: View pinned messages per channel and pin/unpin from the action sheet.
+- Acceptance criteria:
+  - Button in channel header opens a pinned messages list (bottom sheet or screen).
+  - Pin/unpin options available in the message action sheet.
+  - Pinned messages list updates in real-time.
+- Key files: `packages/client-core/src/operations/pins.ts`, `MessageActionSheet.tsx`, web ref `PinnedMessagesPopover.tsx`
+
+### MM-005: Saved Items
+- Status: Done
+- Impact: Medium
+- Estimate: Small
+- Dependencies: None — `operations/saved.ts` fully built, reducer tracks `savedMessageIds`
+- Summary: Save messages for later reference with a dedicated Saved Items screen.
+- Acceptance criteria:
+  - "Save" and "Remove from saved" options in the message action sheet.
+  - Dedicated Saved Items screen accessible from navigation (tab or drawer).
+  - Saved messages grouped by channel with timestamps.
+- Key files: `packages/client-core/src/operations/saved.ts`, `MessageActionSheet.tsx`, web ref `SavedItemsView.tsx`
+
+### MM-006: Copy Message Text/Link
+- Status: Done
+- Impact: Medium
+- Estimate: Small
+- Dependencies: None — uses `expo-clipboard`
+- Summary: Add "Copy text" and "Copy link" to the message action sheet.
+- Acceptance criteria:
+  - "Copy text" copies the plain-text message content to clipboard.
+  - "Copy link" copies a deep link or shareable reference to the message.
+  - Confirmation toast shown after copying.
+- Key files: `MessageActionSheet.tsx`
+
+### MM-007: Message Sharing
+- Status: Done
+- Impact: Medium
+- Estimate: Small
+- Dependencies: None — `operations/share.ts` fully built
+- Summary: Forward a message to another channel or DM.
+- Acceptance criteria:
+  - "Share to channel" option in the message action sheet.
+  - Modal with channel/DM picker and optional comment field.
+  - Shared message appears as a quoted block in the destination.
+- Key files: `packages/client-core/src/operations/share.ts`, `MessageActionSheet.tsx`, web ref `ShareMessageDialog.tsx`
+
+### MM-008: Channel Bookmarks Bar
+- Status: Open
+- Impact: Medium
+- Estimate: Small
+- Dependencies: None — `operations/bookmarks.ts` fully built, reducer tracks `channelBookmarks`
+- Summary: Show a bookmarks bar below the channel header with pinned links.
+- Acceptance criteria:
+  - Horizontal scrollable row of bookmark chips below the channel header.
+  - Tapping a bookmark opens the URL in the system browser.
+  - Add/remove bookmark actions available to members.
+- Key files: `packages/client-core/src/operations/bookmarks.ts`, channel screen `[channelId].tsx`, web ref `BookmarksBar.tsx`
+
+### MM-009: All Unreads View
+- Status: Done
+- Impact: High
+- Estimate: Medium
+- Dependencies: None — `operations/unreads-view.ts` fully built
+- Summary: Dedicated screen showing unread messages across all channels.
+- Acceptance criteria:
+  - Accessible from navigation (new tab, drawer entry, or header action).
+  - Shows unread messages grouped by channel with message previews.
+  - "Mark all as read" and per-channel "mark as read" actions.
+- Key files: `packages/client-core/src/operations/unreads-view.ts`, tab layout `_layout.tsx`, web ref `AllUnreadsView.tsx`
+
+### MM-010: Group DMs
+- Status: Done
+- Impact: High
+- Estimate: Medium
+- Dependencies: None — `operations/group-dm.ts` fully built, reducer tracks `groupDms`
+- Summary: Support multi-person DM conversations.
+- Acceptance criteria:
+  - NewDmModal supports multi-select of users.
+  - Group DMs appear in the DMs tab alongside 1-on-1 DMs.
+  - Group DM names show comma-separated participant names.
+- Key files: `packages/client-core/src/operations/group-dm.ts`, `NewDmModal.tsx`, DM list `index.tsx`
+
+### MM-011: Scheduled Messages
+- Status: Open
+- Impact: Medium
+- Estimate: Medium
+- Dependencies: None — `operations/scheduled.ts` fully built
+- Summary: Schedule messages for future delivery and manage them.
+- Acceptance criteria:
+  - Long-press or secondary action on send button opens schedule options.
+  - Date/time picker for selecting delivery time.
+  - Dedicated screen to view, edit, and cancel scheduled messages.
+- Key files: `packages/client-core/src/operations/scheduled.ts`, `MessageInput.tsx`, web ref `ScheduleMessageDialog.tsx`, `ScheduledMessagesView.tsx`
+
+### MM-012: Files Browser
+- Status: Open
+- Impact: Medium
+- Estimate: Medium
+- Dependencies: None — `operations/files.ts` fully built with cursor pagination and filters
+- Summary: Browse all files shared in the workspace with filtering.
+- Acceptance criteria:
+  - New screen accessible from navigation.
+  - FlatList with file thumbnails/icons, uploader name, date, and source channel.
+  - Filter chips for file type (images, documents, videos, etc.).
+- Key files: `packages/client-core/src/operations/files.ts`, web ref `FilesView.tsx`
+
+### MM-013: Custom Emoji in Picker
+- Status: Open
+- Impact: Medium
+- Estimate: Medium
+- Dependencies: None — `operations/emoji.ts` fully built, reducer tracks `customEmojis`
+- Summary: Display workspace custom emoji in the emoji picker and in messages.
+- Acceptance criteria:
+  - "Custom" section in `EmojiPickerSheet` showing workspace emoji.
+  - Custom emoji render correctly in message content and reaction bars.
+  - Admin users can upload new custom emoji from settings.
+- Key files: `packages/client-core/src/operations/emoji.ts`, `EmojiPickerSheet.tsx`, `MessageBubble.tsx`
+
+## Tier 2: New Mobile Features
+
+Important Slack-like features that improve mobile UX. Some need minor backend work.
+
+### MM-014: Pull to Refresh
+- Status: Open
+- Impact: Medium
+- Estimate: Small
+- Dependencies: None — uses React Native's built-in RefreshControl
+- Summary: Add pull-to-refresh on key list screens.
+- Acceptance criteria:
+  - Pull-to-refresh on channel message list re-fetches messages.
+  - Pull-to-refresh on channel list and DM list re-fetches data.
+  - Standard iOS/Android refresh spinner shown during refresh.
+- Key files: Channel screen `[channelId].tsx`, channel list `index.tsx`, DM list `index.tsx`
+
+### MM-015: Mark as Unread
+- Status: Open
+- Impact: Medium
+- Estimate: Small
+- Dependencies: None — read position API already exists
+- Summary: Mark a message as unread from the action sheet.
+- Acceptance criteria:
+  - "Mark as unread" option in the message action sheet.
+  - Sets channel read position to just before the selected message.
+  - Channel shows unread indicator in the sidebar after marking.
+- Key files: `MessageActionSheet.tsx`, `apps/api/src/channels/read-positions-service.ts`
+
+### MM-016: Quick Switcher
 - Status: Open
 - Impact: High
-- Owner: Mobile + Realtime team
-- Estimate: High
-- Dependencies: LiveKit/WebRTC integration decisions
-- Summary: Support channel and DM huddles on mobile.
-- Acceptance criteria:
-  - User can start/join/leave huddles in channels and DMs.
-  - Core controls work: mute/unmute and camera toggle.
-  - Participant state is reflected in real time.
-
-## M-004: Channel Management
-- Status: Complete
-- Impact: Medium
-- Owner: Mobile team
 - Estimate: Medium
-- Dependencies: create/private/member APIs
-- Summary: Add channel creation, private channels, member dialog, and channel search.
+- Dependencies: None — data already in chat store (channels, dms, groupDms, members)
+- Summary: Cmd+K equivalent for quickly jumping to any channel, DM, or member.
 - Acceptance criteria:
-  - User can create channels from mobile.
-  - Private channel creation and visibility rules are enforced.
-  - Member list is viewable and manageable from mobile UI.
+  - Accessible from a header action or floating button.
+  - Search input filters across channels, DMs, group DMs, and members.
+  - Results ordered by relevance/recency; tapping navigates immediately.
+- Key files: Workspace layout `_layout.tsx`
 
-## M-005: Direct Message Creation
-- Status: Complete
-- Impact: Medium
-- Owner: Mobile team
-- Estimate: Low
-- Dependencies: user-picker surface
-- Summary: Add new DM creation from a user picker.
-- Acceptance criteria:
-  - User can create a DM from a picker flow.
-  - Existing DM channels are reused to avoid duplicates.
-
-## M-006: User Profiles
+### MM-017: Image Gallery Viewer
 - Status: Open
 - Impact: Medium
-- Owner: Mobile team
 - Estimate: Medium
-- Dependencies: profile endpoints and edit flows
-- Summary: Add profile sidebar/screen and profile editing.
+- Dependencies: None — images already delivered as message attachments
+- Summary: Full-screen image viewer with pinch-to-zoom and swipe navigation.
 - Acceptance criteria:
-  - User can open another member's profile and view role/presence.
-  - User can edit own display name and avatar.
+  - Tapping an image attachment opens full-screen viewer.
+  - Pinch-to-zoom and double-tap-to-zoom supported.
+  - Swipe between images shared in the same conversation.
+- Key files: `MessageAttachments.tsx`, consider `react-native-image-viewing` library
 
-## M-007: Workspace Management
+### MM-018: Drafts
 - Status: Open
 - Impact: Medium
-- Owner: Mobile team
 - Estimate: Medium
-- Dependencies: workspace create/settings APIs
-- Summary: Add create workspace, workspace settings, and workspace switcher.
+- Dependencies: None — can start with AsyncStorage (client-only)
+- Summary: Auto-save and resume message drafts across channels.
 - Acceptance criteria:
-  - User can create a workspace on mobile.
-  - User can open workspace settings.
-  - User can switch workspaces from mobile navigation.
+  - Text in MessageInput auto-saves as a draft when navigating away.
+  - Draft restores when returning to the channel.
+  - Dedicated Drafts screen lists channels with unsent drafts.
+- Key files: `MessageInput.tsx`, web ref `useDraftMessage.test.ts`
 
-## M-008: Invitations
-- Status: Open
-- Impact: Medium
-- Owner: Mobile team
-- Estimate: Medium
-- Dependencies: invite link generation and acceptance flows
-- Summary: Add invite generation and invite acceptance in mobile app.
-- Acceptance criteria:
-  - Workspace admins can generate invite links.
-  - Invite links open and complete acceptance on mobile.
-
-## M-009: Notifications Settings
-- Status: Open
-- Impact: Medium
-- Owner: Mobile team
-- Estimate: Medium
-- Dependencies: push permission and preference sync model
-- Summary: Add push notification settings and permission handling.
-- Acceptance criteria:
-  - User can enable/disable push notifications in settings.
-  - App handles platform permission states clearly.
-
-## M-010: Mobile Theme Toggle
+### MM-019: Haptic Feedback
 - Status: Open
 - Impact: Low
-- Owner: Mobile team
-- Estimate: Low
-- Dependencies: theme state management in app shell
-- Summary: Add manual theme toggle in addition to system theme detection.
+- Estimate: Small
+- Dependencies: None — uses `expo-haptics`
+- Summary: Add tactile feedback on key interactions.
 - Acceptance criteria:
-  - User can explicitly pick light/dark theme.
-  - Choice persists across app restarts.
+  - Light haptic on message long-press.
+  - Medium haptic on send button tap.
+  - Light haptic on reaction selection.
+- Key files: `MessageBubble.tsx`, `MessageInput.tsx`, `MessageActionSheet.tsx`
+
+### MM-020: Do Not Disturb
+- Status: Open
+- Impact: Medium
+- Estimate: Medium
+- Dependencies: New backend DND state per user with expiration
+- Summary: Pause notifications for a set duration.
+- Acceptance criteria:
+  - DND options: 30 min, 1 hour, until tomorrow, custom.
+  - DND indicator shown on user's presence.
+  - Push notification delivery respects DND state.
+  - Accessible from notification settings screen.
+- Key files: `apps/api/src/push/`, notification settings screen
+
+## Tier 3: Polish & Extended
+
+Lower priority features for future iterations.
+
+### MM-021: Swipe Gestures
+- Status: Open
+- Impact: Low
+- Estimate: Medium
+- Dependencies: `react-native-gesture-handler` Swipeable
+- Summary: Swipe-to-reply on messages and swipe-to-read on channel rows.
+- Acceptance criteria:
+  - Swipe right on a message opens thread reply.
+  - Swipe right on a channel row marks it as read.
+  - Smooth gesture animations with proper haptic feedback.
+- Key files: `MessageBubble.tsx`, channel list `index.tsx`
+
+### MM-022: Rich Text Toolbar
+- Status: Open
+- Impact: Low
+- Estimate: Medium
+- Dependencies: Markdown shortcut insertion or a rich-text editor library
+- Summary: Formatting toolbar above the keyboard for bold, italic, code, and lists.
+- Acceptance criteria:
+  - Toolbar row with formatting buttons appears above the keyboard.
+  - Buttons insert markdown syntax around selected text or at cursor.
+  - Preview of formatted text in the input.
+- Key files: `MessageInput.tsx`
+
+### MM-023: Huddle Text Chat
+- Status: Open
+- Impact: Low
+- Estimate: Medium
+- Dependencies: Huddle-scoped message channel or thread on backend
+- Summary: Side text chat panel within an active huddle.
+- Acceptance criteria:
+  - Collapsible text chat panel in the huddle screen.
+  - Messages scoped to the huddle session.
+  - Real-time message delivery between huddle participants.
+- Key files: Huddle screen `huddle.tsx`, `apps/api/src/socket/index.ts`
+
+### MM-024: Offline Message Queue
+- Status: Open
+- Impact: Medium
+- Estimate: Large
+- Dependencies: Network state detection (`@react-native-community/netinfo`), local queue
+- Summary: Queue messages when offline and send on reconnect.
+- Acceptance criteria:
+  - Messages composed offline are queued locally with a "pending" indicator.
+  - Queued messages send automatically when connectivity resumes.
+  - Failed sends surface an error with retry option.
+- Key files: `MessageInput.tsx`, socket provider
+
+### MM-025: Voice Messages
+- Status: Open
+- Impact: Low
+- Estimate: Large
+- Dependencies: Audio recording (`expo-av`), new attachment type, audio player UI
+- Summary: Record and send audio clips as message attachments.
+- Acceptance criteria:
+  - Record button in MessageInput for capturing audio.
+  - Audio player UI in message bubbles for playback.
+  - Backend supports audio file upload and streaming.
+- Key files: `MessageInput.tsx`, `apps/api/src/uploads/`
+
+### MM-026: Message Reminders
+- Status: Open
+- Impact: Low
+- Estimate: Large
+- Dependencies: New DB reminders table, background job scheduler, push integration
+- Summary: "Remind me about this" with time options on messages.
+- Acceptance criteria:
+  - "Remind me" option in message action sheet with time presets.
+  - Reminder delivered as a push notification at the selected time.
+  - Reminders list view to see and manage pending reminders.
+- Key files: `MessageActionSheet.tsx`, `apps/api/src/db/schema.ts`

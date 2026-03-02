@@ -4,6 +4,7 @@ import { channelMembers } from "./schema";
 import { channelReadPositions } from "./read-positions-schema";
 import { messages } from "../messages/schema";
 import type { UserId, ChannelId, MessageId, WorkspaceId } from "@openslaq/shared";
+import { onReadPositionUpdated } from "../push/service";
 
 export async function getUnreadCounts(userId: UserId): Promise<Record<string, number>> {
   const rows = await db
@@ -47,6 +48,7 @@ export async function markChannelAsRead(userId: UserId, channelId: ChannelId): P
       target: [channelReadPositions.userId, channelReadPositions.channelId],
       set: { lastReadAt: sql`now()` },
     });
+  onReadPositionUpdated(userId, channelId);
 }
 
 export async function markChannelAsUnread(

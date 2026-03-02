@@ -1,12 +1,17 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useUser } from "@stackframe/react";
+import { useCurrentUser } from "../hooks/useCurrentUser";
+import { redirectToAuth } from "../lib/auth";
 import { useInvitesApi } from "../hooks/api/useInvitesApi";
 import { getErrorMessage } from "../lib/errors";
 import { Button } from "../components/ui";
 
 export function InviteAcceptPage() {
-  const user = useUser({ or: "redirect" });
+  const user = useCurrentUser();
+
+  useEffect(() => {
+    if (!user) void redirectToAuth();
+  }, [user]);
   const navigate = useNavigate();
   const { code } = useParams<{ code: string }>();
 

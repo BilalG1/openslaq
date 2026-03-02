@@ -254,7 +254,7 @@ afterEach(async () => {
   }
   activeSockets = [];
   // Wait for server-side disconnect handlers to complete
-  await sleep(500);
+  await sleep(50);
 });
 
 afterAll(async () => {
@@ -332,7 +332,7 @@ describe("socket.io integration", () => {
 
     test("emits presence:updated online to workspace on first connect", async () => {
       const observer = track(await connectAndSettle(user2Token));
-      await sleep(100);
+      await sleep(20);
 
       const presencePromise = waitForFilteredEvent<{
         userId: string;
@@ -350,7 +350,7 @@ describe("socket.io integration", () => {
     test("does NOT emit presence:updated on second connect (same user)", async () => {
       track(await connectAndSettle(user1Token));
       const observer = track(await connectAndSettle(user2Token));
-      await sleep(100);
+      await sleep(20);
 
       track(await connectAndSettle(user1Token));
 
@@ -359,7 +359,7 @@ describe("socket.io integration", () => {
       (observer as any).on("presence:updated", (data: { userId: string }) => {
         if (data.userId === user1Id) gotUser1Presence = true;
       });
-      await sleep(500);
+      await sleep(150);
       expect(gotUser1Presence).toBe(false);
     });
 
@@ -404,7 +404,7 @@ describe("socket.io integration", () => {
       });
 
       await waitForEvent(socket, "presence:sync");
-      await sleep(200);
+      await sleep(50);
       expect(gotSync).toBe(false);
     });
   });
@@ -417,7 +417,7 @@ describe("socket.io integration", () => {
 
       // User2 explicitly joins the joinTest channel room (already a DB member)
       s2.emit("channel:join", { channelId: joinTestChannelId as ChannelId });
-      await sleep(200);
+      await sleep(50);
 
       const typingPromise = waitForEvent<{ userId: string; channelId: string }>(
         s2,
@@ -434,13 +434,13 @@ describe("socket.io integration", () => {
 
       // Try to join private channel — should silently fail (user2 is not a member)
       s2.emit("channel:join", { channelId: privateChannelId as ChannelId });
-      await sleep(200);
+      await sleep(50);
 
       const s1 = track(await connectAndSettle(user1Token));
 
       // user1 types in the private channel; user2 should NOT receive it
       s1.emit("message:typing", { channelId: privateChannelId as ChannelId });
-      await expectNoEvent(s2, "user:typing", 500);
+      await expectNoEvent(s2, "user:typing", 150);
     });
 
     test("channel:leave removes socket from room", async () => {
@@ -448,10 +448,10 @@ describe("socket.io integration", () => {
       const s2 = track(await connectAndSettle(user2Token));
 
       s2.emit("channel:leave", { channelId: channelId as ChannelId });
-      await sleep(200);
+      await sleep(50);
 
       s1.emit("message:typing", { channelId: channelId as ChannelId });
-      await expectNoEvent(s2, "user:typing", 500);
+      await expectNoEvent(s2, "user:typing", 150);
     });
   });
 
@@ -484,7 +484,7 @@ describe("socket.io integration", () => {
 
       // Second typing event should be throttled (within 3s)
       s1.emit("message:typing", { channelId: throttleChannelId as ChannelId });
-      await expectNoEvent(s2, "user:typing", 500);
+      await expectNoEvent(s2, "user:typing", 150);
     });
 
     test("does nothing for non-member channel", async () => {
@@ -494,7 +494,7 @@ describe("socket.io integration", () => {
       // user2 tries to type in a channel they're not a member of
       s2.emit("message:typing", { channelId: nonMemberChannelId as ChannelId });
       // user1 (who IS a member) should NOT receive typing
-      await expectNoEvent(s1, "user:typing", 500);
+      await expectNoEvent(s1, "user:typing", 150);
     });
   });
 
@@ -538,7 +538,7 @@ describe("socket.io integration", () => {
       (observer as any).on("presence:updated", (data: { userId: string; status: string }) => {
         if (data.userId === user1Id && data.status === "offline") gotUser1Offline = true;
       });
-      await sleep(500);
+      await sleep(150);
       expect(gotUser1Offline).toBe(false);
     });
 
@@ -606,7 +606,7 @@ describe("socket.io integration", () => {
       s1.disconnect();
 
       await huddleEndedPromise;
-      await sleep(300);
+      await sleep(100);
       expect(gotMessageUpdated).toBe(false);
     });
 
@@ -637,7 +637,7 @@ describe("socket.io integration", () => {
 
       activeSockets = activeSockets.filter((s) => s !== s1);
       s1.disconnect();
-      await sleep(1000); // Give time for persistLastSeen DB write
+      await sleep(200); // Give time for persistLastSeen DB write
 
       // Check via in-process presence service that lastSeenAt is now set
       const presence = await getWorkspacePresence(workspaceId);

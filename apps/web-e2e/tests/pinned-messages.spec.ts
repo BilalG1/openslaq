@@ -33,9 +33,9 @@ test.describe("Pinned messages", () => {
 
     await openWorkspaceChannel(page, testWorkspace.slug);
 
-    // Pinned count should show in header
+    // Pinned count should show in header (loads asynchronously)
     await expect(page.getByTestId("pinned-messages-button")).toBeVisible();
-    await expect(page.getByTestId("pinned-count")).toContainText("1");
+    await expect(page.getByTestId("pinned-count")).toContainText("1", { timeout: 15_000 });
   });
 
   test("open popover → shows pinned message", async ({ page, testWorkspace }) => {

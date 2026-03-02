@@ -9,6 +9,8 @@ import type {
   ReactionGroup,
   HuddleState,
   ChannelNotifyLevel,
+  CustomEmoji,
+  ChannelBookmark,
 } from "@openslaq/shared";
 
 export interface WorkspaceInfo extends Workspace {
@@ -78,7 +80,7 @@ export interface ChatStoreState {
   channels: Channel[];
   dms: DmConversation[];
   groupDms: GroupDmConversation[];
-  activeView: "channel" | "unreads";
+  activeView: "channel" | "unreads" | "saved" | "scheduled" | "files";
   activeChannelId: string | null;
   activeDmId: string | null;
   activeGroupDmId: string | null;
@@ -94,7 +96,10 @@ export interface ChatStoreState {
   activeHuddles: Record<string, HuddleState>;
   currentHuddleChannelId: string | null;
   starredChannelIds: string[];
+  savedMessageIds: string[];
   channelNotificationPrefs: Record<string, ChannelNotifyLevel>;
+  customEmojis: CustomEmoji[];
+  channelBookmarks: Record<string, ChannelBookmark[]>;
   markedUnreadChannelId: string | null;
   scrollTarget: ScrollTarget | null;
   ui: ChatUiState;
@@ -122,7 +127,10 @@ export const initialState: ChatStoreState = {
   activeHuddles: {},
   currentHuddleChannelId: null,
   starredChannelIds: [],
+  savedMessageIds: [],
   channelNotificationPrefs: {},
+  customEmojis: [],
+  channelBookmarks: {},
   markedUnreadChannelId: null,
   scrollTarget: null,
   ui: {
@@ -148,6 +156,9 @@ export type ChatAction =
     }
   | { type: "workspace/bootstrapError"; error: string }
   | { type: "workspace/selectUnreadsView" }
+  | { type: "workspace/selectSavedView" }
+  | { type: "workspace/selectScheduledView" }
+  | { type: "workspace/selectFilesView" }
   | { type: "workspace/selectChannel"; channelId: string }
   | { type: "workspace/selectDefaultChannel"; channelId: string }
   | { type: "workspace/selectDm"; channelId: string }
@@ -245,7 +256,16 @@ export type ChatAction =
   | { type: "stars/remove"; channelId: string }
   | { type: "notifyPrefs/set"; prefs: Record<string, ChannelNotifyLevel> }
   | { type: "notifyPrefs/update"; channelId: string; level: ChannelNotifyLevel }
-  | { type: "messages/updatePinStatus"; messageId: string; isPinned: boolean; pinnedBy?: string; pinnedAt?: string };
+  | { type: "messages/updatePinStatus"; messageId: string; isPinned: boolean; pinnedBy?: string; pinnedAt?: string }
+  | { type: "saved/set"; messageIds: string[] }
+  | { type: "saved/add"; messageId: string }
+  | { type: "saved/remove"; messageId: string }
+  | { type: "emoji/set"; emojis: CustomEmoji[] }
+  | { type: "emoji/add"; emoji: CustomEmoji }
+  | { type: "emoji/remove"; emojiId: string }
+  | { type: "bookmarks/set"; channelId: string; bookmarks: ChannelBookmark[] }
+  | { type: "bookmarks/add"; bookmark: ChannelBookmark }
+  | { type: "bookmarks/remove"; channelId: string; bookmarkId: string };
 
 function dedupeIds(ids: string[]): string[] {
   return Array.from(new Set(ids));
@@ -284,7 +304,9 @@ export function chatReducer(state: ChatStoreState, action: ChatAction): ChatStor
         activeProfileUserId: state.activeProfileUserId,
         presence: sameWorkspace ? state.presence : {},
         starredChannelIds: sameWorkspace ? state.starredChannelIds : [],
+        savedMessageIds: sameWorkspace ? state.savedMessageIds : [],
         channelNotificationPrefs: sameWorkspace ? state.channelNotificationPrefs : {},
+        customEmojis: sameWorkspace ? state.customEmojis : [],
         ui: {
           ...state.ui,
           bootstrapLoading: true,
@@ -327,6 +349,39 @@ export function chatReducer(state: ChatStoreState, action: ChatAction): ChatStor
         activeProfileUserId: null,
       };
     }
+    case "workspace/selectSavedView": {
+      return {
+        ...state,
+        activeView: "saved",
+        activeChannelId: null,
+        activeDmId: null,
+        activeGroupDmId: null,
+        activeThreadId: null,
+        activeProfileUserId: null,
+      };
+    }
+    case "workspace/selectScheduledView": {
+      return {
+        ...state,
+        activeView: "scheduled",
+        activeChannelId: null,
+        activeDmId: null,
+        activeGroupDmId: null,
+        activeThreadId: null,
+        activeProfileUserId: null,
+      };
+    }
+    case "workspace/selectFilesView": {
+      return {
+        ...state,
+        activeView: "files",
+        activeChannelId: null,
+        activeDmId: null,
+        activeGroupDmId: null,
+        activeThreadId: null,
+        activeProfileUserId: null,
+      };
+    }
     case "workspace/selectChannel": {
       const { [action.channelId]: _, ...restUnread } = state.unreadCounts;
       return {
@@ -343,7 +398,7 @@ export function chatReducer(state: ChatStoreState, action: ChatAction): ChatStor
     }
     case "workspace/selectDefaultChannel": {
       // Used by bootstrap — only select if user hasn't explicitly chosen unreads view
-      if (state.activeView === "unreads" || state.activeChannelId || state.activeDmId || state.activeGroupDmId) {
+      if (state.activeView === "unreads" || state.activeView === "saved" || state.activeView === "scheduled" || state.activeView === "files" || state.activeChannelId || state.activeDmId || state.activeGroupDmId) {
         return state;
       }
       return {
@@ -1047,6 +1102,58 @@ export function chatReducer(state: ChatStoreState, action: ChatAction): ChatStor
             pinnedBy: action.isPinned ? (action.pinnedBy as UserId ?? null) : null,
             pinnedAt: action.isPinned ? (action.pinnedAt ?? null) : null,
           },
+        },
+      };
+    }
+    case "saved/set": {
+      return { ...state, savedMessageIds: action.messageIds };
+    }
+    case "saved/add": {
+      if (state.savedMessageIds.includes(action.messageId)) return state;
+      return { ...state, savedMessageIds: [...state.savedMessageIds, action.messageId] };
+    }
+    case "saved/remove": {
+      return { ...state, savedMessageIds: state.savedMessageIds.filter((id) => id !== action.messageId) };
+    }
+    case "emoji/set": {
+      return { ...state, customEmojis: action.emojis };
+    }
+    case "emoji/add": {
+      const exists = state.customEmojis.some((e) => e.id === action.emoji.id);
+      return exists ? state : { ...state, customEmojis: [...state.customEmojis, action.emoji] };
+    }
+    case "emoji/remove": {
+      return { ...state, customEmojis: state.customEmojis.filter((e) => e.id !== action.emojiId) };
+    }
+    case "bookmarks/set": {
+      return {
+        ...state,
+        channelBookmarks: {
+          ...state.channelBookmarks,
+          [action.channelId]: action.bookmarks,
+        },
+      };
+    }
+    case "bookmarks/add": {
+      const existing = state.channelBookmarks[action.bookmark.channelId] ?? [];
+      const alreadyExists = existing.some((b) => b.id === action.bookmark.id);
+      if (alreadyExists) return state;
+      return {
+        ...state,
+        channelBookmarks: {
+          ...state.channelBookmarks,
+          [action.bookmark.channelId]: [...existing, action.bookmark],
+        },
+      };
+    }
+    case "bookmarks/remove": {
+      const existing = state.channelBookmarks[action.channelId];
+      if (!existing) return state;
+      return {
+        ...state,
+        channelBookmarks: {
+          ...state.channelBookmarks,
+          [action.channelId]: existing.filter((b) => b.id !== action.bookmarkId),
         },
       };
     }

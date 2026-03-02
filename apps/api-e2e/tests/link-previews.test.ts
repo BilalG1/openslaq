@@ -6,6 +6,9 @@ import {
   parseHtmlMeta,
   fetchPreview,
 } from "../../api/src/messages/link-preview-service";
+import { db } from "../../api/src/db";
+import { linkPreviews } from "../../api/src/messages/link-preview-schema";
+import { eq } from "drizzle-orm";
 
 type MessageWithPreviews = {
   id: string;
@@ -379,4 +382,66 @@ describe("link previews e2e", () => {
     const fetched = await waitForPreviews(client, msg.id);
     expect(fetched.linkPreviews?.length).toBeGreaterThan(0);
   }, 15000);
+
+  test("message with multiple URLs → previews sorted by position", async () => {
+    const msgRes = await client.api.workspaces[":slug"].channels[":id"].messages.$post({
+      param: { slug, id: channelId },
+      json: { content: "First https://github.com then https://example.com" },
+    });
+    expect(msgRes.status).toBe(201);
+    const msg = (await msgRes.json()) as { id: string };
+
+    // Wait for at least 2 previews
+    let fetched: MessageWithPreviews = { id: msg.id };
+    for (let i = 0; i < 20; i++) {
+      const res = await client.api.messages[":id"].$get({ param: { id: msg.id } });
+      fetched = (await res.json()) as MessageWithPreviews;
+      if (fetched.linkPreviews && fetched.linkPreviews.length >= 2) break;
+      await new Promise((r) => setTimeout(r, 500));
+    }
+
+    expect(fetched.linkPreviews).toBeDefined();
+    expect(fetched.linkPreviews!.length).toBeGreaterThanOrEqual(2);
+
+    // Verify order: github.com appears first in the content, so it should be position 0
+    const urls = fetched.linkPreviews!.map((p) => p.url);
+    expect(urls[0]).toBe("https://github.com");
+    expect(urls[1]).toBe("https://example.com");
+  }, 20000);
+
+  test("stale cache entry triggers re-fetch", async () => {
+    // First, send a message to populate the cache for a URL
+    const url = "https://github.com";
+    const msg1Res = await client.api.workspaces[":slug"].channels[":id"].messages.$post({
+      param: { slug, id: channelId },
+      json: { content: `Cache test ${url}` },
+    });
+    expect(msg1Res.status).toBe(201);
+    const msg1 = (await msg1Res.json()) as { id: string };
+    await waitForPreviews(client, msg1.id);
+
+    // Backdate the cache entry to 8 days ago (beyond 7-day TTL)
+    const staleDate = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+    await db
+      .update(linkPreviews)
+      .set({ fetchedAt: staleDate })
+      .where(eq(linkPreviews.url, url));
+
+    // Send another message with the same URL → should re-fetch (stale cache)
+    const msg2Res = await client.api.workspaces[":slug"].channels[":id"].messages.$post({
+      param: { slug, id: channelId },
+      json: { content: `Stale cache test ${url}` },
+    });
+    expect(msg2Res.status).toBe(201);
+    const msg2 = (await msg2Res.json()) as { id: string };
+    await waitForPreviews(client, msg2.id);
+
+    // Verify the cache was updated (fetchedAt should be recent now)
+    const cached = await db.query.linkPreviews.findFirst({
+      where: eq(linkPreviews.url, url),
+    });
+    expect(cached).toBeDefined();
+    const age = Date.now() - cached!.fetchedAt.getTime();
+    expect(age).toBeLessThan(60_000); // Should be very recent
+  }, 20000);
 });

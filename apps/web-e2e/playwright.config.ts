@@ -1,5 +1,9 @@
 import { defineConfig } from "@playwright/test";
 
+const prefix = process.env.PORT_PREFIX || "30";
+const webPort = parseInt(`${prefix}00`);
+const apiPort = parseInt(`${prefix}01`);
+
 export default defineConfig({
   testDir: "./tests",
   fullyParallel: true,
@@ -12,14 +16,14 @@ export default defineConfig({
     timeout: 10_000,
   },
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: `http://localhost:${webPort}`,
     trace: "on-first-retry",
   },
   webServer: [
     {
       command: "bun --env-file=../../.env run --hot src/index.ts",
       cwd: "../api",
-      port: 3001,
+      port: apiPort,
       timeout: 30_000,
       reuseExistingServer: !process.env.CI,
       env: {
@@ -31,7 +35,7 @@ export default defineConfig({
     {
       command: "bun run dev",
       cwd: "../web",
-      port: 3000,
+      port: webPort,
       timeout: 30_000,
       reuseExistingServer: !process.env.CI,
       env: process.env.VITE_COVERAGE ? { VITE_COVERAGE: "true" } : {},

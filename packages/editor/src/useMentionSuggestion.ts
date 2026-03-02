@@ -20,7 +20,7 @@ export function createMentionSuggestion(
       return {
         onStart: (props: SuggestionProps<MentionSuggestionItem>) => {
           container = document.createElement("div");
-          container.style.position = "absolute";
+          container.style.position = "fixed";
           container.style.zIndex = "50";
 
           const { decorationNode } = props;

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import type { Message } from "@openslaq/shared";
+import type { Message, CustomEmoji } from "@openslaq/shared";
 import { MessageContent } from "./MessageContent";
 import { MessageAttachments } from "./MessageAttachments";
 import { MessageActions } from "./MessageActions";
@@ -13,6 +13,7 @@ interface MessageItemProps {
   message: Message;
   currentUserId?: string;
   senderStatusEmoji?: string | null;
+  isGrouped?: boolean;
   onOpenThread?: (messageId: string) => void;
   onToggleReaction?: (messageId: string, emoji: string) => void;
   onOpenProfile?: (userId: string) => void;
@@ -22,13 +23,18 @@ interface MessageItemProps {
   onPinMessage?: (messageId: string) => void;
   onUnpinMessage?: (messageId: string) => void;
   onShareMessage?: (messageId: string) => void;
+  onSaveMessage?: (messageId: string) => void;
+  onUnsaveMessage?: (messageId: string) => void;
+  isSaved?: boolean;
   onBotAction?: (messageId: string, actionId: string) => void;
+  customEmojis?: CustomEmoji[];
 }
 
 export function MessageItem({
   message,
   currentUserId,
   senderStatusEmoji,
+  isGrouped,
   onOpenThread,
   onToggleReaction,
   onOpenProfile,
@@ -38,7 +44,11 @@ export function MessageItem({
   onPinMessage,
   onUnpinMessage,
   onShareMessage,
+  onSaveMessage,
+  onUnsaveMessage,
+  isSaved,
   onBotAction,
+  customEmojis,
 }: MessageItemProps) {
   const isTopLevel = !message.parentMessageId;
   const displayName = message.senderDisplayName ?? message.userId;
@@ -77,12 +87,16 @@ export function MessageItem({
     }
   };
 
+  const fullTime = new Date(message.createdAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  const compactTime = new Date(message.createdAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: false });
+
   return (
-    <div className="mb-3 relative group px-4 -mx-4 rounded hover:bg-surface-secondary/50" data-message-id={message.id}>
+    <div className={`${isGrouped ? "mb-1" : "mb-3"} relative group px-4 -mx-4 rounded hover:bg-surface-secondary/50`} data-message-id={message.id}>
       {onToggleReaction && (
         <div className="opacity-0 group-hover:opacity-100 transition-opacity">
           <MessageActionBar
             onAddReaction={(emoji) => onToggleReaction(message.id, emoji)}
+            customEmojis={customEmojis?.map((e) => ({ id: e.id, name: e.name, url: e.url }))}
             onOpenThread={isTopLevel && onOpenThread ? () => onOpenThread(message.id) : undefined}
             isOwnMessage={isOwnMessage}
             onEditMessage={onEditMessage ? () => {
@@ -94,12 +108,19 @@ export function MessageItem({
             onPinMessage={onPinMessage ? () => onPinMessage(message.id) : undefined}
             onUnpinMessage={onUnpinMessage ? () => onUnpinMessage(message.id) : undefined}
             onShareMessage={onShareMessage ? () => onShareMessage(message.id) : undefined}
+            onSaveMessage={onSaveMessage ? () => onSaveMessage(message.id) : undefined}
+            onUnsaveMessage={onUnsaveMessage ? () => onUnsaveMessage(message.id) : undefined}
             isPinned={message.isPinned}
+            isSaved={isSaved}
           />
         </div>
       )}
       <div className="flex gap-2.5 items-start">
-        {onOpenProfile && !message.isBot ? (
+        {isGrouped ? (
+          <div className="w-9 h-5 flex items-center justify-center shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+            <span className="text-[10px] text-faint leading-none">{compactTime}</span>
+          </div>
+        ) : onOpenProfile && !message.isBot ? (
           <button
             type="button"
             data-testid={`message-avatar-${message.id}`}
@@ -123,6 +144,7 @@ export function MessageItem({
           />
         )}
         <div className="min-w-0 flex-1">
+          {!isGrouped && (
           <div className="flex items-baseline gap-2">
             {onOpenProfile && !message.isBot ? (
               <button
@@ -146,7 +168,7 @@ export function MessageItem({
               </span>
             )}
             <span className="text-[11px] text-faint">
-              {new Date(message.createdAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+              {fullTime}
             </span>
             {message.isPinned && (
               <span className="inline-flex items-center text-faint" data-testid="pin-badge" title="Pinned">
@@ -156,6 +178,7 @@ export function MessageItem({
               </span>
             )}
           </div>
+          )}
           {isEditing ? (
             <div className="mt-1">
               <textarea
@@ -178,7 +201,7 @@ export function MessageItem({
               {message.sharedMessage && (
                 <SharedMessageBlock sharedMessage={message.sharedMessage} />
               )}
-              {message.content && <MessageContent content={message.content} mentions={message.mentions} onOpenProfile={onOpenProfile} />}
+              {message.content && <MessageContent content={message.content} mentions={message.mentions} onOpenProfile={onOpenProfile} customEmojis={customEmojis} />}
               {message.attachments?.length > 0 && (
                 <MessageAttachments attachments={message.attachments} />
               )}
@@ -195,6 +218,7 @@ export function MessageItem({
               reactions={message.reactions ?? []}
               currentUserId={currentUserId}
               onToggleReaction={(emoji) => onToggleReaction(message.id, emoji)}
+              customEmojis={customEmojis}
             />
           )}
           {isTopLevel && onOpenThread && message.replyCount > 0 && (

@@ -51,7 +51,6 @@ test.describe("Sidebar Collapse", () => {
 
     // Reload page
     await page.reload();
-    await page.waitForLoadState("networkidle");
 
     // Channels should still be collapsed
     await expect(page.getByTestId("channels-section-header")).toBeVisible();

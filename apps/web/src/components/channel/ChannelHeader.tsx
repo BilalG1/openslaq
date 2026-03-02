@@ -31,6 +31,7 @@ interface ChannelHeaderProps {
   onToggleStar?: () => void;
   pinnedCount?: number;
   onOpenPins?: () => void;
+  onOpenFiles?: () => void;
   notificationLevel?: ChannelNotifyLevel;
   onSetNotificationLevel?: (level: ChannelNotifyLevel) => void;
   isArchived?: boolean;
@@ -59,6 +60,7 @@ export function ChannelHeader({
   onToggleStar,
   pinnedCount,
   onOpenPins,
+  onOpenFiles,
   notificationLevel,
   onSetNotificationLevel,
   isArchived,
@@ -155,7 +157,7 @@ export function ChannelHeader({
                   if (e.key === "Enter") saveTopic();
                   if (e.key === "Escape") cancelTopic();
                 }}
-                onBlur={cancelTopic}
+                onBlur={saveTopic}
                 maxLength={500}
                 placeholder="Add a topic"
                 className="w-full bg-transparent border-none outline-none text-sm text-secondary placeholder:text-faint"
@@ -260,6 +262,21 @@ export function ChannelHeader({
                 <path d="M4.456.734a1.75 1.75 0 0 1 2.826.504l.613 1.327a3.08 3.08 0 0 0 2.084 1.707l2.454.584c1.332.317 1.8 1.972.832 2.94L11.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06L10 11.06l-2.204 2.205c-.968.968-2.623.5-2.94-.832l-.584-2.454a3.08 3.08 0 0 0-1.707-2.084l-1.327-.613a1.75 1.75 0 0 1-.504-2.826L4.456.734Z" />
               </svg>
               {(pinnedCount ?? 0) > 0 && <span data-testid="pinned-count">{pinnedCount}</span>}
+            </Button>
+          </Tooltip>
+        )}
+
+        {onOpenFiles && (
+          <Tooltip content="Channel files">
+            <Button
+              data-testid="channel-files-button"
+              variant="outline"
+              size="sm"
+              onClick={onOpenFiles}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+              </svg>
             </Button>
           </Tooltip>
         )}

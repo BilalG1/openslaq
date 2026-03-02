@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useCallback, useEffect } from "react";
-import type { Channel, ChannelId, Message, MessageId, UserId } from "@openslaq/shared";
+import type { Channel, ChannelId, HuddleState, Message, MessageId, UserId } from "@openslaq/shared";
 import {
   bootstrapWorkspace,
   handlePresenceSync,
@@ -9,7 +9,12 @@ import {
   markChannelAsRead,
   handleChannelMemberAdded,
   handleChannelMemberRemoved,
+  handleHuddleSync,
+  handleHuddleStarted,
+  handleHuddleUpdated,
+  handleHuddleEnded,
   normalizeChannel,
+  fetchSavedMessageIds,
 } from "@openslaq/client-core";
 import { useAuth } from "./AuthContext";
 import { useChatStore } from "./ChatStoreProvider";
@@ -37,6 +42,16 @@ export function WorkspaceBootstrapProvider({
     void bootstrapWorkspace(deps, { workspaceSlug });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, authProvider, workspaceSlug]);
+
+  // Fetch saved message IDs after bootstrap
+  useEffect(() => {
+    if (!workspaceSlug || state.ui.bootstrapLoading) return;
+    const deps = { api, auth: authProvider, dispatch, getState: () => state };
+    void fetchSavedMessageIds(deps, { workspaceSlug }).then((ids) => {
+      dispatch({ type: "saved/set", messageIds: ids });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, authProvider, workspaceSlug, state.ui.bootstrapLoading]);
 
   // Presence tracking
   const onPresenceSync = useCallback(
@@ -74,21 +89,22 @@ export function WorkspaceBootstrapProvider({
         currentUserId: user.id,
         activeChannelId: state.activeChannelId,
         activeDmId: state.activeDmId,
+        activeGroupDmId: state.activeGroupDmId,
       });
       if (action) dispatch(action);
     },
-    [state.activeChannelId, state.activeDmId, dispatch, user],
+    [state.activeChannelId, state.activeDmId, state.activeGroupDmId, dispatch, user],
   );
 
   useSocketEvent("message:new", onNewMessage);
 
   // Mark-as-read when channel changes
   useEffect(() => {
-    const channelId = state.activeChannelId ?? state.activeDmId;
+    const channelId = state.activeChannelId ?? state.activeDmId ?? state.activeGroupDmId;
     if (!channelId || !workspaceSlug) return;
     const deps = { api, auth: authProvider, dispatch, getState: () => state };
     void markChannelAsRead(deps, { workspaceSlug, channelId });
-  }, [state.activeChannelId, state.activeDmId, authProvider, dispatch, state, workspaceSlug]);
+  }, [state.activeChannelId, state.activeDmId, state.activeGroupDmId, authProvider, dispatch, state, workspaceSlug]);
 
   // Channel member tracking
   const onMemberAdded = useCallback(
@@ -153,6 +169,60 @@ export function WorkspaceBootstrapProvider({
   );
 
   useSocketEvent("thread:updated", onThreadUpdated);
+
+  // Huddle tracking
+  const onHuddleSync = useCallback(
+    (payload: { huddles: HuddleState[] }) => dispatch(handleHuddleSync(payload)),
+    [dispatch],
+  );
+
+  const onHuddleStarted = useCallback(
+    (huddle: HuddleState) => dispatch(handleHuddleStarted(huddle)),
+    [dispatch],
+  );
+
+  const onHuddleUpdated = useCallback(
+    (huddle: HuddleState) => dispatch(handleHuddleUpdated(huddle)),
+    [dispatch],
+  );
+
+  const onHuddleEnded = useCallback(
+    (payload: { channelId: ChannelId }) => dispatch(handleHuddleEnded(payload)),
+    [dispatch],
+  );
+
+  useSocketEvent("huddle:sync", onHuddleSync);
+  useSocketEvent("huddle:started", onHuddleStarted);
+  useSocketEvent("huddle:updated", onHuddleUpdated);
+  useSocketEvent("huddle:ended", onHuddleEnded);
+
+  // Pin tracking
+  const onMessagePinned = useCallback(
+    (payload: { messageId: MessageId; channelId: ChannelId; pinnedBy: UserId; pinnedAt: string }) => {
+      dispatch({
+        type: "messages/updatePinStatus",
+        messageId: payload.messageId,
+        isPinned: true,
+        pinnedBy: payload.pinnedBy,
+        pinnedAt: payload.pinnedAt,
+      });
+    },
+    [dispatch],
+  );
+
+  const onMessageUnpinned = useCallback(
+    (payload: { messageId: MessageId; channelId: ChannelId }) => {
+      dispatch({
+        type: "messages/updatePinStatus",
+        messageId: payload.messageId,
+        isPinned: false,
+      });
+    },
+    [dispatch],
+  );
+
+  useSocketEvent("message:pinned", onMessagePinned);
+  useSocketEvent("message:unpinned", onMessageUnpinned);
 
   return <>{children}</>;
 }

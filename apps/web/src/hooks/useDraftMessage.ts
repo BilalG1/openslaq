@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 
 const PREFIX = "openslaq-draft-";
 const DEBOUNCE_MS = 300;
@@ -34,6 +34,12 @@ function removeDraft(key: string) {
 export function useDraftMessage(draftKey: string | undefined) {
   const draft = useMemo(() => (draftKey ? readDraft(draftKey) : null), [draftKey]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
 
   const saveDraft = useCallback(
     (markdown: string) => {

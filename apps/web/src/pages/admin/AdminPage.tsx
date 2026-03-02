@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
-import { useUser } from "@stackframe/react";
+import { useCurrentUser } from "../../hooks/useCurrentUser";
+import { redirectToAuth } from "../../lib/auth";
 import { useAdminApi } from "../../hooks/api/useAdminApi";
 import { OverviewTab } from "./OverviewTab";
 import { UsersTab } from "./UsersTab";
@@ -15,7 +16,11 @@ const TABS = [
 ];
 
 export function AdminPage() {
-  useUser({ or: "redirect" });
+  const user = useCurrentUser();
+
+  useEffect(() => {
+    if (!user) void redirectToAuth();
+  }, [user]);
   const { checkAdmin } = useAdminApi();
   const [authorized, setAuthorized] = useState<boolean | null>(null);
 

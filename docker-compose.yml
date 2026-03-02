@@ -2,7 +2,7 @@ services:
   postgres:
     image: postgres:17
     ports:
-      - "3002:5432"
+      - "${PORT_PREFIX:-30}02:5432"
     environment:
       POSTGRES_DB: openslaq
       POSTGRES_USER: openslaq
@@ -13,7 +13,7 @@ services:
   s3mock:
     image: adobe/s3mock
     ports:
-      - "3003:9090"
+      - "${PORT_PREFIX:-30}03:9090"
     environment:
       COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: openslaq-uploads
 
@@ -21,9 +21,9 @@ services:
     image: livekit/livekit-server:latest
     command: --config /etc/livekit.yaml --dev
     ports:
-      - "3004:7880"
-      - "3005:7881"
-      - "3006:7882"
+      - "${PORT_PREFIX:-30}04:7880"
+      - "${PORT_PREFIX:-30}05:7881"
+      - "${PORT_PREFIX:-30}06:7882"
     volumes:
       - ./livekit.yaml:/etc/livekit.yaml
 

@@ -24,6 +24,8 @@ jest.mock("@openslaq/client-core", () => ({
   markChannelAsRead: jest.fn(),
   handleChannelMemberAdded: jest.fn(),
   handleChannelMemberRemoved: jest.fn(),
+  fetchSavedMessageIds: jest.fn(() => Promise.resolve([])),
+  normalizeChannel: jest.fn((c: unknown) => c),
 }));
 
 jest.mock("../AuthContext", () => ({
@@ -64,6 +66,8 @@ describe("WorkspaceBootstrapProvider", () => {
   const baseState = {
     activeChannelId: "channel-1",
     activeDmId: null,
+    activeGroupDmId: null,
+    ui: { bootstrapLoading: false },
   };
 
   beforeEach(() => {
@@ -162,6 +166,7 @@ describe("WorkspaceBootstrapProvider", () => {
         currentUserId: "user-1",
         activeChannelId: "channel-1",
         activeDmId: null,
+        activeGroupDmId: null,
       },
     );
     expect(dispatch).toHaveBeenCalledWith({ type: "messages/unread" });

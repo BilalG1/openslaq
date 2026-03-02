@@ -8,6 +8,7 @@ interface UnreadContext {
   currentUserId: string;
   activeChannelId: string | null;
   activeDmId: string | null;
+  activeGroupDmId?: string | null;
   channelNotificationPrefs?: Record<string, ChannelNotifyLevel>;
 }
 
@@ -22,7 +23,7 @@ export function handleNewMessageUnread(
   if (message.userId === ctx.currentUserId) return null;
 
   // Only increment if the message is for a non-active channel
-  const activeId = ctx.activeChannelId ?? ctx.activeDmId;
+  const activeId = ctx.activeChannelId ?? ctx.activeDmId ?? ctx.activeGroupDmId;
   if (message.channelId === activeId) return null;
 
   // Respect per-channel notification preferences

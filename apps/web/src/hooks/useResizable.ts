@@ -25,10 +25,13 @@ export function useResizable({ side, min, max, defaultWidth, storageKey }: UseRe
   const [width, setWidth] = useState(() => readStoredWidth(storageKey, min, max, defaultWidth));
   const [isDragging, setIsDragging] = useState(false);
   const widthRef = useRef(width);
+  const cleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    widthRef.current = width;
-  }, [width]);
+    return () => {
+      cleanupRef.current?.();
+    };
+  }, []);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -45,15 +48,22 @@ export function useResizable({ side, min, max, defaultWidth, storageKey }: UseRe
         const newWidth = side === "right"
           ? startWidth + delta
           : startWidth - delta;
-        setWidth(Math.min(max, Math.max(min, newWidth)));
+        const clamped = Math.min(max, Math.max(min, newWidth));
+        widthRef.current = clamped;
+        setWidth(clamped);
+      }
+
+      function cleanup() {
+        document.removeEventListener("mousemove", onMouseMove);
+        document.removeEventListener("mouseup", onMouseUp);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+        cleanupRef.current = null;
       }
 
       function onMouseUp() {
-        document.removeEventListener("mousemove", onMouseMove);
-        document.removeEventListener("mouseup", onMouseUp);
+        cleanup();
         setIsDragging(false);
-        document.body.style.cursor = "";
-        document.body.style.userSelect = "";
         try {
           localStorage.setItem(storageKey, String(widthRef.current));
         } catch {
@@ -63,6 +73,7 @@ export function useResizable({ side, min, max, defaultWidth, storageKey }: UseRe
 
       document.addEventListener("mousemove", onMouseMove);
       document.addEventListener("mouseup", onMouseUp);
+      cleanupRef.current = cleanup;
     },
     [side, min, max, storageKey],
   );

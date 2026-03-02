@@ -15,6 +15,9 @@ import {
   regenerateToken,
   toggleBotEnabled,
 } from "./service";
+import { eq, and } from "drizzle-orm";
+import { db } from "../db";
+import { botSlashCommands } from "../commands/slash-command-schema";
 
 const BOT_SCOPES = [
   "chat:write",
@@ -27,6 +30,7 @@ const BOT_SCOPES = [
   "presence:read",
   "channels:members:read",
   "channels:members:write",
+  "commands:write",
 ] as const;
 
 const BOT_EVENT_TYPES = [
@@ -41,6 +45,7 @@ const BOT_EVENT_TYPES = [
   "message:unpinned",
   "presence:updated",
   "interaction",
+  "slash_command",
 ] as const;
 
 const botAppSchema = z.object({
@@ -209,6 +214,74 @@ const toggleBotRoute = createRoute({
   },
 });
 
+// ── Bot Slash Commands ──────────────────────────────────────────────────
+
+const botCommandSchema = z.object({
+  id: z.string(),
+  botAppId: z.string(),
+  name: z.string(),
+  description: z.string(),
+  usage: z.string(),
+  enabled: z.boolean(),
+  createdAt: z.string(),
+});
+
+const createBotCommandSchema = z.object({
+  name: z.string().min(1).max(80).regex(/^[a-z0-9_-]+$/),
+  description: z.string().max(500).default(""),
+  usage: z.string().max(200).default(""),
+});
+
+const listBotCommandsRoute = createRoute({
+  method: "get",
+  path: "/bots/:botId/commands",
+  tags: ["Bots"],
+  summary: "List bot slash commands",
+  security: [{ Bearer: [] }],
+  middleware: [rlRead, requireRole(ROLES.ADMIN)] as const,
+  request: { params: botIdParam },
+  responses: {
+    200: { content: { "application/json": { schema: z.array(botCommandSchema) } }, description: "Bot commands" },
+    404: { content: { "application/json": { schema: errorSchema } }, description: "Bot not found" },
+  },
+});
+
+const createBotCommandRoute = createRoute({
+  method: "post",
+  path: "/bots/:botId/commands",
+  tags: ["Bots"],
+  summary: "Register a bot slash command",
+  security: [{ Bearer: [] }],
+  middleware: [rlMemberManage, requireRole(ROLES.ADMIN)] as const,
+  request: {
+    params: botIdParam,
+    body: { content: { "application/json": { schema: createBotCommandSchema } } },
+  },
+  responses: {
+    201: { content: { "application/json": { schema: botCommandSchema } }, description: "Created command" },
+    404: { content: { "application/json": { schema: errorSchema } }, description: "Bot not found" },
+  },
+});
+
+const deleteBotCommandRoute = createRoute({
+  method: "delete",
+  path: "/bots/:botId/commands/:commandId",
+  tags: ["Bots"],
+  summary: "Delete a bot slash command",
+  security: [{ Bearer: [] }],
+  middleware: [rlMemberManage, requireRole(ROLES.ADMIN)] as const,
+  request: {
+    params: z.object({
+      botId: z.string(),
+      commandId: z.string(),
+    }),
+  },
+  responses: {
+    200: { content: { "application/json": { schema: okSchema } }, description: "Command deleted" },
+    404: { content: { "application/json": { schema: errorSchema } }, description: "Not found" },
+  },
+});
+
 const app = new OpenAPIHono<WorkspaceMemberEnv>()
   .openapi(listBotsRoute, async (c) => {
     const workspace = c.get("workspace");
@@ -273,6 +346,76 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     const { enabled } = c.req.valid("json");
     const ok = await toggleBotEnabled(botId, workspace.id, enabled);
     if (!ok) return c.json({ error: "Bot not found" }, 404);
+    return c.json({ ok: true as const }, 200);
+  })
+  .openapi(listBotCommandsRoute, async (c) => {
+    const workspace = c.get("workspace");
+    const botId = c.req.valid("param").botId;
+    const bot = await getBotAppById(botId, workspace.id);
+    if (!bot) return c.json({ error: "Bot not found" }, 404);
+    const commands = await db
+      .select()
+      .from(botSlashCommands)
+      .where(eq(botSlashCommands.botAppId, botId));
+    return jsonResponse(
+      c,
+      commands.map((cmd) => ({
+        id: cmd.id,
+        botAppId: cmd.botAppId,
+        name: cmd.name,
+        description: cmd.description,
+        usage: cmd.usage,
+        enabled: cmd.enabled,
+        createdAt: cmd.createdAt.toISOString(),
+      })),
+      200,
+    );
+  })
+  .openapi(createBotCommandRoute, async (c) => {
+    const workspace = c.get("workspace");
+    const botId = c.req.valid("param").botId;
+    const bot = await getBotAppById(botId, workspace.id);
+    if (!bot) return c.json({ error: "Bot not found" }, 404);
+    const body = c.req.valid("json");
+    const [row] = await db
+      .insert(botSlashCommands)
+      .values({
+        botAppId: botId,
+        name: body.name,
+        description: body.description,
+        usage: body.usage,
+      })
+      .returning();
+    return jsonResponse(
+      c,
+      {
+        id: row!.id,
+        botAppId: row!.botAppId,
+        name: row!.name,
+        description: row!.description,
+        usage: row!.usage,
+        enabled: row!.enabled,
+        createdAt: row!.createdAt.toISOString(),
+      },
+      201,
+    );
+  })
+  .openapi(deleteBotCommandRoute, async (c) => {
+    const workspace = c.get("workspace");
+    const { botId, commandId } = c.req.valid("param");
+    // Verify bot belongs to workspace
+    const bot = await getBotAppById(botId, workspace.id);
+    if (!bot) return c.json({ error: "Bot not found" }, 404);
+    const deleted = await db
+      .delete(botSlashCommands)
+      .where(
+        and(
+          eq(botSlashCommands.id, commandId),
+          eq(botSlashCommands.botAppId, botId),
+        ),
+      )
+      .returning();
+    if (deleted.length === 0) return c.json({ error: "Command not found" }, 404);
     return c.json({ ok: true as const }, 200);
   });
 

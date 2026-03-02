@@ -6,15 +6,26 @@ export function useWindowFocused(): boolean {
 
   useEffect(() => {
     if (isTauri()) {
+      let cancelled = false;
       let unlisten: (() => void) | undefined;
       import("@tauri-apps/api/window").then(({ getCurrentWindow }) => {
+        if (cancelled) return;
         getCurrentWindow()
-          .onFocusChanged(({ payload }) => setFocused(payload))
+          .onFocusChanged(({ payload }) => {
+            if (!cancelled) setFocused(payload);
+          })
           .then((fn) => {
-            unlisten = fn;
+            if (cancelled) {
+              fn();
+            } else {
+              unlisten = fn;
+            }
           });
       });
-      return () => unlisten?.();
+      return () => {
+        cancelled = true;
+        unlisten?.();
+      };
     }
 
     const onVisibility = () => setFocused(!document.hidden);

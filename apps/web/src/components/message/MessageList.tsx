@@ -14,7 +14,9 @@ import { useMessageMutations } from "../../hooks/chat/useMessageMutations";
 import { useLoadOlderMessages } from "../../hooks/chat/useLoadOlderMessages";
 import { useLoadNewerMessages } from "../../hooks/chat/useLoadNewerMessages";
 import { useBotActions } from "../../hooks/chat/useBotActions";
+import { EphemeralMessageItem } from "./EphemeralMessage";
 import { useChatStore } from "../../state/chat-store";
+import type { EphemeralMessage } from "@openslaq/shared";
 
 interface MessageListProps {
   channelId: string;
@@ -24,9 +26,14 @@ interface MessageListProps {
   onPinMessage?: (messageId: string) => void;
   onUnpinMessage?: (messageId: string) => void;
   onShareMessage?: (messageId: string) => void;
+  onSaveMessage?: (messageId: string) => void;
+  onUnsaveMessage?: (messageId: string) => void;
+  savedMessageIds?: string[];
+  ephemeralMessages?: EphemeralMessage[];
+  onEphemeralMessage?: (msg: EphemeralMessage) => void;
 }
 
-export function MessageList({ channelId, onOpenThread, onOpenProfile, onJoinHuddle, onPinMessage, onUnpinMessage, onShareMessage }: MessageListProps) {
+export function MessageList({ channelId, onOpenThread, onOpenProfile, onJoinHuddle, onPinMessage, onUnpinMessage, onShareMessage, onSaveMessage, onUnsaveMessage, savedMessageIds, ephemeralMessages, onEphemeralMessage }: MessageListProps) {
   const user = useCurrentUser();
   const { workspaceSlug } = useParams<{ workspaceSlug: string }>();
   const { joinChannel } = useSocket();
@@ -60,10 +67,15 @@ export function MessageList({ channelId, onOpenThread, onOpenProfile, onJoinHudd
   const prevChannelIdRef = useRef<string>(channelId);
   const didInitialScrollRef = useRef(false);
   const isNearBottomRef = useRef(true);
+  const scrollPositionCache = useRef<Map<string, number>>(new Map());
 
   // Reset scroll state on channel switch
   useEffect(() => {
     if (channelId !== prevChannelIdRef.current) {
+      const container = scrollContainerRef.current;
+      if (container && prevChannelIdRef.current) {
+        scrollPositionCache.current.set(prevChannelIdRef.current, container.scrollTop);
+      }
       prevChannelIdRef.current = channelId;
       didInitialScrollRef.current = false;
       prevMessageCountRef.current = 0;
@@ -109,14 +121,21 @@ export function MessageList({ channelId, onOpenThread, onOpenProfile, onJoinHudd
       return;
     }
     if (!didInitialScrollRef.current) {
-      container.scrollTop = container.scrollHeight;
+      const cached = scrollPositionCache.current.get(channelId);
+      if (cached !== undefined) {
+        container.scrollTop = cached;
+        isNearBottomRef.current = container.scrollHeight - cached - container.clientHeight < 150;
+      } else {
+        container.scrollTop = container.scrollHeight;
+      }
       didInitialScrollRef.current = true;
       return;
     }
-    if (isNearBottomRef.current) {
+    const newestMessage = messages[messages.length - 1];
+    if (isNearBottomRef.current || newestMessage?.userId === user?.id) {
       container.scrollTop = container.scrollHeight;
     }
-  }, [messages.length]);
+  }, [messages.length, messages, user?.id]);
 
   // Top IntersectionObserver — load older messages
   useEffect(() => {
@@ -256,6 +275,16 @@ export function MessageList({ channelId, onOpenThread, onOpenProfile, onJoinHudd
   useSocketEvent("message:pinned", handleMessagePinned);
   useSocketEvent("message:unpinned", handleMessageUnpinned);
 
+  const handleCommandEphemeral = useCallback(
+    (payload: EphemeralMessage) => {
+      if (payload.channelId === channelId) {
+        onEphemeralMessage?.(payload);
+      }
+    },
+    [channelId, onEphemeralMessage],
+  );
+  useSocketEvent("command:ephemeral", handleCommandEphemeral);
+
   useEffect(() => {
     joinChannel(asChannelId(channelId));
   }, [channelId, joinChannel]);
@@ -270,9 +299,15 @@ export function MessageList({ channelId, onOpenThread, onOpenProfile, onJoinHudd
         <div className="flex items-center justify-center h-full text-danger-text text-sm">
           {error}
         </div>
-      ) : messages.length === 0 ? (
+      ) : messages.length === 0 && !ephemeralMessages?.length ? (
         <div className="flex items-center justify-center h-full text-faint text-sm">
           No messages yet. Start the conversation!
+        </div>
+      ) : messages.length === 0 ? (
+        <div className="flex flex-col justify-end h-full">
+          {ephemeralMessages?.map((msg) => (
+            <EphemeralMessageItem key={msg.id} message={msg} />
+          ))}
         </div>
       ) : (
         <>
@@ -285,6 +320,14 @@ export function MessageList({ channelId, onOpenThread, onOpenProfile, onJoinHudd
           {messages.map((msg, index) => {
             const showSeparator =
               index === 0 || isDifferentDay(messages[index - 1]!.createdAt, msg.createdAt);
+            const prevMsg = index > 0 ? messages[index - 1] : null;
+            const isGrouped =
+              !showSeparator &&
+              prevMsg != null &&
+              prevMsg.type !== "huddle" &&
+              msg.type !== "huddle" &&
+              msg.userId === prevMsg.userId &&
+              new Date(msg.createdAt).getTime() - new Date(prevMsg.createdAt).getTime() < 5 * 60 * 1000;
             return (
               <Fragment key={msg.id}>
                 {showSeparator && <DaySeparator date={new Date(msg.createdAt)} />}
@@ -298,6 +341,7 @@ export function MessageList({ channelId, onOpenThread, onOpenProfile, onJoinHudd
                   <MessageItem
                     message={msg}
                     currentUserId={user?.id}
+                    isGrouped={isGrouped}
                     senderStatusEmoji={(() => {
                       const p = state.presence[msg.userId];
                       if (!p?.statusEmoji) return null;
@@ -313,7 +357,11 @@ export function MessageList({ channelId, onOpenThread, onOpenProfile, onJoinHudd
                     onPinMessage={onPinMessage}
                     onUnpinMessage={onUnpinMessage}
                     onShareMessage={onShareMessage}
+                    onSaveMessage={onSaveMessage}
+                    onUnsaveMessage={onUnsaveMessage}
+                    isSaved={savedMessageIds?.includes(msg.id)}
                     onBotAction={triggerAction}
+                    customEmojis={state.customEmojis}
                   />
                 )}
               </Fragment>
@@ -324,6 +372,9 @@ export function MessageList({ channelId, onOpenThread, onOpenProfile, onJoinHudd
               Loading newer messages...
             </div>
           )}
+          {ephemeralMessages?.map((msg) => (
+            <EphemeralMessageItem key={msg.id} message={msg} />
+          ))}
           <div ref={bottomSentinelRef} className="h-px" />
         </>
       )}

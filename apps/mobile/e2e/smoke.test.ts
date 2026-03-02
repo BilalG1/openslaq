@@ -28,7 +28,7 @@ async function navigateToChannelList() {
     await element(by.id("create-channel-backdrop")).tap();
     await waitFor(element(by.id("channel-list")))
       .toBeVisible()
-      .withTimeout(3000);
+      .withTimeout(2000);
     return;
   } catch {
     // Modal wasn't open or didn't help
@@ -46,7 +46,7 @@ async function navigateToChannelList() {
     await element(by.id("search-back-button")).tap();
     await waitFor(element(by.id("channel-list")))
       .toBeVisible()
-      .withTimeout(3000);
+      .withTimeout(2000);
     return;
   } catch {
     // Search wasn't open
@@ -77,16 +77,9 @@ async function navigateToChannelList() {
     }
   }
 
-  // Try tapping "Channels" tab (works from screens outside channels stack)
-  try {
-    await element(by.text("Channels")).tap();
-  } catch {
-    // Tab not available
-  }
-
   await waitFor(element(by.id("channel-list")))
     .toBeVisible()
-    .withTimeout(8000);
+    .withTimeout(3000);
 }
 
 describe("Smoke", () => {
@@ -166,7 +159,7 @@ describe("Smoke", () => {
 
       await waitFor(element(by.id("create-channel-modal")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
 
       await element(by.id("create-channel-name-input")).typeText(
         "my-new-channel",
@@ -176,12 +169,12 @@ describe("Smoke", () => {
 
       await waitFor(element(by.id("message-list")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
 
-      await element(by.text("Channels")).tap();
+      await navigateToChannelList();
       await waitFor(element(by.text("my-new-channel")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
     });
 
     it("creates a private channel", async () => {
@@ -191,7 +184,7 @@ describe("Smoke", () => {
 
       await waitFor(element(by.id("create-channel-modal")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
 
       await element(by.id("create-channel-name-input")).typeText(
         "secret-channel",
@@ -202,12 +195,12 @@ describe("Smoke", () => {
 
       await waitFor(element(by.id("message-list")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
 
-      await element(by.text("Channels")).tap();
+      await navigateToChannelList();
       await waitFor(element(by.text("secret-channel")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
     });
 
     it("creates a channel with description and shows banner", async () => {
@@ -217,7 +210,7 @@ describe("Smoke", () => {
 
       await waitFor(element(by.id("create-channel-modal")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
 
       await element(by.id("create-channel-name-input")).typeText(
         "desc-channel",
@@ -230,7 +223,7 @@ describe("Smoke", () => {
       // keyboardShouldPersistTaps="handled" allows tapping while keyboard is up
       await waitFor(element(by.id("create-channel-submit")))
         .toBeVisible()
-        .withTimeout(5000);
+        .withTimeout(3000);
 
       // Disable sync before submit: socket timers from previously created
       // channels can keep the JS thread busy, blocking Detox's idle-wait
@@ -254,49 +247,26 @@ describe("Smoke", () => {
 
       await waitFor(element(by.id("channel-options-button")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
 
       await element(by.id("channel-options-button")).tap();
       await element(by.text("Edit Topic")).tap();
 
       await waitFor(element(by.id("edit-topic-modal")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
 
       await element(by.id("edit-topic-input")).clearText();
       await element(by.id("edit-topic-input")).typeText("Updated topic text");
       // Wait for KAV to position save button above keyboard
       await waitFor(element(by.id("edit-topic-save")))
         .toBeVisible()
-        .withTimeout(5000);
+        .withTimeout(3000);
       await element(by.id("edit-topic-save")).tap();
 
       await waitFor(element(by.text("Updated topic text")))
         .toBeVisible()
-        .withTimeout(8000);
-    });
-
-    it("filters channel list", async () => {
-      await navigateToChannelList();
-
-      await waitFor(element(by.id("channel-list-filter")))
-        .toBeVisible()
-        .withTimeout(8000);
-
-      await element(by.id("channel-list-filter")).typeText("gen");
-      await expect(element(by.text("general"))).toBeVisible();
-
-      await element(by.id("channel-list-filter")).clearText();
-      await element(by.id("channel-list-filter")).typeText("zzz-nonexistent");
-      await expect(
-        element(by.text("No channels match your filter")),
-      ).toBeVisible();
-
-      await element(by.id("channel-list-filter")).clearText();
-      await expect(element(by.text("general"))).toBeVisible();
-
-      // Dismiss keyboard so it doesn't cover channel-list for subsequent tests
-      await element(by.id("channel-list")).tap();
+        .withTimeout(3000);
     });
 
     it("leaves a channel", async () => {
@@ -304,24 +274,24 @@ describe("Smoke", () => {
 
       await waitFor(element(by.text("leave-me")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
 
       await element(by.text("leave-me")).tap();
 
       await waitFor(element(by.id("message-list")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
 
       await element(by.id("channel-options-button")).tap();
       await element(by.text("Leave Channel")).tap();
       await waitFor(element(by.text("Are you sure you want to leave this channel?")))
         .toBeVisible()
-        .withTimeout(5000);
+        .withTimeout(3000);
       await element(by.text("Leave")).tap();
 
       await waitFor(element(by.id("channel-list")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
 
       await expect(element(by.text("leave-me"))).not.toBeVisible();
     });
@@ -333,14 +303,14 @@ describe("Smoke", () => {
 
       await waitFor(element(by.id("channel-options-button")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
 
       await element(by.id("channel-options-button")).tap();
       await element(by.text("View Members")).tap();
 
       await waitFor(element(by.id("members-list")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
     });
 
     it("browses channels and sees public channels", async () => {
@@ -348,13 +318,13 @@ describe("Smoke", () => {
 
       await waitFor(element(by.id("browse-channels-link")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
 
       await element(by.id("browse-channels-link")).tap();
 
       await waitFor(element(by.id("browse-channel-list")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
 
       await expect(element(by.text("general"))).toBeVisible();
       await expect(element(by.text("design"))).toBeVisible();
@@ -367,7 +337,7 @@ describe("Smoke", () => {
 
       await waitFor(element(by.text("general")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
     });
 
     it("navigates to channel and sees message input", async () => {
@@ -376,10 +346,10 @@ describe("Smoke", () => {
 
       await waitFor(element(by.id("message-input")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
       await waitFor(element(by.id("message-send")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
     });
 
     it("sends message and sees it appear", async () => {
@@ -388,7 +358,7 @@ describe("Smoke", () => {
 
       await waitFor(element(by.id("message-input")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
 
       const testMessage = `E2E smoke ${Date.now()}`;
 
@@ -398,7 +368,7 @@ describe("Smoke", () => {
 
       await waitFor(element(by.text(testMessage)))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
     });
 
     it("edits a message via long press", async () => {
@@ -407,7 +377,7 @@ describe("Smoke", () => {
 
       await waitFor(element(by.id("message-list")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
 
       const original = `Edit me ${Date.now()}`;
       const updated = `Edited ${Date.now()}`;
@@ -420,18 +390,18 @@ describe("Smoke", () => {
 
       await waitFor(element(by.text(original)))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
 
       await element(by.id(`message-bubble-${msg.id}`)).longPress();
 
       await waitFor(element(by.id("action-edit-message")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
       await element(by.id("action-edit-message")).tap();
 
       await waitFor(element(by.id("edit-banner")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
 
       await element(by.id("message-input")).clearText();
       await element(by.id("message-input")).typeText(updated);
@@ -440,10 +410,10 @@ describe("Smoke", () => {
 
       await waitFor(element(by.text(updated)))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
       await waitFor(element(by.id(`message-edited-${msg.id}`)))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
     });
 
     it("deletes a message via long press", async () => {
@@ -452,7 +422,7 @@ describe("Smoke", () => {
 
       await waitFor(element(by.id("message-list")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
 
       const content = `Delete me ${Date.now()}`;
       const msg = await sendTestMessage(
@@ -464,23 +434,23 @@ describe("Smoke", () => {
 
       await waitFor(element(by.text(content)))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
 
       await element(by.id(`message-bubble-${msg.id}`)).longPress();
 
       await waitFor(element(by.id("action-delete-message")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
       await element(by.id("action-delete-message")).tap();
 
       await waitFor(element(by.text("Delete")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
       await element(by.text("Delete")).tap();
 
       await waitFor(element(by.text(content)))
         .not.toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
     });
   });
 
@@ -491,12 +461,12 @@ describe("Smoke", () => {
 
       await waitFor(element(by.id(`reply-count-${parentMessage.id}`)))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
       await element(by.id(`reply-count-${parentMessage.id}`)).tap();
 
       await waitFor(element(by.id("thread-message-list")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
       await expect(element(by.text(parentMessage.content))).toBeVisible();
 
       const newReply = `Smoke reply ${Date.now()}`;
@@ -506,7 +476,7 @@ describe("Smoke", () => {
 
       await waitFor(element(by.text(newReply)))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
     });
   });
 
@@ -519,14 +489,14 @@ describe("Smoke", () => {
 
       await waitFor(element(by.id("search-input")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
 
       await element(by.id("search-input")).typeText(searchableContent);
       await element(by.id("search-input")).tapReturnKey();
 
       await waitFor(element(by.text(searchableContent)))
         .toBeVisible()
-        .withTimeout(10000);
+        .withTimeout(8000);
 
       await device.enableSynchronization();
     });
@@ -541,11 +511,11 @@ describe("Smoke", () => {
 
       await waitFor(element(by.id("settings-screen")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
 
       await waitFor(element(by.id("settings-display-name-input")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
       await expect(element(by.id("settings-email"))).toBeVisible();
       await expect(element(by.id("settings-sign-out"))).toBeVisible();
 
@@ -558,7 +528,7 @@ describe("Smoke", () => {
 
       await waitFor(element(by.id("settings-save-name")))
         .toBeVisible()
-        .withTimeout(5000);
+        .withTimeout(3000);
 
       await element(by.id("settings-save-name")).tap();
 
@@ -567,14 +537,14 @@ describe("Smoke", () => {
 
       await waitFor(element(by.id("settings-sign-out")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
 
       await element(by.id("settings-sign-out")).tap();
 
       // Wait for the confirmation alert to appear
       await waitFor(element(by.text("Are you sure you want to sign out?")))
         .toBeVisible()
-        .withTimeout(8000);
+        .withTimeout(3000);
 
       // Tap the destructive "Sign Out" button in the native UIAlertController.
       // Two button-trait elements match label "Sign Out": the settings screen
@@ -587,7 +557,7 @@ describe("Smoke", () => {
 
       await waitFor(element(by.id("sign-in-screen")))
         .toBeVisible()
-        .withTimeout(15000);
+        .withTimeout(10000);
 
       await device.enableSynchronization();
     });

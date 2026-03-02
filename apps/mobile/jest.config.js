@@ -4,6 +4,9 @@ module.exports = {
   resolver: "./jest-resolver.js",
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
+    // Parenthesized expo-router group directories confuse Jest's resolver at depth > 1
+    ".*app/\\(app\\)/\\[workspaceSlug\\]/\\(tabs\\)/\\(channels\\)/index$":
+      "<rootDir>/app/(app)/[workspaceSlug]/(tabs)/(channels)/index",
     // Redirect css-interop JSX runtime (injected by nativewind/babel) to
     // standard React JSX runtime so the native Appearance bridge is never loaded.
     "^react-native-css-interop/jsx-runtime$": "react/jsx-runtime",

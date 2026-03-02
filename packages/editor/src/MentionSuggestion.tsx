@@ -58,7 +58,7 @@ export function handleMentionKeyDown(
     setSelectedIndex((prev) => (prev + 1) % items.length);
     return true;
   }
-  if (event.key === "Enter") {
+  if (event.key === "Enter" || event.key === "Tab") {
     const item = items[selectedIndex];
     if (item) command(item);
     return true;

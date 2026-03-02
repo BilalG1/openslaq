@@ -1,12 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { useUser } from "@stackframe/react";
+import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useWorkspacesApi } from "../hooks/api/useWorkspacesApi";
+import { redirectToAuth } from "../lib/auth";
 import { Button, Input } from "../components/ui";
 import { CustomUserButton } from "../components/user/CustomUserButton";
 
 export function CreateWorkspacePage() {
-  const user = useUser({ or: "redirect" });
+  const user = useCurrentUser();
+
+  useEffect(() => {
+    if (!user) void redirectToAuth();
+  }, [user]);
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);

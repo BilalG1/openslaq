@@ -5,7 +5,6 @@ This folder is organized by lifecycle so active planning stays clean and complet
 ## Start Here
 
 - [Active Product Backlog](./active/backlog-product.md)
-- [Active Mobile Backlog](./active/backlog-mobile.md)
 - [Active Engineering Backlog](./active/backlog-engineering.md)
 - [Mobile Dev Notes](./dev-notes/mobile.md)
 
@@ -21,9 +20,6 @@ This folder is organized by lifecycle so active planning stays clean and complet
 - `active/backlog-product.md`
   - Owner: Product + Web team
   - Update cadence: weekly or when scope changes
-- `active/backlog-mobile.md`
-  - Owner: Mobile team
-  - Update cadence: weekly or when parity status changes
 - `active/backlog-engineering.md`
   - Owner: API + Platform team
   - Update cadence: weekly or after major refactor progress
@@ -38,3 +34,5 @@ This folder is organized by lifecycle so active planning stays clean and complet
 - [react-native-prep-2026-02.md](./archive/react-native-prep-2026-02.md)
 - [mobile-feature-gaps-2026-02.md](./archive/mobile-feature-gaps-2026-02.md)
 - [refactor-opportunities-2026-02.md](./archive/refactor-opportunities-2026-02.md)
+- [backlog-mobile-2026-02.md](./archive/backlog-mobile-2026-02.md)
+- [backlog-slaq-parity-2026-02.md](./archive/backlog-slaq-parity-2026-02.md)

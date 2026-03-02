@@ -54,6 +54,26 @@ describe("handleMentionKeyDown", () => {
     expect(command).not.toHaveBeenCalled();
   });
 
+  it("Tab calls command with the selected item", () => {
+    const setSelectedIndex = mock();
+    const command = mock();
+
+    const result = handleMentionKeyDown({ key: "Tab" }, items, 1, setSelectedIndex, command);
+
+    expect(result).toBe(true);
+    expect(command).toHaveBeenCalledWith(items[1]);
+  });
+
+  it("Tab with empty list does not call command", () => {
+    const setSelectedIndex = mock();
+    const command = mock();
+
+    const result = handleMentionKeyDown({ key: "Tab" }, [], 0, setSelectedIndex, command);
+
+    expect(result).toBe(true);
+    expect(command).not.toHaveBeenCalled();
+  });
+
   it("unhandled key returns false with no side effects", () => {
     const setSelectedIndex = mock();
     const command = mock();

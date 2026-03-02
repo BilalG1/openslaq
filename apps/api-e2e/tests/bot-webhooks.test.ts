@@ -1,5 +1,8 @@
 import { describe, test, expect } from "bun:test";
 import { createTestClient, testId, createTestWorkspace } from "./helpers/api-client";
+import { db } from "../../api/src/db";
+import { botApps } from "../../api/src/bots/schema";
+import { eq } from "drizzle-orm";
 
 function getApiUrl() {
   return process.env.API_BASE_URL ?? "http://localhost:3001";
@@ -453,6 +456,86 @@ describe("webhook dispatcher", () => {
     const updated = data.messages.find((m: any) => m.id === msg.id);
     expect(updated).toBeDefined();
     expect(updated!.content).toBe("Updated by webhook");
+  });
+
+  test("bot interaction: disabled bot → 404", async () => {
+    const id = testId();
+    const { client, headers } = await createTestClient({ id: `wh-disabled-${id}`, email: `wh-disabled-${id}@openslaq.dev` });
+    const ws = await createTestWorkspace(client);
+
+    const chanRes = await client.api.workspaces[":slug"].channels.$post({
+      param: { slug: ws.slug },
+      json: { name: `wh-disabled-${testId()}` },
+    });
+    const channel = (await chanRes.json()) as { id: string };
+
+    const { bot, apiToken } = await createBotInWorkspace(client, ws.slug, {
+      scopes: ["chat:write", "chat:read"],
+    });
+    await addBotToChannel(client, ws.slug, channel.id, bot.userId);
+
+    // Bot sends message with action
+    const msgRes = await fetch(`${getApiUrl()}/api/bot/channels/${channel.id}/messages`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content: "Disable test",
+        actions: [{ id: "btn", type: "button", label: "Click" }],
+      }),
+    });
+    expect(msgRes.status).toBe(201);
+    const msg = (await msgRes.json()) as { id: string };
+
+    // Disable the bot
+    await db.update(botApps).set({ enabled: false }).where(eq(botApps.id, bot.id));
+
+    // Try interaction → 404 (bot not available)
+    const res = await fetch(`${getApiUrl()}/api/bot-interactions/${msg.id}/actions/btn`, {
+      method: "POST",
+      headers,
+    });
+    expect(res.status).toBe(404);
+
+    // Re-enable for cleanup
+    await db.update(botApps).set({ enabled: true }).where(eq(botApps.id, bot.id));
+  });
+
+  test("bot interaction: webhook connection failure → 200 (graceful)", async () => {
+    const id = testId();
+    const { client, headers } = await createTestClient({ id: `wh-fail-${id}`, email: `wh-fail-${id}@openslaq.dev` });
+    const ws = await createTestWorkspace(client);
+
+    const chanRes = await client.api.workspaces[":slug"].channels.$post({
+      param: { slug: ws.slug },
+      json: { name: `wh-fail-${testId()}` },
+    });
+    const channel = (await chanRes.json()) as { id: string };
+
+    // Bot with webhook URL pointing to a port nothing listens on → ECONNREFUSED
+    const { bot, apiToken } = await createBotInWorkspace(client, ws.slug, {
+      scopes: ["chat:write", "chat:read"],
+      webhookUrl: "http://127.0.0.1:19999/nonexistent",
+    });
+    await addBotToChannel(client, ws.slug, channel.id, bot.userId);
+
+    // Bot sends message with action
+    const msgRes = await fetch(`${getApiUrl()}/api/bot/channels/${channel.id}/messages`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content: "Fail test",
+        actions: [{ id: "btn", type: "button", label: "Click" }],
+      }),
+    });
+    expect(msgRes.status).toBe(201);
+    const msg = (await msgRes.json()) as { id: string };
+
+    // User clicks the button → webhook fails → still returns 200
+    const res = await fetch(`${getApiUrl()}/api/bot-interactions/${msg.id}/actions/btn`, {
+      method: "POST",
+      headers,
+    });
+    expect(res.status).toBe(200);
   });
 
   test("webhook to failing URL (500) retries and logs", async () => {

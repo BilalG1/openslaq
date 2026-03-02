@@ -198,12 +198,16 @@ export async function addGroupDmMember(
   channelId: string,
   addedByUserId: UserId,
   newUserId: string,
+  workspaceId: WorkspaceId,
 ): Promise<{ error: string } | { members: GroupDmMember[] }> {
   // Verify the channel exists and is a group DM
   const channel = await db.query.channels.findFirst({
     where: and(eq(channels.id, channelId), eq(channels.type, CHANNEL_TYPES.GROUP_DM)),
   });
   if (!channel) return { error: "Group DM not found" };
+
+  // Verify the channel belongs to the requested workspace
+  if (channel.workspaceId !== workspaceId) return { error: "Group DM not found" };
 
   // Verify adder is a member
   const adderMembership = await db.query.channelMembers.findFirst({
@@ -258,11 +262,15 @@ export async function addGroupDmMember(
 export async function leaveGroupDm(
   channelId: string,
   userId: UserId,
+  workspaceId: WorkspaceId,
 ): Promise<{ error: string } | { ok: true }> {
   const channel = await db.query.channels.findFirst({
     where: and(eq(channels.id, channelId), eq(channels.type, CHANNEL_TYPES.GROUP_DM)),
   });
   if (!channel) return { error: "Group DM not found" };
+
+  // Verify the channel belongs to the requested workspace
+  if (channel.workspaceId !== workspaceId) return { error: "Group DM not found" };
 
   // Verify user is a member
   const membership = await db.query.channelMembers.findFirst({
@@ -306,11 +314,15 @@ export async function renameGroupDm(
   channelId: string,
   userId: UserId,
   newDisplayName: string,
+  workspaceId: WorkspaceId,
 ): Promise<{ error: string } | { channel: Channel }> {
   const channel = await db.query.channels.findFirst({
     where: and(eq(channels.id, channelId), eq(channels.type, CHANNEL_TYPES.GROUP_DM)),
   });
   if (!channel) return { error: "Group DM not found" };
+
+  // Verify the channel belongs to the requested workspace
+  if (channel.workspaceId !== workspaceId) return { error: "Group DM not found" };
 
   // Verify user is a member
   const membership = await db.query.channelMembers.findFirst({

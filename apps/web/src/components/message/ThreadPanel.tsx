@@ -106,10 +106,11 @@ export function ThreadPanel({ channelId, parentMessageId, onClose, onOpenProfile
       didInitialScrollRef.current = true;
       return;
     }
-    if (isNearBottomRef.current) {
+    const newestReply = replies[replies.length - 1];
+    if (isNearBottomRef.current || newestReply?.userId === user?.id) {
       container.scrollTop = container.scrollHeight;
     }
-  }, [replies.length]);
+  }, [replies.length, replies, user?.id]);
 
   // Top IntersectionObserver — load older replies
   useEffect(() => {
@@ -219,6 +220,7 @@ export function ThreadPanel({ channelId, parentMessageId, onClose, onOpenProfile
                   onEditMessage={editMessage}
                   onDeleteMessage={deleteMessage}
                   onBotAction={triggerAction}
+                  customEmojis={state.customEmojis}
                 />
               </div>
             )}
@@ -242,17 +244,27 @@ export function ThreadPanel({ channelId, parentMessageId, onClose, onOpenProfile
                     : replies[index - 1]!.createdAt;
                 const showSeparator =
                   prevCreatedAt != null && isDifferentDay(prevCreatedAt, reply.createdAt);
+                const prevReply = index > 0 ? replies[index - 1] : null;
+                const prevUserId = prevReply ? prevReply.userId : parentMessage?.userId;
+                const isGrouped =
+                  !showSeparator &&
+                  prevUserId != null &&
+                  reply.userId === prevUserId &&
+                  prevCreatedAt != null &&
+                  new Date(reply.createdAt).getTime() - new Date(prevCreatedAt).getTime() < 5 * 60 * 1000;
                 return (
                   <Fragment key={reply.id}>
                     {showSeparator && <DaySeparator date={new Date(reply.createdAt)} />}
                     <MessageItem
                       message={reply}
                       currentUserId={user?.id}
+                      isGrouped={isGrouped}
                       onToggleReaction={toggleReaction}
                       onOpenProfile={onOpenProfile}
                       onEditMessage={editMessage}
                       onDeleteMessage={deleteMessage}
                       onBotAction={triggerAction}
+                      customEmojis={state.customEmojis}
                     />
                   </Fragment>
                 );

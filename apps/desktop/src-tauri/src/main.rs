@@ -6,6 +6,7 @@ use tauri::{
     Emitter, Manager, WindowEvent,
 };
 use tauri_plugin_deep_link::DeepLinkExt;
+use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 
 fn main() {
     let is_autostarted = std::env::args().any(|arg| arg == "--autostarted");
@@ -16,6 +17,7 @@ fn main() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(
             tauri_plugin_autostart::Builder::new()
                 .args(["--autostarted"])
@@ -214,10 +216,11 @@ fn main() {
                 _ => {}
             }
         })
-        .on_window_event(|_window, event| {
+        .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
+                let _ = window.app_handle().save_window_state(StateFlags::all());
                 api.prevent_close();
-                let _ = _window.hide();
+                let _ = window.hide();
             }
         })
         .run(tauri::generate_context!())

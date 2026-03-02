@@ -12,6 +12,17 @@ jest.mock("../MessageContent", () => {
   };
 });
 
+jest.mock("../SharedMessageCard", () => {
+  const { View, Text } = require("react-native");
+  return {
+    SharedMessageCard: ({ sharedMessage }: { sharedMessage: { content: string } }) => (
+      <View testID="shared-message-card">
+        <Text>{sharedMessage.content}</Text>
+      </View>
+    ),
+  };
+});
+
 jest.mock("../MessageAttachments", () => {
   const { View, Text } = require("react-native");
   return {
@@ -292,6 +303,32 @@ describe("MessageBubble", () => {
 
     fireEvent.press(screen.getByTestId("sender-name-msg-1"));
     expect(onPressSender).toHaveBeenCalledWith("user-42");
+  });
+
+  it("renders SharedMessageCard when sharedMessage is present", () => {
+    const msg = makeMessage({
+      sharedMessage: {
+        id: asMessageId("shared-1"),
+        channelId: asChannelId("ch-2"),
+        channelName: "general",
+        userId: asUserId("user-2"),
+        senderDisplayName: "Bob",
+        senderAvatarUrl: null,
+        content: "Shared content",
+        createdAt: "2025-01-01T12:00:00Z",
+      },
+    });
+
+    render(<MessageBubble message={msg} />);
+
+    expect(screen.getByTestId("shared-message-card")).toBeTruthy();
+    expect(screen.getByText("Shared content")).toBeTruthy();
+  });
+
+  it("does not render SharedMessageCard when sharedMessage is absent", () => {
+    render(<MessageBubble message={makeMessage()} />);
+
+    expect(screen.queryByTestId("shared-message-card")).toBeNull();
   });
 
   it("does not crash when sender name is tapped without onPressSender", () => {

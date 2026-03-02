@@ -51,11 +51,13 @@ export function SearchModal({ open, onClose, onNavigateToMessage, workspaceSlug 
     (e: React.KeyboardEvent) => {
       if (e.key === "ArrowDown") {
         e.preventDefault();
+        if (results.length === 0) return;
         setSelectedIndex((prev) => Math.min(prev + 1, results.length - 1));
         return;
       }
       if (e.key === "ArrowUp") {
         e.preventDefault();
+        if (results.length === 0) return;
         setSelectedIndex((prev) => Math.max(prev - 1, 0));
         return;
       }

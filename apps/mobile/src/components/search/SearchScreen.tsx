@@ -61,7 +61,7 @@ export function SearchScreen() {
       if (item.parentMessageId) {
         router.push(`/(app)/${workspaceSlug}/thread/${item.parentMessageId}`);
       } else if (item.channelType === "dm") {
-        router.push(`/(app)/${workspaceSlug}/(tabs)/(dms)/${item.channelId}`);
+        router.push(`/(app)/${workspaceSlug}/(tabs)/(channels)/dm/${item.channelId}`);
       } else {
         router.push(`/(app)/${workspaceSlug}/(tabs)/(channels)/${item.channelId}`);
       }

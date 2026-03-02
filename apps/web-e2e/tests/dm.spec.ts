@@ -33,8 +33,9 @@ test.describe("Direct Messages", () => {
     await expect(page.getByRole("heading", { name: "New Direct Message" })).toBeVisible();
 
     // Select ourselves — use the dialog-specific button with email text
-    const dialog = page.locator("div").filter({ hasText: "New Direct Message" }).last();
+    const dialog = page.getByRole("dialog");
     await dialog.getByText("test@openslaq.dev").click();
+    await dialog.getByTestId("dm-go-button").click();
 
     // DM header should show with "(notes)" for self-DM
     await expect(page.getByText("Test User (notes)")).toBeVisible();

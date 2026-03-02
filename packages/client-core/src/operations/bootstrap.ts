@@ -24,7 +24,7 @@ export async function bootstrapWorkspace(
   dispatch({ type: "workspace/bootstrapStart", workspaceSlug: slug });
 
   try {
-    const [channelsRes, workspacesRes, dmsRes, groupDmsRes, unreadRes, presenceRes, starredRes, notifyPrefsRes] = await Promise.all([
+    const [channelsRes, workspacesRes, dmsRes, groupDmsRes, unreadRes, presenceRes, starredRes, notifyPrefsRes, emojiRes] = await Promise.all([
       authorizedRequest(auth, (headers) =>
         api.api.workspaces[":slug"].channels.$get({ param: { slug } }, { headers }),
       ),
@@ -49,6 +49,9 @@ export async function bootstrapWorkspace(
       authorizedRequest(auth, (headers) =>
         api.api.workspaces[":slug"].channels["notification-prefs"].$get({ param: { slug } }, { headers }),
       ),
+      authorizedRequest(auth, (headers) =>
+        api.api.workspaces[":slug"].emoji.$get({ param: { slug } }, { headers }),
+      ),
     ]);
 
     const channels = (await channelsRes.json()).map(normalizeChannel);
@@ -64,12 +67,14 @@ export async function bootstrapWorkspace(
 
     const starredChannelIds = (await starredRes.json()) as string[];
     const notifyPrefs = (await notifyPrefsRes.json()) as Record<string, import("@openslaq/shared").ChannelNotifyLevel>;
+    const emojiData = (await emojiRes.json()) as { emojis: import("@openslaq/shared").CustomEmoji[] };
 
     dispatch({ type: "workspace/bootstrapSuccess", channels, workspaces, dms: dmsData, groupDms: groupDmsData });
     dispatch({ type: "unread/setCounts", counts: unreadCounts });
     dispatch({ type: "presence/sync", users: presenceData });
     dispatch({ type: "stars/set", channelIds: starredChannelIds });
     dispatch({ type: "notifyPrefs/set", prefs: notifyPrefs });
+    dispatch({ type: "emoji/set", emojis: emojiData.emojis });
 
     // Honor URL params, then fall back to #general (or first channel)
     if (urlDmChannelId && dmsData.some((dm) => dm.channel.id === urlDmChannelId)) {

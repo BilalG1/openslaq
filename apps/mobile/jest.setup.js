@@ -22,13 +22,16 @@ jest.mock("expo-router", () => ({
     canGoBack: jest.fn(() => false),
   })),
   useLocalSearchParams: jest.fn(() => ({})),
+  useGlobalSearchParams: jest.fn(() => ({})),
   useNavigation: jest.fn(() => ({
     setOptions: jest.fn(),
   })),
   useSegments: jest.fn(() => []),
   usePathname: jest.fn(() => "/"),
+  router: { push: jest.fn(), replace: jest.fn(), back: jest.fn() },
   Link: "Link",
   Redirect: "Redirect",
+  Stack: jest.fn(({ children }) => children),
 }));
 
 // Mock expo-auth-session
@@ -57,6 +60,56 @@ jest.mock("expo-apple-authentication", () => ({
     EMAIL: 1,
     FULL_NAME: 0,
   },
+}));
+
+// Mock expo-notifications
+jest.mock("expo-notifications", () => ({
+  getPermissionsAsync: jest.fn(() =>
+    Promise.resolve({ status: "undetermined", granted: false, canAskAgain: true }),
+  ),
+  requestPermissionsAsync: jest.fn(() =>
+    Promise.resolve({ status: "granted", granted: true, canAskAgain: true }),
+  ),
+  setNotificationHandler: jest.fn(),
+  getDevicePushTokenAsync: jest.fn(() =>
+    Promise.resolve({ data: "mock-apns-token", type: "ios" }),
+  ),
+  setBadgeCountAsync: jest.fn(() => Promise.resolve(true)),
+  dismissNotificationAsync: jest.fn(() => Promise.resolve()),
+  addNotificationReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  PermissionStatus: {
+    UNDETERMINED: "undetermined",
+    GRANTED: "granted",
+    DENIED: "denied",
+  },
+}));
+
+// Mock @react-native-async-storage/async-storage with in-memory store
+const mockAsyncStore = new Map();
+jest.mock("@react-native-async-storage/async-storage", () => ({
+  getItem: jest.fn((key) => Promise.resolve(mockAsyncStore.get(key) ?? null)),
+  setItem: jest.fn((key, value) => {
+    mockAsyncStore.set(key, value);
+    return Promise.resolve();
+  }),
+  removeItem: jest.fn((key) => {
+    mockAsyncStore.delete(key);
+    return Promise.resolve();
+  }),
+  multiGet: jest.fn((keys) =>
+    Promise.resolve(keys.map((k) => [k, mockAsyncStore.get(k) ?? null])),
+  ),
+  multiSet: jest.fn((pairs) => {
+    pairs.forEach(([k, v]) => mockAsyncStore.set(k, v));
+    return Promise.resolve();
+  }),
+}));
+
+// Mock expo-clipboard
+jest.mock("expo-clipboard", () => ({
+  setStringAsync: jest.fn(() => Promise.resolve(true)),
+  getStringAsync: jest.fn(() => Promise.resolve("")),
 }));
 
 // Mock react-native-svg (render as string tags — avoids babel/nativewind interference)

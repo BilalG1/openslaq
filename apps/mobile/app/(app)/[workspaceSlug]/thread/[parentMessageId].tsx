@@ -17,6 +17,7 @@ import {
   loadOlderReplies,
   sendMessage as coreSendMessage,
   listWorkspaceMembers,
+  shareMessageOp,
 } from "@openslaq/client-core";
 import type { MentionSuggestionItem } from "@/hooks/useMentionAutocomplete";
 import { useAuth } from "@/contexts/AuthContext";
@@ -32,6 +33,7 @@ import { MessageInput } from "@/components/MessageInput";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { MessageActionSheet } from "@/components/MessageActionSheet";
 import { EmojiPickerSheet } from "@/components/EmojiPickerSheet";
+import { ShareMessageModal } from "@/components/ShareMessageModal";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 
 export default function ThreadScreen() {
@@ -58,6 +60,7 @@ export default function ThreadScreen() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [emojiPickerMessageId, setEmojiPickerMessageId] = useState<string | null>(null);
   const [members, setMembers] = useState<MentionSuggestionItem[]>([]);
+  const [shareMessage, setShareMessage] = useState<Message | null>(null);
 
   const parentMessage = parentMessageId
     ? state.messagesById[parentMessageId]
@@ -260,6 +263,30 @@ export default function ThreadScreen() {
     [emojiPickerMessageId, handleToggleReaction],
   );
 
+  const handleShareMessage = useCallback((message: Message) => {
+    setShareMessage(message);
+  }, []);
+
+  const handleConfirmShare = useCallback(
+    async (destinationChannelId: string, destinationName: string, comment: string) => {
+      if (!shareMessage || !workspaceSlug) return;
+      try {
+        const deps = { api, auth: authProvider, dispatch, getState: () => state };
+        await shareMessageOp(deps, {
+          workspaceSlug,
+          destinationChannelId,
+          sharedMessageId: shareMessage.id,
+          comment,
+        });
+        Alert.alert("Shared", `Message shared to ${destinationName}`);
+      } catch {
+        Alert.alert("Error", "Failed to share message");
+      }
+      setShareMessage(null);
+    },
+    [authProvider, dispatch, shareMessage, state, workspaceSlug],
+  );
+
   // Build combined list: parent message + replies
   const data = parentMessage ? [parentMessage, ...replies] : replies;
 
@@ -363,6 +390,7 @@ export default function ThreadScreen() {
         onOpenEmojiPicker={handleOpenEmojiPicker}
         onEditMessage={handleStartEdit}
         onDeleteMessage={handleDeleteMessage}
+        onShareMessage={handleShareMessage}
         onClose={() => setActionSheetMessage(null)}
       />
       <EmojiPickerSheet
@@ -372,6 +400,15 @@ export default function ThreadScreen() {
           setShowEmojiPicker(false);
           setEmojiPickerMessageId(null);
         }}
+      />
+      <ShareMessageModal
+        visible={shareMessage != null}
+        message={shareMessage}
+        channels={state.channels.filter((c) => !c.isArchived)}
+        dms={state.dms}
+        groupDms={state.groupDms}
+        onShare={handleConfirmShare}
+        onClose={() => setShareMessage(null)}
       />
     </KeyboardAvoidingView>
   );

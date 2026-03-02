@@ -33,7 +33,7 @@ export type {
 } from "./socket";
 
 export type { OperationDeps, ApiDeps } from "./operations";
-export type { WorkspaceMember, ChannelMember, WorkspaceListItem, BrowseChannel, UserProfile } from "./operations";
+export type { WorkspaceMember, ChannelMember, WorkspaceListItem, BrowseChannel, UserProfile, SavedMessageItem, ScheduledMessageItem, FetchFilesParams, FetchFilesResult } from "./operations";
 export { normalizeChannel } from "./operations/normalize";
 export {
   bootstrapWorkspace,
@@ -71,6 +71,9 @@ export {
   unarchiveChannel,
   getInvite,
   acceptInvite,
+  listInvites,
+  createInvite,
+  revokeInvite,
   listWorkspaceMembers,
   updateMemberRole,
   removeMember,
@@ -93,6 +96,10 @@ export {
   pinMessageOp,
   unpinMessageOp,
   fetchPinnedMessages,
+  saveMessageOp,
+  unsaveMessageOp,
+  fetchSavedMessages,
+  fetchSavedMessageIds,
   listBots,
   createBot,
   updateBot,
@@ -108,4 +115,39 @@ export {
   fetchAllUnreads,
   markAllAsRead,
   shareMessageOp,
+  createScheduledMessageOp,
+  fetchScheduledMessages,
+  fetchScheduledCountForChannel,
+  updateScheduledMessageOp,
+  deleteScheduledMessageOp,
+  fetchFiles,
+  fetchCustomEmojis,
+  uploadCustomEmoji,
+  deleteCustomEmoji,
+  fetchBookmarks,
+  addBookmarkOp,
+  removeBookmarkOp,
+  registerPushToken,
+  unregisterPushToken,
+  getGlobalNotificationPrefs,
+  updateGlobalNotificationPrefs,
+  fetchSlashCommands,
+  executeSlashCommand,
 } from "./operations";
+
+export {
+  STATUS_PRESETS,
+  DURATION_OPTIONS,
+  DURATION_LABELS,
+  durationToExpiresAt,
+} from "./status-presets";
+export type { StatusPreset, DurationOption } from "./status-presets";
+
+export { useSocketEvent } from "./hooks";
+
+export {
+  isCustomEmojiShortcode,
+  parseCustomEmojiName,
+  buildCustomEmojiShortcode,
+  findCustomEmoji,
+} from "./emoji-utils";

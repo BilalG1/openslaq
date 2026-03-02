@@ -405,6 +405,163 @@ describe("group DMs — leave", () => {
   });
 });
 
+describe("group DMs — member limits", () => {
+  let clientA: Client;
+  let slug: string;
+  let userIds: string[] = [];
+
+  beforeAll(async () => {
+    const uid = testId();
+
+    const ctxA = await createTestClient({
+      id: `gdm-lim-a-${uid}`,
+      displayName: "Lim A",
+      email: `gdm-lim-a-${uid}@openslaq.dev`,
+    });
+    clientA = ctxA.client;
+    const workspace = await createTestWorkspace(clientA);
+    slug = workspace.slug;
+
+    // Create 9 additional users (A + 9 = 10 total workspace members)
+    for (let i = 0; i < 9; i++) {
+      const ctx = await createTestClient({
+        id: `gdm-lim-${i}-${uid}`,
+        displayName: `Lim ${i}`,
+        email: `gdm-lim-${i}-${uid}@openslaq.dev`,
+      });
+      await addToWorkspace(clientA, slug, ctx.client);
+      userIds.push(ctx.user.id);
+    }
+  });
+
+  test("create group DM with creator ID in memberIds (dedup → <3) → 400", async () => {
+    // Pass 2 memberIds but one is the creator → after dedup, only 2 unique members
+    const ctxA = await createTestClient({
+      id: `gdm-lim-a-${testId()}`,
+      displayName: "Lim A2",
+      email: `gdm-lim-a2-${testId()}@openslaq.dev`,
+    });
+    const ws = await createTestWorkspace(ctxA.client);
+    const ctx2 = await createTestClient({
+      id: `gdm-lim-dup-${testId()}`,
+      displayName: "Lim Dup",
+      email: `gdm-lim-dup-${testId()}@openslaq.dev`,
+    });
+    await addToWorkspace(ctxA.client, ws.slug, ctx2.client);
+
+    const res = await ctxA.client.api.workspaces[":slug"]["group-dm"].$post({
+      param: { slug: ws.slug },
+      json: { memberIds: [ctx2.user.id, ctxA.user.id] }, // creator in memberIds → dedup to 2
+    });
+    expect(res.status).toBe(400);
+  });
+
+  test("add member when group already has 9 members → 400", async () => {
+    // Create group DM with 8 other members (A + 8 = 9 total)
+    const first8 = userIds.slice(0, 8);
+    const createRes = await clientA.api.workspaces[":slug"]["group-dm"].$post({
+      param: { slug },
+      json: { memberIds: first8 },
+    });
+    expect(createRes.status).toBe(201);
+    const body = (await createRes.json()) as { channel: { id: string }; members: { id: string }[] };
+    expect(body.members.length).toBe(9); // A + 8
+
+    // Try to add the 9th extra member → total would be 10 → should fail
+    const res = await clientA.api.workspaces[":slug"]["group-dm"][":channelId"].members.$post({
+      param: { slug, channelId: body.channel.id },
+      json: { userId: userIds[8]! },
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe("group DMs — cross-workspace isolation", () => {
+  let clientA: Client;
+  let clientB: Client;
+  let slugA: string;
+  let slugB: string;
+  let groupDmChannelId: string;
+  let userCId: string;
+
+  beforeAll(async () => {
+    const uid = testId();
+
+    // User A owns workspace A
+    const ctxA = await createTestClient({
+      id: `gdm-xws-a-${uid}`,
+      displayName: "XWS A",
+      email: `gdm-xws-a-${uid}@openslaq.dev`,
+    });
+    clientA = ctxA.client;
+    const workspaceA = await createTestWorkspace(clientA);
+    slugA = workspaceA.slug;
+
+    // User B owns workspace B and is also a member of workspace A
+    const ctxB = await createTestClient({
+      id: `gdm-xws-b-${uid}`,
+      displayName: "XWS B",
+      email: `gdm-xws-b-${uid}@openslaq.dev`,
+    });
+    clientB = ctxB.client;
+    const workspaceB = await createTestWorkspace(clientB);
+    slugB = workspaceB.slug;
+    await addToWorkspace(clientA, slugA, clientB);
+
+    // User C is in workspace A (for the group DM) and also in workspace B
+    const ctxC = await createTestClient({
+      id: `gdm-xws-c-${uid}`,
+      displayName: "XWS C",
+      email: `gdm-xws-c-${uid}@openslaq.dev`,
+    });
+    userCId = ctxC.user.id;
+    await addToWorkspace(clientA, slugA, ctxC.client);
+    await addToWorkspace(clientB, slugB, ctxC.client);
+
+    // Create a group DM in workspace A with A, B, C
+    const res = await clientA.api.workspaces[":slug"]["group-dm"].$post({
+      param: { slug: slugA },
+      json: { memberIds: [ctxB.user.id, ctxC.user.id] },
+    });
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as { channel: { id: string } };
+    groupDmChannelId = body.channel.id;
+
+    // Add a new user to workspace B for the add-member test
+    const ctxD = await createTestClient({
+      id: `gdm-xws-d-${uid}`,
+      displayName: "XWS D",
+      email: `gdm-xws-d-${uid}@openslaq.dev`,
+    });
+    await addToWorkspace(clientA, slugA, ctxD.client);
+    await addToWorkspace(clientB, slugB, ctxD.client);
+  });
+
+  test("cannot add member to group DM via another workspace → 400", async () => {
+    // User B tries to add user C to the workspace-A group DM via workspace B's API
+    const res = await clientB.api.workspaces[":slug"]["group-dm"][":channelId"].members.$post({
+      param: { slug: slugB, channelId: groupDmChannelId },
+      json: { userId: userCId },
+    });
+    expect(res.status).toBe(400);
+  });
+
+  test("cannot rename group DM via another workspace → 400", async () => {
+    const res = await clientB.api.workspaces[":slug"]["group-dm"][":channelId"].$patch({
+      param: { slug: slugB, channelId: groupDmChannelId },
+      json: { displayName: "Hacked Name" },
+    });
+    expect(res.status).toBe(400);
+  });
+
+  test("cannot leave group DM via another workspace → 400", async () => {
+    const res = await clientB.api.workspaces[":slug"]["group-dm"][":channelId"].members.me.$delete({
+      param: { slug: slugB, channelId: groupDmChannelId },
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
 describe("group DMs — rename", () => {
   let clientA: Client;
   let slug: string;

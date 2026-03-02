@@ -58,11 +58,14 @@ export function useNotifications() {
 
       const channel = state.channels.find((c) => c.id === message.channelId);
       const dm = state.dms.find((d) => d.channel.id === message.channelId);
+      const groupDm = state.groupDms.find((g) => g.channel.id === message.channelId);
       const locationName = channel
         ? `#${channel.name}`
         : dm
           ? dm.otherUser.displayName
-          : "Unknown";
+          : groupDm
+            ? groupDm.members.map((m) => m.displayName).join(", ")
+            : "Unknown";
 
       const preview = truncate(stripMarkdown(message.content), 100);
       const senderName = message.senderDisplayName ?? "Someone";
@@ -93,7 +96,26 @@ export function useNotifications() {
               type: "workspace/selectDm",
               channelId: message.channelId,
             });
+          } else if (groupDm) {
+            dispatch({
+              type: "workspace/selectGroupDm",
+              channelId: message.channelId,
+            });
           }
+          if (message.parentMessageId) {
+            dispatch({
+              type: "workspace/openThread",
+              messageId: message.parentMessageId,
+            });
+          }
+          const targetMessageId = message.parentMessageId ?? message.id;
+          dispatch({
+            type: "navigation/setScrollTarget",
+            scrollTarget: {
+              messageId: targetMessageId,
+              highlightMessageId: targetMessageId,
+            },
+          });
           notification.close();
         };
       }
@@ -102,7 +124,7 @@ export function useNotifications() {
         new Audio("/notification.mp3").play().catch(() => {});
       }
     },
-    [user?.id, state.channels, state.dms, state.channelNotificationPrefs, dispatch],
+    [user?.id, state.channels, state.dms, state.groupDms, state.channelNotificationPrefs, dispatch],
   );
 
   useSocketEvent("message:new", handleNewMessage);

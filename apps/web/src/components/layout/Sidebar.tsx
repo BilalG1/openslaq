@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGalleryMode } from "../../gallery/gallery-context";
 import { ChannelList } from "../channel/ChannelList";
@@ -63,8 +63,11 @@ interface SidebarProps {
   starredChannelIds?: string[];
   channelNotificationPrefs?: Record<string, ChannelNotifyLevel>;
   onSetNotificationLevel?: (channelId: string, level: ChannelNotifyLevel) => void;
-  activeView?: "channel" | "unreads";
+  activeView?: "channel" | "unreads" | "saved" | "scheduled" | "files";
   onSelectUnreadsView?: () => void;
+  onSelectSavedView?: () => void;
+  onSelectScheduledView?: () => void;
+  onSelectFilesView?: () => void;
   style?: React.CSSProperties;
 }
 
@@ -102,6 +105,9 @@ export function Sidebar({
   channelNotificationPrefs,
   activeView,
   onSelectUnreadsView,
+  onSelectSavedView,
+  onSelectScheduledView,
+  onSelectFilesView,
   onSetNotificationLevel,
   style,
 }: SidebarProps) {
@@ -113,16 +119,20 @@ export function Sidebar({
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [sidebarCollapse, setSidebarCollapse] = useState(loadCollapseState);
 
-  useEffect(() => {
-    localStorage.setItem("openslaq-sidebar-collapse", JSON.stringify(sidebarCollapse));
-  }, [sidebarCollapse]);
-
   const toggleChannelsCollapsed = useCallback(() => {
-    setSidebarCollapse((prev) => ({ ...prev, channels: !prev.channels }));
+    setSidebarCollapse((prev) => {
+      const next = { ...prev, channels: !prev.channels };
+      localStorage.setItem("openslaq-sidebar-collapse", JSON.stringify(next));
+      return next;
+    });
   }, []);
 
   const toggleDmsCollapsed = useCallback(() => {
-    setSidebarCollapse((prev) => ({ ...prev, dms: !prev.dms }));
+    setSidebarCollapse((prev) => {
+      const next = { ...prev, dms: !prev.dms };
+      localStorage.setItem("openslaq-sidebar-collapse", JSON.stringify(next));
+      return next;
+    });
   }, []);
 
   const currentWorkspace = workspaces.find((ws) => ws.slug === workspaceSlug);
@@ -222,6 +232,54 @@ export function Sidebar({
           </button>
         );
       })()}
+
+      {onSelectSavedView && (
+        <button
+          type="button"
+          onClick={onSelectSavedView}
+          className={`w-full px-4 py-2 text-[13px] bg-transparent border-none cursor-pointer text-left flex items-center gap-2 hover:bg-gray-800 ${
+            activeView === "saved" ? "bg-white/15 text-white" : "text-gray-400"
+          }`}
+          data-testid="saved-view-link"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
+          </svg>
+          Saved Items
+        </button>
+      )}
+
+      {onSelectScheduledView && (
+        <button
+          type="button"
+          onClick={onSelectScheduledView}
+          className={`w-full px-4 py-2 text-[13px] bg-transparent border-none cursor-pointer text-left flex items-center gap-2 hover:bg-gray-800 ${
+            activeView === "scheduled" ? "bg-white/15 text-white" : "text-gray-400"
+          }`}
+          data-testid="scheduled-view-link"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+          </svg>
+          Scheduled
+        </button>
+      )}
+
+      {onSelectFilesView && (
+        <button
+          type="button"
+          onClick={onSelectFilesView}
+          className={`w-full px-4 py-2 text-[13px] bg-transparent border-none cursor-pointer text-left flex items-center gap-2 hover:bg-gray-800 ${
+            activeView === "files" ? "bg-white/15 text-white" : "text-gray-400"
+          }`}
+          data-testid="files-view-link"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+          </svg>
+          Files
+        </button>
+      )}
 
       <div className="flex-1 overflow-y-auto">
         {starredChannelIds && starredChannelIds.length > 0 && (() => {

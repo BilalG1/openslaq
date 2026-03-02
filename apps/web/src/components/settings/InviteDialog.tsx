@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useUser } from "@stackframe/react";
+import { useCurrentUser } from "../../hooks/useCurrentUser";
 import clsx from "clsx";
 import { api } from "../../api";
 import { authorizedRequest } from "../../lib/api-client";
@@ -25,7 +25,7 @@ interface InviteDialogProps {
 }
 
 export function InviteDialog({ open, onOpenChange, workspaceSlug }: InviteDialogProps) {
-  const user = useUser();
+  const user = useCurrentUser();
   const [invite, setInvite] = useState<Invite | null>(null);
   const [inviteCopied, setInviteCopied] = useState(false);
   const [loading, setLoading] = useState(false);

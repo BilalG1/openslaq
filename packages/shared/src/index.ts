@@ -22,6 +22,22 @@ export type {
   HuddleParticipant,
   HuddleState,
 } from "./types/huddle";
+export type { ScheduledMessage } from "./types/scheduled-message";
+export type { FileCategory, FileBrowserItem } from "./types/file-browser";
+export type { CustomEmoji } from "./types/custom-emoji";
+export type { ChannelBookmark } from "./types/bookmark";
+export type {
+  SlashCommandDefinition,
+  EphemeralMessage,
+  SlashCommandExecuteRequest,
+  SlashCommandExecuteResponse,
+  Reminder,
+} from "./types/slash-command";
+export type {
+  PushToken,
+  GlobalNotificationPreferences,
+  RegisterPushTokenRequest,
+} from "./types/push";
 export type {
   UserId,
   WorkspaceId,

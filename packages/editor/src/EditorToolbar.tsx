@@ -1,6 +1,6 @@
 import type { Editor } from "@tiptap/react";
 import { useCallback, useRef, useState } from "react";
-import { EmojiPicker } from "./EmojiPicker";
+import { EmojiPicker, type CustomEmojiItem } from "./EmojiPicker";
 import { LinkDialog } from "./LinkDialog";
 
 interface EditorToolbarProps {
@@ -9,13 +9,15 @@ interface EditorToolbarProps {
   disabled?: boolean;
   onFileSelect?: () => void;
   uploading?: boolean;
+  onScheduleSend?: () => void;
+  customEmojis?: CustomEmojiItem[];
 }
 
 function ToolbarDivider() {
   return <div className="w-px h-5 bg-border-strong mx-1 self-center" />;
 }
 
-export function EditorToolbar({ editor, onSend, disabled, onFileSelect, uploading }: EditorToolbarProps) {
+export function EditorToolbar({ editor, onSend, disabled, onFileSelect, uploading, onScheduleSend, customEmojis }: EditorToolbarProps) {
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [linkInitialText, setLinkInitialText] = useState("");
   const [linkInitialUrl, setLinkInitialUrl] = useState("");
@@ -144,6 +146,7 @@ export function EditorToolbar({ editor, onSend, disabled, onFileSelect, uploadin
       {emojiPickerOpen && (
         <EmojiPicker
           anchorRef={emojiButtonRef}
+          customEmojis={customEmojis}
           onSelect={(emoji) => {
             editor.chain().focus().insertContent(emoji).run();
             setEmojiPickerOpen(false);
@@ -170,19 +173,36 @@ export function EditorToolbar({ editor, onSend, disabled, onFileSelect, uploadin
             </svg>
           </button>
         )}
-        <button
-          type="button"
-          disabled={disabled || uploading}
-          onClick={onSend}
-          aria-label="Send message"
-          title="Send message"
-          className="editor-send-btn h-8 w-8 inline-flex items-center justify-center rounded bg-slaq-blue text-white disabled:opacity-50"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M1 8L14 1L11 8L14 15L1 8Z" fill="white" />
-            <path d="M11 8H1" stroke="white" strokeWidth="1.5" />
-          </svg>
-        </button>
+        <div className="inline-flex items-center">
+          <button
+            type="button"
+            disabled={disabled || uploading}
+            onClick={onSend}
+            aria-label="Send message"
+            title="Send message"
+            className={`editor-send-btn h-8 inline-flex items-center justify-center bg-slaq-blue text-white disabled:opacity-50 ${onScheduleSend ? "w-7 rounded-l" : "w-8 rounded"}`}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M1 8L14 1L11 8L14 15L1 8Z" fill="white" />
+              <path d="M11 8H1" stroke="white" strokeWidth="1.5" />
+            </svg>
+          </button>
+          {onScheduleSend && (
+            <button
+              type="button"
+              disabled={disabled || uploading}
+              onClick={onScheduleSend}
+              aria-label="Schedule message"
+              title="Schedule for later"
+              data-testid="schedule-send-button"
+              className="editor-send-btn h-8 w-5 inline-flex items-center justify-center rounded-r bg-slaq-blue text-white disabled:opacity-50 border-l border-white/20"
+            >
+              <svg width="8" height="8" viewBox="0 0 8 8" fill="white">
+                <path d="M1 3L4 6L7 3" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       <LinkDialog

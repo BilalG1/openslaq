@@ -4,7 +4,7 @@
  * In test mode (E2E_TEST_SECRET set), localhost/127.x URLs are allowed.
  */
 
-const isTestMode = !!process.env.E2E_TEST_SECRET;
+const isTestMode = !!process.env.E2E_TEST_SECRET && process.env.NODE_ENV !== "production";
 
 const BLOCKED_HOSTNAMES = new Set([
   "localhost",

@@ -11,6 +11,8 @@ import { setIO } from "./socket/io";
 import { env } from "./env";
 import { startCleanup } from "./rate-limit";
 import { closeOrphanedHuddleMessages } from "./messages/service";
+import { startScheduledMessageProcessor } from "./messages/scheduled-service";
+import { startReminderProcessor } from "./commands/reminder-service";
 
 // Use Node.js HTTP server for Socket.IO compatibility
 const httpServer = createAdaptorServer(app);
@@ -43,6 +45,8 @@ const port = env.PORT ?? env.API_PORT;
 httpServer.listen(port, () => {
   console.log(`API server running on http://localhost:${port}`);
   startCleanup();
+  startScheduledMessageProcessor();
+  startReminderProcessor();
   closeOrphanedHuddleMessages()
     .then((count) => {
       if (count > 0) console.log(`Closed ${count} orphaned huddle message(s)`);

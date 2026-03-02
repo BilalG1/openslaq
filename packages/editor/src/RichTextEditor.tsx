@@ -8,7 +8,10 @@ import { Markdown } from "tiptap-markdown";
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import clsx from "clsx";
 import { EditorToolbar } from "./EditorToolbar";
+import type { CustomEmojiItem } from "./EmojiPicker";
 import { createMentionSuggestion, type MentionSuggestionItem } from "./useMentionSuggestion";
+import { SlashCommand } from "./SlashCommandExtension";
+import { createSlashCommandSuggestion, type SlashCommandItem } from "./useSlashCommandSuggestion";
 import { extractPastedFiles, getMarkdown, parseVsCodePaste, shouldSendOnEnter } from "./editor-helpers";
 import "./rich-text-editor.css";
 
@@ -23,6 +26,10 @@ interface RichTextEditorProps {
   onContentChange?: (markdown: string) => void;
   filePreview?: React.ReactNode;
   members?: MentionSuggestionItem[];
+  onScheduleSend?: () => void;
+  customEmojis?: CustomEmojiItem[];
+  slashCommands?: SlashCommandItem[];
+  onSlashCommand?: (command: string, args: string) => void;
 }
 
 export function RichTextEditor({
@@ -36,6 +43,10 @@ export function RichTextEditor({
   onContentChange,
   filePreview,
   members = [],
+  onScheduleSend,
+  customEmojis,
+  slashCommands = [],
+  onSlashCommand,
 }: RichTextEditorProps) {
   const [focused, setFocused] = useState(false);
   const [isEmpty, setIsEmpty] = useState(true);
@@ -44,8 +55,20 @@ export function RichTextEditor({
   const membersRef = useRef(members);
   membersRef.current = members;
 
+  const slashCommandsRef = useRef(slashCommands);
+  slashCommandsRef.current = slashCommands;
+
+  const onSlashCommandRef = useRef(onSlashCommand);
+  onSlashCommandRef.current = onSlashCommand;
+
   const mentionSuggestion = useMemo(
     () => createMentionSuggestion(() => membersRef.current),
+    [],
+  );
+
+  const slashSuggestionActiveRef = useRef(false);
+  const slashCommandSuggestion = useMemo(
+    () => createSlashCommandSuggestion(() => slashCommandsRef.current, slashSuggestionActiveRef),
     [],
   );
 
@@ -63,6 +86,7 @@ export function RichTextEditor({
       }),
       Placeholder.configure({ placeholder }),
       Markdown,
+      SlashCommand.configure({ suggestion: slashCommandSuggestion }),
     ],
     autofocus: true,
     onFocus() {
@@ -81,6 +105,8 @@ export function RichTextEditor({
     editorProps: {
       handleKeyDown(_view, event) {
         if (!editor) return false;
+        // Let the slash command suggestion plugin handle keys when it's active
+        if (slashSuggestionActiveRef.current) return false;
 
         const shouldSend = shouldSendOnEnter({
           key: event.key,
@@ -139,8 +165,22 @@ export function RichTextEditor({
   const handleSend = useCallback(() => {
     if (!editor) return;
     const md = getMarkdown(editor.storage);
-    if (md.trim() || hasAttachments) {
-      onSubmit(md.trim());
+    const trimmed = md.trim();
+
+    // Intercept slash commands
+    if (trimmed.startsWith("/") && onSlashCommandRef.current) {
+      const spaceIdx = trimmed.indexOf(" ");
+      const command = spaceIdx === -1 ? trimmed.slice(1) : trimmed.slice(1, spaceIdx);
+      const args = spaceIdx === -1 ? "" : trimmed.slice(spaceIdx + 1).trim();
+      if (command) {
+        onSlashCommandRef.current(command, args);
+        editor.commands.clearContent();
+        return;
+      }
+    }
+
+    if (trimmed || hasAttachments) {
+      onSubmit(trimmed);
       editor.commands.clearContent();
     }
   }, [editor, onSubmit, hasAttachments]);
@@ -164,6 +204,8 @@ export function RichTextEditor({
         disabled={isEmpty && !hasAttachments}
         onFileSelect={onFileSelect}
         uploading={uploading}
+        onScheduleSend={onScheduleSend}
+        customEmojis={customEmojis}
       />
     </div>
   );

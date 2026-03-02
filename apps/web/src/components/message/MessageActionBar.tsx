@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { EmojiPicker } from "./EmojiPicker";
+import { EmojiPicker, type CustomEmojiItem } from "./EmojiPicker";
 import { Button, Tooltip } from "../ui";
 
 interface MessageActionBarProps {
   onAddReaction: (emoji: string) => void;
+  customEmojis?: CustomEmojiItem[];
   onOpenThread?: () => void;
   onEditMessage?: () => void;
   onDeleteMessage?: () => void;
@@ -11,12 +12,16 @@ interface MessageActionBarProps {
   onPinMessage?: () => void;
   onUnpinMessage?: () => void;
   onShareMessage?: () => void;
+  onSaveMessage?: () => void;
+  onUnsaveMessage?: () => void;
   isPinned?: boolean;
+  isSaved?: boolean;
   isOwnMessage?: boolean;
 }
 
 export function MessageActionBar({
   onAddReaction,
+  customEmojis,
   onOpenThread,
   onEditMessage,
   onDeleteMessage,
@@ -24,7 +29,10 @@ export function MessageActionBar({
   onPinMessage,
   onUnpinMessage,
   onShareMessage,
+  onSaveMessage,
+  onUnsaveMessage,
   isPinned,
+  isSaved,
   isOwnMessage,
 }: MessageActionBarProps) {
   const [showPicker, setShowPicker] = useState(false);
@@ -94,6 +102,7 @@ export function MessageActionBar({
       {showPicker && (
         <EmojiPicker
           anchorRef={emojiButtonRef}
+          customEmojis={customEmojis}
           onSelect={(emoji) => {
             onAddReaction(emoji);
             setShowPicker(false);
@@ -121,7 +130,7 @@ export function MessageActionBar({
           </Button>
         </Tooltip>
       )}
-      {(onMarkAsUnread || onPinMessage || onUnpinMessage || onShareMessage || (isOwnMessage && (onEditMessage || onDeleteMessage))) && (
+      {(onMarkAsUnread || onPinMessage || onUnpinMessage || onShareMessage || onSaveMessage || onUnsaveMessage || (isOwnMessage && (onEditMessage || onDeleteMessage))) && (
         <div className="relative">
           <Tooltip content="More actions">
             <Button
@@ -195,6 +204,32 @@ export function MessageActionBar({
                   className="w-full text-left px-3 py-1.5 text-sm text-primary hover:bg-surface-secondary cursor-pointer bg-transparent border-none"
                 >
                   Share message
+                </button>
+              )}
+              {isSaved && onUnsaveMessage && (
+                <button
+                  type="button"
+                  data-testid="unsave-message-action"
+                  onClick={() => {
+                    setShowMenu(false);
+                    onUnsaveMessage();
+                  }}
+                  className="w-full text-left px-3 py-1.5 text-sm text-primary hover:bg-surface-secondary cursor-pointer bg-transparent border-none"
+                >
+                  Remove from saved
+                </button>
+              )}
+              {!isSaved && onSaveMessage && (
+                <button
+                  type="button"
+                  data-testid="save-message-action"
+                  onClick={() => {
+                    setShowMenu(false);
+                    onSaveMessage();
+                  }}
+                  className="w-full text-left px-3 py-1.5 text-sm text-primary hover:bg-surface-secondary cursor-pointer bg-transparent border-none"
+                >
+                  Save for later
                 </button>
               )}
               {isOwnMessage && onEditMessage && (
