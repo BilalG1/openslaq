@@ -1,10 +1,12 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { asMessageId, asChannelId, asWorkspaceId } from "@openslaq/shared";
+import type { BotMessage } from "@openslaq/shared";
 import type { BotAuthEnv } from "./auth-middleware";
 import { botAuth, requireScope } from "./auth-middleware";
 import { rlBotSend, rlBotRead } from "../rate-limit";
 import { isChannelMember, listChannels, listChannelMembers } from "../channels/service";
-import { createMessage, getMessages, editMessage, deleteMessage } from "../messages/service";
+import { createMessage, getMessages, editMessage, deleteMessage, getMessageById } from "../messages/service";
+import { messages } from "../messages/schema";
 import { toggleReaction } from "../reactions/service";
 import { setMessageActions } from "./service";
 import { getIO } from "../socket/io";
@@ -82,6 +84,7 @@ const updateMessageRoute = createRoute({
   },
   responses: {
     200: { content: { "application/json": { schema: messageSchema } }, description: "Message updated" },
+    403: { content: { "application/json": { schema: errorSchema } }, description: "Not a channel member" },
     404: { content: { "application/json": { schema: errorSchema } }, description: "Message not found" },
   },
 });
@@ -98,6 +101,7 @@ const deleteMessageRoute = createRoute({
   request: { params: messageIdParam },
   responses: {
     200: { content: { "application/json": { schema: z.object({ ok: z.literal(true) }) } }, description: "Deleted" },
+    403: { content: { "application/json": { schema: errorSchema } }, description: "Not a channel member" },
     404: { content: { "application/json": { schema: errorSchema } }, description: "Message not found" },
   },
 });
@@ -175,6 +179,7 @@ const toggleReactionRoute = createRoute({
   },
   responses: {
     200: { content: { "application/json": { schema: z.object({ reactions: z.array(z.object({ emoji: z.string(), count: z.number(), userIds: z.array(z.string()) })) }) } }, description: "Reactions" },
+    403: { content: { "application/json": { schema: errorSchema } }, description: "Not a channel member" },
     404: { content: { "application/json": { schema: errorSchema } }, description: "Message not found" },
   },
 });
@@ -208,6 +213,9 @@ const app = new OpenAPIHono<BotAuthEnv>()
     }
 
     const message = await createMessage(channelId, user.id, content);
+    if ("error" in message) {
+      return c.json({ error: message.error }, 403);
+    }
 
     // Store actions if provided
     if (actions && actions.length > 0) {
@@ -217,10 +225,10 @@ const app = new OpenAPIHono<BotAuthEnv>()
     // Add bot info to the message for the socket emit
     const enriched = {
       ...message,
-      isBot: true,
+      isBot: true as const,
       botAppId,
       actions: actions ?? [],
-    };
+    } as BotMessage;
 
     const io = getIO();
     io.to(`channel:${channelId}`).emit("message:new", enriched);
@@ -232,6 +240,17 @@ const app = new OpenAPIHono<BotAuthEnv>()
     const botAppId = c.get("botAppId");
     const messageId = asMessageId(c.req.valid("param").id);
     const { content, actions } = c.req.valid("json");
+
+    // Fetch the message first, verify channel membership, THEN edit
+    const msg = await getMessageById(messageId);
+    if (!msg) {
+      return c.json({ error: "Message not found or not yours" }, 404);
+    }
+
+    const isMember = await isChannelMember(asChannelId(msg.channelId), user.id);
+    if (!isMember) {
+      return c.json({ error: "Bot is not a member of this channel" }, 403);
+    }
 
     const updated = await editMessage(messageId, user.id, content ?? "");
     if (!updated) {
@@ -245,10 +264,10 @@ const app = new OpenAPIHono<BotAuthEnv>()
 
     const enriched = {
       ...updated,
-      isBot: true,
+      isBot: true as const,
       botAppId,
       actions: actions ?? [],
-    };
+    } as BotMessage;
 
     const io = getIO();
     io.to(`channel:${updated.channelId}`).emit("message:updated", enriched);
@@ -258,6 +277,19 @@ const app = new OpenAPIHono<BotAuthEnv>()
   .openapi(deleteMessageRoute, async (c) => {
     const user = c.get("user");
     const messageId = asMessageId(c.req.valid("param").id);
+
+    // Look up the message's channel and verify membership before deleting
+    const msg = await db.query.messages.findFirst({
+      where: eq(messages.id, messageId),
+      columns: { channelId: true },
+    });
+    if (msg) {
+      const isMember = await isChannelMember(asChannelId(msg.channelId), user.id);
+      if (!isMember) {
+        return c.json({ error: "Bot is not a member of this channel" }, 403);
+      }
+    }
+
     const deleted = await deleteMessage(messageId, user.id);
     if (!deleted) {
       return c.json({ error: "Message not found or not yours" }, 404);
@@ -303,6 +335,19 @@ const app = new OpenAPIHono<BotAuthEnv>()
     const user = c.get("user");
     const messageId = asMessageId(c.req.valid("param").id);
     const { emoji } = c.req.valid("json");
+
+    // Look up the message's channel and verify bot membership
+    const msg = await db.query.messages.findFirst({
+      where: eq(messages.id, messageId),
+      columns: { channelId: true },
+    });
+    if (!msg) {
+      return c.json({ error: "Message not found" }, 404);
+    }
+    const isMember = await isChannelMember(asChannelId(msg.channelId), user.id);
+    if (!isMember) {
+      return c.json({ error: "Bot is not a member of this channel" }, 403);
+    }
 
     const result = await toggleReaction(messageId, user.id, emoji);
     if (!result) {

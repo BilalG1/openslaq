@@ -195,6 +195,7 @@ describe("normalizeMessage", () => {
         id: "msg-shared",
         channelId: "ch-2",
         channelName: "random",
+        channelType: "public" as const,
         userId: "u-2",
         senderDisplayName: "Bob",
         senderAvatarUrl: null,

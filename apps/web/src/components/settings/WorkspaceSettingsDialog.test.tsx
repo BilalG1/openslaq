@@ -14,8 +14,13 @@ mock.module("./CustomEmojiManager", () => ({
 
 // Must be a stable reference so effect deps don't loop
 const mockUser = { id: "user-1" };
-mock.module("@stackframe/react", () => ({
-  useUser: () => mockUser,
+mock.module("../../hooks/useCurrentUser", () => ({
+  useCurrentUser: () => mockUser,
+}));
+
+// Prevent @stripe/stripe-js side-effect script injection in happy-dom
+mock.module("@stripe/stripe-js", () => ({
+  loadStripe: async () => null,
 }));
 
 // Default members: owner, admin, regular member

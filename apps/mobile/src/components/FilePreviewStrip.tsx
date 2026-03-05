@@ -55,6 +55,7 @@ export function FilePreviewStrip({ files, onRemove }: Props) {
           <Pressable
             testID={`file-remove-${file.id}`}
             onPress={() => onRemove(file.id)}
+            hitSlop={12}
             className="absolute -top-1 -right-1 w-5 h-5 rounded-full items-center justify-center"
             style={{ backgroundColor: theme.colors.borderStrong }}
           >

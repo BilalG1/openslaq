@@ -8,13 +8,13 @@ export const pinnedMessages = pgTable(
   {
     channelId: uuid("channel_id")
       .notNull()
-      .references(() => channels.id),
+      .references(() => channels.id, { onDelete: "cascade" }),
     messageId: uuid("message_id")
       .notNull()
       .references(() => messages.id, { onDelete: "cascade" }),
     pinnedBy: text("pinned_by")
       .notNull()
-      .references(() => users.id),
+      .references(() => users.id, { onDelete: "cascade" }),
     pinnedAt: timestamp("pinned_at").defaultNow().notNull(),
   },
   (t) => [

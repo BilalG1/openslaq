@@ -1,7 +1,7 @@
 export type { Workspace, WorkspaceInvite } from "./types/workspace";
 export type { User, WorkspaceMember } from "./types/user";
 export type { Channel, ChannelMember, ChannelNotifyLevel } from "./types/channel";
-export type { Message, Mention, HuddleMessageMetadata, LinkPreview, SharedMessageInfo } from "./types/message";
+export type { Message, RegularMessage, BotMessage, HuddleMessage, Mention, HuddleMessageMetadata, LinkPreview, SharedMessageInfo } from "./types/message";
 export type {
   BotScope,
   BotEventType,

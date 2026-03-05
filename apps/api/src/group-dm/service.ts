@@ -4,21 +4,8 @@ import { channels, channelMembers } from "../channels/schema";
 import { users } from "../users/schema";
 import { workspaceMembers } from "../workspaces/schema";
 import type { Channel, WorkspaceId, UserId } from "@openslaq/shared";
-import { asChannelId, asWorkspaceId, asUserId, CHANNEL_TYPES } from "@openslaq/shared";
-
-function toChannel(row: typeof channels.$inferSelect): Channel {
-  return {
-    id: asChannelId(row.id),
-    workspaceId: asWorkspaceId(row.workspaceId),
-    name: row.name,
-    type: row.type,
-    description: row.description,
-    displayName: row.displayName ?? null,
-    isArchived: row.isArchived,
-    createdBy: row.createdBy ? asUserId(row.createdBy) : null,
-    createdAt: row.createdAt.toISOString(),
-  };
-}
+import { asUserId, CHANNEL_TYPES } from "@openslaq/shared";
+import { toChannel } from "../channels/to-channel";
 
 export interface GroupDmMember {
   id: UserId;
@@ -80,7 +67,7 @@ export async function createGroupDm(
   // Check for existing group DM with exact same member set
   const sortedIds = [...allMemberIds].sort();
   const existingGroupDms = await db
-    .select({ channelId: channelMembers.channelId })
+    .select({ channelId: channelMembers.channelId, userId: channelMembers.userId })
     .from(channelMembers)
     .innerJoin(channels, eq(channels.id, channelMembers.channelId))
     .where(
@@ -90,24 +77,16 @@ export async function createGroupDm(
       ),
     );
 
-  // Group by channel and check for exact member match
+  // Group by channel and check for exact member match in memory
   const channelMemberMap = new Map<string, string[]>();
   for (const row of existingGroupDms) {
     const arr = channelMemberMap.get(row.channelId) ?? [];
-    arr.push(row.channelId);
+    arr.push(row.userId);
     channelMemberMap.set(row.channelId, arr);
   }
 
-  // Get unique channel IDs
-  const candidateChannelIds = [...new Set(existingGroupDms.map((r) => r.channelId))];
-
-  for (const channelId of candidateChannelIds) {
-    const members = await db
-      .select({ userId: channelMembers.userId })
-      .from(channelMembers)
-      .where(eq(channelMembers.channelId, channelId));
-
-    const existingSorted = members.map((m) => m.userId).sort();
+  for (const [channelId, memberUserIds] of channelMemberMap) {
+    const existingSorted = [...memberUserIds].sort();
     if (
       existingSorted.length === sortedIds.length &&
       existingSorted.every((id, i) => id === sortedIds[i])
@@ -184,14 +163,33 @@ export async function listGroupDms(
     .from(channels)
     .where(inArray(channels.id, userGroupDmChannelIds));
 
-  const results: GroupDmListItem[] = [];
+  if (channelRows.length === 0) return [];
 
-  for (const channel of channelRows) {
-    const members = await getGroupDmMembers(channel.id);
-    results.push({ channel: toChannel(channel), members });
+  // Batch-fetch all members across all group DMs in a single query
+  const channelIds = channelRows.map((c) => c.id);
+  const memberRows = await db
+    .select({
+      channelId: channelMembers.channelId,
+      id: users.id,
+      displayName: users.displayName,
+      avatarUrl: users.avatarUrl,
+    })
+    .from(channelMembers)
+    .innerJoin(users, eq(channelMembers.userId, users.id))
+    .where(inArray(channelMembers.channelId, channelIds));
+
+  // Group members by channel
+  const membersByChannel = new Map<string, GroupDmMember[]>();
+  for (const row of memberRows) {
+    const arr = membersByChannel.get(row.channelId) ?? [];
+    arr.push({ id: asUserId(row.id), displayName: row.displayName, avatarUrl: row.avatarUrl });
+    membersByChannel.set(row.channelId, arr);
   }
 
-  return results;
+  return channelRows.map((channel) => ({
+    channel: toChannel(channel),
+    members: membersByChannel.get(channel.id) ?? [],
+  }));
 }
 
 export async function addGroupDmMember(

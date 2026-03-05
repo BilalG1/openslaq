@@ -21,7 +21,7 @@ function makeMessage(overrides: Partial<Message> = {}): Message {
     mentions: [],
     isPinned: true,
     ...overrides,
-  };
+  } as Message;
 }
 
 const defaultProps = {

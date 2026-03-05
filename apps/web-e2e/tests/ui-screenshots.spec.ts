@@ -98,18 +98,18 @@ test.describe("UI Screenshots", () => {
     const msg2 = await bobApi.createMessage(channel.id, "Nice work Alice! I tested locally and everything looks great.");
     const msg3 = await testWorkspace.api.createMessage(channel.id, "Awesome — merging to main now. Thanks for the quick turnaround!");
 
-    // Add reactions
-    await aliceApi.toggleReaction(msg2.id, "thumbsup");
-    await bobApi.toggleReaction(msg1.id, "rocket");
-    await testWorkspace.api.toggleReaction(msg1.id, "rocket");
-    await testWorkspace.api.toggleReaction(msg1.id, "white_check_mark");
-    await aliceApi.toggleReaction(msg3.id, "tada");
-    await bobApi.toggleReaction(msg3.id, "tada");
+    // Add reactions (use unicode directly for proper glyph rendering)
+    await aliceApi.toggleReaction(msg2.id, "👍");
+    await bobApi.toggleReaction(msg1.id, "🚀");
+    await testWorkspace.api.toggleReaction(msg1.id, "🚀");
+    await testWorkspace.api.toggleReaction(msg1.id, "✅");
+    await aliceApi.toggleReaction(msg3.id, "🎉");
+    await bobApi.toggleReaction(msg3.id, "🎉");
 
     await openWorkspaceChannel(page, testWorkspace.slug);
     await expect(page.getByText("merging to main now")).toBeVisible();
     // Wait for reactions to render (reactions are rendered as pill buttons with test IDs)
-    await expect(page.getByTestId("reaction-pill-rocket").first()).toBeVisible();
+    await expect(page.getByTestId("reaction-pill-🚀").first()).toBeVisible();
     await page.screenshot({ path: "test-results/channel-messages-reactions.png", fullPage: true });
   });
 
@@ -151,7 +151,8 @@ test.describe("UI Screenshots", () => {
   test("channel with bookmarks", async ({ page, testWorkspace }) => {
     await openWorkspaceChannel(page, testWorkspace.slug);
 
-    // Add bookmarks via UI
+    // Add first bookmark via overflow menu (no bookmarks yet)
+    await page.getByTestId("channel-overflow-menu").click();
     await page.getByTestId("add-bookmark-button").click();
     await expect(page.getByTestId("bookmark-url-input")).toBeVisible();
     await page.getByTestId("bookmark-url-input").fill("https://github.com/openslaq/openslaq");

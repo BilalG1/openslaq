@@ -87,6 +87,13 @@ async function main() {
   const prefix = pickPrefix(used);
   const prefixStr = String(prefix);
 
+  // Check .env exists before creating worktree to avoid leaving a half-baked worktree
+  const rootEnvPath = join(repoRoot, ".env");
+  if (!existsSync(rootEnvPath)) {
+    console.error("Error: No .env file found in repo root. Copy .env.example to .env first.");
+    process.exit(1);
+  }
+
   console.error(`Creating worktree "${name}" with port prefix ${prefixStr}...`);
 
   // Ensure .worktrees directory exists
@@ -95,13 +102,6 @@ async function main() {
   // Create git worktree on a new branch based on HEAD
   const branch = `wt/${name}`;
   await $`git worktree add -b ${branch} ${worktreePath} HEAD`.cwd(repoRoot).quiet();
-
-  // Generate .env
-  const rootEnvPath = join(repoRoot, ".env");
-  if (!existsSync(rootEnvPath)) {
-    console.error("Error: No .env file found in repo root. Copy .env.example to .env first.");
-    process.exit(1);
-  }
   const rootEnv = readFileSync(rootEnvPath, "utf-8");
   const worktreeEnv = rewriteEnv(rootEnv, prefix);
   writeFileSync(join(worktreePath, ".env"), worktreeEnv);

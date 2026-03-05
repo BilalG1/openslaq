@@ -45,11 +45,13 @@ export function SharedMessageCard({ sharedMessage }: Props) {
             {initial}
           </Text>
         </View>
-        <Text style={{ fontSize: 13, fontWeight: "600", color: theme.colors.textPrimary }}>
+        <Text style={{ flex: 1, fontSize: 13, fontWeight: "600", color: theme.colors.textPrimary }} numberOfLines={1}>
           {sharedMessage.senderDisplayName}
         </Text>
-        <Text style={{ fontSize: 12, color: theme.colors.textFaint, marginLeft: 4 }}>
-          in #{sharedMessage.channelName}
+        <Text style={{ flexShrink: 1, fontSize: 12, color: theme.colors.textFaint, marginLeft: 4 }} numberOfLines={1}>
+          in {sharedMessage.channelType === "public" || sharedMessage.channelType === "private"
+            ? `#${sharedMessage.channelName}`
+            : sharedMessage.channelName}
         </Text>
         <Text style={{ fontSize: 11, color: theme.colors.textFaint, marginLeft: 6 }}>
           {formatTime(sharedMessage.createdAt)}

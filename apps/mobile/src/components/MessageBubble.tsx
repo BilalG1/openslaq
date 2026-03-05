@@ -118,7 +118,7 @@ export function MessageBubble({
                 className="flex-row items-center rounded-full px-2 py-0.5"
                 style={{
                   backgroundColor: isActive ? theme.colors.surfaceSelected : theme.colors.surfaceTertiary,
-                  borderWidth: isActive ? 1 : 0,
+                  borderWidth: 1,
                   borderColor: isActive ? theme.brand.primary : "transparent",
                 }}
               >

@@ -12,7 +12,7 @@ const fileBrowserItemSchema = z.object({
   size: z.number(),
   category: z.enum(["images", "videos", "documents", "audio", "other"]),
   downloadUrl: z.string(),
-  uploadedBy: z.string(),
+  uploadedBy: z.string().nullable(),
   uploaderName: z.string(),
   channelId: z.string(),
   channelName: z.string(),

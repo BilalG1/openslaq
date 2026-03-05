@@ -8,6 +8,26 @@ jest.mock("expo-router", () => ({
   useLocalSearchParams: () => ({ workspaceSlug: "acme" }),
 }));
 
+jest.mock("expo-status-bar", () => ({
+  StatusBar: () => null,
+}));
+
+jest.mock("react-native-safe-area-context", () => ({
+  useSafeAreaInsets: () => ({ top: 44, bottom: 34, left: 0, right: 0 }),
+}));
+
+jest.mock("react-native-svg", () => {
+  const { View } = require("react-native");
+  return {
+    __esModule: true,
+    default: View,
+    Svg: (props: Record<string, unknown>) => <View {...props} />,
+    Path: View,
+    Rect: View,
+    Line: View,
+  };
+});
+
 jest.mock("@/theme/ThemeProvider", () => ({
   useMobileTheme: () => ({
     theme: {
@@ -24,10 +44,27 @@ jest.mock("@/theme/ThemeProvider", () => ({
         borderSecondary: "#eee",
         avatarFallbackBg: "#ddd",
         avatarFallbackText: "#333",
+        headerBg: "#3F0E40",
+        headerText: "#FFFFFF",
+        headerSearchBg: "rgba(255,255,255,0.2)",
       },
       brand: { primary: "#4A154B", success: "#22c55e" },
       interaction: { badgeUnreadBg: "#f00", badgeUnreadText: "#fff" },
     },
+  }),
+}));
+
+jest.mock("@/hooks/useCurrentUserProfile", () => ({
+  useCurrentUserProfile: () => ({ profile: { displayName: "Test User", avatarUrl: null }, loading: false }),
+}));
+
+const mockOpenCreateChannel = jest.fn();
+const mockOpenNewDm = jest.fn();
+
+jest.mock("@/contexts/HomeActionsContext", () => ({
+  useHomeActions: () => ({
+    openCreateChannel: mockOpenCreateChannel,
+    openNewDm: mockOpenNewDm,
   }),
 }));
 
@@ -79,6 +116,8 @@ import HomeScreen from "../../../../app/(app)/[workspaceSlug]/(tabs)/(channels)/
 
 beforeEach(() => {
   mockPush.mockClear();
+  mockOpenCreateChannel.mockClear();
+  mockOpenNewDm.mockClear();
   mockState = {
     channels: [
       makeChannel("ch-1", "general"),
@@ -95,6 +134,7 @@ beforeEach(() => {
     unreadCounts: {},
     channelNotificationPrefs: {},
     presence: {},
+    workspaces: [{ slug: "acme", name: "Acme Co" }],
     ui: { bootstrapLoading: false, bootstrapError: null },
   };
 });
@@ -153,9 +193,37 @@ describe("HomeScreen", () => {
     expect(mockPush).toHaveBeenCalledWith("/(app)/acme/(tabs)/(channels)/dm/dm-1");
   });
 
-  it("renders Browse Channels link in Channels section footer", () => {
+  it("renders Add channel link in Channels section footer", () => {
     render(<HomeScreen />);
-    expect(screen.getByTestId("browse-channels-link")).toBeTruthy();
+    expect(screen.getByTestId("add-channel-link")).toBeTruthy();
+  });
+
+  it("calls openCreateChannel when Add channel is pressed", () => {
+    render(<HomeScreen />);
+    fireEvent.press(screen.getByTestId("add-channel-link"));
+    expect(mockOpenCreateChannel).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders new DM link in DMs section footer", () => {
+    render(<HomeScreen />);
+    expect(screen.getByTestId("new-dm-link")).toBeTruthy();
+  });
+
+  it("calls openNewDm when Start a new message is pressed", () => {
+    render(<HomeScreen />);
+    fireEvent.press(screen.getByTestId("new-dm-link"));
+    expect(mockOpenNewDm).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders FAB compose button", () => {
+    render(<HomeScreen />);
+    expect(screen.getByTestId("fab-compose")).toBeTruthy();
+  });
+
+  it("calls openNewDm when FAB is pressed", () => {
+    render(<HomeScreen />);
+    fireEvent.press(screen.getByTestId("fab-compose"));
+    expect(mockOpenNewDm).toHaveBeenCalledTimes(1);
   });
 
   // Group DM tests
@@ -186,5 +254,16 @@ describe("HomeScreen", () => {
     render(<HomeScreen />);
     fireEvent.press(screen.getByTestId("group-dm-row-gdm-1"));
     expect(mockPush).toHaveBeenCalledWith("/(app)/acme/(tabs)/(channels)/dm/gdm-1");
+  });
+
+  it("renders search pill in header", () => {
+    render(<HomeScreen />);
+    expect(screen.getByTestId("search-pill")).toBeTruthy();
+  });
+
+  it("renders quick actions row", () => {
+    render(<HomeScreen />);
+    expect(screen.getByTestId("quick-action-threads")).toBeTruthy();
+    expect(screen.getByTestId("quick-action-later")).toBeTruthy();
   });
 });

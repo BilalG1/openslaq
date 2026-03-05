@@ -16,6 +16,7 @@ function makeSharedMessage(overrides: Partial<SharedMessageInfo> = {}): SharedMe
     id: asMessageId("shared-1"),
     channelId: asChannelId("ch-2"),
     channelName: "general",
+    channelType: "public",
     userId: asUserId("user-2"),
     senderDisplayName: "Bob",
     senderAvatarUrl: null,
@@ -56,6 +57,17 @@ describe("SharedMessageCard", () => {
 
     expect(screen.getByTestId("shared-message-avatar")).toBeTruthy();
     expect(screen.getByText("B")).toBeTruthy();
+  });
+
+  it("renders DM channel name without # prefix", () => {
+    render(
+      <SharedMessageCard
+        sharedMessage={makeSharedMessage({ channelType: "dm", channelName: "a direct message" })}
+      />,
+    );
+
+    expect(screen.getByText(/a direct message/)).toBeTruthy();
+    expect(screen.queryByText(/#/)).toBeNull();
   });
 
   it("renders ? when sender name is missing", () => {

@@ -2,59 +2,66 @@ import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react-native";
 import { CollapsibleSectionHeader } from "../CollapsibleSectionHeader";
 
+jest.mock("react-native-svg", () => {
+  const { View } = require("react-native");
+  return {
+    __esModule: true,
+    default: View,
+    Svg: View,
+    Path: View,
+  };
+});
+
 jest.mock("@/theme/ThemeProvider", () => ({
   useMobileTheme: () => ({
     theme: {
       colors: {
         surface: "#fff",
         textFaint: "#999",
+        textSecondary: "#666",
       },
     },
   }),
 }));
 
 describe("CollapsibleSectionHeader", () => {
-  it("renders title and icon", () => {
+  it("renders title", () => {
     render(
       <CollapsibleSectionHeader
         sectionKey="channels"
         title="Channels"
-        icon="#"
         collapsed={false}
         onToggle={() => {}}
       />,
     );
 
     expect(screen.getByText("Channels")).toBeTruthy();
-    expect(screen.getByText("#")).toBeTruthy();
   });
 
-  it("shows expanded chevron when not collapsed", () => {
+  it("shows down chevron when not collapsed", () => {
     render(
       <CollapsibleSectionHeader
         sectionKey="channels"
         title="Channels"
-        icon="#"
         collapsed={false}
         onToggle={() => {}}
       />,
     );
 
-    expect(screen.getByText("\u25BE")).toBeTruthy();
+    expect(screen.getByTestId("chevron-down")).toBeTruthy();
   });
 
-  it("shows collapsed chevron when collapsed", () => {
+  it("shows right chevron when collapsed", () => {
     render(
       <CollapsibleSectionHeader
         sectionKey="channels"
         title="Channels"
-        icon="#"
         collapsed={true}
         onToggle={() => {}}
       />,
     );
 
-    expect(screen.getByText("\u25B8")).toBeTruthy();
+    expect(screen.getByTestId("chevron-right")).toBeTruthy();
   });
 
   it("calls onToggle when pressed", () => {
@@ -63,7 +70,6 @@ describe("CollapsibleSectionHeader", () => {
       <CollapsibleSectionHeader
         sectionKey="channels"
         title="Channels"
-        icon="#"
         collapsed={false}
         onToggle={onToggle}
       />,
@@ -78,7 +84,6 @@ describe("CollapsibleSectionHeader", () => {
       <CollapsibleSectionHeader
         sectionKey="unreads"
         title="Unreads"
-        icon="\uD83D\uDCE8"
         collapsed={false}
         onToggle={() => {}}
         count={5}

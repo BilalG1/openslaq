@@ -22,7 +22,7 @@ function msg(overrides: Partial<Message> & { id: MessageId }): Message {
     createdAt: now,
     updatedAt: now,
     ...overrides,
-  };
+  } as Message;
 }
 
 const basicMessage = msg({ id: "msg-1" as MessageId });

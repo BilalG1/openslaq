@@ -96,6 +96,7 @@ export {
   pinMessageOp,
   unpinMessageOp,
   fetchPinnedMessages,
+  fetchPinnedMessageCount,
   saveMessageOp,
   unsaveMessageOp,
   fetchSavedMessages,

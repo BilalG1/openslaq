@@ -34,6 +34,14 @@ const socketJwtSchema = z.object({ sub: z.string() });
 
 const typingTimestamps = new Map<string, number>();
 
+// Periodically clean up stale typing entries to prevent unbounded growth
+setInterval(() => {
+  const cutoff = Date.now() - 3000;
+  for (const [key, ts] of typingTimestamps) {
+    if (ts < cutoff) typingTimestamps.delete(key);
+  }
+}, 30_000);
+
 export async function getPresenceSnapshotForWorkspaces(workspaceIds: string[]) {
   if (workspaceIds.length === 0) return [];
 

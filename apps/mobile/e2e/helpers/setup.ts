@@ -1,5 +1,26 @@
+import * as fs from "fs";
+import * as path from "path";
 import { by, device, element, waitFor } from "detox";
 import { signTestJwt, createTestWorkspace, defaultUser, type TestUser } from "./api";
+
+const RESULTS_DIR = path.join(__dirname, "..", "test-results");
+
+/** Take a screenshot and save it flat at e2e/test-results/<name>.png */
+export async function screenshot(name: string): Promise<string> {
+  const tmpPath = await device.takeScreenshot(name);
+  fs.mkdirSync(RESULTS_DIR, { recursive: true });
+  const dest = path.join(RESULTS_DIR, `${name}.png`);
+  fs.copyFileSync(tmpPath, dest);
+  return dest;
+}
+
+/** Remove old flat screenshots (keeps .detox-artifacts untouched). */
+export function cleanScreenshots(): void {
+  if (!fs.existsSync(RESULTS_DIR)) return;
+  for (const f of fs.readdirSync(RESULTS_DIR)) {
+    if (f.endsWith(".png")) fs.unlinkSync(path.join(RESULTS_DIR, f));
+  }
+}
 
 /**
  * Creates auth credentials and a workspace, then launches the app.

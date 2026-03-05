@@ -9,6 +9,7 @@ import { NewDmDialog } from "../dm/NewDmDialog";
 import { CustomUserButton } from "../user/CustomUserButton";
 import { WorkspaceSettingsDialog } from "../settings/WorkspaceSettingsDialog";
 import { InviteDialog } from "../settings/InviteDialog";
+import { Tooltip } from "../ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -17,28 +18,7 @@ import {
   DropdownMenuSeparator,
 } from "../ui/dropdown-menu";
 import type { Channel, HuddleState, ChannelNotifyLevel } from "@openslaq/shared";
-
-interface WorkspaceInfo {
-  id: string;
-  name: string;
-  slug: string;
-  role: string;
-}
-
-interface DmConversation {
-  channel: { id: string };
-  otherUser: { id: string; displayName: string; avatarUrl: string | null };
-}
-
-interface GroupDmConversation {
-  channel: { id: string; displayName: string | null };
-  members: { id: string; displayName: string; avatarUrl: string | null }[];
-}
-
-interface PresenceEntry {
-  online: boolean;
-  lastSeenAt: string | null;
-}
+import type { WorkspaceInfo, DmConversation, GroupDmConversation, PresenceEntry } from "../../state/chat-store";
 
 interface SidebarProps {
   activeChannelId: string | null;
@@ -190,96 +170,96 @@ export function Sidebar({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {onOpenSearch && (
-        <button
-          type="button"
-          onClick={onOpenSearch}
-          className="w-full px-4 py-2 text-[13px] text-gray-400 bg-transparent border-none border-b border-gray-800 cursor-pointer text-left flex items-center gap-2 hover:bg-gray-800"
-          data-testid="search-trigger"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          Search messages...
-          <kbd className="ml-auto text-[10px] text-gray-500 bg-gray-800 px-1 py-0.5 rounded">
-            {navigator.platform.includes("Mac") ? "\u2318K" : "Ctrl+K"}
-          </kbd>
-        </button>
-      )}
-
-      {onSelectUnreadsView && (() => {
-        const totalUnread = Object.entries(unreadCounts)
-          .filter(([id]) => channelNotificationPrefs?.[id] !== "muted")
-          .reduce((sum, [, count]) => sum + count, 0);
-        return (
-          <button
-            type="button"
-            onClick={onSelectUnreadsView}
-            className={`w-full px-4 py-2 text-[13px] bg-transparent border-none cursor-pointer text-left flex items-center gap-2 hover:bg-gray-800 ${
-              activeView === "unreads" ? "bg-white/15 text-white" : "text-gray-400"
-            }`}
-            data-testid="unreads-view-link"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
-            </svg>
-            All Unreads
-            {totalUnread > 0 && (
-              <span className="ml-auto text-[11px] font-medium bg-red-600 text-white rounded-full px-1.5 min-w-[18px] text-center">
-                {totalUnread}
-              </span>
-            )}
-          </button>
-        );
-      })()}
-
-      {onSelectSavedView && (
-        <button
-          type="button"
-          onClick={onSelectSavedView}
-          className={`w-full px-4 py-2 text-[13px] bg-transparent border-none cursor-pointer text-left flex items-center gap-2 hover:bg-gray-800 ${
-            activeView === "saved" ? "bg-white/15 text-white" : "text-gray-400"
-          }`}
-          data-testid="saved-view-link"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
-          </svg>
-          Saved Items
-        </button>
-      )}
-
-      {onSelectScheduledView && (
-        <button
-          type="button"
-          onClick={onSelectScheduledView}
-          className={`w-full px-4 py-2 text-[13px] bg-transparent border-none cursor-pointer text-left flex items-center gap-2 hover:bg-gray-800 ${
-            activeView === "scheduled" ? "bg-white/15 text-white" : "text-gray-400"
-          }`}
-          data-testid="scheduled-view-link"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-          </svg>
-          Scheduled
-        </button>
-      )}
-
-      {onSelectFilesView && (
-        <button
-          type="button"
-          onClick={onSelectFilesView}
-          className={`w-full px-4 py-2 text-[13px] bg-transparent border-none cursor-pointer text-left flex items-center gap-2 hover:bg-gray-800 ${
-            activeView === "files" ? "bg-white/15 text-white" : "text-gray-400"
-          }`}
-          data-testid="files-view-link"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-          </svg>
-          Files
-        </button>
-      )}
+      <div className="flex items-center justify-around px-2 py-2">
+        {onOpenSearch && (
+          <Tooltip content={`Search (${navigator.platform.includes("Mac") ? "\u2318K" : "Ctrl+K"})`} side="bottom">
+            <button
+              type="button"
+              onClick={onOpenSearch}
+              className="p-2 rounded border-none cursor-pointer text-gray-300 hover:bg-gray-800 hover:text-white"
+              data-testid="search-trigger"
+            >
+              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </button>
+          </Tooltip>
+        )}
+        {onSelectUnreadsView && (() => {
+          const totalUnread = Object.entries(unreadCounts)
+            .filter(([id]) => channelNotificationPrefs?.[id] !== "muted")
+            .reduce((sum, [, count]) => sum + count, 0);
+          return (
+            <Tooltip content="All Unreads" side="bottom">
+              <button
+                type="button"
+                onClick={onSelectUnreadsView}
+                className={`relative p-2 rounded border-none cursor-pointer hover:bg-gray-800 hover:text-white ${
+                  activeView === "unreads" ? "bg-white/15 text-white" : "text-gray-300"
+                }`}
+                data-testid="unreads-view-link"
+              >
+                <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
+                </svg>
+                {totalUnread > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 text-[9px] font-medium bg-red-600 text-white rounded-full px-1 min-w-[14px] text-center leading-[14px]">
+                    {totalUnread}
+                  </span>
+                )}
+              </button>
+            </Tooltip>
+          );
+        })()}
+        {onSelectSavedView && (
+          <Tooltip content="Saved Items" side="bottom">
+            <button
+              type="button"
+              onClick={onSelectSavedView}
+              className={`p-2 rounded border-none cursor-pointer hover:bg-gray-800 hover:text-white ${
+                activeView === "saved" ? "bg-white/15 text-white" : "text-gray-300"
+              }`}
+              data-testid="saved-view-link"
+            >
+              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
+              </svg>
+            </button>
+          </Tooltip>
+        )}
+        {onSelectScheduledView && (
+          <Tooltip content="Scheduled" side="bottom">
+            <button
+              type="button"
+              onClick={onSelectScheduledView}
+              className={`p-2 rounded border-none cursor-pointer hover:bg-gray-800 hover:text-white ${
+                activeView === "scheduled" ? "bg-white/15 text-white" : "text-gray-300"
+              }`}
+              data-testid="scheduled-view-link"
+            >
+              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
+            </button>
+          </Tooltip>
+        )}
+        {onSelectFilesView && (
+          <Tooltip content="Files" side="bottom">
+            <button
+              type="button"
+              onClick={onSelectFilesView}
+              className={`p-2 rounded border-none cursor-pointer hover:bg-gray-800 hover:text-white ${
+                activeView === "files" ? "bg-white/15 text-white" : "text-gray-300"
+              }`}
+              data-testid="files-view-link"
+            >
+              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+              </svg>
+            </button>
+          </Tooltip>
+        )}
+      </div>
 
       <div className="flex-1 overflow-y-auto">
         {starredChannelIds && starredChannelIds.length > 0 && (() => {

@@ -9,7 +9,7 @@ import {
   sendTestReply,
   defaultUser,
 } from "./helpers/api";
-import { launchApp } from "./helpers/setup";
+import { cleanScreenshots, launchApp, screenshot } from "./helpers/setup";
 
 /** Navigate back to the channel list from any screen. */
 async function navigateToChannelList() {
@@ -90,6 +90,8 @@ describe("Smoke", () => {
   let parentMessage: { id: string; content: string };
 
   beforeAll(async () => {
+    cleanScreenshots();
+
     // 1. Create auth credentials and workspace via API
     token = await signTestJwt();
     workspace = await createTestWorkspace(token);
@@ -155,7 +157,7 @@ describe("Smoke", () => {
     it("creates a new channel via + button", async () => {
       await navigateToChannelList();
 
-      await element(by.id("create-channel-button")).tap();
+      await element(by.id("add-channel-link")).tap();
 
       await waitFor(element(by.id("create-channel-modal")))
         .toBeVisible()
@@ -175,12 +177,13 @@ describe("Smoke", () => {
       await waitFor(element(by.text("my-new-channel")))
         .toBeVisible()
         .withTimeout(3000);
+      await screenshot("channel-list-after-create");
     });
 
     it("creates a private channel", async () => {
       await navigateToChannelList();
 
-      await element(by.id("create-channel-button")).tap();
+      await element(by.id("add-channel-link")).tap();
 
       await waitFor(element(by.id("create-channel-modal")))
         .toBeVisible()
@@ -206,7 +209,7 @@ describe("Smoke", () => {
     it("creates a channel with description and shows banner", async () => {
       await navigateToChannelList();
 
-      await element(by.id("create-channel-button")).tap();
+      await element(by.id("add-channel-link")).tap();
 
       await waitFor(element(by.id("create-channel-modal")))
         .toBeVisible()
@@ -219,8 +222,13 @@ describe("Smoke", () => {
       await element(by.id("create-channel-description-input")).typeText(
         "Channel description text",
       );
-      // KAV keeps the submit button visible above keyboard;
-      // keyboardShouldPersistTaps="handled" allows tapping while keyboard is up
+
+      // Dismiss keyboard before submit — multiline field's tapReturnKey
+      // inserts a newline, so tap the non-interactive title to blur instead.
+      // This prevents the keyboard dismiss animation from competing with the
+      // modal close + navigation on the native main queue (which caused flaky 30s timeouts).
+      await element(by.text("Create Channel")).atIndex(0).tap();
+
       await waitFor(element(by.id("create-channel-submit")))
         .toBeVisible()
         .withTimeout(3000);
@@ -238,6 +246,7 @@ describe("Smoke", () => {
 
       await expect(element(by.id("channel-description-banner"))).toBeVisible();
       await expect(element(by.id("channel-description-text"))).toBeVisible();
+      await screenshot("channel-with-description-banner");
     });
 
     it("edits channel topic via options menu", async () => {
@@ -267,6 +276,7 @@ describe("Smoke", () => {
       await waitFor(element(by.text("Updated topic text")))
         .toBeVisible()
         .withTimeout(3000);
+      await screenshot("channel-topic-updated");
     });
 
     it("leaves a channel", async () => {
@@ -311,23 +321,28 @@ describe("Smoke", () => {
       await waitFor(element(by.id("members-list")))
         .toBeVisible()
         .withTimeout(3000);
+      await screenshot("channel-members");
     });
 
-    it("browses channels and sees public channels", async () => {
+    it("opens create channel modal from inline + Add channel link", async () => {
       await navigateToChannelList();
 
-      await waitFor(element(by.id("browse-channels-link")))
+      await waitFor(element(by.id("add-channel-link")))
         .toBeVisible()
         .withTimeout(3000);
 
-      await element(by.id("browse-channels-link")).tap();
+      await element(by.id("add-channel-link")).tap();
 
-      await waitFor(element(by.id("browse-channel-list")))
+      await waitFor(element(by.id("create-channel-modal")))
         .toBeVisible()
         .withTimeout(3000);
 
-      await expect(element(by.text("general"))).toBeVisible();
-      await expect(element(by.text("design"))).toBeVisible();
+      // Dismiss the modal
+      await element(by.id("create-channel-backdrop")).tap();
+
+      await waitFor(element(by.id("channel-list")))
+        .toBeVisible()
+        .withTimeout(3000);
     });
   });
 
@@ -338,6 +353,7 @@ describe("Smoke", () => {
       await waitFor(element(by.text("general")))
         .toBeVisible()
         .withTimeout(3000);
+      await screenshot("channel-list");
     });
 
     it("navigates to channel and sees message input", async () => {
@@ -350,6 +366,7 @@ describe("Smoke", () => {
       await waitFor(element(by.id("message-send")))
         .toBeVisible()
         .withTimeout(3000);
+      await screenshot("channel-with-messages");
     });
 
     it("sends message and sees it appear", async () => {
@@ -369,6 +386,7 @@ describe("Smoke", () => {
       await waitFor(element(by.text(testMessage)))
         .toBeVisible()
         .withTimeout(3000);
+      await screenshot("message-sent");
     });
 
     it("edits a message via long press", async () => {
@@ -397,11 +415,13 @@ describe("Smoke", () => {
       await waitFor(element(by.id("action-edit-message")))
         .toBeVisible()
         .withTimeout(3000);
+      await screenshot("message-long-press-actions");
       await element(by.id("action-edit-message")).tap();
 
       await waitFor(element(by.id("edit-banner")))
         .toBeVisible()
         .withTimeout(3000);
+      await screenshot("message-edit-mode");
 
       await element(by.id("message-input")).clearText();
       await element(by.id("message-input")).typeText(updated);
@@ -414,6 +434,7 @@ describe("Smoke", () => {
       await waitFor(element(by.id(`message-edited-${msg.id}`)))
         .toBeVisible()
         .withTimeout(3000);
+      await screenshot("message-edited");
     });
 
     it("deletes a message via long press", async () => {
@@ -468,6 +489,7 @@ describe("Smoke", () => {
         .toBeVisible()
         .withTimeout(3000);
       await expect(element(by.text(parentMessage.content))).toBeVisible();
+      await screenshot("thread-view");
 
       const newReply = `Smoke reply ${Date.now()}`;
       await element(by.id("message-input")).typeText(newReply);
@@ -485,7 +507,7 @@ describe("Smoke", () => {
       await navigateToChannelList();
 
       await device.disableSynchronization();
-      await element(by.id("search-button")).tap();
+      await element(by.id("search-pill")).tap();
 
       await waitFor(element(by.id("search-input")))
         .toBeVisible()
@@ -497,6 +519,7 @@ describe("Smoke", () => {
       await waitFor(element(by.text(searchableContent)))
         .toBeVisible()
         .withTimeout(8000);
+      await screenshot("search-results");
 
       await device.enableSynchronization();
     });
@@ -518,6 +541,7 @@ describe("Smoke", () => {
         .withTimeout(3000);
       await expect(element(by.id("settings-email"))).toBeVisible();
       await expect(element(by.id("settings-sign-out"))).toBeVisible();
+      await screenshot("settings-screen");
 
       await element(by.id("settings-display-name-input")).tap();
       await element(by.id("settings-display-name-input")).clearText();
@@ -558,6 +582,7 @@ describe("Smoke", () => {
       await waitFor(element(by.id("sign-in-screen")))
         .toBeVisible()
         .withTimeout(10000);
+      await screenshot("sign-in-screen");
 
       await device.enableSynchronization();
     });

@@ -2,6 +2,7 @@ import type { MessageId, ChannelId, UserId } from "./ids";
 import type { Attachment } from "./attachment";
 import type { ReactionGroup } from "./reaction";
 import type { MessageActionButton } from "./bot";
+import type { ChannelType } from "./constants";
 
 export interface Mention {
   userId: UserId;
@@ -29,6 +30,7 @@ export interface SharedMessageInfo {
   id: MessageId;
   channelId: ChannelId;
   channelName: string;
+  channelType: ChannelType;
   userId: UserId;
   senderDisplayName: string;
   senderAvatarUrl: string | null;
@@ -36,7 +38,8 @@ export interface SharedMessageInfo {
   createdAt: string;
 }
 
-export interface Message {
+/** Fields shared by all message variants. */
+interface BaseMessage {
   id: MessageId;
   channelId: ChannelId;
   userId: UserId;
@@ -49,11 +52,6 @@ export interface Message {
   mentions: Mention[];
   senderDisplayName?: string;
   senderAvatarUrl?: string | null;
-  isBot?: boolean;
-  botAppId?: string;
-  actions?: MessageActionButton[];
-  type?: "huddle" | null;
-  metadata?: HuddleMessageMetadata | null;
   isPinned?: boolean;
   pinnedBy?: UserId | null;
   pinnedAt?: string | null;
@@ -62,3 +60,32 @@ export interface Message {
   createdAt: string;
   updatedAt: string;
 }
+
+/** A regular (non-bot, non-huddle) message. */
+export type RegularMessage = BaseMessage & {
+  isBot?: false;
+  botAppId?: undefined;
+  actions?: undefined;
+  type?: undefined;
+  metadata?: undefined;
+};
+
+/** A message sent by a bot app. */
+export type BotMessage = BaseMessage & {
+  isBot: true;
+  botAppId: string;
+  actions: MessageActionButton[];
+  type?: undefined;
+  metadata?: undefined;
+};
+
+/** A huddle system message. */
+export type HuddleMessage = BaseMessage & {
+  isBot?: false;
+  botAppId?: undefined;
+  actions?: undefined;
+  type: "huddle";
+  metadata: HuddleMessageMetadata;
+};
+
+export type Message = RegularMessage | BotMessage | HuddleMessage;

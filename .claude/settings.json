@@ -87,7 +87,8 @@
       "Bash(xcrun simctl:*)",
       "Bash(node_modules/.bin/tsgo:*)",
       "Bash(npx jest:*)",
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "Bash(mkdir:*)"
     ]
   }
 }

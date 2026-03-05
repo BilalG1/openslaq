@@ -80,8 +80,21 @@ export function CustomEmojiManager({ workspaceSlug }: CustomEmojiManagerProps) {
               accept="image/*"
               data-testid="emoji-file-input"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              className="text-xs text-primary"
+              className="hidden"
             />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                Choose File
+              </Button>
+              <span className="text-xs text-muted truncate max-w-[150px]">
+                {file ? file.name : "No file chosen"}
+              </span>
+            </div>
           </div>
           <Button
             variant="primary"

@@ -29,8 +29,7 @@ function getPrefix(worktreePath: string): string | null {
 async function removeWorktree(name: string) {
   const worktreePath = join(worktreesDir, name);
   if (!existsSync(worktreePath)) {
-    console.error(`Error: Worktree "${name}" not found at ${worktreePath}`);
-    process.exit(1);
+    throw new Error(`Worktree "${name}" not found at ${worktreePath}`);
   }
 
   const prefix = getPrefix(worktreePath);
@@ -60,26 +59,26 @@ async function removeWorktree(name: string) {
 async function main() {
   const arg = process.argv[2];
 
-  if (arg === "-a") {
+  if (arg === "-a" || !arg) {
     const available = listWorktrees();
     if (available.length === 0) {
       console.log("No worktrees found in .worktrees/");
       process.exit(0);
     }
-    console.log(`Removing all ${available.length} worktree(s)...\n`);
-    for (const name of available) {
-      await removeWorktree(name);
-      console.log("");
-    }
-    return;
-  }
 
-  if (!arg) {
-    const available = listWorktrees();
-    if (available.length === 0) {
-      console.log("No worktrees found in .worktrees/");
-      process.exit(0);
+    if (arg === "-a") {
+      console.log(`Removing all ${available.length} worktree(s)...\n`);
+      for (const name of available) {
+        try {
+          await removeWorktree(name);
+        } catch (e) {
+          console.error((e as Error).message);
+        }
+        console.log("");
+      }
+      return;
     }
+
     console.log("Available worktrees:");
     for (const wt of available) {
       const prefix = getPrefix(join(worktreesDir, wt));
@@ -89,7 +88,12 @@ async function main() {
     process.exit(1);
   }
 
-  await removeWorktree(arg);
+  try {
+    await removeWorktree(arg);
+  } catch (e) {
+    console.error((e as Error).message);
+    process.exit(1);
+  }
 }
 
 main();

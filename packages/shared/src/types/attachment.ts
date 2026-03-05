@@ -6,7 +6,7 @@ export interface Attachment {
   filename: string;
   mimeType: string;
   size: number;
-  uploadedBy: UserId;
+  uploadedBy: UserId | null;
   createdAt: string;
   downloadUrl: string;
 }

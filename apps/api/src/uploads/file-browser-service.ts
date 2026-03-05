@@ -106,7 +106,7 @@ export async function browseFiles({
     .from(attachments)
     .innerJoin(messages, eq(attachments.messageId, messages.id))
     .innerJoin(channels, eq(messages.channelId, channels.id))
-    .innerJoin(users, eq(attachments.uploadedBy, users.id))
+    .leftJoin(users, eq(attachments.uploadedBy, users.id))
     .innerJoin(
       workspaceMembers,
       and(
@@ -135,8 +135,8 @@ export async function browseFiles({
     size: row.size,
     category: categorizeFromMime(row.mimeType),
     downloadUrl: getPresignedDownloadUrl(row.storageKey),
-    uploadedBy: row.uploadedBy as FileBrowserItem["uploadedBy"],
-    uploaderName: row.uploaderName,
+    uploadedBy: (row.uploadedBy ?? null) as FileBrowserItem["uploadedBy"],
+    uploaderName: row.uploaderName ?? "Deleted User",
     channelId: row.channelId as FileBrowserItem["channelId"],
     channelName: row.channelName,
     messageId: row.messageId as FileBrowserItem["messageId"],

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { ResizeHandle } from "./ResizeHandle";
 import { UpdateBanner } from "../update/UpdateBanner";
@@ -29,11 +29,14 @@ import { useNotifications } from "../../hooks/useNotifications";
 import { useDockBadge } from "../../hooks/chat/useDockBadge";
 import { useMenuEvents } from "../../hooks/useMenuEvents";
 import { useDeepLinkNavigation } from "../../hooks/chat/useDeepLinkNavigation";
+import { useViewRouteSync } from "../../hooks/chat/useViewRouteSync";
+import { useChannelActions } from "../../hooks/chat/useChannelActions";
+import { useMessageActions } from "../../hooks/chat/useMessageActions";
+import { usePinnedMessages } from "../../hooks/chat/usePinnedMessages";
+import { useChannelPopovers } from "../../hooks/chat/useChannelPopovers";
 import { useFileDragOverlay } from "../../hooks/useFileDragOverlay";
-import { useWorkspaceMembersApi } from "../../hooks/api/useWorkspaceMembersApi";
+import { useWorkspaceMembers } from "../../hooks/chat/useWorkspaceMembers";
 import { useChatSelectors, useChatStore } from "../../state/chat-store";
-import { useGalleryMode } from "../../gallery/gallery-context";
-import { updateChannelDescription, archiveChannel, unarchiveChannel, starChannelOp, unstarChannelOp, pinMessageOp, unpinMessageOp, fetchPinnedMessages, setChannelNotificationPrefOp, shareMessageOp, saveMessageOp, unsaveMessageOp, fetchBookmarks, addBookmarkOp, removeBookmarkOp } from "@openslaq/client-core";
 import { PinnedMessagesPopover } from "../channel/PinnedMessagesPopover";
 import { ShareMessageDialog } from "../message/ShareMessageDialog";
 import { AllUnreadsView } from "../unreads/AllUnreadsView";
@@ -43,13 +46,10 @@ import { FilesView } from "../files/FilesView";
 import { ChannelFilesPopover } from "../channel/ChannelFilesPopover";
 import { BookmarksBar } from "../channel/BookmarksBar";
 import { AddBookmarkDialog } from "../channel/AddBookmarkDialog";
-import { useChannelFiles } from "../../hooks/chat/useChannelFiles";
 import { ScheduledMessagesBanner } from "../message/ScheduledMessagesBanner";
 import { useSavedMessageIds } from "../../hooks/chat/useSavedMessages";
 import { useSlashCommands } from "../../hooks/chat/useSlashCommands";
-import { api as apiClient } from "../../api";
-import { useAuthProvider } from "../../lib/api-client";
-import type { SearchResultItem, Channel, ChannelNotifyLevel, Message } from "@openslaq/shared";
+import type { SearchResultItem } from "@openslaq/shared";
 
 export function AppLayout() {
   const user = useCurrentUser();
@@ -58,25 +58,19 @@ export function AppLayout() {
     channelId: string;
     dmChannelId: string;
   }>();
-  const navigate = useNavigate();
+  const slug = workspaceSlug ?? "";
   const { state, dispatch } = useChatStore();
   const { activeChannel, activeDm, activeGroupDm, currentChannelId } = useChatSelectors();
   const { createDm, createGroupDm } = useDmActions(user, workspaceSlug);
-  const { listMembers } = useWorkspaceMembersApi();
+  const { workspaceMembers } = useWorkspaceMembers(workspaceSlug);
+  const channelActions = useChannelActions(workspaceSlug);
+  const messageActions = useMessageActions(workspaceSlug);
+  const pins = usePinnedMessages(workspaceSlug);
+  const popovers = useChannelPopovers(workspaceSlug);
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(true);
-  const [pinsOpen, setPinsOpen] = useState(false);
-  const [pinnedMessages, setPinnedMessages] = useState<import("@openslaq/shared").Message[]>([]);
-  const [pinnedLoading, setPinnedLoading] = useState(false);
-  const [pinnedCount, setPinnedCount] = useState(0);
-  const [workspaceMembers, setWorkspaceMembers] = useState<Array<{ id: string; displayName: string }>>([]);
-  const [shareDialogMessage, setShareDialogMessage] = useState<Message | null>(null);
-  const [channelFilesOpen, setChannelFilesOpen] = useState(false);
-  const [addBookmarkOpen, setAddBookmarkOpen] = useState(false);
-  const channelFiles = useChannelFiles(workspaceSlug);
   const huddleActions = useHuddleActions();
-  const isGallery = useGalleryMode();
   const mainContentRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<MessageInputHandle>(null);
 
@@ -90,65 +84,7 @@ export function AppLayout() {
   });
 
   useWorkspaceBootstrap(workspaceSlug, urlChannelId, urlDmChannelId);
-
-  // Deep-link support for /unreads URL
-  useEffect(() => {
-    if (isGallery || state.ui.bootstrapLoading || !workspaceSlug) return;
-    if (window.location.pathname.endsWith("/unreads") && state.activeView !== "unreads") {
-      dispatch({ type: "workspace/selectUnreadsView" });
-    }
-    if (window.location.pathname.endsWith("/saved") && state.activeView !== "saved") {
-      dispatch({ type: "workspace/selectSavedView" });
-    }
-    if (window.location.pathname.endsWith("/scheduled") && state.activeView !== "scheduled") {
-      dispatch({ type: "workspace/selectScheduledView" });
-    }
-    if (window.location.pathname.endsWith("/files") && state.activeView !== "files") {
-      dispatch({ type: "workspace/selectFilesView" });
-    }
-  }, [isGallery, state.ui.bootstrapLoading, workspaceSlug]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Sync store state → URL (one-way: store is source of truth)
-  useEffect(() => {
-    if (isGallery || state.ui.bootstrapLoading || !workspaceSlug) return;
-    const base = `/w/${workspaceSlug}`;
-    if (state.activeView === "unreads") {
-      const target = `${base}/unreads`;
-      if (!window.location.pathname.endsWith("/unreads")) {
-        navigate(target, { replace: true });
-      }
-    } else if (state.activeView === "saved") {
-      const target = `${base}/saved`;
-      if (!window.location.pathname.endsWith("/saved")) {
-        navigate(target, { replace: true });
-      }
-    } else if (state.activeView === "scheduled") {
-      const target = `${base}/scheduled`;
-      if (!window.location.pathname.endsWith("/scheduled")) {
-        navigate(target, { replace: true });
-      }
-    } else if (state.activeView === "files") {
-      const target = `${base}/files`;
-      if (!window.location.pathname.endsWith("/files")) {
-        navigate(target, { replace: true });
-      }
-    } else if (state.activeGroupDmId) {
-      const target = `${base}/dm/${state.activeGroupDmId}`;
-      if (urlDmChannelId !== state.activeGroupDmId) {
-        navigate(target, { replace: true });
-      }
-    } else if (state.activeDmId) {
-      const target = `${base}/dm/${state.activeDmId}`;
-      if (urlDmChannelId !== state.activeDmId) {
-        navigate(target, { replace: true });
-      }
-    } else if (state.activeChannelId) {
-      const target = `${base}/c/${state.activeChannelId}`;
-      if (urlChannelId !== state.activeChannelId) {
-        navigate(target, { replace: true });
-      }
-    }
-  }, [isGallery, state.activeView, state.activeChannelId, state.activeDmId, state.activeGroupDmId, state.ui.bootstrapLoading, workspaceSlug, urlChannelId, urlDmChannelId, navigate]);
+  useViewRouteSync(workspaceSlug, urlChannelId, urlDmChannelId);
   useUnreadTracking(user, workspaceSlug);
   usePresenceTracking();
   useHuddleTracking();
@@ -167,26 +103,6 @@ export function AppLayout() {
   useScrollToMessage(currentChannelId, workspaceSlug);
   useSavedMessageIds(workspaceSlug);
   const slashCmds = useSlashCommands();
-
-  useEffect(() => {
-    if (!workspaceSlug) {
-      setWorkspaceMembers([]);
-      return;
-    }
-    let cancelled = false;
-    listMembers(workspaceSlug)
-      .then((members) => {
-        if (cancelled) return;
-        setWorkspaceMembers(members.map((member) => ({ id: member.id, displayName: member.displayName })));
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setWorkspaceMembers([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [workspaceSlug, listMembers]);
 
   const activeTypingChannelId = activeChannel?.id ?? activeDm?.channel.id ?? activeGroupDm?.channel.id;
   const { emitTyping } = useTypingEmitter(activeTypingChannelId);
@@ -284,14 +200,6 @@ export function AppLayout() {
     [createDm],
   );
 
-  const handleChannelCreated = useCallback(
-    (channel: Channel) => {
-      dispatch({ type: "workspace/addChannel", channel });
-      dispatch({ type: "workspace/selectChannel", channelId: channel.id });
-    },
-    [dispatch],
-  );
-
   const handleSelectUnreadsView = useCallback(() => {
     dispatch({ type: "workspace/selectUnreadsView" });
   }, [dispatch]);
@@ -337,213 +245,6 @@ export function AppLayout() {
     [dispatch],
   );
 
-  const auth = useAuthProvider();
-
-  const handleUpdateDescription = useCallback(
-    (description: string | null) => {
-      if (!workspaceSlug || !activeChannel) return;
-      const deps = { api: apiClient, auth, dispatch, getState: () => state };
-      void updateChannelDescription(deps, {
-        workspaceSlug,
-        channelId: activeChannel.id as Parameters<typeof updateChannelDescription>[1]["channelId"],
-        description,
-      });
-    },
-    [auth, dispatch, state, workspaceSlug, activeChannel],
-  );
-
-  const handleArchiveChannel = useCallback(() => {
-    if (!workspaceSlug || !activeChannel) return;
-    const deps = { api: apiClient, auth, dispatch, getState: () => state };
-    void archiveChannel(deps, {
-      workspaceSlug,
-      channelId: activeChannel.id as Parameters<typeof archiveChannel>[1]["channelId"],
-    });
-  }, [auth, dispatch, state, workspaceSlug, activeChannel]);
-
-  const handleUnarchiveChannel = useCallback(() => {
-    if (!workspaceSlug || !activeChannel) return;
-    const deps = { api: apiClient, auth, dispatch, getState: () => state };
-    void unarchiveChannel(deps, {
-      workspaceSlug,
-      channelId: activeChannel.id as Parameters<typeof unarchiveChannel>[1]["channelId"],
-    });
-  }, [auth, dispatch, state, workspaceSlug, activeChannel]);
-
-  const handleToggleStar = useCallback(() => {
-    if (!workspaceSlug || !activeChannel) return;
-    const deps = { api: apiClient, auth, dispatch, getState: () => state };
-    const isStarred = state.starredChannelIds.includes(activeChannel.id);
-    if (isStarred) {
-      void unstarChannelOp(deps, { slug: workspaceSlug, channelId: activeChannel.id });
-    } else {
-      void starChannelOp(deps, { slug: workspaceSlug, channelId: activeChannel.id });
-    }
-  }, [auth, dispatch, state, workspaceSlug, activeChannel]);
-
-  const handleSetNotificationLevel = useCallback(
-    (channelId: string, level: ChannelNotifyLevel) => {
-      if (!workspaceSlug) return;
-      const deps = { api: apiClient, auth, dispatch, getState: () => state };
-      void setChannelNotificationPrefOp(deps, { slug: workspaceSlug, channelId, level });
-    },
-    [auth, dispatch, state, workspaceSlug],
-  );
-
-  const handlePinMessage = useCallback(
-    (messageId: string) => {
-      if (!workspaceSlug || !currentChannelId) return;
-      const deps = { api: apiClient, auth, dispatch, getState: () => state };
-      void pinMessageOp(deps, { workspaceSlug, channelId: currentChannelId, messageId });
-      setPinnedCount((c) => c + 1);
-    },
-    [auth, dispatch, state, workspaceSlug, currentChannelId],
-  );
-
-  const handleUnpinMessage = useCallback(
-    (messageId: string) => {
-      if (!workspaceSlug || !currentChannelId) return;
-      const deps = { api: apiClient, auth, dispatch, getState: () => state };
-      void unpinMessageOp(deps, { workspaceSlug, channelId: currentChannelId, messageId });
-      setPinnedCount((c) => Math.max(0, c - 1));
-      setPinnedMessages((prev) => prev.filter((m) => m.id !== messageId));
-    },
-    [auth, dispatch, state, workspaceSlug, currentChannelId],
-  );
-
-  const handleSaveMessage = useCallback(
-    (messageId: string) => {
-      if (!workspaceSlug || !currentChannelId) return;
-      const deps = { api: apiClient, auth, dispatch, getState: () => state };
-      void saveMessageOp(deps, { workspaceSlug, channelId: currentChannelId, messageId });
-    },
-    [auth, dispatch, state, workspaceSlug, currentChannelId],
-  );
-
-  const handleUnsaveMessage = useCallback(
-    (messageId: string, channelId?: string) => {
-      if (!workspaceSlug) return;
-      const ch = channelId ?? currentChannelId;
-      if (!ch) return;
-      const deps = { api: apiClient, auth, dispatch, getState: () => state };
-      void unsaveMessageOp(deps, { workspaceSlug, channelId: ch, messageId });
-    },
-    [auth, dispatch, state, workspaceSlug, currentChannelId],
-  );
-
-  const handleShareMessage = useCallback(
-    (messageId: string) => {
-      const msg = state.messagesById[messageId];
-      if (msg) setShareDialogMessage(msg);
-    },
-    [state.messagesById],
-  );
-
-  const handleConfirmShare = useCallback(
-    (destinationChannelId: string, comment: string) => {
-      if (!workspaceSlug || !shareDialogMessage) return;
-      const deps = { api: apiClient, auth, dispatch, getState: () => state };
-      void shareMessageOp(deps, {
-        workspaceSlug,
-        destinationChannelId,
-        sharedMessageId: shareDialogMessage.id,
-        comment,
-      });
-      setShareDialogMessage(null);
-    },
-    [auth, dispatch, state, workspaceSlug, shareDialogMessage],
-  );
-
-  const handleOpenChannelFiles = useCallback(() => {
-    if (isGallery || !activeChannel) return;
-    setChannelFilesOpen(true);
-    void channelFiles.loadFiles(activeChannel.id);
-  }, [isGallery, activeChannel, channelFiles]);
-
-  const handleJumpToFileMessage = useCallback(
-    (channelId: string, messageId: string) => {
-      dispatch({ type: "workspace/selectChannel", channelId });
-      dispatch({
-        type: "navigation/setScrollTarget",
-        scrollTarget: { messageId, highlightMessageId: messageId },
-      });
-    },
-    [dispatch],
-  );
-
-  const handleOpenPins = useCallback(async () => {
-    if (isGallery || !workspaceSlug || !activeChannel) return;
-    setPinsOpen(true);
-    setPinnedLoading(true);
-    try {
-      const deps = { api: apiClient, auth, dispatch, getState: () => state };
-      const msgs = await fetchPinnedMessages(deps, { workspaceSlug, channelId: activeChannel.id });
-      setPinnedMessages(msgs);
-      setPinnedCount(msgs.length);
-    } catch {
-      setPinnedMessages([]);
-    } finally {
-      setPinnedLoading(false);
-    }
-  }, [auth, dispatch, isGallery, state, workspaceSlug, activeChannel]);
-
-  // Close channel-specific popovers when active channel changes
-  useEffect(() => {
-    setPinsOpen(false);
-    setChannelFilesOpen(false);
-    if (!activeChannel) setPinnedCount(0);
-  }, [activeChannel?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Refresh pinned count when channel changes
-  useEffect(() => {
-    if (isGallery || !workspaceSlug || !activeChannel) {
-      return;
-    }
-    let cancelled = false;
-    const deps = { api: apiClient, auth, dispatch, getState: () => state };
-    fetchPinnedMessages(deps, { workspaceSlug, channelId: activeChannel.id })
-      .then((msgs) => {
-        if (!cancelled) setPinnedCount(msgs.length);
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [auth, dispatch, isGallery, workspaceSlug, activeChannel?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Fetch bookmarks when channel changes
-  useEffect(() => {
-    if (isGallery || !workspaceSlug || !activeChannel) return;
-    const deps = { api: apiClient, auth, dispatch, getState: () => state };
-    fetchBookmarks(deps, { workspaceSlug, channelId: activeChannel.id }).catch(() => {});
-  }, [auth, dispatch, isGallery, state, workspaceSlug, activeChannel?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleAddBookmark = useCallback(
-    (url: string, title: string) => {
-      if (!workspaceSlug || !activeChannel) return;
-      const deps = { api: apiClient, auth, dispatch, getState: () => state };
-      void addBookmarkOp(deps, { workspaceSlug, channelId: activeChannel.id, url, title });
-    },
-    [auth, dispatch, state, workspaceSlug, activeChannel],
-  );
-
-  const handleRemoveBookmark = useCallback(
-    (bookmarkId: string) => {
-      if (!workspaceSlug || !activeChannel) return;
-      const deps = { api: apiClient, auth, dispatch, getState: () => state };
-      void removeBookmarkOp(deps, { workspaceSlug, channelId: activeChannel.id, bookmarkId });
-    },
-    [auth, dispatch, state, workspaceSlug, activeChannel],
-  );
-
-  const handleJumpToPinnedMessage = useCallback(
-    (messageId: string) => {
-      dispatch({
-        type: "navigation/setScrollTarget",
-        scrollTarget: { messageId, highlightMessageId: messageId },
-      });
-    },
-    [dispatch],
-  );
-
   const handleStartHuddle = useCallback(
     (channelId: string, channelName?: string) => {
       huddleActions.startHuddle(channelId, channelName);
@@ -581,16 +282,16 @@ export function AppLayout() {
             onStartGroupDm={handleStartGroupDm}
             currentUserId={currentUserId}
             onStartDm={handleStartDm}
-            workspaceSlug={workspaceSlug ?? ""}
+            workspaceSlug={slug}
             workspaces={state.workspaces}
             unreadCounts={state.unreadCounts}
             presence={state.presence}
             onOpenSearch={() => setSearchOpen(true)}
-            onChannelCreated={handleChannelCreated}
+            onChannelCreated={channelActions.onChannelCreated}
             activeHuddles={state.activeHuddles}
             starredChannelIds={state.starredChannelIds}
             channelNotificationPrefs={state.channelNotificationPrefs}
-            onSetNotificationLevel={handleSetNotificationLevel}
+            onSetNotificationLevel={channelActions.setNotificationLevel}
             activeView={state.activeView}
             onSelectUnreadsView={handleSelectUnreadsView}
             onSelectSavedView={handleSelectSavedView}
@@ -617,7 +318,7 @@ export function AppLayout() {
           </div>
         ) : state.activeView === "unreads" ? (
           <AllUnreadsView
-            workspaceSlug={workspaceSlug ?? ""}
+            workspaceSlug={slug}
             currentUserId={currentUserId}
             onNavigateToChannel={(channelId, messageId) => {
               dispatch({ type: "workspace/selectChannel", channelId });
@@ -633,7 +334,7 @@ export function AppLayout() {
           />
         ) : state.activeView === "saved" ? (
           <SavedItemsView
-            workspaceSlug={workspaceSlug ?? ""}
+            workspaceSlug={slug}
             currentUserId={currentUserId}
             onNavigateToChannel={(channelId, messageId) => {
               dispatch({ type: "workspace/selectChannel", channelId });
@@ -646,11 +347,11 @@ export function AppLayout() {
             }}
             onOpenThread={handleOpenThread}
             onOpenProfile={handleOpenProfile}
-            onUnsaveMessage={handleUnsaveMessage}
+            onUnsaveMessage={messageActions.unsaveMessage}
           />
         ) : state.activeView === "scheduled" ? (
           <ScheduledMessagesView
-            workspaceSlug={workspaceSlug ?? ""}
+            workspaceSlug={slug}
             onNavigateToChannel={(channelId, messageId) => {
               dispatch({ type: "workspace/selectChannel", channelId });
               if (messageId) {
@@ -663,7 +364,7 @@ export function AppLayout() {
           />
         ) : state.activeView === "files" ? (
           <FilesView
-            workspaceSlug={workspaceSlug ?? ""}
+            workspaceSlug={slug}
             channels={state.channels}
             onNavigateToChannel={(channelId, messageId) => {
               dispatch({ type: "workspace/selectChannel", channelId });
@@ -683,7 +384,7 @@ export function AppLayout() {
               channelType={activeChannel.type}
               channelCreatorId={activeChannel.createdBy}
               memberCount={activeChannel.memberCount}
-              workspaceSlug={workspaceSlug ?? ""}
+              workspaceSlug={slug}
               presence={state.presence}
               onOpenProfile={handleOpenProfile}
               activeHuddle={state.activeHuddles[activeChannel.id] ?? null}
@@ -692,56 +393,58 @@ export function AppLayout() {
               onJoinHuddle={() => handleJoinHuddle(activeChannel.id, activeChannel.name)}
               canManageMembers={canManage || activeChannel.createdBy === currentUserId}
               description={activeChannel.description}
-              onUpdateDescription={handleUpdateDescription}
+              onUpdateDescription={channelActions.updateDescription}
               isStarred={state.starredChannelIds.includes(activeChannel.id)}
-              onToggleStar={handleToggleStar}
-              pinnedCount={pinnedCount}
-              onOpenPins={handleOpenPins}
-              onOpenFiles={handleOpenChannelFiles}
+              onToggleStar={channelActions.toggleStar}
+              pinnedCount={pins.pinnedCount}
+              onOpenPins={pins.openPins}
+              onOpenFiles={popovers.openChannelFiles}
               notificationLevel={state.channelNotificationPrefs[activeChannel.id]}
-              onSetNotificationLevel={(level) => handleSetNotificationLevel(activeChannel.id, level)}
+              onSetNotificationLevel={(level) => channelActions.setNotificationLevel(activeChannel.id, level)}
               isArchived={activeChannel.isArchived}
               canArchive={canManage}
-              onArchive={handleArchiveChannel}
-              onUnarchive={handleUnarchiveChannel}
+              onArchive={channelActions.archiveChannel}
+              onUnarchive={channelActions.unarchiveChannel}
+              onAddBookmark={popovers.openAddBookmark}
+              hasBookmarks={(state.channelBookmarks[activeChannel.id] ?? []).length > 0}
             />
             <BookmarksBar
               bookmarks={state.channelBookmarks[activeChannel.id] ?? []}
               isArchived={activeChannel.isArchived}
-              onAddBookmark={() => setAddBookmarkOpen(true)}
-              onRemoveBookmark={handleRemoveBookmark}
+              onAddBookmark={popovers.openAddBookmark}
+              onRemoveBookmark={popovers.removeBookmark}
             />
             <AddBookmarkDialog
-              open={addBookmarkOpen}
-              onClose={() => setAddBookmarkOpen(false)}
-              onAdd={handleAddBookmark}
+              open={popovers.addBookmarkOpen}
+              onClose={popovers.closeAddBookmark}
+              onAdd={popovers.addBookmark}
             />
-            {pinsOpen && (
+            {pins.pinsOpen && (
               <div className="relative">
                 <PinnedMessagesPopover
-                  open={pinsOpen}
-                  onClose={() => setPinsOpen(false)}
-                  messages={pinnedMessages}
-                  loading={pinnedLoading}
-                  onJumpToMessage={handleJumpToPinnedMessage}
-                  onUnpin={handleUnpinMessage}
+                  open={pins.pinsOpen}
+                  onClose={pins.closePins}
+                  messages={pins.pinnedMessages}
+                  loading={pins.pinnedLoading}
+                  onJumpToMessage={pins.jumpToPinnedMessage}
+                  onUnpin={pins.unpinMessage}
                 />
               </div>
             )}
-            {channelFilesOpen && (
+            {popovers.channelFilesOpen && (
               <div className="relative">
                 <ChannelFilesPopover
-                  open={channelFilesOpen}
-                  onClose={() => setChannelFilesOpen(false)}
-                  files={channelFiles.files}
-                  loading={channelFiles.loading}
-                  hasMore={channelFiles.nextCursor !== null}
-                  onLoadMore={() => activeChannel && channelFiles.loadMore(activeChannel.id)}
-                  onJumpToMessage={handleJumpToFileMessage}
+                  open={popovers.channelFilesOpen}
+                  onClose={popovers.closeChannelFiles}
+                  files={popovers.channelFiles.files}
+                  loading={popovers.channelFiles.loading}
+                  hasMore={popovers.channelFiles.nextCursor !== null}
+                  onLoadMore={() => activeChannel && popovers.channelFiles.loadMore(activeChannel.id)}
+                  onJumpToMessage={popovers.jumpToFileMessage}
                 />
               </div>
             )}
-            <MessageList channelId={activeChannel.id} onOpenThread={handleOpenThread} onOpenProfile={handleOpenProfile} onJoinHuddle={handleJoinHuddle} onPinMessage={handlePinMessage} onUnpinMessage={handleUnpinMessage} onShareMessage={handleShareMessage} onSaveMessage={handleSaveMessage} onUnsaveMessage={handleUnsaveMessage} savedMessageIds={state.savedMessageIds} ephemeralMessages={slashCmds.getEphemeralMessages(activeChannel.id)} onEphemeralMessage={slashCmds.addEphemeral} />
+            <MessageList channelId={activeChannel.id} onOpenThread={handleOpenThread} onOpenProfile={handleOpenProfile} onJoinHuddle={handleJoinHuddle} onPinMessage={pins.pinMessage} onUnpinMessage={pins.unpinMessage} onShareMessage={messageActions.shareMessage} onSaveMessage={messageActions.saveMessage} onUnsaveMessage={messageActions.unsaveMessage} savedMessageIds={state.savedMessageIds} ephemeralMessages={slashCmds.getEphemeralMessages(activeChannel.id)} onEphemeralMessage={slashCmds.addEphemeral} />
             <TypingIndicator typingUsers={typingUsers} />
             {activeChannel.isArchived ? (
               <div data-testid="archived-channel-banner" className="px-4 pb-4">
@@ -751,7 +454,7 @@ export function AppLayout() {
               </div>
             ) : (
               <>
-                <ScheduledMessagesBanner channelId={activeChannel.id} workspaceSlug={workspaceSlug ?? ""} onViewScheduled={handleSelectScheduledView} />
+                <ScheduledMessagesBanner channelId={activeChannel.id} workspaceSlug={slug} onViewScheduled={handleSelectScheduledView} />
                 <MessageInput ref={messageInputRef} channelId={activeChannel.id} channelName={activeChannel.name} externalDragDrop onTyping={emitTyping} slashCommands={slashCmds.commands} onSlashCommand={slashCmds.execute} />
               </>
             )}
@@ -767,9 +470,9 @@ export function AppLayout() {
               onStartHuddle={() => handleStartHuddle(activeDm.channel.id, activeDm.otherUser.displayName)}
               onJoinHuddle={() => handleJoinHuddle(activeDm.channel.id, activeDm.otherUser.displayName)}
             />
-            <MessageList channelId={activeDm.channel.id} onOpenThread={handleOpenThread} onOpenProfile={handleOpenProfile} onJoinHuddle={handleJoinHuddle} onShareMessage={handleShareMessage} onSaveMessage={handleSaveMessage} onUnsaveMessage={handleUnsaveMessage} savedMessageIds={state.savedMessageIds} ephemeralMessages={slashCmds.getEphemeralMessages(activeDm.channel.id)} onEphemeralMessage={slashCmds.addEphemeral} />
+            <MessageList channelId={activeDm.channel.id} onOpenThread={handleOpenThread} onOpenProfile={handleOpenProfile} onJoinHuddle={handleJoinHuddle} onShareMessage={messageActions.shareMessage} onSaveMessage={messageActions.saveMessage} onUnsaveMessage={messageActions.unsaveMessage} savedMessageIds={state.savedMessageIds} ephemeralMessages={slashCmds.getEphemeralMessages(activeDm.channel.id)} onEphemeralMessage={slashCmds.addEphemeral} />
             <TypingIndicator typingUsers={typingUsers} />
-            <ScheduledMessagesBanner channelId={activeDm.channel.id} workspaceSlug={workspaceSlug ?? ""} onViewScheduled={handleSelectScheduledView} />
+            <ScheduledMessagesBanner channelId={activeDm.channel.id} workspaceSlug={slug} onViewScheduled={handleSelectScheduledView} />
             <MessageInput
               ref={messageInputRef}
               channelId={activeDm.channel.id}
@@ -791,9 +494,9 @@ export function AppLayout() {
               onStartHuddle={() => handleStartHuddle(activeGroupDm.channel.id, activeGroupDm.channel.displayName ?? "Group DM")}
               onJoinHuddle={() => handleJoinHuddle(activeGroupDm.channel.id, activeGroupDm.channel.displayName ?? "Group DM")}
             />
-            <MessageList channelId={activeGroupDm.channel.id} onOpenThread={handleOpenThread} onOpenProfile={handleOpenProfile} onJoinHuddle={handleJoinHuddle} onShareMessage={handleShareMessage} onSaveMessage={handleSaveMessage} onUnsaveMessage={handleUnsaveMessage} savedMessageIds={state.savedMessageIds} ephemeralMessages={slashCmds.getEphemeralMessages(activeGroupDm.channel.id)} onEphemeralMessage={slashCmds.addEphemeral} />
+            <MessageList channelId={activeGroupDm.channel.id} onOpenThread={handleOpenThread} onOpenProfile={handleOpenProfile} onJoinHuddle={handleJoinHuddle} onShareMessage={messageActions.shareMessage} onSaveMessage={messageActions.saveMessage} onUnsaveMessage={messageActions.unsaveMessage} savedMessageIds={state.savedMessageIds} ephemeralMessages={slashCmds.getEphemeralMessages(activeGroupDm.channel.id)} onEphemeralMessage={slashCmds.addEphemeral} />
             <TypingIndicator typingUsers={typingUsers} />
-            <ScheduledMessagesBanner channelId={activeGroupDm.channel.id} workspaceSlug={workspaceSlug ?? ""} onViewScheduled={handleSelectScheduledView} />
+            <ScheduledMessagesBanner channelId={activeGroupDm.channel.id} workspaceSlug={slug} onViewScheduled={handleSelectScheduledView} />
             <MessageInput
               ref={messageInputRef}
               channelId={activeGroupDm.channel.id}
@@ -874,9 +577,9 @@ export function AppLayout() {
         workspaceSlug={workspaceSlug}
       />
       <ShareMessageDialog
-        open={shareDialogMessage !== null}
-        onClose={() => setShareDialogMessage(null)}
-        message={shareDialogMessage}
+        open={messageActions.shareDialogMessage !== null}
+        onClose={messageActions.closeShareDialog}
+        message={messageActions.shareDialogMessage}
         channels={[
           ...state.channels.filter((ch) => !ch.isArchived),
           ...state.dms.map((dm) => dm.channel),
@@ -886,7 +589,7 @@ export function AppLayout() {
           ...state.dms.map((dm) => [dm.channel.id, dm.otherUser.displayName] as const),
           ...state.groupDms.map((gdm) => [gdm.channel.id, gdm.channel.displayName ?? gdm.members.map((m) => m.displayName).join(", ")] as const),
         ])}
-        onShare={handleConfirmShare}
+        onShare={messageActions.confirmShare}
       />
       </div>
     </div>

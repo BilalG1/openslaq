@@ -21,10 +21,8 @@ test.describe("File browser", () => {
   test("channel files button opens popover", async ({ page, testWorkspace }) => {
     await openWorkspaceChannel(page, testWorkspace.slug);
 
-    // Channel files button should be visible in header
-    await expect(page.getByTestId("channel-files-button")).toBeVisible();
-
-    // Click it to open the popover
+    // Open overflow menu and click channel files
+    await page.getByTestId("channel-overflow-menu").click();
     await page.getByTestId("channel-files-button").click();
     await expect(page.getByTestId("channel-files-popover")).toBeVisible();
 

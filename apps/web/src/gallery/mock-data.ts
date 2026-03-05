@@ -171,7 +171,7 @@ function msg(
     createdAt: ts,
     updatedAt: ts,
     ...extra,
-  };
+  } as Message;
 }
 
 export const MOCK_GENERAL_MESSAGES: Message[] = [

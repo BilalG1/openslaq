@@ -15,10 +15,9 @@ test.describe("Channel archiving", () => {
     await expect(channelItem).toBeVisible({ timeout: 15000 });
     await channelItem.click();
 
-    // Admin should see the archive button
-    await expect(page.getByTestId("archive-channel-button")).toBeVisible();
-
-    // Click archive and confirm
+    // Open overflow menu and click archive
+    await expect(page.getByTestId("channel-overflow-menu")).toBeVisible();
+    await page.getByTestId("channel-overflow-menu").click();
     await page.getByTestId("archive-channel-button").click();
     await expect(page.getByTestId("confirm-archive-button")).toBeVisible();
     await page.getByTestId("confirm-archive-button").click();
@@ -39,8 +38,13 @@ test.describe("Channel archiving", () => {
     // Wait for header to render with member count (confirms channel is loaded)
     await expect(page.getByTestId("channel-member-count")).toBeVisible();
 
-    // Archive button should not be visible for #general
-    await expect(page.getByTestId("archive-channel-button")).not.toBeVisible();
+    // Overflow menu should not be visible for #general (no secondary actions that apply)
+    // Even if overflow exists, archive button should not be present
+    const overflowBtn = page.getByTestId("channel-overflow-menu");
+    if (await overflowBtn.isVisible()) {
+      await overflowBtn.click();
+      await expect(page.getByTestId("archive-channel-button")).not.toBeVisible();
+    }
   });
 
   test("archived channel shows read-only banner and badge", async ({ page, testWorkspace }) => {
@@ -58,7 +62,8 @@ test.describe("Channel archiving", () => {
     // Wait for the channel to fully load
     await expect(page.getByTestId("channel-member-count")).toBeVisible();
 
-    // Archive via the UI
+    // Archive via the overflow menu
+    await page.getByTestId("channel-overflow-menu").click();
     await page.getByTestId("archive-channel-button").click();
     await page.getByTestId("confirm-archive-button").click();
 
@@ -83,14 +88,16 @@ test.describe("Channel archiving", () => {
     await channelItem.click();
     await expect(page.getByTestId("channel-member-count")).toBeVisible();
 
-    // Archive via the UI
+    // Archive via the overflow menu
+    await page.getByTestId("channel-overflow-menu").click();
     await page.getByTestId("archive-channel-button").click();
     await page.getByTestId("confirm-archive-button").click();
 
-    // Wait for archived state
-    await expect(page.getByTestId("unarchive-channel-button")).toBeVisible({ timeout: 10000 });
+    // Wait for archived state — unarchive is in the overflow menu
+    await expect(page.getByTestId("channel-overflow-menu")).toBeVisible({ timeout: 10000 });
 
-    // Unarchive
+    // Unarchive via overflow menu
+    await page.getByTestId("channel-overflow-menu").click();
     await page.getByTestId("unarchive-channel-button").click();
 
     // After unarchiving, archived elements should disappear

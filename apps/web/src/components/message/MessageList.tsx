@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { Fragment, useCallback, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { useSocket } from "../../hooks/useSocket";
 import { useSocketEvent } from "../../hooks/useSocketEvent";
@@ -13,6 +13,7 @@ import { useChannelMessages } from "../../hooks/chat/useChannelMessages";
 import { useMessageMutations } from "../../hooks/chat/useMessageMutations";
 import { useLoadOlderMessages } from "../../hooks/chat/useLoadOlderMessages";
 import { useLoadNewerMessages } from "../../hooks/chat/useLoadNewerMessages";
+import { useScrollAnchor } from "../../hooks/chat/useScrollAnchor";
 import { useBotActions } from "../../hooks/chat/useBotActions";
 import { EphemeralMessageItem } from "./EphemeralMessage";
 import { useChatStore } from "../../state/chat-store";
@@ -57,123 +58,21 @@ export function MessageList({ channelId, onOpenThread, onOpenProfile, onJoinHudd
   const topSentinelRef = useRef<HTMLDivElement>(null);
   const bottomSentinelRef = useRef<HTMLDivElement>(null);
 
-  // Track scroll height before prepend for scroll anchoring
-  const prevScrollHeightRef = useRef<number>(0);
-  const prevScrollTopRef = useRef<number>(0);
-  const isPrependingRef = useRef(false);
-  const prevMessageCountRef = useRef<number>(0);
-
-  // Scroll-to-bottom on channel load / auto-scroll on new messages
-  const prevChannelIdRef = useRef<string>(channelId);
-  const didInitialScrollRef = useRef(false);
-  const isNearBottomRef = useRef(true);
-  const scrollPositionCache = useRef<Map<string, number>>(new Map());
-
-  // Reset scroll state on channel switch
-  useEffect(() => {
-    if (channelId !== prevChannelIdRef.current) {
-      const container = scrollContainerRef.current;
-      if (container && prevChannelIdRef.current) {
-        scrollPositionCache.current.set(prevChannelIdRef.current, container.scrollTop);
-      }
-      prevChannelIdRef.current = channelId;
-      didInitialScrollRef.current = false;
-      prevMessageCountRef.current = 0;
-      isNearBottomRef.current = true;
-    }
-  }, [channelId]);
-
-  // Track whether user is near the bottom of the scroll container
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-    const onScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = container;
-      isNearBottomRef.current = scrollHeight - scrollTop - clientHeight < 150;
-    };
-    container.addEventListener("scroll", onScroll, { passive: true });
-    return () => container.removeEventListener("scroll", onScroll);
-  }, []);
-
-  // Mark when a prepend starts
-  useEffect(() => {
-    if (loadingOlder) {
-      const container = scrollContainerRef.current;
-      if (container) {
-        prevScrollHeightRef.current = container.scrollHeight;
-        prevScrollTopRef.current = container.scrollTop;
-        isPrependingRef.current = true;
-      }
-    }
-  }, [loadingOlder]);
-
-  // Scroll anchoring: prepend preservation, initial scroll-to-bottom, auto-scroll on new messages
-  useLayoutEffect(() => {
-    const container = scrollContainerRef.current;
-    const prevCount = prevMessageCountRef.current;
-    prevMessageCountRef.current = messages.length;
-    if (!container || messages.length <= prevCount) return;
-
-    if (isPrependingRef.current) {
-      const heightDelta = container.scrollHeight - prevScrollHeightRef.current;
-      container.scrollTop = prevScrollTopRef.current + heightDelta;
-      isPrependingRef.current = false;
-      return;
-    }
-    if (!didInitialScrollRef.current) {
-      const cached = scrollPositionCache.current.get(channelId);
-      if (cached !== undefined) {
-        container.scrollTop = cached;
-        isNearBottomRef.current = container.scrollHeight - cached - container.clientHeight < 150;
-      } else {
-        container.scrollTop = container.scrollHeight;
-      }
-      didInitialScrollRef.current = true;
-      return;
-    }
-    const newestMessage = messages[messages.length - 1];
-    if (isNearBottomRef.current || newestMessage?.userId === user?.id) {
-      container.scrollTop = container.scrollHeight;
-    }
-  }, [messages.length, messages, user?.id]);
-
-  // Top IntersectionObserver — load older messages
-  useEffect(() => {
-    const sentinel = topSentinelRef.current;
-    const container = scrollContainerRef.current;
-    if (!sentinel || !container) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting && hasOlder && !loadingOlder) {
-          void loadOlder();
-        }
-      },
-      { root: container, rootMargin: "200px 0px 0px 0px" },
-    );
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [hasOlder, loadingOlder, loadOlder]);
-
-  // Bottom IntersectionObserver — load newer messages
-  useEffect(() => {
-    const sentinel = bottomSentinelRef.current;
-    const container = scrollContainerRef.current;
-    if (!sentinel || !container) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting && hasNewer && !loadingNewer) {
-          void loadNewer();
-        }
-      },
-      { root: container, rootMargin: "0px 0px 200px 0px" },
-    );
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [hasNewer, loadingNewer, loadNewer]);
+  useScrollAnchor({
+    scrollContainerRef,
+    topSentinelRef,
+    bottomSentinelRef,
+    items: messages,
+    currentUserId: user?.id,
+    contextId: channelId,
+    loadingOlder,
+    hasOlder,
+    loadOlder,
+    loadingNewer,
+    hasNewer,
+    loadNewer,
+    enableScrollCache: true,
+  });
 
   const handleNewMessage = useCallback(
     (message: Message) => {

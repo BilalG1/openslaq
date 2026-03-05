@@ -71,6 +71,23 @@ export async function unpinMessage(
   }
 }
 
+export async function fetchPinnedMessageCount(
+  deps: OperationDeps,
+  params: { workspaceSlug: string; channelId: string },
+): Promise<number> {
+  const { api, auth } = deps;
+  const { workspaceSlug, channelId } = params;
+
+  const res = await authorizedRequest(auth, (headers) =>
+    api.api.workspaces[":slug"].channels[":id"]["pin-count"].$get(
+      { param: { slug: workspaceSlug, id: channelId } },
+      { headers },
+    ),
+  );
+  const data = (await res.json()) as { count: number };
+  return data.count;
+}
+
 export async function fetchPinnedMessages(
   deps: OperationDeps,
   params: { workspaceSlug: string; channelId: string },

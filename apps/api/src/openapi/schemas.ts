@@ -84,7 +84,7 @@ export const attachmentSchema = z
     filename: z.string().describe("Original filename"),
     mimeType: z.string().describe("MIME type"),
     size: z.number().describe("File size in bytes"),
-    uploadedBy: z.string().describe("Uploader user ID"),
+    uploadedBy: z.string().nullable().describe("Uploader user ID"),
     createdAt: z.string().describe("Upload timestamp"),
     downloadUrl: z.string().describe("Pre-signed download URL"),
   })
@@ -180,6 +180,14 @@ export const messagesAroundSchema = z
     hasNewer: z.boolean().describe("Whether newer messages exist"),
   })
   .openapi("MessagesAround");
+
+// ── Pin count ────────────────────────────────────────────────────────────
+
+export const pinnedCountSchema = z
+  .object({
+    count: z.number().describe("Number of pinned messages"),
+  })
+  .openapi("PinnedCount");
 
 // ── Search ──────────────────────────────────────────────────────────────
 

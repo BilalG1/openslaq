@@ -143,6 +143,58 @@ describe("pinned messages", () => {
     expect([403, 404]).toContain(res.status);
   });
 
+  test("pin count returns 0 for empty channel", async () => {
+    // Create a fresh channel with no pins
+    const chRes = await client.api.workspaces[":slug"].channels.$post({
+      param: { slug },
+      json: { name: `pin-count-empty-${testId()}` },
+    });
+    const ch = (await chRes.json()) as { id: string };
+
+    const res = await client.api.workspaces[":slug"].channels[":id"]["pin-count"].$get({
+      param: { slug, id: ch.id },
+    });
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as { count: number };
+    expect(data.count).toBe(0);
+  });
+
+  test("pin count reflects pinned messages", async () => {
+    // Ensure the message is pinned
+    await client.api.workspaces[":slug"].channels[":id"].messages[":messageId"].pin.$post({
+      param: { slug, id: channelId, messageId },
+    });
+
+    const res = await client.api.workspaces[":slug"].channels[":id"]["pin-count"].$get({
+      param: { slug, id: channelId },
+    });
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as { count: number };
+    expect(data.count).toBeGreaterThanOrEqual(1);
+  });
+
+  test("pin count decreases after unpin", async () => {
+    // Pin, get count, unpin, get count again
+    await client.api.workspaces[":slug"].channels[":id"].messages[":messageId"].pin.$post({
+      param: { slug, id: channelId, messageId },
+    });
+
+    const res1 = await client.api.workspaces[":slug"].channels[":id"]["pin-count"].$get({
+      param: { slug, id: channelId },
+    });
+    const before = (await res1.json()) as { count: number };
+
+    await client.api.workspaces[":slug"].channels[":id"].messages[":messageId"].pin.$delete({
+      param: { slug, id: channelId, messageId },
+    });
+
+    const res2 = await client.api.workspaces[":slug"].channels[":id"]["pin-count"].$get({
+      param: { slug, id: channelId },
+    });
+    const after = (await res2.json()) as { count: number };
+    expect(after.count).toBe(before.count - 1);
+  });
+
   test("pin is idempotent (double-pin no error)", async () => {
     const res1 = await client.api.workspaces[":slug"].channels[":id"].messages[":messageId"].pin.$post({
       param: { slug, id: channelId, messageId },

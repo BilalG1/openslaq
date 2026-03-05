@@ -1,16 +1,16 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { asMessageId } from "@openslaq/shared";
 import { createMessageSchema, messagesPaginationSchema, shareMessageSchema } from "./validation";
-import { getMessages, createMessage, getMessageById, getThreadReplies, createThreadReply, getMessagesAround, AttachmentLinkError, createSharedMessage } from "./service";
+import { getMessages, createMessage, getMessageById, getThreadReplies, createThreadReply, getMessagesAround, createSharedMessage } from "./service";
 import { isChannelMember } from "../channels/service";
-import { pinMessage, unpinMessage, getPinnedMessageIds } from "./pinned-service";
+import { pinMessage, unpinMessage, getPinnedMessageIds, getPinnedCount } from "./pinned-service";
 import { saveMessage, unsaveMessage } from "./saved-service";
 import { unfurlMessageLinks } from "./link-preview-service";
 import { getIO } from "../socket/io";
 import { resolveChannel, requireChannelMember } from "../channels/middleware";
 import type { WorkspaceMemberEnv } from "../workspaces/role-middleware";
 import { rlMessageSend, rlRead, rlPin } from "../rate-limit";
-import { messageListSchema, messageSchema, messagesAroundSchema, errorSchema, okSchema } from "../openapi/schemas";
+import { messageListSchema, messageSchema, messagesAroundSchema, errorSchema, okSchema, pinnedCountSchema } from "../openapi/schemas";
 import { jsonResponse } from "../openapi/responses";
 import { webhookDispatcher } from "../bots/webhook-dispatcher";
 import { scheduleMessagePush } from "../push/service";
@@ -209,6 +209,23 @@ const listPinsRoute = createRoute({
   },
 });
 
+const pinCountRoute = createRoute({
+  method: "get",
+  path: "/:id/pin-count",
+  tags: ["Messages"],
+  summary: "Get pinned message count",
+  description: "Returns the number of pinned messages in a channel.",
+  security: [{ Bearer: [] }],
+  middleware: [rlRead, resolveChannel, requireChannelMember] as const,
+  request: { params: channelIdParam },
+  responses: {
+    200: {
+      content: { "application/json": { schema: pinnedCountSchema } },
+      description: "Pinned message count",
+    },
+  },
+});
+
 const shareMessageRoute = createRoute({
   method: "post",
   path: "/:id/messages/share",
@@ -292,20 +309,17 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
 
     const { content, attachmentIds } = c.req.valid("json");
 
-    try {
-      const message = await createMessage(channel.id, user.id, content, attachmentIds);
-      const io = getIO();
-      io.to(`channel:${channel.id}`).emit("message:new", message);
-      webhookDispatcher.dispatch({ type: "message:new", channelId: channel.id, workspaceId: c.get("workspace").id, data: message });
-      unfurlMessageLinks(message.id, channel.id, content).catch(console.error);
-      scheduleMessagePush(message, c.get("workspace").slug).catch(console.error);
-      return jsonResponse(c, message, 201);
-    } catch (e) {
-      if (e instanceof AttachmentLinkError) {
-        return c.json({ error: e.message }, 400);
-      }
-      throw e;
+    const message = await createMessage(channel.id, user.id, content, attachmentIds);
+    if ("error" in message) {
+      return c.json({ error: message.error }, 400);
     }
+
+    const io = getIO();
+    io.to(`channel:${channel.id}`).emit("message:new", message);
+    webhookDispatcher.dispatch({ type: "message:new", channelId: channel.id, workspaceId: c.get("workspace").id, data: message });
+    unfurlMessageLinks(message.id, channel.id, content).catch(console.error);
+    scheduleMessagePush(message, c.get("workspace").slug).catch(console.error);
+    return jsonResponse(c, message, 201);
   })
   .openapi(getMessagesAroundRoute, async (c) => {
     const channel = c.get("channel");
@@ -334,30 +348,23 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     const messageId = asMessageId(c.req.valid("param").messageId);
     const { content, attachmentIds } = c.req.valid("json");
 
-    try {
-      const result = await createThreadReply(messageId, channel.id, user.id, content, attachmentIds);
+    const result = await createThreadReply(messageId, channel.id, user.id, content, attachmentIds);
 
-      if ("error" in result) {
-        if (result.error === "Cannot reply to a reply") {
-          return c.json({ error: result.error }, 400);
-        }
-        return c.json({ error: result.error }, 404);
+    if ("error" in result) {
+      if (result.error === "Cannot reply to a reply" || result.error === "One or more attachments are invalid or already linked") {
+        return c.json({ error: result.error }, 400);
       }
-
-      const io = getIO();
-      io.to(`channel:${channel.id}`).emit("message:new", result.reply);
-      io.to(`channel:${channel.id}`).emit("thread:updated", result.threadUpdate);
-      webhookDispatcher.dispatch({ type: "message:new", channelId: channel.id, workspaceId: c.get("workspace").id, data: result.reply });
-      unfurlMessageLinks(result.reply.id, channel.id, content).catch(console.error);
-      scheduleMessagePush(result.reply, c.get("workspace").slug).catch(console.error);
-
-      return jsonResponse(c, result.reply, 201);
-    } catch (e) {
-      if (e instanceof AttachmentLinkError) {
-        return c.json({ error: e.message }, 400);
-      }
-      throw e;
+      return c.json({ error: result.error }, 404);
     }
+
+    const io = getIO();
+    io.to(`channel:${channel.id}`).emit("message:new", result.reply);
+    io.to(`channel:${channel.id}`).emit("thread:updated", result.threadUpdate);
+    webhookDispatcher.dispatch({ type: "message:new", channelId: channel.id, workspaceId: c.get("workspace").id, data: result.reply });
+    unfurlMessageLinks(result.reply.id, channel.id, content).catch(console.error);
+    scheduleMessagePush(result.reply, c.get("workspace").slug).catch(console.error);
+
+    return jsonResponse(c, result.reply, 201);
   })
   .openapi(pinMessageRoute, async (c) => {
     const user = c.get("user");
@@ -408,6 +415,11 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     await createMessage(channel.id, user.id, `${senderName} unpinned a message from this channel.`);
 
     return c.json({ ok: true as const }, 200);
+  })
+  .openapi(pinCountRoute, async (c) => {
+    const channel = c.get("channel");
+    const count = await getPinnedCount(channel.id);
+    return jsonResponse(c, { count }, 200);
   })
   .openapi(listPinsRoute, async (c) => {
     const channel = c.get("channel");

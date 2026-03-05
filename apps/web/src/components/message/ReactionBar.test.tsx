@@ -99,6 +99,18 @@ describe("ReactionBar", () => {
     expect(img!.className).toContain("h-5");
   });
 
+  test("converts shortcode to native emoji glyph", () => {
+    const reactions: ReactionGroup[] = [
+      { emoji: "rocket", count: 2, userIds: [uid("u-1"), uid("u-2")] },
+      { emoji: "thumbsup", count: 1, userIds: [uid("u-1")] },
+    ];
+    render(
+      <ReactionBar reactions={reactions} currentUserId="u-1" onToggleReaction={noop} />,
+    );
+    expect(screen.getByTestId("reaction-pill-rocket").textContent).toContain("🚀");
+    expect(screen.getByTestId("reaction-pill-thumbsup").textContent).toContain("👍");
+  });
+
   test("renders unknown custom emoji as text fallback in reaction", () => {
     const reactions: ReactionGroup[] = [
       { emoji: ":custom:unknown-emoji:", count: 1, userIds: [uid("u-1")] },

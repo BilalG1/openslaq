@@ -12,12 +12,12 @@ export const attachments = pgTable(
     mimeType: text("mime_type").notNull(),
     size: integer("size").notNull(),
     uploadedBy: text("uploaded_by")
-      .notNull()
-      .references(() => users.id),
+      .references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
     index("attachments_message_id_idx").on(table.messageId),
     index("attachments_uploaded_by_idx").on(table.uploadedBy),
+    index("attachments_created_at_desc_idx").on(table.createdAt.desc()),
   ],
 );

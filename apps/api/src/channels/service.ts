@@ -3,22 +3,8 @@ import { db } from "../db";
 import { channels, channelMembers } from "./schema";
 import { users } from "../users/schema";
 import type { Channel, ChannelId, ChannelType, WorkspaceId, UserId } from "@openslaq/shared";
-import { asChannelId, asWorkspaceId, asUserId, CHANNEL_TYPES } from "@openslaq/shared";
-
-function toChannel(row: typeof channels.$inferSelect, memberCount?: number): Channel {
-  return {
-    id: asChannelId(row.id),
-    workspaceId: asWorkspaceId(row.workspaceId),
-    name: row.name,
-    type: row.type,
-    description: row.description,
-    displayName: row.displayName ?? null,
-    isArchived: row.isArchived,
-    createdBy: row.createdBy ? asUserId(row.createdBy) : null,
-    createdAt: row.createdAt.toISOString(),
-    memberCount,
-  };
-}
+import { CHANNEL_TYPES } from "@openslaq/shared";
+import { toChannel } from "./to-channel";
 
 export async function listChannels(workspaceId: WorkspaceId, userId: UserId): Promise<Channel[]> {
   const memberSubquery = db

@@ -22,6 +22,9 @@ export interface SemanticColorTokens {
   avatarFallbackBg: string;
   avatarFallbackText: string;
   highlightBg: string;
+  headerBg: string;
+  headerText: string;
+  headerSearchBg: string;
 }
 
 export interface BrandColorTokens {

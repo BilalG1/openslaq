@@ -1,7 +1,7 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
-import Mention from "@tiptap/extension-mention";
+import { MentionWithMarkdown } from "./MentionMarkdown";
 import Placeholder from "@tiptap/extension-placeholder";
 import { CodeBlockShiki } from "tiptap-extension-code-block-shiki";
 import { Markdown } from "tiptap-markdown";
@@ -61,8 +61,9 @@ export function RichTextEditor({
   const onSlashCommandRef = useRef(onSlashCommand);
   onSlashCommandRef.current = onSlashCommand;
 
+  const mentionSuggestionActiveRef = useRef(false);
   const mentionSuggestion = useMemo(
-    () => createMentionSuggestion(() => membersRef.current),
+    () => createMentionSuggestion(() => membersRef.current, mentionSuggestionActiveRef),
     [],
   );
 
@@ -77,7 +78,7 @@ export function RichTextEditor({
       StarterKit.configure({ heading: false, codeBlock: false }),
       CodeBlockShiki.configure({ themes: { light: "light-plus", dark: "dark-plus" } }),
       Link.configure({ autolink: true, openOnClick: false }),
-      Mention.configure({
+      MentionWithMarkdown.configure({
         HTMLAttributes: { class: "mention" },
         renderText({ node }) {
           return `<@${node.attrs.id}>`;
@@ -105,7 +106,8 @@ export function RichTextEditor({
     editorProps: {
       handleKeyDown(_view, event) {
         if (!editor) return false;
-        // Let the slash command suggestion plugin handle keys when it's active
+        // Let suggestion plugins handle keys when active
+        if (mentionSuggestionActiveRef.current) return false;
         if (slashSuggestionActiveRef.current) return false;
 
         const shouldSend = shouldSendOnEnter({

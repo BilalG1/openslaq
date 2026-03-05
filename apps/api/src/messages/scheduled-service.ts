@@ -222,6 +222,9 @@ export async function processDueScheduledMessages(): Promise<void> {
           scheduled.content,
           attachmentIds,
         );
+        if ("error" in message) {
+          throw new Error(message.error);
+        }
 
         // Emit message:new to channel
         io.to(`channel:${scheduled.channelId}`).emit("message:new", message);

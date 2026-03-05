@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
 } from "../ui/dropdown-menu";
 import type { PresenceEntry } from "../../state/chat-store";
 
@@ -38,6 +39,8 @@ interface ChannelHeaderProps {
   canArchive?: boolean;
   onArchive?: () => void;
   onUnarchive?: () => void;
+  onAddBookmark?: () => void;
+  hasBookmarks?: boolean;
 }
 
 export function ChannelHeader({
@@ -67,6 +70,8 @@ export function ChannelHeader({
   canArchive,
   onArchive,
   onUnarchive,
+  onAddBookmark,
+  hasBookmarks,
 }: ChannelHeaderProps) {
   const [membersOpen, setMembersOpen] = useState(false);
   const [editingTopic, setEditingTopic] = useState(false);
@@ -180,65 +185,7 @@ export function ChannelHeader({
         )}
       </div>
 
-      <div className="flex items-center gap-1">
-        {onSetNotificationLevel && (
-          <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  data-testid="channel-notification-button"
-                  variant="outline"
-                  size="sm"
-                  aria-label="Notification preferences"
-                >
-                  {notificationLevel === "muted" ? (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.143 17.082a24.248 24.248 0 0 0 5.714 0m-7.03-12.583A8.966 8.966 0 0 1 12 3c4.97 0 9 3.582 9 8a8.948 8.948 0 0 1-1.174 4.416M3 3l18 18M10.5 21h3" />
-                    </svg>
-                  ) : (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
-                    </svg>
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                data-testid="notify-level-all"
-                onSelect={() => onSetNotificationLevel("all")}
-                className="flex items-center gap-2"
-              >
-                <span className="w-4 text-center">{(!notificationLevel || notificationLevel === "all") ? "\u2713" : ""}</span>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
-                </svg>
-                All messages
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                data-testid="notify-level-mentions"
-                onSelect={() => onSetNotificationLevel("mentions")}
-                className="flex items-center gap-2"
-              >
-                <span className="w-4 text-center">{notificationLevel === "mentions" ? "\u2713" : ""}</span>
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Zm0 0c0 1.657 1.007 3 2.25 3S21 13.657 21 12a9 9 0 1 0-2.636 6.364M16.5 12V8.25" />
-                </svg>
-                Mentions only
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                data-testid="notify-level-muted"
-                onSelect={() => onSetNotificationLevel("muted")}
-                className="flex items-center gap-2"
-              >
-                <span className="w-4 text-center">{notificationLevel === "muted" ? "\u2713" : ""}</span>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.143 17.082a24.248 24.248 0 0 0 5.714 0m-7.03-12.583A8.966 8.966 0 0 1 12 3c4.97 0 9 3.582 9 8a8.948 8.948 0 0 1-1.174 4.416M3 3l18 18M10.5 21h3" />
-                </svg>
-                Muted
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-
+      <div className="flex items-center gap-0.5">
         {channelId && onStartHuddle && onJoinHuddle && (
           <HuddleHeaderButton
             channelId={channelId}
@@ -253,7 +200,7 @@ export function ChannelHeader({
           <Tooltip content="Pinned messages">
             <Button
               data-testid="pinned-messages-button"
-              variant="outline"
+              variant="ghost"
               size="sm"
               className="gap-1.5"
               onClick={onOpenPins}
@@ -266,27 +213,12 @@ export function ChannelHeader({
           </Tooltip>
         )}
 
-        {onOpenFiles && (
-          <Tooltip content="Channel files">
-            <Button
-              data-testid="channel-files-button"
-              variant="outline"
-              size="sm"
-              onClick={onOpenFiles}
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-              </svg>
-            </Button>
-          </Tooltip>
-        )}
-
       {channelId && memberCount != null && (
         <>
           <Tooltip content="View members">
             <Button
               data-testid="channel-member-count"
-              variant="outline"
+              variant="ghost"
               size="sm"
               className="gap-1.5"
               onClick={() => setMembersOpen(true)}
@@ -316,60 +248,148 @@ export function ChannelHeader({
         </>
       )}
 
-      {canArchive && !isArchived && onArchive && channelName !== "general" && (
-        <>
-          <Tooltip content="Archive channel">
+      {/* Overflow kebab menu for secondary actions */}
+      {(onSetNotificationLevel || onOpenFiles || (onAddBookmark && !hasBookmarks && !isArchived) || (canArchive && !isArchived && onArchive && channelName !== "general") || (canArchive && isArchived && onUnarchive)) && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
             <Button
-              data-testid="archive-channel-button"
-              variant="outline"
+              data-testid="channel-overflow-menu"
+              variant="ghost"
               size="sm"
-              onClick={() => setArchiveConfirmOpen(true)}
+              aria-label="More actions"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0 5.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm1.5 7a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0Z" />
               </svg>
             </Button>
-          </Tooltip>
-          <Dialog open={archiveConfirmOpen} onOpenChange={setArchiveConfirmOpen}>
-            <DialogContent size="sm" className="p-4">
-              <DialogTitle className="mb-3">Archive #{channelName}?</DialogTitle>
-              <p className="text-sm text-secondary mb-4">
-                Archived channels become read-only and are hidden from the sidebar. You can unarchive later.
-              </p>
-              <div className="flex justify-end gap-2">
-                <Button variant="secondary" size="sm" onClick={() => setArchiveConfirmOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  data-testid="confirm-archive-button"
-                  variant="primary"
-                  size="sm"
-                  onClick={() => {
-                    setArchiveConfirmOpen(false);
-                    onArchive();
-                  }}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {onSetNotificationLevel && (
+              <>
+                <DropdownMenuItem
+                  data-testid="notify-level-all"
+                  onSelect={() => onSetNotificationLevel("all")}
+                  className="flex items-center gap-2"
                 >
-                  Archive
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </>
+                  <span className="w-4 text-center">{(!notificationLevel || notificationLevel === "all") ? "\u2713" : ""}</span>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
+                  </svg>
+                  All messages
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  data-testid="notify-level-mentions"
+                  onSelect={() => onSetNotificationLevel("mentions")}
+                  className="flex items-center gap-2"
+                >
+                  <span className="w-4 text-center">{notificationLevel === "mentions" ? "\u2713" : ""}</span>
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Zm0 0c0 1.657 1.007 3 2.25 3S21 13.657 21 12a9 9 0 1 0-2.636 6.364M16.5 12V8.25" />
+                  </svg>
+                  Mentions only
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  data-testid="notify-level-muted"
+                  onSelect={() => onSetNotificationLevel("muted")}
+                  className="flex items-center gap-2"
+                >
+                  <span className="w-4 text-center">{notificationLevel === "muted" ? "\u2713" : ""}</span>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.143 17.082a24.248 24.248 0 0 0 5.714 0m-7.03-12.583A8.966 8.966 0 0 1 12 3c4.97 0 9 3.582 9 8a8.948 8.948 0 0 1-1.174 4.416M3 3l18 18M10.5 21h3" />
+                  </svg>
+                  Muted
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
+
+            {onOpenFiles && (
+              <DropdownMenuItem
+                data-testid="channel-files-button"
+                onSelect={onOpenFiles}
+                className="flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                </svg>
+                Channel files
+              </DropdownMenuItem>
+            )}
+
+            {onAddBookmark && !hasBookmarks && !isArchived && (
+              <DropdownMenuItem
+                data-testid="add-bookmark-button"
+                onSelect={onAddBookmark}
+                className="flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
+                </svg>
+                Add bookmark
+              </DropdownMenuItem>
+            )}
+
+            {canArchive && !isArchived && onArchive && channelName !== "general" && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  data-testid="archive-channel-button"
+                  onSelect={() => setArchiveConfirmOpen(true)}
+                  className="flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+                  </svg>
+                  Archive channel
+                </DropdownMenuItem>
+              </>
+            )}
+
+            {canArchive && isArchived && onUnarchive && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  data-testid="unarchive-channel-button"
+                  onSelect={onUnarchive}
+                  className="flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0-3-3m3 3 3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+                  </svg>
+                  Unarchive channel
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
 
-      {canArchive && isArchived && onUnarchive && (
-        <Tooltip content="Unarchive channel">
-          <Button
-            data-testid="unarchive-channel-button"
-            variant="outline"
-            size="sm"
-            onClick={onUnarchive}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0-3-3m3 3 3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
-            </svg>
-          </Button>
-        </Tooltip>
+      {/* Archive confirmation dialog (rendered outside dropdown) */}
+      {canArchive && !isArchived && onArchive && channelName !== "general" && (
+        <Dialog open={archiveConfirmOpen} onOpenChange={setArchiveConfirmOpen}>
+          <DialogContent size="sm" className="p-4">
+            <DialogTitle className="mb-3">Archive #{channelName}?</DialogTitle>
+            <p className="text-sm text-secondary mb-4">
+              Archived channels become read-only and are hidden from the sidebar. You can unarchive later.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" size="sm" onClick={() => setArchiveConfirmOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                data-testid="confirm-archive-button"
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  setArchiveConfirmOpen(false);
+                  onArchive();
+                }}
+              >
+                Archive
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
       </div>
     </div>

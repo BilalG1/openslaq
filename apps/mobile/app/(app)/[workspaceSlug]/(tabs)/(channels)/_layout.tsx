@@ -1,52 +1,12 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { Pressable, Text, View } from "react-native";
 import type { Channel } from "@openslaq/shared";
-import { useMobileTheme } from "@/theme/ThemeProvider";
 import { useAuth } from "@/contexts/AuthContext";
 import { useChatStore } from "@/contexts/ChatStoreProvider";
 import { CreateChannelModal } from "@/components/CreateChannelModal";
 import { NewDmModal } from "@/components/NewDmModal";
-import { HeaderAvatarButton } from "@/components/HeaderAvatarButton";
-import { WorkspaceIconButton } from "@/components/workspace/WorkspaceIconButton";
-import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
+import { HomeActionsProvider } from "@/contexts/HomeActionsContext";
 import { api } from "@/lib/api";
-
-function SearchButton({ workspaceSlug }: { workspaceSlug: string }) {
-  const { theme } = useMobileTheme();
-  const router = useRouter();
-
-  return (
-    <Pressable
-      testID="search-button"
-      onPress={() => router.push(`/(app)/${workspaceSlug}/search`)}
-      hitSlop={8}
-      style={{ marginRight: 12 }}
-    >
-      <Text style={{ color: theme.brand.primary, fontSize: 20 }}>{"\u{1F50D}"}</Text>
-    </Pressable>
-  );
-}
-
-function CreateChannelButton({ onPress }: { onPress: () => void }) {
-  const { theme } = useMobileTheme();
-
-  return (
-    <Pressable testID="create-channel-button" onPress={onPress} hitSlop={8}>
-      <Text style={{ color: theme.brand.primary, fontSize: 24, fontWeight: "300" }}>+</Text>
-    </Pressable>
-  );
-}
-
-function NewDmButton({ onPress }: { onPress: () => void }) {
-  const { theme } = useMobileTheme();
-
-  return (
-    <Pressable testID="new-dm-button" onPress={onPress} hitSlop={8} style={{ marginRight: 12 }}>
-      <Text style={{ color: theme.brand.primary, fontSize: 20 }}>{"\u{270F}\u{FE0F}"}</Text>
-    </Pressable>
-  );
-}
 
 export default function ChannelsLayout() {
   const { workspaceSlug: urlSlug } = useLocalSearchParams<{ workspaceSlug: string }>();
@@ -55,7 +15,6 @@ export default function ChannelsLayout() {
   const router = useRouter();
   const [showCreate, setShowCreate] = useState(false);
   const [showNewDm, setShowNewDm] = useState(false);
-  const { profile } = useCurrentUserProfile();
 
   const workspaceSlug = state.workspaceSlug ?? urlSlug;
   const currentWorkspace = state.workspaces.find((ws) => ws.slug === workspaceSlug);
@@ -72,29 +31,20 @@ export default function ChannelsLayout() {
     router.push(`/(app)/${workspaceSlug}/(tabs)/(channels)/dm/${channelId}`);
   };
 
+  const homeActions = useMemo(
+    () => ({
+      openCreateChannel: () => setShowCreate(true),
+      openNewDm: () => setShowNewDm(true),
+    }),
+    [],
+  );
+
   return (
-    <>
+    <HomeActionsProvider value={homeActions}>
       <Stack>
         <Stack.Screen
           name="index"
-          options={{
-            title: currentWorkspace?.name ?? "Home",
-            headerLeft: () => <WorkspaceIconButton />,
-            headerRight: () => (
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <SearchButton workspaceSlug={workspaceSlug} />
-                <NewDmButton onPress={() => setShowNewDm(true)} />
-                <CreateChannelButton onPress={() => setShowCreate(true)} />
-                <View style={{ marginLeft: 12 }}>
-                  <HeaderAvatarButton
-                    avatarUrl={profile?.avatarUrl}
-                    displayName={profile?.displayName}
-                    onPress={() => router.push(`/(app)/${workspaceSlug}/settings`)}
-                  />
-                </View>
-              </View>
-            ),
-          }}
+          options={{ headerShown: false }}
         />
         <Stack.Screen
           name="browse"
@@ -129,6 +79,6 @@ export default function ChannelsLayout() {
         deps={deps}
         onCreated={handleDmCreated}
       />
-    </>
+    </HomeActionsProvider>
   );
 }

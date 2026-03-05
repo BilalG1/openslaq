@@ -50,7 +50,7 @@ function makeMessage(overrides: Partial<Message> = {}): Message {
     attachments: [],
     mentions: [],
     ...overrides,
-  };
+  } as Message;
 }
 
 describe("MessageBubble", () => {
@@ -227,9 +227,9 @@ describe("MessageBubble", () => {
     expect(activeReaction.props.style).toEqual(
       expect.objectContaining({ borderWidth: 1 }),
     );
-    // Inactive reaction should have borderWidth 0
+    // Inactive reaction should have borderWidth 1 with transparent borderColor
     expect(inactiveReaction.props.style).toEqual(
-      expect.objectContaining({ borderWidth: 0 }),
+      expect.objectContaining({ borderWidth: 1, borderColor: "transparent" }),
     );
   });
 
@@ -311,6 +311,7 @@ describe("MessageBubble", () => {
         id: asMessageId("shared-1"),
         channelId: asChannelId("ch-2"),
         channelName: "general",
+        channelType: "public",
         userId: asUserId("user-2"),
         senderDisplayName: "Bob",
         senderAvatarUrl: null,

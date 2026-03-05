@@ -24,7 +24,7 @@ function makeMessage(overrides: Partial<Message> = {}): Message {
     createdAt: new Date(2024, 0, 1, 0, 0, n).toISOString(),
     updatedAt: new Date(2024, 0, 1, 0, 0, n).toISOString(),
     ...overrides,
-  };
+  } as Message;
 }
 
 function makeChannel(overrides: Partial<Channel> = {}): Channel {

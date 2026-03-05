@@ -62,6 +62,7 @@ export {
   pinMessage as pinMessageOp,
   unpinMessage as unpinMessageOp,
   fetchPinnedMessages,
+  fetchPinnedMessageCount,
 } from "./pins";
 export {
   saveMessageOp,

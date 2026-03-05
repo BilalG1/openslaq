@@ -1,22 +1,13 @@
 import { useState, useCallback, type MouseEvent } from "react";
 import clsx from "clsx";
 import type { Channel, HuddleState, ChannelNotifyLevel } from "@openslaq/shared";
+import type { DmConversation, PresenceEntry } from "../../state/chat-store";
 import { Badge } from "../ui";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
 } from "../ui/dropdown-menu";
-
-interface DmConversation {
-  channel: { id: string };
-  otherUser: { id: string; displayName: string; avatarUrl: string | null };
-}
-
-interface PresenceEntry {
-  online: boolean;
-  lastSeenAt: string | null;
-}
 
 interface StarredListProps {
   starredChannels: Channel[];

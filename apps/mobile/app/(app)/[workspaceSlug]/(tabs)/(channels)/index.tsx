@@ -1,10 +1,13 @@
 import { useState } from "react";
-import { View, Text, SectionList, ActivityIndicator } from "react-native";
+import { View, Text, SectionList, ActivityIndicator, Pressable, StyleSheet } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useChatStore } from "@/contexts/ChatStoreProvider";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { ListRow } from "@/components/ui/ListRow";
 import { CollapsibleSectionHeader } from "@/components/CollapsibleSectionHeader";
+import { HomeHeader } from "@/components/home/HomeHeader";
+import { QuickActionsRow } from "@/components/home/QuickActionsRow";
+import { useHomeActions } from "@/contexts/HomeActionsContext";
 import type { Channel } from "@openslaq/shared";
 import type { DmConversation, GroupDmConversation } from "@openslaq/client-core";
 
@@ -16,7 +19,6 @@ type HomeItem =
 interface HomeSection {
   key: string;
   title: string;
-  icon: string;
   data: HomeItem[];
 }
 
@@ -25,11 +27,12 @@ export default function HomeScreen() {
   const { workspaceSlug } = useLocalSearchParams<{ workspaceSlug: string }>();
   const { state } = useChatStore();
   const { theme } = useMobileTheme();
+  const { openCreateChannel, openNewDm } = useHomeActions();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   if (state.ui.bootstrapLoading) {
     return (
-      <View className="flex-1 items-center justify-center" style={{ backgroundColor: theme.colors.surface }}>
+      <View style={[styles.center, { backgroundColor: theme.colors.surface }]}>
         <ActivityIndicator size="large" color={theme.brand.primary} />
       </View>
     );
@@ -37,8 +40,8 @@ export default function HomeScreen() {
 
   if (state.ui.bootstrapError) {
     return (
-      <View className="flex-1 items-center justify-center px-4" style={{ backgroundColor: theme.colors.surface }}>
-        <Text className="text-center" style={{ color: theme.colors.dangerText }}>{state.ui.bootstrapError}</Text>
+      <View style={[styles.center, { backgroundColor: theme.colors.surface, paddingHorizontal: 16 }]}>
+        <Text style={{ color: theme.colors.dangerText, textAlign: "center" }}>{state.ui.bootstrapError}</Text>
       </View>
     );
   }
@@ -86,13 +89,13 @@ export default function HomeScreen() {
 
   const sections: HomeSection[] = [
     ...(unreadItems.length > 0
-      ? [{ key: "unreads", title: "Unreads", icon: "\uD83D\uDCE8", data: collapsed.unreads ? [] : unreadItems }]
+      ? [{ key: "unreads", title: "Unreads", data: collapsed.unreads ? [] : unreadItems }]
       : []),
     ...(starredItems.length > 0
-      ? [{ key: "starred", title: "Starred", icon: "\u2B50", data: collapsed.starred ? [] : starredItems }]
+      ? [{ key: "starred", title: "Starred", data: collapsed.starred ? [] : starredItems }]
       : []),
-    { key: "channels", title: "Channels", icon: "#", data: collapsed.channels ? [] : channelItems },
-    { key: "dms", title: "Direct Messages", icon: "@", data: collapsed.dms ? [] : dmItems },
+    { key: "channels", title: "Channels", data: collapsed.channels ? [] : channelItems },
+    { key: "dms", title: "Direct Messages", data: collapsed.dms ? [] : dmItems },
   ];
 
   const toggleSection = (key: string) => {
@@ -110,32 +113,17 @@ export default function HomeScreen() {
   };
 
   return (
-    <View className="flex-1" style={{ backgroundColor: theme.colors.surface }}>
+    <View style={{ flex: 1, backgroundColor: theme.colors.surface }}>
+      <HomeHeader />
       <SectionList
         testID="channel-list"
         sections={sections}
         keyExtractor={(item, index) => `${getItemKey(item)}-${index}`}
-        ListHeaderComponent={
-          state.savedMessageIds.length > 0 ? (
-            <ListRow
-              testID="saved-items-link"
-              onPress={() => router.push(`/(app)/${workspaceSlug}/saved-items`)}
-            >
-              <Text className="mr-2 text-lg" style={{ color: theme.colors.textFaint }}>{"\uD83D\uDD16"}</Text>
-              <Text className="flex-1 text-base" style={{ color: theme.colors.textPrimary }}>
-                Saved Items
-              </Text>
-              <Text style={{ color: theme.colors.textFaint, fontSize: 14 }}>
-                {state.savedMessageIds.length}
-              </Text>
-            </ListRow>
-          ) : null
-        }
+        ListHeaderComponent={<QuickActionsRow />}
         renderSectionHeader={({ section }) => (
           <CollapsibleSectionHeader
             sectionKey={section.key}
             title={section.title}
-            icon={section.icon}
             collapsed={collapsed[section.key] ?? false}
             onToggle={() => toggleSection(section.key)}
             count={
@@ -161,6 +149,7 @@ export default function HomeScreen() {
                 <Text
                   className={`flex-1 text-base ${unread > 0 ? "font-bold" : ""}`}
                   style={{ color: unread > 0 ? theme.colors.textPrimary : theme.colors.textSecondary }}
+                  numberOfLines={1}
                 >
                   {ch.name}
                 </Text>
@@ -195,7 +184,7 @@ export default function HomeScreen() {
                     className="w-8 h-8 rounded-full items-center justify-center"
                     style={{ backgroundColor: theme.colors.avatarFallbackBg }}
                   >
-                    <Text style={{ fontSize: 16 }}>👥</Text>
+                    <Text style={{ fontSize: 16 }}>{"\uD83D\uDC65"}</Text>
                   </View>
                 </View>
                 <Text
@@ -251,6 +240,7 @@ export default function HomeScreen() {
               <Text
                 className={`flex-1 text-base ${unread > 0 ? "font-bold" : ""}`}
                 style={{ color: unread > 0 ? theme.colors.textPrimary : theme.colors.textSecondary }}
+                numberOfLines={1}
               >
                 {dm.otherUser.displayName ?? "Unknown"}
               </Text>
@@ -271,11 +261,23 @@ export default function HomeScreen() {
           if (section.key === "channels" && !collapsed.channels) {
             return (
               <ListRow
-                testID="browse-channels-link"
-                onPress={() => router.push(`/(app)/${workspaceSlug}/(channels)/browse`)}
+                testID="add-channel-link"
+                onPress={openCreateChannel}
               >
                 <Text className="text-base" style={{ color: theme.brand.primary }}>
-                  Browse Channels
+                  + Add channel
+                </Text>
+              </ListRow>
+            );
+          }
+          if (section.key === "dms" && !collapsed.dms) {
+            return (
+              <ListRow
+                testID="new-dm-link"
+                onPress={openNewDm}
+              >
+                <Text className="text-base" style={{ color: theme.brand.primary }}>
+                  + Start a new message
                 </Text>
               </ListRow>
             );
@@ -292,6 +294,37 @@ export default function HomeScreen() {
           return null;
         }}
       />
+      {/* FAB */}
+      <Pressable
+        testID="fab-compose"
+        onPress={openNewDm}
+        style={{
+          position: "absolute",
+          bottom: 20,
+          right: 20,
+          width: 56,
+          height: 56,
+          borderRadius: 28,
+          backgroundColor: theme.brand.primary,
+          alignItems: "center",
+          justifyContent: "center",
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.25,
+          shadowRadius: 4,
+          elevation: 5,
+        }}
+      >
+        <Text style={{ color: "#fff", fontSize: 28, fontWeight: "300", marginTop: -2 }}>+</Text>
+      </Pressable>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  center: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});

@@ -11,10 +11,8 @@ test.describe("Channel Bookmarks", () => {
     await expect(page.getByText("#general")).toBeVisible();
     await page.getByText("#general").click();
 
-    // Should see the bookmarks bar with add button
-    await expect(page.getByTestId("add-bookmark-button")).toBeVisible();
-
-    // Click add bookmark
+    // Click add bookmark via overflow menu (no bookmarks yet)
+    await page.getByTestId("channel-overflow-menu").click();
     await page.getByTestId("add-bookmark-button").click();
 
     // Fill in the dialog
@@ -41,7 +39,8 @@ test.describe("Channel Bookmarks", () => {
     await expect(page.getByText("#general")).toBeVisible();
     await page.getByText("#general").click();
 
-    // Add bookmark via UI
+    // Add bookmark via overflow menu (no bookmarks yet)
+    await page.getByTestId("channel-overflow-menu").click();
     await page.getByTestId("add-bookmark-button").click();
     await page.getByTestId("bookmark-url-input").fill("https://docs.example.com");
     await page.getByTestId("bookmark-title-input").fill("Docs");
@@ -61,7 +60,8 @@ test.describe("Channel Bookmarks", () => {
     await expect(page.getByText("#general")).toBeVisible();
     await page.getByText("#general").click();
 
-    // Add a bookmark first
+    // Add a bookmark first via overflow menu
+    await page.getByTestId("channel-overflow-menu").click();
     await page.getByTestId("add-bookmark-button").click();
     await page.getByTestId("bookmark-url-input").fill("https://to-remove.example.com");
     await page.getByTestId("bookmark-title-input").fill("Remove Me");

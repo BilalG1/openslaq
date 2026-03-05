@@ -39,6 +39,20 @@ describe("createMentionSuggestion", () => {
     expect(remaining.length).toBe(0);
   });
 
+  it("sets isActiveRef to true on start and false on exit", () => {
+    const isActiveRef = { current: false };
+    const suggestion = createMentionSuggestion(() => [], isActiveRef);
+    const lifecycle = suggestion.render!();
+
+    expect(isActiveRef.current).toBe(false);
+
+    lifecycle.onStart!(mockStartProps());
+    expect(isActiveRef.current).toBe(true);
+
+    lifecycle.onExit!(mockStartProps());
+    expect(isActiveRef.current).toBe(false);
+  });
+
   it("onKeyDown returns false when ref is not populated", () => {
     const suggestion = createMentionSuggestion(() => []);
     const lifecycle = suggestion.render!();

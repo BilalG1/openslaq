@@ -60,6 +60,7 @@ export async function processDueReminders(): Promise<void> {
           content,
           [],
         );
+        if ("error" in message) continue;
 
         // Emit message:new to user
         io.to(`channel:${dmResult.channel.id}`).emit("message:new", message);

@@ -36,10 +36,10 @@ describe("BookmarksBar", () => {
     expect(screen.getByText("Docs")).toBeDefined();
   });
 
-  test("shows add bookmark button when not archived", () => {
+  test("shows add bookmark button when not archived and has bookmarks", () => {
     render(
       <BookmarksBar
-        bookmarks={[]}
+        bookmarks={[mockBookmark()]}
         isArchived={false}
         onAddBookmark={() => {}}
         onRemoveBookmark={() => {}}
@@ -62,8 +62,8 @@ describe("BookmarksBar", () => {
     expect(screen.queryByTestId("add-bookmark-button")).toBeNull();
   });
 
-  test("returns null when no bookmarks and archived", () => {
-    const { container } = render(
+  test("returns null when no bookmarks regardless of archive status", () => {
+    const { container: archivedContainer } = render(
       <BookmarksBar
         bookmarks={[]}
         isArchived={true}
@@ -71,8 +71,19 @@ describe("BookmarksBar", () => {
         onRemoveBookmark={() => {}}
       />,
     );
+    expect(archivedContainer.innerHTML).toBe("");
 
-    expect(container.innerHTML).toBe("");
+    cleanup();
+
+    const { container: activeContainer } = render(
+      <BookmarksBar
+        bookmarks={[]}
+        isArchived={false}
+        onAddBookmark={() => {}}
+        onRemoveBookmark={() => {}}
+      />,
+    );
+    expect(activeContainer.innerHTML).toBe("");
   });
 
   test("calls onRemoveBookmark when remove button clicked", () => {
@@ -97,7 +108,7 @@ describe("BookmarksBar", () => {
 
     render(
       <BookmarksBar
-        bookmarks={[]}
+        bookmarks={[mockBookmark()]}
         isArchived={false}
         onAddBookmark={onAdd}
         onRemoveBookmark={() => {}}

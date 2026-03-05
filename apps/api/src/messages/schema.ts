@@ -40,7 +40,7 @@ export const messageMentions = pgTable(
       .references(() => messages.id, { onDelete: "cascade" }),
     userId: text("user_id")
       .notNull()
-      .references(() => users.id),
+      .references(() => users.id, { onDelete: "cascade" }),
     type: text("type").notNull(), // 'user' | 'here' | 'channel'
   },
   (table) => [

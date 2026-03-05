@@ -87,7 +87,7 @@ export async function deleteAttachmentsForMessage(messageId: string, tx: Tx = db
 }
 
 export async function canAccessAttachment(
-  attachment: { messageId: string | null; uploadedBy: string },
+  attachment: { messageId: string | null; uploadedBy: string | null },
   userId: string,
 ): Promise<boolean> {
   if (!attachment.messageId) {

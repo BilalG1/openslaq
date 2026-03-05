@@ -469,6 +469,107 @@ describe("bot-facing API", () => {
     expect(offData.reactions.some((r: any) => r.emoji === "thumbsup" && r.count > 0)).toBe(false);
   });
 
+  test("bot reacts to message in non-member channel → 403", async () => {
+    const id = testId();
+    const { client } = await createTestClient({ id: `botapi-reactnm-${id}`, email: `botapi-reactnm-${id}@openslaq.dev` });
+    const ws = await createTestWorkspace(client);
+
+    // Create a channel and have the user post a message
+    const chanRes = await client.api.workspaces[":slug"].channels.$post({
+      param: { slug: ws.slug },
+      json: { name: `bot-reactnm-${testId()}` },
+    });
+    const channel = (await chanRes.json()) as { id: string };
+    const userMsgRes = await client.api.workspaces[":slug"].channels[":id"].messages.$post({
+      param: { slug: ws.slug, id: channel.id },
+      json: { content: "User msg" },
+    });
+    const userMsg = (await userMsgRes.json()) as { id: string };
+
+    // Create bot but do NOT add to channel
+    const { apiToken } = await createBotWithToken(client, ws.slug);
+
+    const res = await fetch(`${getApiUrl()}/api/bot/messages/${userMsg.id}/reactions`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ emoji: "thumbsup" }),
+    });
+    expect(res.status).toBe(403);
+  });
+
+  test("bot updates own message after leaving channel → 403", async () => {
+    const id = testId();
+    const { client } = await createTestClient({ id: `botapi-updnm-${id}`, email: `botapi-updnm-${id}@openslaq.dev` });
+    const ws = await createTestWorkspace(client);
+
+    const chanRes = await client.api.workspaces[":slug"].channels.$post({
+      param: { slug: ws.slug },
+      json: { name: `bot-updnm-${testId()}` },
+    });
+    const channel = (await chanRes.json()) as { id: string };
+
+    const { bot, apiToken } = await createBotWithToken(client, ws.slug);
+    await addBotToChannel(client, ws.slug, channel.id, bot.userId);
+
+    // Bot sends a message
+    const msgRes = await fetch(`${getApiUrl()}/api/bot/channels/${channel.id}/messages`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ content: "Will leave" }),
+    });
+    expect(msgRes.status).toBe(201);
+    const msg = (await msgRes.json()) as { id: string };
+
+    // Remove bot from channel (owner kicks)
+    await client.api.workspaces[":slug"].channels[":id"].members[":userId"].$delete({
+      param: { slug: ws.slug, id: channel.id, userId: bot.userId },
+    });
+
+    // Bot tries to update its own message → 403
+    const updRes = await fetch(`${getApiUrl()}/api/bot/messages/${msg.id}`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ content: "Updated" }),
+    });
+    expect(updRes.status).toBe(403);
+  });
+
+  test("bot deletes own message after leaving channel → 403", async () => {
+    const id = testId();
+    const { client } = await createTestClient({ id: `botapi-delnm-${id}`, email: `botapi-delnm-${id}@openslaq.dev` });
+    const ws = await createTestWorkspace(client);
+
+    const chanRes = await client.api.workspaces[":slug"].channels.$post({
+      param: { slug: ws.slug },
+      json: { name: `bot-delnm-${testId()}` },
+    });
+    const channel = (await chanRes.json()) as { id: string };
+
+    const { bot, apiToken } = await createBotWithToken(client, ws.slug);
+    await addBotToChannel(client, ws.slug, channel.id, bot.userId);
+
+    // Bot sends a message
+    const msgRes = await fetch(`${getApiUrl()}/api/bot/channels/${channel.id}/messages`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ content: "Will leave" }),
+    });
+    expect(msgRes.status).toBe(201);
+    const msg = (await msgRes.json()) as { id: string };
+
+    // Remove bot from channel
+    await client.api.workspaces[":slug"].channels[":id"].members[":userId"].$delete({
+      param: { slug: ws.slug, id: channel.id, userId: bot.userId },
+    });
+
+    // Bot tries to delete its own message → 403
+    const delRes = await fetch(`${getApiUrl()}/api/bot/messages/${msg.id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${apiToken}` },
+    });
+    expect(delRes.status).toBe(403);
+  });
+
   test("bot reacts to nonexistent message → 404", async () => {
     const id = testId();
     const { client } = await createTestClient({ id: `botapi-reactnf-${id}`, email: `botapi-reactnf-${id}@openslaq.dev` });

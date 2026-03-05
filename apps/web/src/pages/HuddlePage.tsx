@@ -36,6 +36,8 @@ export function HuddlePage() {
       }
     });
 
+    const abortController = new AbortController();
+
     (async () => {
       try {
         const headers = await authorizedHeaders(user);
@@ -43,6 +45,7 @@ export function HuddlePage() {
           method: "POST",
           headers: { ...headers, "Content-Type": "application/json" },
           body: JSON.stringify({ channelId }),
+          signal: abortController.signal,
         });
 
         if (!res.ok) {
@@ -60,12 +63,14 @@ export function HuddlePage() {
         }
         setError(null);
       } catch (err) {
+        if (abortController.signal.aborted) return;
         console.error("Failed to join huddle:", err);
         setError(err instanceof Error ? err.message : "Failed to join huddle");
       }
     })();
 
     return () => {
+      abortController.abort();
       unsubscribe();
       client.destroy();
       if (clientRef.current === client) {

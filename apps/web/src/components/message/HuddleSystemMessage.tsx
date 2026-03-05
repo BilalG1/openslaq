@@ -1,7 +1,7 @@
-import type { Message, HuddleState } from "@openslaq/shared";
+import type { HuddleMessage, HuddleState } from "@openslaq/shared";
 
 interface HuddleSystemMessageProps {
-  message: Message;
+  message: HuddleMessage;
   activeHuddle?: HuddleState | null;
   onJoinHuddle?: (channelId: string) => void;
 }

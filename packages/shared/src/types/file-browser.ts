@@ -9,7 +9,7 @@ export interface FileBrowserItem {
   size: number;
   category: FileCategory;
   downloadUrl: string;
-  uploadedBy: UserId;
+  uploadedBy: UserId | null;
   uploaderName: string;
   channelId: ChannelId;
   channelName: string;

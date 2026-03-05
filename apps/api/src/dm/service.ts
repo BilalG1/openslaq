@@ -4,21 +4,8 @@ import { channels, channelMembers } from "../channels/schema";
 import { users } from "../users/schema";
 import { workspaceMembers } from "../workspaces/schema";
 import type { Channel, WorkspaceId, UserId } from "@openslaq/shared";
-import { asChannelId, asWorkspaceId, asUserId, CHANNEL_TYPES } from "@openslaq/shared";
-
-function toChannel(row: typeof channels.$inferSelect): Channel {
-  return {
-    id: asChannelId(row.id),
-    workspaceId: asWorkspaceId(row.workspaceId),
-    name: row.name,
-    type: row.type,
-    description: row.description,
-    displayName: row.displayName ?? null,
-    isArchived: row.isArchived,
-    createdBy: row.createdBy ? asUserId(row.createdBy) : null,
-    createdAt: row.createdAt.toISOString(),
-  };
-}
+import { asUserId, CHANNEL_TYPES } from "@openslaq/shared";
+import { toChannel } from "../channels/to-channel";
 
 interface DmUser {
   id: UserId;
@@ -140,15 +127,36 @@ export async function listDms(workspaceId: WorkspaceId, userId: UserId): Promise
     }
   }
 
+  // Collect all "other" user IDs to batch-fetch
+  const otherUserIds = new Set<string>();
+  for (const { memberIds } of channelMap.values()) {
+    const otherUserId = memberIds.find((id) => id !== userId) ?? (userId as string);
+    otherUserIds.add(otherUserId);
+  }
+
+  // Batch-fetch all users in a single query
+  const userRows = otherUserIds.size > 0
+    ? await db.query.users.findMany({
+        where: inArray(users.id, [...otherUserIds]),
+        columns: { id: true, displayName: true, email: true, avatarUrl: true },
+      })
+    : [];
+
+  const userMap = new Map<string, DmUser>();
+  for (const u of userRows) {
+    userMap.set(u.id, {
+      id: asUserId(u.id),
+      displayName: u.displayName,
+      email: u.email,
+      avatarUrl: u.avatarUrl,
+    });
+  }
+
   const results: DmListItem[] = [];
 
   for (const { channel, memberIds } of channelMap.values()) {
-    // The "other" user is the one that isn't the current user.
-    // For self-DMs, otherUser is the current user.
-    const otherUserId =
-      memberIds.find((id) => id !== userId) ?? userId;
-
-    const otherUser = await getOtherUser(otherUserId);
+    const otherUserId = memberIds.find((id) => id !== userId) ?? (userId as string);
+    const otherUser = userMap.get(otherUserId);
     if (otherUser) {
       results.push({ channel: toChannel(channel), otherUser });
     }

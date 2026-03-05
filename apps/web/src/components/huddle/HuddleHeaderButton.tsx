@@ -35,7 +35,7 @@ export function HuddleHeaderButton({
       <Button
         type="button"
         onClick={onJoin}
-        variant="outline"
+        variant="ghost"
         size="sm"
         className="gap-1.5 text-green-400 hover:text-green-300"
         data-testid="huddle-join-button"
@@ -51,7 +51,7 @@ export function HuddleHeaderButton({
       <Button
         type="button"
         onClick={onStart}
-        variant="outline"
+        variant="ghost"
         size="sm"
         className="px-1.5"
         data-testid="huddle-start-button"

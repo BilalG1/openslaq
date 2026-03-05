@@ -314,6 +314,14 @@ export class ApiHelper {
     return (await res.json()) as { ok: boolean };
   }
 
+  async getPinnedCount(channelId: string) {
+    const client = await this.c();
+    const res = await client.api.workspaces[":slug"].channels[":id"]["pin-count"].$get({
+      param: { slug: this.slug, id: channelId },
+    });
+    return (await res.json()) as { count: number };
+  }
+
   async shareMessage(destinationChannelId: string, sharedMessageId: string, comment = "") {
     const client = await this.c();
     const res = await client.api.workspaces[":slug"].channels[":id"].messages.share.$post({

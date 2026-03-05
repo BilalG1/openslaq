@@ -21,7 +21,7 @@ function makeMessage(overrides: Partial<Message> = {}): Message {
     attachments: [],
     mentions: [],
     ...overrides,
-  };
+  } as Message;
 }
 
 const defaultProps = {

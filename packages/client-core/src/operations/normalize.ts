@@ -53,7 +53,7 @@ interface RawMessage {
     filename: string;
     mimeType: string;
     size: number;
-    uploadedBy: string;
+    uploadedBy: string | null;
     createdAt: string;
     downloadUrl: string;
   }>;
@@ -73,6 +73,7 @@ interface RawMessage {
     id: string;
     channelId: string;
     channelName: string;
+    channelType?: Channel["type"];
     userId: string;
     senderDisplayName: string;
     senderAvatarUrl: string | null;
@@ -142,7 +143,7 @@ export function normalizeMessage(message: RawMessage): Message {
       filename: attachment.filename,
       mimeType: attachment.mimeType,
       size: attachment.size,
-      uploadedBy: asUserId(attachment.uploadedBy),
+      uploadedBy: attachment.uploadedBy ? asUserId(attachment.uploadedBy) : null,
       createdAt: attachment.createdAt,
       downloadUrl: attachment.downloadUrl,
     })),
@@ -163,6 +164,7 @@ export function normalizeMessage(message: RawMessage): Message {
         id: asMessageId(message.sharedMessage.id),
         channelId: asChannelId(message.sharedMessage.channelId),
         channelName: message.sharedMessage.channelName,
+        channelType: message.sharedMessage.channelType ?? "public",
         userId: asUserId(message.sharedMessage.userId),
         senderDisplayName: message.sharedMessage.senderDisplayName,
         senderAvatarUrl: message.sharedMessage.senderAvatarUrl,

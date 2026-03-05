@@ -27,7 +27,7 @@ export function LinkPreviewCard({ preview }: Props) {
         <Image
           testID="link-preview-image"
           source={{ uri: preview.imageUrl }}
-          style={{ width: "100%", maxHeight: 160 }}
+          style={{ width: "100%", height: 160 }}
           resizeMode="cover"
           onError={() => setImgError(true)}
         />

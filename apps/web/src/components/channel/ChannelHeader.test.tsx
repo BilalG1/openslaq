@@ -20,6 +20,11 @@ function renderHeader(props: Parameters<typeof ChannelHeader>[0]) {
   );
 }
 
+function openOverflowMenu() {
+  // Radix DropdownMenu triggers on pointerDown, not click
+  fireEvent.pointerDown(screen.getByTestId("channel-overflow-menu"), { button: 0, pointerType: "mouse" });
+}
+
 describe("ChannelHeader", () => {
   afterEach(cleanup);
 
@@ -145,30 +150,26 @@ describe("ChannelHeader", () => {
     expect(onUpdateDescription).not.toHaveBeenCalled();
   });
 
-  // ── Notification dropdown ────────────────────────────────────────
+  // ── Overflow menu ──────────────────────────────────────────────
 
-  test("renders notification button when onSetNotificationLevel provided", () => {
+  test("renders overflow menu when secondary actions exist", () => {
     renderHeader({ channelName: "general", onSetNotificationLevel: jest.fn() });
-    expect(screen.getByTestId("channel-notification-button")).toBeTruthy();
+    expect(screen.getByTestId("channel-overflow-menu")).toBeTruthy();
   });
 
-  test("does NOT render notification button when onSetNotificationLevel omitted", () => {
+  test("does NOT render overflow menu when no secondary actions", () => {
     renderHeader({ channelName: "general" });
-    expect(screen.queryByTestId("channel-notification-button")).toBeNull();
+    expect(screen.queryByTestId("channel-overflow-menu")).toBeNull();
   });
 
-  test("shows muted icon when notificationLevel is muted", () => {
-    renderHeader({ channelName: "general", onSetNotificationLevel: jest.fn(), notificationLevel: "muted" });
-    const btn = screen.getByTestId("channel-notification-button");
-    // Muted icon has a specific path with "M3 3l18 18" (the slash-through)
-    expect(btn.innerHTML).toContain("M3 3l18 18");
-  });
+  // ── Notification levels (inside overflow menu) ─────────────────
 
-  test("shows normal bell icon when notificationLevel is not muted", () => {
-    renderHeader({ channelName: "general", onSetNotificationLevel: jest.fn(), notificationLevel: "all" });
-    const btn = screen.getByTestId("channel-notification-button");
-    // Normal bell icon does NOT have the muted slash-through
-    expect(btn.innerHTML).not.toContain("M3 3l18 18");
+  test("notification levels appear in overflow menu", () => {
+    renderHeader({ channelName: "general", onSetNotificationLevel: jest.fn() });
+    openOverflowMenu();
+    expect(screen.getByTestId("notify-level-all")).toBeTruthy();
+    expect(screen.getByTestId("notify-level-mentions")).toBeTruthy();
+    expect(screen.getByTestId("notify-level-muted")).toBeTruthy();
   });
 
   // ── Pinned messages ──────────────────────────────────────────────
@@ -196,21 +197,23 @@ describe("ChannelHeader", () => {
     expect(onOpenPins).toHaveBeenCalledTimes(1);
   });
 
-  // ── Files button ─────────────────────────────────────────────────
+  // ── Files button (inside overflow menu) ────────────────────────
 
-  test("renders files button when onOpenFiles provided", () => {
+  test("renders files item in overflow menu when onOpenFiles provided", () => {
     renderHeader({ channelName: "general", onOpenFiles: jest.fn() });
+    openOverflowMenu();
     expect(screen.getByTestId("channel-files-button")).toBeTruthy();
   });
 
-  test("does NOT render files button when onOpenFiles omitted", () => {
+  test("does NOT render overflow menu when only onOpenFiles omitted and no other secondary actions", () => {
     renderHeader({ channelName: "general" });
-    expect(screen.queryByTestId("channel-files-button")).toBeNull();
+    expect(screen.queryByTestId("channel-overflow-menu")).toBeNull();
   });
 
-  test("calls onOpenFiles on click", () => {
+  test("calls onOpenFiles from overflow menu", () => {
     const onOpenFiles = jest.fn();
     renderHeader({ channelName: "general", onOpenFiles });
+    openOverflowMenu();
     fireEvent.click(screen.getByTestId("channel-files-button"));
     expect(onOpenFiles).toHaveBeenCalledTimes(1);
   });
@@ -233,23 +236,25 @@ describe("ChannelHeader", () => {
     expect(screen.queryByTestId("channel-member-count")).toBeNull();
   });
 
-  // ── Archive / Unarchive ──────────────────────────────────────────
+  // ── Archive / Unarchive (inside overflow menu) ─────────────────
 
-  test("renders archive button when canArchive && !isArchived && onArchive", () => {
+  test("renders archive item in overflow menu when canArchive && !isArchived && onArchive", () => {
     renderHeader({ channelName: "random", canArchive: true, isArchived: false, onArchive: jest.fn() });
+    openOverflowMenu();
     expect(screen.getByTestId("archive-channel-button")).toBeTruthy();
   });
 
-  test("does NOT render archive button for general channel", () => {
+  test("does NOT render archive item for general channel", () => {
     renderHeader({ channelName: "general", canArchive: true, isArchived: false, onArchive: jest.fn() });
-    expect(screen.queryByTestId("archive-channel-button")).toBeNull();
+    expect(screen.queryByTestId("channel-overflow-menu")).toBeNull();
   });
 
   test("confirm-archive-button calls onArchive", () => {
     const onArchive = jest.fn();
     renderHeader({ channelName: "random", canArchive: true, isArchived: false, onArchive });
 
-    // Open confirmation dialog
+    // Open overflow menu, then click archive item
+    openOverflowMenu();
     fireEvent.click(screen.getByTestId("archive-channel-button"));
     // Confirm
     fireEvent.click(screen.getByTestId("confirm-archive-button"));
@@ -260,27 +265,30 @@ describe("ChannelHeader", () => {
     const onArchive = jest.fn();
     renderHeader({ channelName: "random", canArchive: true, isArchived: false, onArchive });
 
+    openOverflowMenu();
     fireEvent.click(screen.getByTestId("archive-channel-button"));
     // Click Cancel
     fireEvent.click(screen.getByText("Cancel"));
     expect(onArchive).not.toHaveBeenCalled();
   });
 
-  test("renders unarchive button when canArchive && isArchived && onUnarchive", () => {
+  test("renders unarchive item in overflow menu when canArchive && isArchived && onUnarchive", () => {
     renderHeader({ channelName: "old-stuff", canArchive: true, isArchived: true, onUnarchive: jest.fn() });
+    openOverflowMenu();
     expect(screen.getByTestId("unarchive-channel-button")).toBeTruthy();
   });
 
-  test("calls onUnarchive on click", () => {
+  test("calls onUnarchive from overflow menu", () => {
     const onUnarchive = jest.fn();
     renderHeader({ channelName: "old-stuff", canArchive: true, isArchived: true, onUnarchive });
 
+    openOverflowMenu();
     fireEvent.click(screen.getByTestId("unarchive-channel-button"));
     expect(onUnarchive).toHaveBeenCalledTimes(1);
   });
 
-  test("does NOT render archive button when canArchive is false", () => {
+  test("does NOT render archive item when canArchive is false", () => {
     renderHeader({ channelName: "random", canArchive: false, isArchived: false, onArchive: jest.fn() });
-    expect(screen.queryByTestId("archive-channel-button")).toBeNull();
+    expect(screen.queryByTestId("channel-overflow-menu")).toBeNull();
   });
 });

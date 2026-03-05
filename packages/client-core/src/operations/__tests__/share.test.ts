@@ -59,6 +59,7 @@ const rawMessage = {
     id: "msg-shared",
     channelId: "ch-source",
     channelName: "general",
+    channelType: "public" as const,
     userId: "u-2",
     senderDisplayName: "Alice",
     senderAvatarUrl: null,

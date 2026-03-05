@@ -33,6 +33,9 @@ export const designTokens: DesignTokens = {
     avatarFallbackBg: "#e5e7eb",
     avatarFallbackText: "#6b7280",
     highlightBg: "rgb(254 249 195)",
+    headerBg: "#3F0E40",
+    headerText: "#FFFFFF",
+    headerSearchBg: "rgba(255,255,255,0.2)",
   },
   dark: {
     surface: "#1a1d21",
@@ -56,5 +59,8 @@ export const designTokens: DesignTokens = {
     avatarFallbackBg: "#374151",
     avatarFallbackText: "#9ca3af",
     highlightBg: "rgb(133 77 14 / 0.3)",
+    headerBg: "#1a1d21",
+    headerText: "#e5e7eb",
+    headerSearchBg: "rgba(255,255,255,0.1)",
   },
 };

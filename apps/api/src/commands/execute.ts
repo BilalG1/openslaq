@@ -1,7 +1,9 @@
 import type { EphemeralMessage } from "@openslaq/shared";
+import { asChannelId, asUserId } from "@openslaq/shared";
 import { handleStatus, handleRemind, handleInvite, handleMute, handleUnmute } from "./handlers";
 import { executeBotCommand } from "./bot-command-executor";
 import { BUILTIN_COMMANDS } from "./registry";
+import { isChannelMember } from "../channels/service";
 
 interface ExecuteResult {
   ok: boolean;
@@ -30,6 +32,13 @@ export async function executeCommand(
   // Check built-in commands
   const handler = BUILTIN_HANDLERS[command];
   if (handler) {
+    // All channel-scoped commands require channel membership (except /status which is global)
+    if (command !== "status") {
+      const isMember = await isChannelMember(asChannelId(channelId), asUserId(userId));
+      if (!isMember) {
+        return { ok: false, error: "You are not a member of this channel." };
+      }
+    }
     const ephemeralMessages = await handler(args, userId, channelId);
     return { ok: true, ephemeralMessages };
   }

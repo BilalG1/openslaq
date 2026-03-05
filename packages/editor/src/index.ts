@@ -7,6 +7,7 @@ export { filterMentionItems, GROUP_MENTIONS } from "./mention-helpers";
 export type { SlashCommandItem, SlashCommandSuggestionListRef } from "./SlashCommandSuggestion";
 export { SlashCommandSuggestionList } from "./SlashCommandSuggestion";
 export { createSlashCommandSuggestion } from "./useSlashCommandSuggestion";
+export { MentionWithMarkdown } from "./MentionMarkdown";
 export {
   VSCODE_LANG_MAP,
   getMarkdown,

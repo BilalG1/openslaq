@@ -211,6 +211,20 @@
       "when": 1772237884944,
       "tag": "0029_round_harpoon",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1772473772114,
+      "tag": "0030_glorious_ronan",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1772477638949,
+      "tag": "0031_tired_shaman",
+      "breakpoints": true
     }
   ]
 }

@@ -22,7 +22,11 @@ export function SharedMessageBlock({ sharedMessage }: SharedMessageBlockProps) {
         <span className="font-semibold text-xs text-primary">
           {sharedMessage.senderDisplayName}
         </span>
-        <span className="text-[10px] text-faint">in #{sharedMessage.channelName}</span>
+        <span className="text-[10px] text-faint">
+          in {sharedMessage.channelType === "public" || sharedMessage.channelType === "private"
+            ? `#${sharedMessage.channelName}`
+            : sharedMessage.channelName}
+        </span>
         <span className="text-[10px] text-faint">
           {new Date(sharedMessage.createdAt).toLocaleTimeString(undefined, {
             hour: "numeric",

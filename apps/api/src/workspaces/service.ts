@@ -2,10 +2,7 @@ import { and, count, eq, inArray } from "drizzle-orm";
 import crypto from "node:crypto";
 import { db } from "../db";
 import { workspaces, workspaceMembers } from "./schema";
-import { workspaceInvites } from "./invite-schema";
 import { channels, channelMembers } from "../channels/schema";
-import { channelReadPositions } from "../channels/read-positions-schema";
-import { messages } from "../messages/schema";
 import type { Workspace, WorkspaceId, UserId, Role } from "@openslaq/shared";
 import { asWorkspaceId, ROLES, DEFAULT_CHANNELS } from "@openslaq/shared";
 
@@ -191,31 +188,7 @@ export async function removeMember(workspaceId: WorkspaceId, targetUserId: UserI
 }
 
 export async function deleteWorkspace(workspaceId: WorkspaceId) {
-  await db.transaction(async (tx) => {
-    // Get all channel IDs for this workspace
-    const wsChannels = await tx
-      .select({ id: channels.id })
-      .from(channels)
-      .where(eq(channels.workspaceId, workspaceId));
-
-    const channelIds = wsChannels.map((c) => c.id);
-
-    if (channelIds.length > 0) {
-      // Delete read positions
-      await tx.delete(channelReadPositions).where(inArray(channelReadPositions.channelId, channelIds));
-      // Delete messages (reactions + attachments cascade)
-      await tx.delete(messages).where(inArray(messages.channelId, channelIds));
-      // Delete channel members
-      await tx.delete(channelMembers).where(inArray(channelMembers.channelId, channelIds));
-      // Delete channels
-      await tx.delete(channels).where(eq(channels.workspaceId, workspaceId));
-    }
-
-    // Delete workspace invites
-    await tx.delete(workspaceInvites).where(eq(workspaceInvites.workspaceId, workspaceId));
-    // Delete workspace members
-    await tx.delete(workspaceMembers).where(eq(workspaceMembers.workspaceId, workspaceId));
-    // Delete workspace
-    await tx.delete(workspaces).where(eq(workspaces.id, workspaceId));
-  });
+  // All related tables (channels, messages, members, reactions, attachments,
+  // invites, bots, emojis, etc.) cascade-delete via FK constraints.
+  await db.delete(workspaces).where(eq(workspaces.id, workspaceId));
 }

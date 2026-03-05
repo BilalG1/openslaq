@@ -15,9 +15,7 @@ export function ListRow({ children, style, ...props }: ListRowProps) {
       {...props}
       style={({ pressed }) => ({
         paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: theme.colors.borderSecondary,
+        paddingVertical: 10,
         backgroundColor: pressed ? theme.colors.surfaceHover : theme.colors.surface,
         ...style,
       })}

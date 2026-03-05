@@ -1,5 +1,6 @@
 import { useState, useCallback, type MouseEvent } from "react";
 import clsx from "clsx";
+import { Plus } from "lucide-react";
 import type { Channel, HuddleState, ChannelNotifyLevel } from "@openslaq/shared";
 import { Badge, Tooltip } from "../ui";
 import {
@@ -7,6 +8,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "../ui/dropdown-menu";
+import { HuddleIndicator } from "./HuddleIndicator";
 
 interface ChannelListProps {
   activeChannelId: string | null;
@@ -83,9 +85,9 @@ export function ChannelList({
               role="button"
               data-testid="create-channel-button"
               onClick={(e) => { e.stopPropagation(); onCreateChannel(); }}
-              className="opacity-0 group-hover:opacity-100 text-base px-1 leading-none hover:text-white"
+              className="opacity-0 group-hover:opacity-100 px-1 leading-none hover:text-white"
             >
-              +
+              <Plus className="w-4 h-4" />
             </span>
           </Tooltip>
         )}
@@ -121,12 +123,7 @@ export function ChannelList({
                   </svg>
                 )}
                 {huddle && (
-                  <span className="flex items-center gap-0.5 text-green-400" data-testid={`huddle-indicator-${channel.id}`}>
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072M12 12h.01M8.464 8.464a5 5 0 000 7.072" />
-                    </svg>
-                    <span className="text-[10px]">{huddle.participants.length}</span>
-                  </span>
+                  <HuddleIndicator channelId={channel.id} participantCount={huddle.participants.length} />
                 )}
               </span>
               {unread > 0 && !isMuted && (

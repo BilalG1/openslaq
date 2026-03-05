@@ -11,7 +11,7 @@ export const reactions = pgTable(
       .references(() => messages.id, { onDelete: "cascade" }),
     userId: text("user_id")
       .notNull()
-      .references(() => users.id),
+      .references(() => users.id, { onDelete: "cascade" }),
     emoji: text("emoji").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },

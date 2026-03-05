@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
+import { eq, and } from "drizzle-orm";
 import { updateUser } from "../users/service";
-import { addChannelMember, isChannelMember } from "../channels/service";
+import { addChannelMember, isChannelMember, getChannelById } from "../channels/service";
 import { setChannelNotificationPref } from "../channels/notification-prefs-service";
 import { getIO } from "../socket/io";
 import { db } from "../db";
+import { workspaceMembers } from "../workspaces/schema";
 import { reminders } from "./reminder-schema";
 import { parseRemindTime } from "./time-parser";
 import type { EphemeralMessage } from "@openslaq/shared";
@@ -158,6 +160,20 @@ export async function handleInvite(
   }
 
   const targetUserId = mentionMatch[1]!;
+
+  // Verify the target user is a workspace member
+  const channel = await getChannelById(asChannelId(channelId));
+  if (channel) {
+    const wsMembership = await db.query.workspaceMembers.findFirst({
+      where: and(
+        eq(workspaceMembers.workspaceId, channel.workspaceId),
+        eq(workspaceMembers.userId, targetUserId),
+      ),
+    });
+    if (!wsMembership) {
+      return [makeEphemeral(channelId, "That user is not a member of this workspace.")];
+    }
+  }
 
   // Check if already a member
   const alreadyMember = await isChannelMember(asChannelId(channelId), asUserId(targetUserId));

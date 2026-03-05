@@ -1,4 +1,4 @@
-import { eq, and, inArray, desc } from "drizzle-orm";
+import { eq, and, inArray, desc, count } from "drizzle-orm";
 import { db } from "../db";
 import { pinnedMessages } from "./pinned-schema";
 import { messages } from "./schema";
@@ -53,6 +53,14 @@ export async function getPinnedMessageIds(channelId: ChannelId): Promise<Message
     .where(eq(pinnedMessages.channelId, channelId))
     .orderBy(desc(pinnedMessages.pinnedAt));
   return rows.map((r) => r.messageId as MessageId);
+}
+
+export async function getPinnedCount(channelId: ChannelId): Promise<number> {
+  const [row] = await db
+    .select({ count: count() })
+    .from(pinnedMessages)
+    .where(eq(pinnedMessages.channelId, channelId));
+  return row?.count ?? 0;
 }
 
 export async function batchPinStatus(

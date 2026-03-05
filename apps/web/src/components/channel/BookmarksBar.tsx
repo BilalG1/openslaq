@@ -7,6 +7,10 @@ import {
   DropdownMenuItem,
 } from "../ui/dropdown-menu";
 
+function getFaviconUrl(url: string): string {
+  return `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=16`;
+}
+
 interface BookmarksBarProps {
   bookmarks: ChannelBookmark[];
   isArchived: boolean;
@@ -56,7 +60,7 @@ export function BookmarksBar({ bookmarks, isArchived, onAddBookmark, onRemoveBoo
     return () => observer.disconnect();
   }, [measureOverflow, bookmarks.length]);
 
-  if (bookmarks.length === 0 && isArchived) {
+  if (bookmarks.length === 0) {
     return null;
   }
 
@@ -99,7 +103,7 @@ export function BookmarksBar({ bookmarks, isArchived, onAddBookmark, onRemoveBoo
                   className="flex items-center gap-2"
                 >
                   <img
-                    src={`https://www.google.com/s2/favicons?domain=${new URL(bookmark.url).hostname}&sz=16`}
+                    src={getFaviconUrl(bookmark.url)}
                     alt=""
                     className="w-4 h-4"
                     onError={(e) => {
@@ -147,7 +151,7 @@ function BookmarkChip({
       className={`group flex items-center gap-1.5 text-xs px-2 py-1 rounded hover:bg-surface-hover shrink-0 ${hidden ? "invisible absolute" : ""}`}
     >
       <img
-        src={`https://www.google.com/s2/favicons?domain=${new URL(bookmark.url).hostname}&sz=16`}
+        src={getFaviconUrl(bookmark.url)}
         alt=""
         className="w-3.5 h-3.5"
         onError={(e) => {

@@ -1,4 +1,5 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
+import { createHmac } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { asMessageId, asChannelId, asUserId } from "@openslaq/shared";
 import type { MessageActionButton, WebhookEventPayload } from "@openslaq/shared";
@@ -103,10 +104,17 @@ const app = new OpenAPIHono<AuthEnv>().openapi(interactionRoute, async (c) => {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
 
+    const body = JSON.stringify(payload);
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (bot.apiToken) {
+      const signature = createHmac("sha256", bot.apiToken).update(body).digest("hex");
+      headers["X-OpenSlaq-Signature"] = `sha256=${signature}`;
+    }
+
     const res = await fetch(bot.webhookUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      headers,
+      body,
       signal: controller.signal,
     });
 

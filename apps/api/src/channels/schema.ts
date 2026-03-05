@@ -10,16 +10,19 @@ export const channels = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     workspaceId: uuid("workspace_id")
       .notNull()
-      .references(() => workspaces.id),
+      .references(() => workspaces.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     description: text("description"),
     displayName: text("display_name"),
     type: channelTypeEnum("type").notNull().default("public"),
     isArchived: boolean("is_archived").default(false).notNull(),
-    createdBy: text("created_by").references(() => users.id),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (t) => [unique().on(t.workspaceId, t.name, t.type)],
+  (t) => [
+    unique().on(t.workspaceId, t.name, t.type),
+    index("idx_channels_workspace_type_archived").on(t.workspaceId, t.type, t.isArchived),
+  ],
 );
 
 export const channelMembers = pgTable(

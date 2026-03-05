@@ -1,12 +1,13 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
-import Mention from "@tiptap/extension-mention";
+import { MentionWithMarkdown } from "@openslaq/editor";
 import Placeholder from "@tiptap/extension-placeholder";
 import { CodeBlockShiki } from "tiptap-extension-code-block-shiki";
-import { Markdown, type MarkdownStorage } from "tiptap-markdown";
+import { Markdown } from "tiptap-markdown";
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import clsx from "clsx";
+import { getMarkdown } from "@openslaq/editor";
 import { EditorToolbar } from "./EditorToolbar";
 import { createMentionSuggestion, type MentionSuggestionItem } from "./useMentionSuggestion";
 import "./rich-text-editor.css";
@@ -30,10 +31,6 @@ const VSCODE_LANG_MAP: Record<string, string> = {
   javascriptreact: "jsx",
 };
 
-function getMarkdown(editor: { storage: Record<string, unknown> }): string {
-  return (editor.storage.markdown as MarkdownStorage).getMarkdown();
-}
-
 export function RichTextEditor({
   onSubmit,
   placeholder = "Type a message...",
@@ -54,8 +51,9 @@ export function RichTextEditor({
   const membersRef = useRef(members);
   membersRef.current = members;
 
+  const mentionSuggestionActiveRef = useRef(false);
   const mentionSuggestion = useMemo(
-    () => createMentionSuggestion(() => membersRef.current),
+    () => createMentionSuggestion(() => membersRef.current, mentionSuggestionActiveRef),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
@@ -67,7 +65,7 @@ export function RichTextEditor({
         themes: { light: "light-plus", dark: "dark-plus" },
       }),
       Link.configure({ autolink: true, openOnClick: false }),
-      Mention.configure({
+      MentionWithMarkdown.configure({
         HTMLAttributes: { class: "mention" },
         renderText({ node }) {
           return `<@${node.attrs.id}>`;
@@ -89,12 +87,14 @@ export function RichTextEditor({
     },
     onUpdate({ editor: e }) {
       setIsEmpty(e.isEmpty);
-      onContentChange?.(getMarkdown(e as unknown as { storage: Record<string, unknown> }));
+      onContentChange?.(getMarkdown(e.storage));
     },
     editorProps: {
       handleKeyDown(_view, event) {
+        if (!editor) return false;
+        // Let the mention suggestion plugin handle keys when it's active
+        if (mentionSuggestionActiveRef.current) return false;
         if (event.key === "Enter" && !event.shiftKey) {
-          if (!editor) return false;
           if (editor.isActive("codeBlock") || editor.isActive("bulletList") || editor.isActive("orderedList")) {
             return false;
           }
@@ -163,7 +163,7 @@ export function RichTextEditor({
 
   const handleSend = useCallback(() => {
     if (!editor) return;
-    const md = getMarkdown(editor as unknown as { storage: Record<string, unknown> });
+    const md = getMarkdown(editor.storage);
     if (md.trim() || hasAttachments) {
       onSubmit(md.trim());
       editor.commands.clearContent();

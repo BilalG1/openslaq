@@ -8,8 +8,8 @@ test.describe("Channel notification preferences", () => {
     await page.goto(`/w/${testWorkspace.slug}`);
     await page.getByText("# general").click();
 
-    // Open bell dropdown
-    await page.getByTestId("channel-notification-button").click();
+    // Open overflow menu
+    await page.getByTestId("channel-overflow-menu").click();
 
     // Should default to "All messages" checked
     await expect(page.getByTestId("notify-level-all")).toBeVisible();
@@ -20,7 +20,7 @@ test.describe("Channel notification preferences", () => {
     await page.getByTestId("notify-level-muted").click();
 
     // Reopen dropdown to verify checkmark moved
-    await page.getByTestId("channel-notification-button").click();
+    await page.getByTestId("channel-overflow-menu").click();
     await expect(page.getByTestId("notify-level-muted")).toContainText("\u2713");
   });
 
@@ -29,8 +29,8 @@ test.describe("Channel notification preferences", () => {
     await page.goto(`/w/${testWorkspace.slug}`);
     await page.getByText("# general").click();
 
-    // Mute channel via header
-    await page.getByTestId("channel-notification-button").click();
+    // Mute channel via overflow menu
+    await page.getByTestId("channel-overflow-menu").click();
     await page.getByTestId("notify-level-muted").click();
 
     // Sidebar should show mute icon for general
@@ -45,7 +45,7 @@ test.describe("Channel notification preferences", () => {
     await page.getByText("# general").click();
 
     // Set to mentions only — wait for the API call to complete before reloading
-    await page.getByTestId("channel-notification-button").click();
+    await page.getByTestId("channel-overflow-menu").click();
     const prefSaved = page.waitForResponse(
       (res) => res.url().includes("/notification-pref") && res.status() < 400,
     );
@@ -61,7 +61,7 @@ test.describe("Channel notification preferences", () => {
 
     // Verify persisted — use retry loop since prefs load asynchronously
     await expect(async () => {
-      await page.getByTestId("channel-notification-button").click();
+      await page.getByTestId("channel-overflow-menu").click();
       await expect(page.getByTestId("notify-level-mentions")).toContainText("\u2713");
     }).toPass({ timeout: 10_000 });
   });
@@ -72,15 +72,15 @@ test.describe("Channel notification preferences", () => {
     await page.getByText("# general").click();
 
     // Set to muted
-    await page.getByTestId("channel-notification-button").click();
+    await page.getByTestId("channel-overflow-menu").click();
     await page.getByTestId("notify-level-muted").click();
 
     // Set back to all
-    await page.getByTestId("channel-notification-button").click();
+    await page.getByTestId("channel-overflow-menu").click();
     await page.getByTestId("notify-level-all").click();
 
     // Verify
-    await page.getByTestId("channel-notification-button").click();
+    await page.getByTestId("channel-overflow-menu").click();
     await expect(page.getByTestId("notify-level-all")).toContainText("\u2713");
   });
 });

@@ -1,5 +1,11 @@
 /** @type {import('detox').DetoxConfig} */
 module.exports = {
+  artifacts: {
+    rootDir: "e2e/test-results/.detox-artifacts",
+    plugins: {
+      screenshot: "manual",
+    },
+  },
   testRunner: {
     args: {
       $0: "jest",

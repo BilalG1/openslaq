@@ -12,6 +12,7 @@ const GROUP_MENTIONS: MentionSuggestionItem[] = [
 
 export function createMentionSuggestion(
   getMembers: () => MentionSuggestionItem[],
+  isActiveRef?: { current: boolean },
 ): Omit<SuggestionOptions<MentionSuggestionItem>, "editor"> {
   return {
     items: ({ query }) => {
@@ -38,6 +39,7 @@ export function createMentionSuggestion(
 
       return {
         onStart: (props: SuggestionProps<MentionSuggestionItem>) => {
+          if (isActiveRef) isActiveRef.current = true;
           container = document.createElement("div");
           container.style.position = "absolute";
           container.style.zIndex = "50";
@@ -95,6 +97,7 @@ export function createMentionSuggestion(
         },
 
         onExit: () => {
+          if (isActiveRef) isActiveRef.current = false;
           if (container) {
             root?.unmount();
             container.remove();
