@@ -1,8 +1,9 @@
 import { describe, test, expect } from "bun:test";
-import { createTestClient, testId, createTestWorkspace } from "./helpers/api-client";
+import { createTestClient, testId, createTestWorkspace, TestApiClient } from "./helpers/api-client";
 import { db } from "../../api/src/db";
 import { botApps } from "../../api/src/bots/schema";
 import { eq } from "drizzle-orm";
+import type { BotScope, BotEventType } from "@openslaq/shared";
 
 function getApiUrl() {
   return process.env.API_BASE_URL ?? "http://localhost:3001";
@@ -12,11 +13,11 @@ function getTestSecret() {
 }
 
 async function createBotInWorkspace(
-  client: any,
+  client: TestApiClient,
   slug: string,
   overrides: {
-    scopes?: string[];
-    subscribedEvents?: string[];
+    scopes?: BotScope[];
+    subscribedEvents?: BotEventType[];
     webhookUrl?: string;
   } = {},
 ) {
@@ -33,7 +34,7 @@ async function createBotInWorkspace(
   return (await res.json()) as { bot: any; apiToken: string };
 }
 
-async function addBotToChannel(client: any, slug: string, channelId: string, botUserId: string) {
+async function addBotToChannel(client: TestApiClient, slug: string, channelId: string, botUserId: string) {
   await client.api.workspaces[":slug"].channels[":id"].members.$post({
     param: { slug, id: channelId },
     json: { userId: botUserId },

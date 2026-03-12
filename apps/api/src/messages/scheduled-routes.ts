@@ -12,7 +12,7 @@ import {
   deleteScheduledMessage,
 } from "./scheduled-service";
 import { isChannelMember } from "../channels/service";
-import { asChannelId, asUserId } from "@openslaq/shared";
+import { asChannelId, asUserId, asScheduledMessageId } from "@openslaq/shared";
 import { db } from "../db";
 import { channels } from "../channels/schema";
 import { eq } from "drizzle-orm";
@@ -288,7 +288,7 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     if (existing) {
       const io = getIO();
       io.to(`user:${user.id}`).emit("scheduledMessage:deleted", {
-        id,
+        id: asScheduledMessageId(id),
         channelId: asChannelId(existing.channelId),
       });
     }

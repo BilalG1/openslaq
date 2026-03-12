@@ -1,0 +1,54 @@
+---
+title: SDK Installation
+description: Install and set up the OpenSlaq TypeScript SDK.
+---
+
+import { Tabs, TabItem } from "@astrojs/starlight/components";
+
+The official TypeScript SDK provides typed access to the OpenSlaq API, real-time events via Socket.IO, and helper utilities for building bots and integrations.
+
+## Install
+
+<Tabs>
+  <TabItem label="npm">
+  ```bash
+  npm install openslaq
+  ```
+  </TabItem>
+  <TabItem label="bun">
+  ```bash
+  bun add openslaq
+  ```
+  </TabItem>
+  <TabItem label="pnpm">
+  ```bash
+  pnpm add openslaq
+  ```
+  </TabItem>
+</Tabs>
+
+## Basic usage
+
+```ts
+import { OpenSlaq } from "openslaq";
+
+const client = new OpenSlaq({
+  token: process.env.OPENSLAQ_BOT_TOKEN!,
+});
+
+// Send a message
+await client.chat.postMessage({
+  channelId: "ch_abc123",
+  content: "Hello from the SDK!",
+});
+```
+
+## Requirements
+
+- Node.js 18+ or Bun 1.0+
+- TypeScript 5.0+ (recommended, but not required)
+
+## Next steps
+
+- [Authentication](/sdk/authentication/) — learn about token types and scopes
+- [API Reference](/sdk/api-reference/) — full list of available methods

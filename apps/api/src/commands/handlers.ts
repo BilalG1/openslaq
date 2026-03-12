@@ -49,7 +49,7 @@ export async function handleStatus(
 
     safeEmit((io) =>
       io.emit("user:statusUpdated", {
-        userId,
+        userId: asUserId(userId),
         statusEmoji: null,
         statusText: null,
         statusExpiresAt: null,
@@ -72,7 +72,7 @@ export async function handleStatus(
 
   safeEmit((io) =>
     io.emit("user:statusUpdated", {
-      userId,
+      userId: asUserId(userId),
       statusEmoji: emoji,
       statusText: text || null,
       statusExpiresAt: null,

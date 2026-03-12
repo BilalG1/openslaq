@@ -1,4 +1,5 @@
 import { Pressable, Text, View, StyleSheet } from "react-native";
+import { Mic, MicOff, Video, VideoOff, ScreenShare, PhoneOff } from "lucide-react-native";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 
 const GREEN = "#22c55e";
@@ -6,16 +7,20 @@ const GREEN = "#22c55e";
 interface HuddleControlsProps {
   isMuted: boolean;
   isCameraOn: boolean;
+  isScreenSharing: boolean;
   onToggleMute: () => void;
   onToggleCamera: () => void;
+  onToggleScreenShare: () => void;
   onLeave: () => void;
 }
 
 export function HuddleControls({
   isMuted,
   isCameraOn,
+  isScreenSharing,
   onToggleMute,
   onToggleCamera,
+  onToggleScreenShare,
   onLeave,
 }: HuddleControlsProps) {
   const { theme } = useMobileTheme();
@@ -34,7 +39,7 @@ export function HuddleControls({
           },
         ]}
       >
-        <Text style={styles.icon}>{isMuted ? "\u{1F507}" : "\u{1F3A4}"}</Text>
+        {isMuted ? <MicOff size={24} color="#fff" /> : <Mic size={24} color="#fff" />}
         <Text style={[styles.label, { color: theme.colors.textSecondary }]}>
           {isMuted ? "Unmute" : "Mute"}
         </Text>
@@ -52,9 +57,27 @@ export function HuddleControls({
           },
         ]}
       >
-        <Text style={styles.icon}>{"\u{1F4F7}"}</Text>
+        {isCameraOn ? <Video size={24} color="#fff" /> : <VideoOff size={24} color="#fff" />}
         <Text style={[styles.label, { color: theme.colors.textSecondary }]}>
           {isCameraOn ? "Stop" : "Camera"}
+        </Text>
+      </Pressable>
+
+      <Pressable
+        testID="huddle-control-screen-share"
+        onPress={onToggleScreenShare}
+        style={[
+          styles.button,
+          {
+            backgroundColor: isScreenSharing
+              ? GREEN
+              : theme.colors.surfaceTertiary,
+          },
+        ]}
+      >
+        <ScreenShare size={24} color="#fff" />
+        <Text style={[styles.label, { color: theme.colors.textSecondary }]}>
+          {isScreenSharing ? "Stop" : "Share"}
         </Text>
       </Pressable>
 
@@ -63,7 +86,7 @@ export function HuddleControls({
         onPress={onLeave}
         style={[styles.button, { backgroundColor: theme.brand.danger }]}
       >
-        <Text style={styles.icon}>{"\u{1F6D1}"}</Text>
+        <PhoneOff size={24} color="#fff" />
         <Text style={[styles.label, { color: "#fff" }]}>Leave</Text>
       </Pressable>
     </View>
@@ -85,9 +108,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 12,
     minWidth: 80,
-  },
-  icon: {
-    fontSize: 24,
   },
   label: {
     fontSize: 12,

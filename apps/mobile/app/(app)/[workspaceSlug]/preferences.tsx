@@ -1,4 +1,5 @@
 import { View, Text, Pressable } from "react-native";
+import { Check } from "lucide-react-native";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import type { ThemePreference } from "@/lib/theme-preferences";
 
@@ -50,9 +51,7 @@ export default function PreferencesScreen() {
               )}
             </View>
             {isActive && (
-              <Text testID={`${option.testID}-check`} style={{ color: theme.brand.primary, fontSize: 18 }}>
-                ✓
-              </Text>
+              <Check testID={`${option.testID}-check`} size={18} color={theme.brand.primary} />
             )}
           </Pressable>
         );

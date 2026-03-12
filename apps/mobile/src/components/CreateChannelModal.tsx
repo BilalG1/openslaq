@@ -11,6 +11,7 @@ import {
   Platform,
   Keyboard,
 } from "react-native";
+import { Lock } from "lucide-react-native";
 import type { Channel } from "@openslaq/shared";
 import { createChannel } from "@openslaq/client-core";
 import type { OperationDeps } from "@openslaq/client-core";
@@ -192,9 +193,12 @@ export function CreateChannelModal({
                   alignItems: "center",
                 }}
               >
-                <Text style={{ color: isPrivate ? theme.brand.primary : theme.colors.textSecondary, fontWeight: "500" }}>
-                  {"\u{1F512}"} Private
-                </Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                  <Lock size={14} color={isPrivate ? theme.brand.primary : theme.colors.textSecondary} />
+                  <Text style={{ color: isPrivate ? theme.brand.primary : theme.colors.textSecondary, fontWeight: "500" }}>
+                    Private
+                  </Text>
+                </View>
               </Pressable>
             </View>
           )}

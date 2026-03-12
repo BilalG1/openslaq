@@ -95,6 +95,11 @@ describe("WorkspaceSettingsDialog", () => {
 
   test("renders Bots section with Add Bot button when canManage", async () => {
     await renderDialog();
+    // Bots are behind the sidebar tab
+    await act(async () => {
+      fireEvent.click(screen.getByText("Bots"));
+      await new Promise((r) => setTimeout(r, 50));
+    });
     expect(screen.getByTestId("add-bot-btn")).toBeTruthy();
     expect(screen.getByTestId("add-bot-btn").textContent).toBe("Add Bot");
   });
@@ -211,12 +216,20 @@ describe("WorkspaceSettingsDialog", () => {
 
   // ── Bot rows ───────────────────────────────────────────────────
 
+  async function navigateToBotsTab() {
+    await act(async () => {
+      fireEvent.click(screen.getByText("Bots"));
+      await new Promise((r) => setTimeout(r, 50));
+    });
+  }
+
   test("renders bot rows with name, APP badge when bots exist", async () => {
     mockListBotApps.mockImplementation(async () => [
       { id: "bot-1", name: "TestBot", description: "A test bot", enabled: true, avatarUrl: null },
     ]);
 
     await renderDialog();
+    await navigateToBotsTab();
 
     expect(screen.getByTestId("bot-row-bot-1")).toBeTruthy();
     const botRow = screen.getByTestId("bot-row-bot-1");
@@ -230,6 +243,7 @@ describe("WorkspaceSettingsDialog", () => {
     ]);
 
     await renderDialog();
+    await navigateToBotsTab();
 
     const botRow = screen.getByTestId("bot-row-bot-1");
     expect(botRow.textContent).toContain("Disabled");
@@ -241,6 +255,7 @@ describe("WorkspaceSettingsDialog", () => {
     ]);
 
     await renderDialog();
+    await navigateToBotsTab();
 
     const toggle = screen.getByTestId("bot-toggle-bot-1");
     await act(async () => {
@@ -257,13 +272,22 @@ describe("WorkspaceSettingsDialog", () => {
     ]);
 
     await renderDialog();
+    await navigateToBotsTab();
     expect(screen.getByTestId("configure-bot-bot-1")).toBeTruthy();
   });
 
   // ── Delete workspace ───────────────────────────────────────────
 
+  async function navigateToDangerTab() {
+    await act(async () => {
+      fireEvent.click(screen.getByText("Danger Zone"));
+      await new Promise((r) => setTimeout(r, 50));
+    });
+  }
+
   test("shows delete section only when current user is owner", async () => {
     await renderDialog();
+    await navigateToDangerTab();
     expect(screen.getByTestId("delete-workspace-btn")).toBeTruthy();
   });
 
@@ -273,17 +297,20 @@ describe("WorkspaceSettingsDialog", () => {
     ]);
 
     await renderDialog();
-    expect(screen.queryByTestId("delete-workspace-btn")).toBeNull();
+    // Danger Zone tab should not be visible for non-owners
+    expect(screen.queryByText("Danger Zone")).toBeNull();
   });
 
   test("delete button is disabled until input matches workspace name", async () => {
     await renderDialog();
+    await navigateToDangerTab();
     const btn = screen.getByTestId("delete-workspace-btn");
     expect(btn.hasAttribute("disabled")).toBe(true);
   });
 
   test("typing correct name enables the delete button", async () => {
     await renderDialog();
+    await navigateToDangerTab();
 
     const input = screen.getByTestId("delete-workspace-input");
     fireEvent.change(input, { target: { value: "Default Workspace" } });
@@ -301,6 +328,7 @@ describe("WorkspaceSettingsDialog", () => {
     });
 
     await renderDialog();
+    await navigateToDangerTab();
 
     const input = screen.getByTestId("delete-workspace-input");
     fireEvent.change(input, { target: { value: "Default Workspace" } });
@@ -331,12 +359,13 @@ describe("WorkspaceSettingsDialog", () => {
 
   // ── Bots section visibility ────────────────────────────────────
 
-  test("does NOT show Bots section for regular members", async () => {
+  test("does NOT show Bots tab for regular members", async () => {
     mockListMembers.mockImplementation(async () => [
       { id: "user-1", displayName: "Me", email: "me@test.com", avatarUrl: null, role: "member" },
     ]);
 
     await renderDialog();
-    expect(screen.queryByTestId("add-bot-btn")).toBeNull();
+    // Bots tab should not be visible for regular members
+    expect(screen.queryByText("Bots")).toBeNull();
   });
 });

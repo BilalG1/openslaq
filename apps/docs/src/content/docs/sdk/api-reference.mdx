@@ -1,0 +1,531 @@
+---
+title: API Reference
+description: Complete reference for the OpenSlaq TypeScript SDK.
+---
+
+## Client
+
+### `new OpenSlaq(options)`
+
+Create a new SDK client.
+
+```ts
+import { OpenSlaq } from "openslaq";
+
+const client = new OpenSlaq({
+  apiKey: "osk_xxxxxxxxxxxxx",
+  workspaceSlug: "my-workspace", // optional
+});
+```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `apiKey` | `string` | API key — must start with `osk_` (required) |
+| `baseUrl` | `string` | API base URL (default: `https://api.openslaq.com`) |
+| `workspaceSlug` | `string` | Workspace to operate on (default: `"default"`) |
+| `fetch` | `typeof globalThis.fetch` | Custom fetch implementation (optional) |
+
+---
+
+## Messages
+
+### `client.messages.send(channelId, options)`
+
+Send a message to a channel.
+
+```ts
+const message = await client.messages.send("ch_abc123", {
+  content: "Hello, world!",
+  attachmentIds: ["att_xyz789"], // optional
+});
+```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `content` | `string` | Message content (required) |
+| `attachmentIds` | `string[]` | File attachment IDs (optional) |
+
+### `client.messages.list(channelId, options?)`
+
+List messages in a channel.
+
+```ts
+const { messages, nextCursor } = await client.messages.list("ch_abc123", {
+  limit: 50,
+  direction: "older",
+});
+```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `cursor` | `string` | Pagination cursor (optional) |
+| `limit` | `number` | Number of messages to return (optional) |
+| `direction` | `"older" \| "newer"` | Pagination direction (optional) |
+
+### `client.messages.get(messageId)`
+
+Get a single message by ID.
+
+```ts
+const message = await client.messages.get("msg_abc123");
+```
+
+### `client.messages.edit(messageId, options)`
+
+Edit an existing message.
+
+```ts
+const updated = await client.messages.edit("msg_abc123", {
+  content: "Updated content",
+});
+```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `content` | `string` | New message content (required) |
+
+### `client.messages.delete(messageId)`
+
+Delete a message.
+
+```ts
+await client.messages.delete("msg_abc123");
+```
+
+### `client.messages.reply(channelId, parentMessageId, options)`
+
+Reply to a message in a thread.
+
+```ts
+const reply = await client.messages.reply("ch_abc123", "msg_parent456", {
+  content: "Thread reply!",
+});
+```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `content` | `string` | Reply content (required) |
+| `attachmentIds` | `string[]` | File attachment IDs (optional) |
+
+### `client.messages.listReplies(channelId, parentMessageId, options?)`
+
+List replies in a thread.
+
+```ts
+const { messages, nextCursor } = await client.messages.listReplies(
+  "ch_abc123",
+  "msg_parent456",
+  { limit: 25 },
+);
+```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `cursor` | `string` | Pagination cursor (optional) |
+| `limit` | `number` | Number of replies to return (optional) |
+| `direction` | `"older" \| "newer"` | Pagination direction (optional) |
+
+### `client.messages.toggleReaction(messageId, emoji)`
+
+Toggle a reaction on a message. Adds the reaction if not present, removes it if already added.
+
+```ts
+const { reactions } = await client.messages.toggleReaction("msg_abc123", "thumbsup");
+```
+
+### `client.messages.pin(channelId, messageId)`
+
+Pin a message to a channel.
+
+```ts
+await client.messages.pin("ch_abc123", "msg_abc123");
+```
+
+### `client.messages.unpin(channelId, messageId)`
+
+Unpin a message from a channel.
+
+```ts
+await client.messages.unpin("ch_abc123", "msg_abc123");
+```
+
+### `client.messages.listPinned(channelId)`
+
+List all pinned messages in a channel.
+
+```ts
+const { messages } = await client.messages.listPinned("ch_abc123");
+```
+
+### `client.messages.getPinCount(channelId)`
+
+Get the number of pinned messages in a channel.
+
+```ts
+const { count } = await client.messages.getPinCount("ch_abc123");
+```
+
+---
+
+## Channels
+
+### `client.channels.list()`
+
+List channels the current user has joined.
+
+```ts
+const channels = await client.channels.list();
+```
+
+### `client.channels.browse(options?)`
+
+Browse all channels in the workspace, including ones you haven't joined.
+
+```ts
+const channels = await client.channels.browse({
+  includeArchived: true,
+});
+```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `includeArchived` | `boolean` | Include archived channels (optional) |
+
+Returns channels with an `isMember` field indicating membership.
+
+### `client.channels.create(options)`
+
+Create a new channel.
+
+```ts
+const channel = await client.channels.create({
+  name: "my-channel",
+  description: "A new channel",
+  type: "public",
+});
+```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `name` | `string` | Channel name (required) |
+| `description` | `string` | Channel description (optional) |
+| `type` | `"public" \| "private"` | Channel type (optional) |
+
+### `client.channels.update(id, options)`
+
+Update a channel.
+
+```ts
+const channel = await client.channels.update("ch_abc123", {
+  description: "Updated description",
+});
+```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `description` | `string` | New channel description (optional) |
+
+### `client.channels.archive(id)`
+
+Archive a channel.
+
+```ts
+await client.channels.archive("ch_abc123");
+```
+
+### `client.channels.unarchive(id)`
+
+Unarchive a channel.
+
+```ts
+await client.channels.unarchive("ch_abc123");
+```
+
+### `client.channels.join(id)`
+
+Join a channel.
+
+```ts
+await client.channels.join("ch_abc123");
+```
+
+### `client.channels.leave(id)`
+
+Leave a channel.
+
+```ts
+await client.channels.leave("ch_abc123");
+```
+
+### `client.channels.listMembers(id)`
+
+List members of a channel.
+
+```ts
+const members = await client.channels.listMembers("ch_abc123");
+// [{ id, displayName, email, avatarUrl, joinedAt }]
+```
+
+### `client.channels.addMember(id, userId)`
+
+Add a member to a channel.
+
+```ts
+await client.channels.addMember("ch_abc123", "usr_xyz789");
+```
+
+### `client.channels.removeMember(id, userId)`
+
+Remove a member from a channel.
+
+```ts
+await client.channels.removeMember("ch_abc123", "usr_xyz789");
+```
+
+### `client.channels.listStarred()`
+
+List channels the current user has starred.
+
+```ts
+const starred = await client.channels.listStarred();
+```
+
+### `client.channels.star(id)`
+
+Star a channel.
+
+```ts
+await client.channels.star("ch_abc123");
+```
+
+### `client.channels.unstar(id)`
+
+Unstar a channel.
+
+```ts
+await client.channels.unstar("ch_abc123");
+```
+
+### `client.channels.markRead(id)`
+
+Mark a channel as read.
+
+```ts
+await client.channels.markRead("ch_abc123");
+```
+
+### `client.channels.markUnread(id, options)`
+
+Mark a channel as unread starting from a specific message.
+
+```ts
+const { ok, unreadCount } = await client.channels.markUnread("ch_abc123", {
+  messageId: "msg_xyz789",
+});
+```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `messageId` | `string` | Message to mark as the first unread (required) |
+
+### `client.channels.listNotificationPrefs()`
+
+List notification preferences for all channels.
+
+```ts
+const prefs = await client.channels.listNotificationPrefs();
+// { "ch_abc123": "all", "ch_def456": "mentions" }
+```
+
+### `client.channels.getNotificationPref(id)`
+
+Get the notification preference for a specific channel.
+
+```ts
+const { level } = await client.channels.getNotificationPref("ch_abc123");
+```
+
+### `client.channels.setNotificationPref(id, options)`
+
+Set the notification preference for a channel.
+
+```ts
+await client.channels.setNotificationPref("ch_abc123", {
+  level: "mentions",
+});
+```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `level` | `ChannelNotifyLevel` | Notification level (required) |
+
+---
+
+## Users
+
+### `client.users.me()`
+
+Get the current authenticated user.
+
+```ts
+const user = await client.users.me();
+```
+
+### `client.users.updateMe(options)`
+
+Update the current user's profile.
+
+```ts
+const user = await client.users.updateMe({
+  displayName: "New Name",
+  avatarUrl: "https://example.com/avatar.png",
+});
+```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `displayName` | `string` | Display name (optional) |
+| `avatarUrl` | `string` | Avatar URL (optional) |
+
+### `client.users.setStatus(options)`
+
+Set the current user's status.
+
+```ts
+await client.users.setStatus({
+  emoji: "🏖️",
+  text: "On vacation",
+  expiresAt: "2026-03-15T00:00:00Z",
+});
+```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `emoji` | `string` | Status emoji (optional) |
+| `text` | `string` | Status text (optional) |
+| `expiresAt` | `string` | ISO 8601 expiration date (optional) |
+
+### `client.users.clearStatus()`
+
+Clear the current user's status.
+
+```ts
+await client.users.clearStatus();
+```
+
+---
+
+## Direct Messages
+
+### `client.dms.open(userId)`
+
+Open a DM channel with a user. Creates the channel if it doesn't exist.
+
+```ts
+const { channel, otherUser } = await client.dms.open("usr_abc123");
+```
+
+### `client.dms.list()`
+
+List all DM channels for the current user.
+
+```ts
+const dms = await client.dms.list();
+// [{ channel, otherUser: { id, displayName, email, avatarUrl } }]
+```
+
+---
+
+## Files
+
+### `client.files.upload(options)`
+
+Upload one or more files.
+
+```ts
+const { attachments } = await client.files.upload({
+  files: myFile, // File or File[]
+});
+```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `files` | `File \| File[]` | File(s) to upload (required) |
+
+### `client.files.getDownloadUrl(attachmentId)`
+
+Get a download URL for an attachment.
+
+```ts
+const url = await client.files.getDownloadUrl("att_abc123");
+```
+
+### `client.files.browse(options?)`
+
+Browse uploaded files.
+
+```ts
+const { files, nextCursor } = await client.files.browse({
+  channelId: "ch_abc123",
+  category: "images",
+  limit: 20,
+});
+```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `channelId` | `string` | Filter by channel (optional) |
+| `category` | `FileCategory` | Filter by file category (optional) |
+| `cursor` | `string` | Pagination cursor (optional) |
+| `limit` | `number` | Number of files to return (optional) |
+
+---
+
+## Search
+
+### `client.search.query(options)`
+
+Search messages across the workspace.
+
+```ts
+const results = await client.search.query({
+  q: "deployment issue",
+  channelId: "ch_abc123",
+  fromDate: "2026-03-01",
+  limit: 10,
+});
+```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `q` | `string` | Search query (required) |
+| `channelId` | `string` | Filter by channel (optional) |
+| `userId` | `string` | Filter by author (optional) |
+| `fromDate` | `string` | Start date filter (optional) |
+| `toDate` | `string` | End date filter (optional) |
+| `offset` | `number` | Pagination offset (optional) |
+| `limit` | `number` | Number of results (optional) |
+
+---
+
+## Error Handling
+
+The SDK throws typed errors for API failures.
+
+```ts
+import { OpenSlaqApiError } from "openslaq";
+
+try {
+  await client.messages.get("msg_nonexistent");
+} catch (err) {
+  if (err instanceof OpenSlaqApiError) {
+    console.error(err.status); // 404
+    console.error(err.errorMessage); // "Not found"
+  }
+}
+```
+
+| Class | Properties | Description |
+|-------|-----------|-------------|
+| `OpenSlaqError` | `message` | Base error class |
+| `OpenSlaqApiError` | `status`, `errorMessage` | API error with HTTP status code |

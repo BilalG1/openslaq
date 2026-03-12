@@ -16,6 +16,10 @@ jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 44, bottom: 34, left: 0, right: 0 }),
 }));
 
+jest.mock("@/lib/draft-storage", () => ({
+  getAllDraftKeys: jest.fn(() => Promise.resolve([])),
+}));
+
 jest.mock("react-native-svg", () => {
   const { View } = require("react-native");
   return {

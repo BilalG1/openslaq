@@ -1,0 +1,61 @@
+---
+title: Authentication
+description: Authenticate with the OpenSlaq API using tokens and API keys.
+---
+
+The OpenSlaq API supports two authentication methods: **bot tokens** and **API keys**.
+
+## Bot tokens
+
+Bot tokens are issued when you create a bot via the CLI or workspace settings. They authenticate requests as the bot user.
+
+```ts
+import { OpenSlaq } from "openslaq";
+
+const client = new OpenSlaq({
+  token: process.env.OPENSLAQ_BOT_TOKEN!,
+});
+```
+
+Bot tokens have the `bot_` prefix and can:
+- Send and read messages in channels the bot is a member of
+- Respond to slash commands and interactive events
+- Connect to the real-time event stream
+
+## API keys
+
+API keys are created in workspace settings or via the CLI. They authenticate requests as the user who created them.
+
+```ts
+import { OpenSlaq } from "openslaq";
+
+const client = new OpenSlaq({
+  token: process.env.OPENSLAQ_API_KEY!,
+});
+```
+
+API keys have the `osk_` prefix and support scoped permissions:
+
+| Scope | Description |
+|-------|-------------|
+| `channels:read` | Read channel info and membership |
+| `channels:write` | Create, archive, and update channels |
+| `messages:read` | Read messages in channels |
+| `messages:write` | Send messages and reactions |
+| `users:read` | Read user profiles |
+| `bots:manage` | Create and manage bots |
+
+## Environment variables
+
+We recommend storing tokens in environment variables:
+
+```bash
+# .env
+OPENSLAQ_BOT_TOKEN=bot_xxxxxxxxxxxxx
+# or
+OPENSLAQ_API_KEY=osk_xxxxxxxxxxxxx
+```
+
+:::caution
+Never commit tokens or API keys to version control. Add `.env` to your `.gitignore`.
+:::

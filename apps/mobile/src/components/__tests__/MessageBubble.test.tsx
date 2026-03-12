@@ -1,8 +1,8 @@
 import React from "react";
 import { render, screen, fireEvent, act } from "@testing-library/react-native";
 import { MessageBubble } from "../MessageBubble";
-import type { Message } from "@openslaq/shared";
-import { asMessageId, asChannelId, asUserId } from "@openslaq/shared";
+import type { Message, CustomEmoji } from "@openslaq/shared";
+import { asMessageId, asChannelId, asUserId, asEmojiId, asWorkspaceId } from "@openslaq/shared";
 
 // Mock MessageContent to render plain text for unit testing
 jest.mock("../MessageContent", () => {
@@ -160,6 +160,26 @@ describe("MessageBubble", () => {
     act(() => jest.advanceTimersByTime(400));
 
     expect(onLongPress).toHaveBeenCalledWith(msg);
+    jest.useRealTimers();
+  });
+
+  it("long-press triggers heavy haptic feedback", () => {
+    jest.useFakeTimers();
+    const { impactAsync, ImpactFeedbackStyle } = require("expo-haptics");
+    const onLongPress = jest.fn();
+
+    render(
+      <MessageBubble
+        message={makeMessage()}
+        currentUserId="user-1"
+        onLongPress={onLongPress}
+      />,
+    );
+
+    fireEvent(screen.getByTestId("message-bubble-msg-1"), "touchStart");
+    act(() => jest.advanceTimersByTime(400));
+
+    expect(impactAsync).toHaveBeenCalledWith(ImpactFeedbackStyle.Heavy);
     jest.useRealTimers();
   });
 
@@ -339,5 +359,73 @@ describe("MessageBubble", () => {
 
     // Should not throw
     fireEvent.press(screen.getByTestId("sender-name-msg-1"));
+  });
+
+  describe("custom emoji reactions", () => {
+    const customEmojis: CustomEmoji[] = [
+      {
+        id: asEmojiId("emoji-1"),
+        workspaceId: asWorkspaceId("ws-1"),
+        name: "party-parrot",
+        url: "https://cdn.test/party-parrot.png",
+        uploadedBy: asUserId("user-1"),
+        createdAt: "2025-01-01T00:00:00Z",
+      },
+    ];
+
+    it("renders custom emoji reaction as Image", () => {
+      const msg = makeMessage({
+        reactions: [
+          { emoji: ":custom:party-parrot:", count: 1, userIds: [asUserId("u1")] },
+        ],
+      });
+
+      render(
+        <MessageBubble
+          message={msg}
+          customEmojis={customEmojis}
+          onToggleReaction={jest.fn()}
+        />,
+      );
+
+      expect(screen.getByTestId("custom-reaction-party-parrot")).toBeTruthy();
+    });
+
+    it("renders unknown custom emoji as text fallback", () => {
+      const msg = makeMessage({
+        reactions: [
+          { emoji: ":custom:unknown-emoji:", count: 1, userIds: [asUserId("u1")] },
+        ],
+      });
+
+      render(
+        <MessageBubble
+          message={msg}
+          customEmojis={customEmojis}
+          onToggleReaction={jest.fn()}
+        />,
+      );
+
+      expect(screen.queryByTestId("custom-reaction-unknown-emoji")).toBeNull();
+      expect(screen.getByText(":unknown-emoji:")).toBeTruthy();
+    });
+
+    it("renders standard emoji normally when customEmojis provided", () => {
+      const msg = makeMessage({
+        reactions: [
+          { emoji: "👍", count: 2, userIds: [asUserId("u1"), asUserId("u2")] },
+        ],
+      });
+
+      render(
+        <MessageBubble
+          message={msg}
+          customEmojis={customEmojis}
+          onToggleReaction={jest.fn()}
+        />,
+      );
+
+      expect(screen.getByText("👍")).toBeTruthy();
+    });
   });
 });

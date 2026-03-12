@@ -2,11 +2,12 @@ import { describe, test, expect, afterEach, jest } from "bun:test";
 import { render, screen, cleanup } from "../../test-utils";
 import { BookmarksBar } from "./BookmarksBar";
 import type { ChannelBookmark } from "@openslaq/shared";
+import { asBookmarkId } from "@openslaq/shared";
 
 afterEach(cleanup);
 
 const mockBookmark = (overrides: Partial<ChannelBookmark> = {}): ChannelBookmark => ({
-  id: "bm-1",
+  id: asBookmarkId("bm-1"),
   channelId: "ch-1" as ChannelBookmark["channelId"],
   url: "https://example.com",
   title: "Example",
@@ -18,8 +19,8 @@ const mockBookmark = (overrides: Partial<ChannelBookmark> = {}): ChannelBookmark
 describe("BookmarksBar", () => {
   test("renders bookmarks", () => {
     const bookmarks = [
-      mockBookmark({ id: "bm-1", url: "https://example.com", title: "Example" }),
-      mockBookmark({ id: "bm-2", url: "https://docs.com", title: "Docs" }),
+      mockBookmark({ id: asBookmarkId("bm-1"), url: "https://example.com", title: "Example" }),
+      mockBookmark({ id: asBookmarkId("bm-2"), url: "https://docs.com", title: "Docs" }),
     ];
 
     render(
@@ -88,7 +89,7 @@ describe("BookmarksBar", () => {
 
   test("calls onRemoveBookmark when remove button clicked", () => {
     const onRemove = jest.fn();
-    const bookmarks = [mockBookmark({ id: "bm-1" })];
+    const bookmarks = [mockBookmark({ id: asBookmarkId("bm-1") })];
 
     render(
       <BookmarksBar
@@ -120,7 +121,7 @@ describe("BookmarksBar", () => {
   });
 
   test("bookmark links open in new tab", () => {
-    const bookmarks = [mockBookmark({ id: "bm-1" })];
+    const bookmarks = [mockBookmark({ id: asBookmarkId("bm-1") })];
 
     render(
       <BookmarksBar

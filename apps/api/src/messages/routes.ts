@@ -1,5 +1,5 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
-import { asMessageId } from "@openslaq/shared";
+import { zMessageId } from "@openslaq/shared";
 import { auth } from "../auth/middleware";
 import { editMessageSchema } from "./validation";
 import { editMessage, deleteMessage } from "./service";
@@ -20,7 +20,7 @@ const getMessageRoute = createRoute({
   security: [{ Bearer: [] }],
   middleware: [auth, rlRead, requireMessageChannelAccess] as const,
   request: {
-    params: z.object({ id: z.string().describe("Message ID") }),
+    params: z.object({ id: zMessageId() }),
   },
   responses: {
     200: { content: { "application/json": { schema: messageSchema } }, description: "Message" },
@@ -37,7 +37,7 @@ const editMessageRoute = createRoute({
   security: [{ Bearer: [] }],
   middleware: [auth, rlMessageSend, requireMessageChannelAccess] as const,
   request: {
-    params: z.object({ id: z.string().describe("Message ID") }),
+    params: z.object({ id: zMessageId() }),
     body: { content: { "application/json": { schema: editMessageSchema } } },
   },
   responses: {
@@ -55,7 +55,7 @@ const deleteMessageRoute = createRoute({
   security: [{ Bearer: [] }],
   middleware: [auth, rlMessageSend, requireMessageChannelAccess] as const,
   request: {
-    params: z.object({ id: z.string().describe("Message ID") }),
+    params: z.object({ id: zMessageId() }),
   },
   responses: {
     200: { content: { "application/json": { schema: okSchema } }, description: "Message deleted" },
@@ -70,7 +70,7 @@ const app = new OpenAPIHono()
   })
   .openapi(editMessageRoute, async (c) => {
     const user = c.get("user");
-    const messageId = asMessageId(c.req.valid("param").id);
+    const messageId = c.req.valid("param").id;
     const { content } = c.req.valid("json");
     const updated = await editMessage(messageId, user.id, content);
 
@@ -87,7 +87,7 @@ const app = new OpenAPIHono()
   })
   .openapi(deleteMessageRoute, async (c) => {
     const user = c.get("user");
-    const messageId = asMessageId(c.req.valid("param").id);
+    const messageId = c.req.valid("param").id;
     const deleted = await deleteMessage(messageId, user.id);
 
     if (!deleted) {

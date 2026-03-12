@@ -5,7 +5,7 @@ import { botApps } from "../bots/schema";
 import { webhookDeliveries } from "../bots/schema";
 import { validateWebhookUrl } from "../bots/validate-url";
 import type { WebhookEventPayload, EphemeralMessage } from "@openslaq/shared";
-import { asChannelId } from "@openslaq/shared";
+import { asChannelId, asUserId, asBotAppId, asWorkspaceId } from "@openslaq/shared";
 import { randomUUID } from "node:crypto";
 import { createHmac } from "node:crypto";
 
@@ -59,12 +59,12 @@ export async function executeBotCommand(
     slashCommand: {
       command: commandName,
       args,
-      channelId,
-      userId,
+      channelId: asChannelId(channelId),
+      userId: asUserId(userId),
       timestamp: new Date().toISOString(),
     },
-    botAppId: row.botAppId,
-    workspaceId,
+    botAppId: asBotAppId(row.botAppId),
+    workspaceId: asWorkspaceId(workspaceId),
   };
 
   const body = JSON.stringify(payload);

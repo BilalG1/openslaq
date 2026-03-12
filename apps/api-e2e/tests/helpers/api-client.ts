@@ -5,6 +5,8 @@ import { signTestJwt, type TestUser } from "@openslaq/test-utils";
 export { signTestJwt };
 export type { TestUser };
 
+export type TestApiClient = ReturnType<typeof hc<AppType>>;
+
 export function getBaseUrl() {
   return process.env.API_BASE_URL || "http://localhost:3001";
 }
@@ -30,11 +32,11 @@ export function testId(): string {
 }
 
 // Cleanup registry: tracks workspaces to delete after all tests complete
-const cleanupRegistry: { slug: string; client: ReturnType<typeof hc<AppType>> }[] = [];
+const cleanupRegistry: { slug: string; client: TestApiClient }[] = [];
 
 /** Create an isolated workspace for testing, returns the workspace and slug.
  *  Automatically registers the workspace for cleanup after tests complete. */
-export async function createTestWorkspace(client: ReturnType<typeof hc<AppType>>) {
+export async function createTestWorkspace(client: TestApiClient) {
   const res = await client.api.workspaces.$post({
     json: { name: `Test Workspace ${testId()}` },
   });
@@ -62,9 +64,9 @@ export async function cleanupTestWorkspaces() {
 
 /** Add a user to a workspace via invite flow */
 export async function addToWorkspace(
-  ownerClient: ReturnType<typeof hc<AppType>>,
+  ownerClient: TestApiClient,
   slug: string,
-  joinerClient: ReturnType<typeof hc<AppType>>,
+  joinerClient: TestApiClient,
 ) {
   const inviteRes = await ownerClient.api.workspaces[":slug"].invites.$post({
     param: { slug },

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useCallback, useEffect } from "react";
-import type { Channel, ChannelId, HuddleState, Message, MessageId, UserId } from "@openslaq/shared";
+import type { Channel, ChannelId, CustomEmoji, HuddleState, Message, MessageId, UserId } from "@openslaq/shared";
 import {
   bootstrapWorkspace,
   handlePresenceSync,
@@ -223,6 +223,24 @@ export function WorkspaceBootstrapProvider({
 
   useSocketEvent("message:pinned", onMessagePinned);
   useSocketEvent("message:unpinned", onMessageUnpinned);
+
+  // Custom emoji tracking
+  const onEmojiAdded = useCallback(
+    (payload: { emoji: CustomEmoji }) => {
+      dispatch({ type: "emoji/add", emoji: payload.emoji });
+    },
+    [dispatch],
+  );
+
+  const onEmojiDeleted = useCallback(
+    (payload: { emojiId: string }) => {
+      dispatch({ type: "emoji/remove", emojiId: payload.emojiId });
+    },
+    [dispatch],
+  );
+
+  useSocketEvent("emoji:added", onEmojiAdded);
+  useSocketEvent("emoji:deleted", onEmojiDeleted);
 
   return <>{children}</>;
 }

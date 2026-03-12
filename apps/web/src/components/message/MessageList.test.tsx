@@ -1,6 +1,6 @@
 import { describe, test, expect, afterEach, beforeEach, jest, mock } from "bun:test";
 import { render, screen, cleanup } from "../../test-utils";
-import type { Message, ChannelId, MessageId, UserId } from "@openslaq/shared";
+import type { Message, ChannelId, MessageId, UserId, ReactionGroup } from "@openslaq/shared";
 
 // Mock hooks
 mock.module("react-router-dom", () => ({
@@ -15,8 +15,12 @@ mock.module("../../hooks/useSocket", () => ({
   useSocket: () => ({ joinChannel: jest.fn() }),
 }));
 
+// Capture socket event handlers so we can invoke them in tests
+const socketHandlers: Record<string, Function> = {};
 mock.module("../../hooks/useSocketEvent", () => ({
-  useSocketEvent: () => {},
+  useSocketEvent: (event: string, handler: Function) => {
+    socketHandlers[event] = handler;
+  },
 }));
 
 mock.module("../../hooks/chat/useChannelMessages", () => ({
@@ -78,6 +82,7 @@ function makeMessage(id: string, content: string, overrides?: Partial<Message>):
   } as unknown as Message;
 }
 
+const mockDispatch = jest.fn();
 const mockState = {
   channelMessageIds: { "ch-1": ["m1", "m2", "m3"] } as Record<string, string[]>,
   messagesById: {
@@ -95,7 +100,7 @@ const mockState = {
 };
 
 mock.module("../../state/chat-store", () => ({
-  useChatStore: () => ({ state: mockState, dispatch: jest.fn() }),
+  useChatStore: () => ({ state: mockState, dispatch: mockDispatch }),
 }));
 
 const { MessageList } = await import("./MessageList");
@@ -117,6 +122,11 @@ describe("MessageList", () => {
     olderConfig.hasOlder = false;
     newerConfig.loadingNewer = false;
     newerConfig.hasNewer = false;
+    mockDispatch.mockClear();
+    // Clear captured handlers
+    for (const key of Object.keys(socketHandlers)) {
+      delete socketHandlers[key];
+    }
   });
 
   afterEach(cleanup);
@@ -408,5 +418,168 @@ describe("MessageList", () => {
     expect(screen.getByTestId("msg-m2").getAttribute("data-grouped")).toBe("false");
     // Should have 2 day separators (one per day)
     expect(screen.getAllByTestId("day-separator").length).toBe(2);
+  });
+
+  // ── Socket event handlers ──────────────────────────────────────
+
+  test("message:new with matching channelId dispatches messages/upsert", () => {
+    render(<MessageList channelId="ch-1" />);
+
+    const newMsg = makeMessage("m-new", "New message", { channelId: "ch-1" as ChannelId });
+    socketHandlers["message:new"]?.(newMsg);
+
+    expect(mockDispatch).toHaveBeenCalledWith({ type: "messages/upsert", message: newMsg });
+  });
+
+  test("message:new with different channelId does NOT dispatch", () => {
+    render(<MessageList channelId="ch-1" />);
+    mockDispatch.mockClear();
+
+    const newMsg = makeMessage("m-new", "Other channel", { channelId: "ch-other" as ChannelId });
+    socketHandlers["message:new"]?.(newMsg);
+
+    expect(mockDispatch).not.toHaveBeenCalled();
+  });
+
+  test("message:new with parentMessageId set does NOT dispatch (thread reply filtered)", () => {
+    render(<MessageList channelId="ch-1" />);
+    mockDispatch.mockClear();
+
+    const threadReply = makeMessage("m-new", "Thread reply", {
+      channelId: "ch-1" as ChannelId,
+      parentMessageId: "m1" as MessageId,
+    });
+    socketHandlers["message:new"]?.(threadReply);
+
+    expect(mockDispatch).not.toHaveBeenCalled();
+  });
+
+  test("thread:updated with matching channelId dispatches messages/updateThreadSummary", () => {
+    render(<MessageList channelId="ch-1" />);
+    mockDispatch.mockClear();
+
+    socketHandlers["thread:updated"]?.({
+      parentMessageId: "m1" as MessageId,
+      channelId: "ch-1" as ChannelId,
+      replyCount: 5,
+      latestReplyAt: "2026-03-01T10:00:00Z",
+    });
+
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: "messages/updateThreadSummary",
+      channelId: "ch-1",
+      parentMessageId: "m1",
+      replyCount: 5,
+      latestReplyAt: "2026-03-01T10:00:00Z",
+    });
+  });
+
+  test("reaction:updated with matching channelId dispatches messages/updateReactions", () => {
+    render(<MessageList channelId="ch-1" />);
+    mockDispatch.mockClear();
+
+    const reactions: ReactionGroup[] = [{ emoji: "👍", count: 2, userIds: ["user-1" as UserId, "user-2" as UserId] }];
+    socketHandlers["reaction:updated"]?.({
+      messageId: "m1" as MessageId,
+      channelId: "ch-1" as ChannelId,
+      reactions,
+    });
+
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: "messages/updateReactions",
+      messageId: "m1",
+      reactions,
+    });
+  });
+
+  test("message:updated with matching channelId dispatches messages/upsert", () => {
+    render(<MessageList channelId="ch-1" />);
+    mockDispatch.mockClear();
+
+    const updated = makeMessage("m1", "Edited content", { channelId: "ch-1" as ChannelId });
+    socketHandlers["message:updated"]?.(updated);
+
+    expect(mockDispatch).toHaveBeenCalledWith({ type: "messages/upsert", message: updated });
+  });
+
+  test("message:deleted with matching channelId dispatches messages/delete", () => {
+    render(<MessageList channelId="ch-1" />);
+    mockDispatch.mockClear();
+
+    socketHandlers["message:deleted"]?.({
+      id: "m2" as MessageId,
+      channelId: "ch-1" as ChannelId,
+    });
+
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: "messages/delete",
+      messageId: "m2",
+      channelId: "ch-1",
+    });
+  });
+
+  test("message:pinned with matching channelId dispatches messages/updatePinStatus isPinned=true", () => {
+    render(<MessageList channelId="ch-1" />);
+    mockDispatch.mockClear();
+
+    socketHandlers["message:pinned"]?.({
+      messageId: "m1" as MessageId,
+      channelId: "ch-1" as ChannelId,
+      pinnedBy: "user-2" as UserId,
+      pinnedAt: "2026-03-01T10:00:00Z",
+    });
+
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: "messages/updatePinStatus",
+      messageId: "m1",
+      isPinned: true,
+      pinnedBy: "user-2",
+      pinnedAt: "2026-03-01T10:00:00Z",
+    });
+  });
+
+  test("message:unpinned with matching channelId dispatches messages/updatePinStatus isPinned=false", () => {
+    render(<MessageList channelId="ch-1" />);
+    mockDispatch.mockClear();
+
+    socketHandlers["message:unpinned"]?.({
+      messageId: "m1" as MessageId,
+      channelId: "ch-1" as ChannelId,
+    });
+
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: "messages/updatePinStatus",
+      messageId: "m1",
+      isPinned: false,
+    });
+  });
+
+  test("command:ephemeral with matching channelId calls onEphemeralMessage", () => {
+    const onEphemeralMessage = jest.fn();
+    render(<MessageList channelId="ch-1" onEphemeralMessage={onEphemeralMessage} />);
+
+    const ephemeral = {
+      id: "eph-1",
+      channelId: "ch-1",
+      text: "ephemeral text",
+      createdAt: new Date().toISOString(),
+    };
+    socketHandlers["command:ephemeral"]?.(ephemeral);
+
+    expect(onEphemeralMessage).toHaveBeenCalledWith(ephemeral);
+  });
+
+  test("command:ephemeral with different channelId does NOT call onEphemeralMessage", () => {
+    const onEphemeralMessage = jest.fn();
+    render(<MessageList channelId="ch-1" onEphemeralMessage={onEphemeralMessage} />);
+
+    socketHandlers["command:ephemeral"]?.({
+      id: "eph-1",
+      channelId: "ch-other",
+      text: "other channel",
+      createdAt: new Date().toISOString(),
+    });
+
+    expect(onEphemeralMessage).not.toHaveBeenCalled();
   });
 });

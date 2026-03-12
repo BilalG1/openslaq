@@ -1,5 +1,4 @@
 const { getDefaultConfig } = require("expo/metro-config");
-const { withNativeWind } = require("nativewind/metro");
 const path = require("path");
 
 const projectRoot = __dirname;
@@ -54,4 +53,4 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
 // Enable package.json "exports" field resolution (needed for hono/client, etc.)
 config.resolver.unstable_enablePackageExports = true;
 
-module.exports = withNativeWind(config, { input: "./src/global.css" });
+module.exports = config;

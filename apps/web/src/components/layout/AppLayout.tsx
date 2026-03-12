@@ -383,6 +383,7 @@ export function AppLayout() {
               channelId={activeChannel.id}
               channelType={activeChannel.type}
               channelCreatorId={activeChannel.createdBy}
+              channelCreatedAt={activeChannel.createdAt}
               memberCount={activeChannel.memberCount}
               workspaceSlug={slug}
               presence={state.presence}

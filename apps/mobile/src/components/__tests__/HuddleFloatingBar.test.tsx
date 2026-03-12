@@ -4,21 +4,31 @@ import { HuddleFloatingBar } from "../huddle/HuddleFloatingBar";
 
 const mockLeaveHuddle = jest.fn();
 const mockToggleMute = jest.fn();
-const mockToggleCamera = jest.fn();
 
 let mockHuddleState = {
   channelId: null as string | null,
   connected: false,
   isMuted: false,
   isCameraOn: false,
-  participants: [] as Array<{ userId: string; isMuted: boolean; isCameraOn: boolean }>,
+  isScreenSharing: false,
+  screenShareUserId: null as string | null,
+  participants: [] as Array<{ userId: string; isMuted: boolean; isCameraOn: boolean; isScreenSharing: boolean }>,
   room: null,
   error: null,
   joinHuddle: jest.fn(),
   leaveHuddle: mockLeaveHuddle,
   toggleMute: mockToggleMute,
-  toggleCamera: mockToggleCamera,
+  toggleCamera: jest.fn(),
+  toggleScreenShare: jest.fn(),
 };
+
+jest.mock("@livekit/react-native", () => ({
+  VideoTrack: "VideoTrack",
+}));
+
+jest.mock("livekit-client", () => ({
+  Track: { Source: { Camera: "camera", ScreenShare: "screen_share" } },
+}));
 
 jest.mock("@/contexts/HuddleProvider", () => ({
   useHuddle: () => mockHuddleState,
@@ -65,13 +75,16 @@ describe("HuddleFloatingBar", () => {
       connected: false,
       isMuted: false,
       isCameraOn: false,
+      isScreenSharing: false,
+      screenShareUserId: null,
       participants: [],
       room: null,
       error: null,
       joinHuddle: jest.fn(),
       leaveHuddle: mockLeaveHuddle,
       toggleMute: mockToggleMute,
-      toggleCamera: mockToggleCamera,
+      toggleCamera: jest.fn(),
+      toggleScreenShare: jest.fn(),
     };
   });
 
@@ -83,12 +96,33 @@ describe("HuddleFloatingBar", () => {
   it("renders when in a huddle", () => {
     mockHuddleState.channelId = "ch-1";
     mockHuddleState.connected = true;
-    mockHuddleState.participants = [{ userId: "u1", isMuted: false, isCameraOn: false }];
+    mockHuddleState.participants = [{ userId: "u1", isMuted: false, isCameraOn: false, isScreenSharing: false }];
 
     render(<HuddleFloatingBar />);
 
     expect(screen.getByTestId("huddle-floating-bar")).toBeTruthy();
     expect(screen.getByText("# general")).toBeTruthy();
+  });
+
+  it("shows participant count when connected", () => {
+    mockHuddleState.channelId = "ch-1";
+    mockHuddleState.connected = true;
+    mockHuddleState.participants = [
+      { userId: "u1", isMuted: false, isCameraOn: false, isScreenSharing: false },
+      { userId: "u2", isMuted: false, isCameraOn: false, isScreenSharing: false },
+    ];
+
+    render(<HuddleFloatingBar />);
+
+    expect(screen.getByText("2")).toBeTruthy();
+  });
+
+  it("shows avatar initial fallback when no video track", () => {
+    mockHuddleState.channelId = "ch-1";
+
+    render(<HuddleFloatingBar />);
+
+    expect(screen.getByText("G")).toBeTruthy();
   });
 
   it("calls toggleMute when mute button is pressed", () => {
@@ -100,15 +134,6 @@ describe("HuddleFloatingBar", () => {
     expect(mockToggleMute).toHaveBeenCalledTimes(1);
   });
 
-  it("calls toggleCamera when camera button is pressed", () => {
-    mockHuddleState.channelId = "ch-1";
-
-    render(<HuddleFloatingBar />);
-
-    fireEvent.press(screen.getByTestId("huddle-bar-camera"));
-    expect(mockToggleCamera).toHaveBeenCalledTimes(1);
-  });
-
   it("calls leaveHuddle when leave button is pressed", () => {
     mockHuddleState.channelId = "ch-1";
 
@@ -116,5 +141,20 @@ describe("HuddleFloatingBar", () => {
 
     fireEvent.press(screen.getByTestId("huddle-bar-leave"));
     expect(mockLeaveHuddle).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows DM user name for DM huddles", () => {
+    mockHuddleState.channelId = "dm-1";
+
+    jest.spyOn(require("@/contexts/ChatStoreProvider"), "useChatStore").mockReturnValue({
+      state: {
+        channels: [],
+        dms: [{ channel: { id: "dm-1" }, otherUser: { displayName: "Alice" } }],
+      },
+    });
+
+    render(<HuddleFloatingBar />);
+
+    expect(screen.getByText("Alice")).toBeTruthy();
   });
 });

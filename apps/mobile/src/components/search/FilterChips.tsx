@@ -1,4 +1,5 @@
 import { Pressable, ScrollView, Text, View } from "react-native";
+import { X } from "lucide-react-native";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 
 interface ChipDef {
@@ -59,9 +60,7 @@ export function FilterChips({ chips }: Props) {
                   hitSlop={8}
                   style={{ marginLeft: 6 }}
                 >
-                  <Text style={{ fontSize: 14, color: theme.brand.primary, fontWeight: "600" }}>
-                    {"\u00D7"}
-                  </Text>
+                  <X size={14} color={theme.brand.primary} />
                 </Pressable>
               )}
             </Pressable>

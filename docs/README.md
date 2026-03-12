@@ -6,7 +6,9 @@ This folder is organized by lifecycle so active planning stays clean and complet
 
 - [Active Product Backlog](./active/backlog-product.md)
 - [Active Engineering Backlog](./active/backlog-engineering.md)
+- [Active Integrations Backlog](./active/backlog-integrations.md)
 - [Mobile Dev Notes](./dev-notes/mobile.md)
+- [Mobile UI Variant Testing](./dev-notes/mobile-ui-variants.md)
 
 ## Structure
 
@@ -23,6 +25,9 @@ This folder is organized by lifecycle so active planning stays clean and complet
 - `active/backlog-engineering.md`
   - Owner: API + Platform team
   - Update cadence: weekly or after major refactor progress
+- `active/backlog-integrations.md`
+  - Owner: Platform team
+  - Update cadence: weekly or when integration priorities shift
 - `dev-notes/mobile.md`
   - Owner: Mobile team
   - Update cadence: as needed after notable implementation learnings

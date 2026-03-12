@@ -1,11 +1,11 @@
-import type { ChannelId, UserId } from "./ids";
+import type { BotAppId, ChannelId, UserId } from "./ids";
 
 export interface SlashCommandDefinition {
   name: string;
   description: string;
   usage: string;
   source: "builtin" | "bot";
-  botAppId?: string;
+  botAppId?: BotAppId;
   botName?: string;
 }
 

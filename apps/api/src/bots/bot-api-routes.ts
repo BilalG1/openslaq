@@ -1,5 +1,5 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
-import { asMessageId, asChannelId, asWorkspaceId } from "@openslaq/shared";
+import { asChannelId, asWorkspaceId, zChannelId, zMessageId } from "@openslaq/shared";
 import type { BotMessage } from "@openslaq/shared";
 import type { BotAuthEnv } from "./auth-middleware";
 import { botAuth, requireScope } from "./auth-middleware";
@@ -17,8 +17,8 @@ import { eq, and } from "drizzle-orm";
 import { errorSchema, messageSchema, messageListSchema } from "../openapi/schemas";
 import { jsonResponse } from "../openapi/responses";
 
-const channelIdParam = z.object({ id: z.string().describe("Channel ID") });
-const messageIdParam = z.object({ id: z.string().describe("Message ID") });
+const channelIdParam = z.object({ id: zChannelId() });
+const messageIdParam = z.object({ id: zMessageId() });
 
 // --- Send message ---
 const sendMessageRoute = createRoute({
@@ -204,7 +204,7 @@ const app = new OpenAPIHono<BotAuthEnv>()
   .openapi(sendMessageRoute, async (c) => {
     const user = c.get("user");
     const botAppId = c.get("botAppId");
-    const channelId = asChannelId(c.req.valid("param").id);
+    const channelId = c.req.valid("param").id;
     const { content, actions } = c.req.valid("json");
 
     const isMember = await isChannelMember(channelId, user.id);
@@ -238,7 +238,7 @@ const app = new OpenAPIHono<BotAuthEnv>()
   .openapi(updateMessageRoute, async (c) => {
     const user = c.get("user");
     const botAppId = c.get("botAppId");
-    const messageId = asMessageId(c.req.valid("param").id);
+    const messageId = c.req.valid("param").id;
     const { content, actions } = c.req.valid("json");
 
     // Fetch the message first, verify channel membership, THEN edit
@@ -276,7 +276,7 @@ const app = new OpenAPIHono<BotAuthEnv>()
   })
   .openapi(deleteMessageRoute, async (c) => {
     const user = c.get("user");
-    const messageId = asMessageId(c.req.valid("param").id);
+    const messageId = c.req.valid("param").id;
 
     // Look up the message's channel and verify membership before deleting
     const msg = await db.query.messages.findFirst({
@@ -302,7 +302,7 @@ const app = new OpenAPIHono<BotAuthEnv>()
   })
   .openapi(readMessagesRoute, async (c) => {
     const user = c.get("user");
-    const channelId = asChannelId(c.req.valid("param").id);
+    const channelId = c.req.valid("param").id;
     const { cursor, limit } = c.req.valid("query");
 
     const isMember = await isChannelMember(channelId, user.id);
@@ -321,7 +321,7 @@ const app = new OpenAPIHono<BotAuthEnv>()
   })
   .openapi(listMembersRoute, async (c) => {
     const user = c.get("user");
-    const channelId = asChannelId(c.req.valid("param").id);
+    const channelId = c.req.valid("param").id;
 
     const isMember = await isChannelMember(channelId, user.id);
     if (!isMember) {
@@ -333,7 +333,7 @@ const app = new OpenAPIHono<BotAuthEnv>()
   })
   .openapi(toggleReactionRoute, async (c) => {
     const user = c.get("user");
-    const messageId = asMessageId(c.req.valid("param").id);
+    const messageId = c.req.valid("param").id;
     const { emoji } = c.req.valid("json");
 
     // Look up the message's channel and verify bot membership

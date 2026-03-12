@@ -1,0 +1,77 @@
+---
+title: API Keys
+description: Create and manage API keys for authenticating with the OpenSlaq API.
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+API keys let you authenticate with the OpenSlaq API as a user. They're ideal for scripts, CI/CD pipelines, and server-side integrations.
+
+## Create an API key
+
+<Steps>
+
+1. **Via CLI**:
+
+   ```bash
+   openslaq api-key create "My Integration" --scopes messages:read,messages:write
+   ```
+
+2. **Via workspace settings**:
+
+   Go to **Settings > API Keys > Create Key**, enter a name, select the scopes, and copy the key.
+
+</Steps>
+
+:::caution
+API keys are shown only once at creation time. Store them securely — you cannot retrieve them later.
+:::
+
+## Available scopes
+
+| Scope | Description |
+|-------|-------------|
+| `channels:read` | List channels, get channel info |
+| `channels:write` | Create, archive, update channels |
+| `messages:read` | Read messages in channels |
+| `messages:write` | Post messages, add reactions |
+| `users:read` | List users, get profiles |
+| `bots:manage` | Create and configure bots |
+
+## Use an API key
+
+Pass the key as a Bearer token or use the SDK:
+
+```bash
+curl -H "Authorization: Bearer osk_xxxxxxxxxxxxx" \
+  https://api.openslaq.com/api/channels
+```
+
+```ts
+import { OpenSlaq } from "openslaq";
+
+const client = new OpenSlaq({
+  token: process.env.OPENSLAQ_API_KEY!,
+});
+
+const channels = await client.channels.list();
+```
+
+## Manage keys
+
+```bash
+# List all keys
+openslaq api-key list
+
+# Revoke a key
+openslaq api-key revoke <key-id>
+```
+
+Revoked keys immediately stop working. Any requests using a revoked key will receive a `401 Unauthorized` response.
+
+## Best practices
+
+- **Use scoped keys**: Only grant the permissions your integration needs.
+- **Rotate regularly**: Revoke and recreate keys periodically.
+- **Never commit keys**: Store them in environment variables or a secrets manager.
+- **One key per integration**: Makes it easy to revoke access without affecting other integrations.

@@ -411,6 +411,69 @@ describe("MessageActionSheet", () => {
     expect(screen.queryByTestId("action-share-message")).toBeNull();
   });
 
+  // Mark as Unread tests
+  it("shows Mark as Unread when onMarkAsUnread is provided", () => {
+    render(
+      <MessageActionSheet
+        {...defaultProps}
+        message={makeMessage()}
+        currentUserId="user-1"
+        onMarkAsUnread={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("action-mark-as-unread")).toBeTruthy();
+    expect(screen.getByText("Mark as Unread")).toBeTruthy();
+  });
+
+  it("hides Mark as Unread when onMarkAsUnread is not provided", () => {
+    render(
+      <MessageActionSheet
+        {...defaultProps}
+        message={makeMessage()}
+        currentUserId="user-1"
+      />,
+    );
+
+    expect(screen.queryByTestId("action-mark-as-unread")).toBeNull();
+  });
+
+  it("tapping Mark as Unread calls onClose and onMarkAsUnread with message ID", () => {
+    const onMarkAsUnread = jest.fn();
+    const onClose = jest.fn();
+
+    render(
+      <MessageActionSheet
+        {...defaultProps}
+        message={makeMessage()}
+        currentUserId="user-1"
+        onMarkAsUnread={onMarkAsUnread}
+        onClose={onClose}
+      />,
+    );
+
+    fireEvent.press(screen.getByTestId("action-mark-as-unread"));
+
+    expect(onClose).toHaveBeenCalled();
+    expect(onMarkAsUnread).toHaveBeenCalledWith("msg-1");
+  });
+
+  it("calls selectionAsync on action press (haptic feedback)", () => {
+    const { selectionAsync } = require("expo-haptics");
+
+    render(
+      <MessageActionSheet
+        {...defaultProps}
+        message={makeMessage()}
+        currentUserId="user-1"
+      />,
+    );
+
+    fireEvent.press(screen.getByTestId("action-pin-message"));
+
+    expect(selectionAsync).toHaveBeenCalled();
+  });
+
   it("tapping Share Message calls onClose and onShareMessage with the message", () => {
     const onShareMessage = jest.fn();
     const onClose = jest.fn();

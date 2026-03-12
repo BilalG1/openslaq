@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { View, Text, Image, Pressable, Linking } from "react-native";
+import { View, Text, Image, Pressable } from "react-native";
 import type { LinkPreview } from "@openslaq/shared";
 import { useMobileTheme } from "@/theme/ThemeProvider";
+import { openSafeUrl } from "@/utils/url-validation";
 
 interface Props {
   preview: LinkPreview;
@@ -15,7 +16,7 @@ export function LinkPreviewCard({ preview }: Props) {
   return (
     <Pressable
       testID="link-preview"
-      onPress={() => void Linking.openURL(preview.url)}
+      onPress={() => openSafeUrl(preview.url)}
       style={{
         borderWidth: 1,
         borderColor: theme.colors.borderDefault,

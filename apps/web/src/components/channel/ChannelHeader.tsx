@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from "react";
+import { Check } from "lucide-react";
 import type { ChannelType, HuddleState, ChannelNotifyLevel } from "@openslaq/shared";
 import { ChannelMembersDialog } from "./ChannelMembersDialog";
+import { ChannelInfoDialog } from "./ChannelInfoDialog";
 import { HuddleHeaderButton } from "../huddle/HuddleHeaderButton";
 import { Button, Tooltip, Dialog, DialogContent, DialogTitle } from "../ui";
 import {
@@ -17,6 +19,7 @@ interface ChannelHeaderProps {
   channelId?: string;
   channelType?: ChannelType;
   channelCreatorId?: string | null;
+  channelCreatedAt?: string;
   memberCount?: number;
   workspaceSlug?: string;
   presence?: Record<string, PresenceEntry>;
@@ -48,6 +51,7 @@ export function ChannelHeader({
   channelId,
   channelType,
   channelCreatorId,
+  channelCreatedAt,
   memberCount,
   workspaceSlug,
   presence,
@@ -74,6 +78,7 @@ export function ChannelHeader({
   hasBookmarks,
 }: ChannelHeaderProps) {
   const [membersOpen, setMembersOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
   const [editingTopic, setEditingTopic] = useState(false);
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
   const [topicDraft, setTopicDraft] = useState("");
@@ -108,7 +113,12 @@ export function ChannelHeader({
   return (
     <div className="px-4 py-3 border-b border-border-default min-h-[52px] flex items-center justify-between">
       <div className="flex items-center gap-2 min-w-0 flex-1">
-        <h2 className="font-bold text-lg m-0 text-primary shrink-0">
+        <button
+          type="button"
+          onClick={() => setInfoOpen(true)}
+          className="font-bold text-lg m-0 text-primary shrink-0 bg-transparent border-none cursor-pointer p-0 hover:underline"
+          data-testid="channel-name-button"
+        >
           {isPrivate ? (
             <span className="text-faint font-normal mr-1 inline-flex items-center">
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" data-testid="private-channel-icon">
@@ -119,7 +129,7 @@ export function ChannelHeader({
             <span className="text-faint font-normal mr-0.5">#</span>
           )}
           {channelName ?? "Channel"}
-        </h2>
+        </button>
 
         {isArchived && (
           <span data-testid="archived-badge" className="text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 px-1.5 py-0.5 rounded font-medium">
@@ -185,7 +195,7 @@ export function ChannelHeader({
         )}
       </div>
 
-      <div className="flex items-center gap-0.5">
+      <div className="flex items-center gap-1">
         {channelId && onStartHuddle && onJoinHuddle && (
           <HuddleHeaderButton
             channelId={channelId}
@@ -197,42 +207,43 @@ export function ChannelHeader({
         )}
 
         {onOpenPins && (
-          <Tooltip content="Pinned messages">
-            <Button
+          <Tooltip content={`Pinned messages${(pinnedCount ?? 0) > 0 ? ` (${pinnedCount})` : ""}`}>
+            <button
+              type="button"
               data-testid="pinned-messages-button"
-              variant="ghost"
-              size="sm"
-              className="gap-1.5"
               onClick={onOpenPins}
+              className="relative w-8 h-8 flex items-center justify-center rounded-md border border-border-default text-muted hover:bg-surface-tertiary hover:border-border-strong hover:text-primary transition-all cursor-pointer bg-transparent"
             >
-              <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
+              <svg className="w-[18px] h-[18px]" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M4.456.734a1.75 1.75 0 0 1 2.826.504l.613 1.327a3.08 3.08 0 0 0 2.084 1.707l2.454.584c1.332.317 1.8 1.972.832 2.94L11.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06L10 11.06l-2.204 2.205c-.968.968-2.623.5-2.94-.832l-.584-2.454a3.08 3.08 0 0 0-1.707-2.084l-1.327-.613a1.75 1.75 0 0 1-.504-2.826L4.456.734Z" />
               </svg>
-              {(pinnedCount ?? 0) > 0 && <span data-testid="pinned-count">{pinnedCount}</span>}
-            </Button>
+              {(pinnedCount ?? 0) > 0 && (
+                <span data-testid="pinned-count" className="absolute -bottom-0.5 -right-0.5 text-[9px] bg-slaq-blue text-white rounded-full min-w-[14px] h-[14px] flex items-center justify-center px-0.5 leading-none font-medium">
+                  {pinnedCount}
+                </span>
+              )}
+            </button>
           </Tooltip>
         )}
 
       {channelId && memberCount != null && (
         <>
           <Tooltip content="View members">
-            <Button
-              data-testid="channel-member-count"
-              variant="ghost"
-              size="sm"
-              className="gap-1.5"
-              onClick={() => setMembersOpen(true)}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                className="w-4 h-4"
+              <button
+                type="button"
+                data-testid="channel-member-count"
+                onClick={() => setMembersOpen(true)}
+                className="relative w-8 h-8 flex items-center justify-center rounded-md border border-border-default text-muted hover:bg-surface-tertiary hover:border-border-strong hover:text-primary transition-all cursor-pointer bg-transparent"
               >
-                <path d="M7 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm7.5 1a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM1.615 16.428a1.224 1.224 0 0 1-.569-1.175 6.002 6.002 0 0 1 11.908 0c.058.467-.172.92-.57 1.174A9.953 9.953 0 0 1 7 18a9.953 9.953 0 0 1-5.385-1.572ZM14.5 16h-.106c.07-.297.088-.611.048-.933a7.47 7.47 0 0 0-1.588-3.755 4.502 4.502 0 0 1 5.874 2.636.818.818 0 0 1-.36.98A7.465 7.465 0 0 1 14.5 16Z" />
-              </svg>
-              {memberCount}
-            </Button>
+                <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+                </svg>
+                {memberCount > 0 && (
+                  <span className="absolute -bottom-0.5 -right-0.5 text-[9px] bg-slaq-blue text-white rounded-full min-w-[14px] h-[14px] flex items-center justify-center px-0.5 leading-none font-medium">
+                    {memberCount}
+                  </span>
+                )}
+              </button>
           </Tooltip>
           <ChannelMembersDialog
             open={membersOpen}
@@ -252,16 +263,16 @@ export function ChannelHeader({
       {(onSetNotificationLevel || onOpenFiles || (onAddBookmark && !hasBookmarks && !isArchived) || (canArchive && !isArchived && onArchive && channelName !== "general") || (canArchive && isArchived && onUnarchive)) && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
+            <button
+              type="button"
               data-testid="channel-overflow-menu"
-              variant="ghost"
-              size="sm"
               aria-label="More actions"
+              className="w-8 h-8 flex items-center justify-center rounded-md border border-border-default text-muted hover:bg-surface-tertiary hover:border-border-strong hover:text-primary transition-all cursor-pointer bg-transparent"
             >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0 5.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm1.5 7a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0Z" />
+              <svg className="w-[18px] h-[18px]" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M3 10a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm5.5 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm7-1.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z" />
               </svg>
-            </Button>
+            </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {onSetNotificationLevel && (
@@ -271,7 +282,7 @@ export function ChannelHeader({
                   onSelect={() => onSetNotificationLevel("all")}
                   className="flex items-center gap-2"
                 >
-                  <span className="w-4 text-center">{(!notificationLevel || notificationLevel === "all") ? "\u2713" : ""}</span>
+                  <span className="w-4 text-center">{(!notificationLevel || notificationLevel === "all") ? <Check size={14} /> : ""}</span>
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
                   </svg>
@@ -282,7 +293,7 @@ export function ChannelHeader({
                   onSelect={() => onSetNotificationLevel("mentions")}
                   className="flex items-center gap-2"
                 >
-                  <span className="w-4 text-center">{notificationLevel === "mentions" ? "\u2713" : ""}</span>
+                  <span className="w-4 text-center">{notificationLevel === "mentions" ? <Check size={14} /> : ""}</span>
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Zm0 0c0 1.657 1.007 3 2.25 3S21 13.657 21 12a9 9 0 1 0-2.636 6.364M16.5 12V8.25" />
                   </svg>
@@ -293,7 +304,7 @@ export function ChannelHeader({
                   onSelect={() => onSetNotificationLevel("muted")}
                   className="flex items-center gap-2"
                 >
-                  <span className="w-4 text-center">{notificationLevel === "muted" ? "\u2713" : ""}</span>
+                  <span className="w-4 text-center">{notificationLevel === "muted" ? <Check size={14} /> : ""}</span>
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9.143 17.082a24.248 24.248 0 0 0 5.714 0m-7.03-12.583A8.966 8.966 0 0 1 12 3c4.97 0 9 3.582 9 8a8.948 8.948 0 0 1-1.174 4.416M3 3l18 18M10.5 21h3" />
                   </svg>
@@ -362,6 +373,29 @@ export function ChannelHeader({
             )}
           </DropdownMenuContent>
         </DropdownMenu>
+      )}
+
+      {/* Channel info dialog */}
+      {channelId && channelType && (
+        <ChannelInfoDialog
+          open={infoOpen}
+          onOpenChange={setInfoOpen}
+          channelId={channelId}
+          channelName={channelName ?? "Channel"}
+          channelType={channelType}
+          description={description ?? null}
+          createdAt={channelCreatedAt ?? new Date().toISOString()}
+          createdBy={channelCreatorId ?? null}
+          memberCount={memberCount ?? 0}
+          isArchived={isArchived ?? false}
+          isStarred={isStarred ?? false}
+          notificationLevel={notificationLevel}
+          workspaceSlug={workspaceSlug ?? ""}
+          presence={presence ?? {}}
+          onOpenProfile={onOpenProfile ?? (() => {})}
+          onToggleStar={onToggleStar}
+          onSetNotificationLevel={onSetNotificationLevel}
+        />
       )}
 
       {/* Archive confirmation dialog (rendered outside dropdown) */}

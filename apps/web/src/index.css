@@ -104,16 +104,6 @@ body {
   animation: highlight-fade 2s ease-out;
 }
 
-/* Hide Stack Auth's "Account settings" item from UserButton dropdown */
-.stack-scope [role="menuitem"]:has(svg.lucide-circle-user) {
-  display: none;
-}
-
-/* Make UserButton trigger full width (only inside sidebar wrapper) */
-.user-button-full-width button.stack-scope.rounded-lg {
-  width: 100%;
-}
-
 /* Shiki dual-theme: swap to dark CSS variables when .dark is active */
 .dark .shiki {
   color: var(--shiki-dark) !important;

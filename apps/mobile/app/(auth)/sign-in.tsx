@@ -89,11 +89,11 @@ export default function SignInScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={{ flex: 1, backgroundColor: theme.colors.surface }}
     >
-      <View testID="sign-in-screen" className="flex-1 justify-center px-8">
-        <Text style={{ color: theme.colors.textPrimary }} className="text-3xl font-bold text-center mb-2">
+      <View testID="sign-in-screen" style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 32 }}>
+        <Text style={{ color: theme.colors.textPrimary, fontSize: 30, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 }}>
           OpenSlaq
         </Text>
-        <Text style={{ color: theme.colors.textMuted }} className="text-center mb-8">
+        <Text style={{ color: theme.colors.textMuted, textAlign: 'center', marginBottom: 32 }}>
           {step === "email"
             ? "Sign in to your workspace"
             : `Enter the code sent to ${email}`}
@@ -102,14 +102,16 @@ export default function SignInScreen() {
         {error && (
           <View
             testID="error-view"
-            className="rounded-lg p-3 mb-4"
             style={{
+              borderRadius: 8,
+              padding: 12,
+              marginBottom: 16,
               backgroundColor: theme.colors.dangerBg,
               borderColor: theme.colors.dangerBorder,
               borderWidth: 1,
             }}
           >
-            <Text className="text-sm" style={{ color: theme.colors.dangerText }}>{error}</Text>
+            <Text style={{ fontSize: 14, color: theme.colors.dangerText }}>{error}</Text>
           </View>
         )}
 
@@ -157,7 +159,7 @@ export default function SignInScreen() {
             />
 
             <Pressable testID="back-button" onPress={handleBack} disabled={loading}>
-              <Text className="text-center text-sm" style={{ color: theme.brand.primary }}>
+              <Text style={{ textAlign: 'center', fontSize: 14, color: theme.brand.primary }}>
                 Back
               </Text>
             </Pressable>
@@ -166,10 +168,10 @@ export default function SignInScreen() {
 
         {loading && <ActivityIndicator color={theme.brand.primary} style={{ marginBottom: 12 }} />}
 
-        <View className="my-6 flex-row items-center">
-          <View className="flex-1 h-px" style={{ backgroundColor: theme.colors.borderDefault }} />
-          <Text className="mx-4 text-sm" style={{ color: theme.colors.textFaint }}>or</Text>
-          <View className="flex-1 h-px" style={{ backgroundColor: theme.colors.borderDefault }} />
+        <View style={{ marginVertical: 24, flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ flex: 1, height: 1, backgroundColor: theme.colors.borderDefault }} />
+          <Text style={{ marginHorizontal: 16, fontSize: 14, color: theme.colors.textFaint }}>or</Text>
+          <View style={{ flex: 1, height: 1, backgroundColor: theme.colors.borderDefault }} />
         </View>
 
         <Button

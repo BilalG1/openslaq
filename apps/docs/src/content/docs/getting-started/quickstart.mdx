@@ -1,0 +1,97 @@
+---
+title: Quickstart
+description: Create your first OpenSlaq bot in under 5 minutes.
+---
+
+import { Steps, Tabs, TabItem } from "@astrojs/starlight/components";
+
+This guide walks you through creating a simple bot that responds to messages.
+
+## Prerequisites
+
+- An OpenSlaq workspace (self-hosted or cloud)
+- Node.js 18+ or Bun installed
+- An API key ([create one here](/guides/api-keys/))
+
+## Create a bot
+
+<Steps>
+
+1. **Install the CLI**
+
+   <Tabs>
+     <TabItem label="npm">
+     ```bash
+     npm install -g openslaq
+     ```
+     </TabItem>
+     <TabItem label="bun">
+     ```bash
+     bun install -g openslaq
+     ```
+     </TabItem>
+   </Tabs>
+
+2. **Authenticate**
+
+   ```bash
+   openslaq login
+   ```
+
+   This opens your browser to authorize the CLI with your workspace.
+
+3. **Create the bot**
+
+   ```bash
+   openslaq bot create my-first-bot
+   ```
+
+   This registers a new bot in your workspace and outputs a bot token.
+
+4. **Write the bot code**
+
+   Create a new project and install the SDK:
+
+   ```bash
+   mkdir my-first-bot && cd my-first-bot
+   npm init -y
+   npm install openslaq
+   ```
+
+   Create `index.ts`:
+
+   ```ts
+   import { OpenSlaq } from "openslaq";
+
+   const client = new OpenSlaq({
+     token: process.env.OPENSLAQ_BOT_TOKEN!,
+   });
+
+   // Listen for messages mentioning the bot
+   client.on("message", async (message) => {
+     if (message.mentionsBot) {
+       await client.chat.postMessage({
+         channelId: message.channelId,
+         content: `Hello <@${message.userId}>! I'm alive!`,
+       });
+     }
+   });
+
+   client.connect();
+   ```
+
+5. **Run it**
+
+   ```bash
+   OPENSLAQ_BOT_TOKEN=your-token-here npx tsx index.ts
+   ```
+
+   Mention your bot in any channel — it will reply!
+
+</Steps>
+
+## Next steps
+
+- [Add slash commands](/guides/create-a-bot/#slash-commands) to your bot
+- [Set up webhooks](/guides/webhooks/) for event-driven integrations
+- [Explore the SDK reference](/sdk/api-reference/) for all available methods

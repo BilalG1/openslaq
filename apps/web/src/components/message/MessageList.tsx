@@ -1,8 +1,9 @@
-import { Fragment, useCallback, useEffect, useRef } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { useSocket } from "../../hooks/useSocket";
 import { useSocketEvent } from "../../hooks/useSocketEvent";
 import { MessageItem } from "./MessageItem";
+import { MessageActionsProvider } from "./MessageActionsContext";
 import { HuddleSystemMessage } from "./HuddleSystemMessage";
 import { DaySeparator } from "./DaySeparator";
 import { isDifferentDay } from "./message-date-utils";
@@ -188,95 +189,103 @@ export function MessageList({ channelId, onOpenThread, onOpenProfile, onJoinHudd
     joinChannel(asChannelId(channelId));
   }, [channelId, joinChannel]);
 
+  const actionsContextValue = useMemo(
+    () => ({
+      currentUserId: user?.id,
+      onOpenThread,
+      onToggleReaction: toggleReaction,
+      onOpenProfile,
+      onEditMessage: editMessage,
+      onDeleteMessage: deleteMessage,
+      onMarkAsUnread: markAsUnread,
+      onPinMessage,
+      onUnpinMessage,
+      onShareMessage,
+      onSaveMessage,
+      onUnsaveMessage,
+      onBotAction: triggerAction,
+      savedMessageIds,
+      customEmojis: state.customEmojis,
+    }),
+    [user?.id, onOpenThread, toggleReaction, onOpenProfile, editMessage, deleteMessage, markAsUnread, onPinMessage, onUnpinMessage, onShareMessage, onSaveMessage, onUnsaveMessage, triggerAction, savedMessageIds, state.customEmojis],
+  );
+
   return (
-    <div ref={scrollContainerRef} data-testid="message-list-scroll" className="flex-1 overflow-y-auto p-4">
-      {loading ? (
-        <div className="flex items-center justify-center h-full text-faint text-sm">
-          Loading messages...
-        </div>
-      ) : error ? (
-        <div className="flex items-center justify-center h-full text-danger-text text-sm">
-          {error}
-        </div>
-      ) : messages.length === 0 && !ephemeralMessages?.length ? (
-        <div className="flex items-center justify-center h-full text-faint text-sm">
-          No messages yet. Start the conversation!
-        </div>
-      ) : messages.length === 0 ? (
-        <div className="flex flex-col justify-end h-full">
-          {ephemeralMessages?.map((msg) => (
-            <EphemeralMessageItem key={msg.id} message={msg} />
-          ))}
-        </div>
-      ) : (
-        <>
-          <div ref={topSentinelRef} className="h-px" />
-          {loadingOlder && (
-            <div data-testid="loading-older" className="text-center text-faint text-xs py-2">
-              Loading older messages...
-            </div>
-          )}
-          {messages.map((msg, index) => {
-            const showSeparator =
-              index === 0 || isDifferentDay(messages[index - 1]!.createdAt, msg.createdAt);
-            const prevMsg = index > 0 ? messages[index - 1] : null;
-            const isGrouped =
-              !showSeparator &&
-              prevMsg != null &&
-              prevMsg.type !== "huddle" &&
-              msg.type !== "huddle" &&
-              msg.userId === prevMsg.userId &&
-              new Date(msg.createdAt).getTime() - new Date(prevMsg.createdAt).getTime() < 5 * 60 * 1000;
-            return (
-              <Fragment key={msg.id}>
-                {showSeparator && <DaySeparator date={new Date(msg.createdAt)} />}
-                {msg.type === "huddle" ? (
-                  <HuddleSystemMessage
-                    message={msg}
-                    activeHuddle={state.activeHuddles[msg.channelId] ?? null}
-                    onJoinHuddle={onJoinHuddle}
-                  />
-                ) : (
-                  <MessageItem
-                    message={msg}
-                    currentUserId={user?.id}
-                    isGrouped={isGrouped}
-                    senderStatusEmoji={(() => {
-                      const p = state.presence[msg.userId];
-                      if (!p?.statusEmoji) return null;
-                      if (p.statusExpiresAt && new Date(p.statusExpiresAt).getTime() <= Date.now()) return null;
-                      return p.statusEmoji;
-                    })()}
-                    onOpenThread={onOpenThread}
-                    onToggleReaction={toggleReaction}
-                    onOpenProfile={onOpenProfile}
-                    onEditMessage={editMessage}
-                    onDeleteMessage={deleteMessage}
-                    onMarkAsUnread={markAsUnread}
-                    onPinMessage={onPinMessage}
-                    onUnpinMessage={onUnpinMessage}
-                    onShareMessage={onShareMessage}
-                    onSaveMessage={onSaveMessage}
-                    onUnsaveMessage={onUnsaveMessage}
-                    isSaved={savedMessageIds?.includes(msg.id)}
-                    onBotAction={triggerAction}
-                    customEmojis={state.customEmojis}
-                  />
-                )}
-              </Fragment>
-            );
-          })}
-          {loadingNewer && (
-            <div data-testid="loading-newer" className="text-center text-faint text-xs py-2">
-              Loading newer messages...
-            </div>
-          )}
-          {ephemeralMessages?.map((msg) => (
-            <EphemeralMessageItem key={msg.id} message={msg} />
-          ))}
-          <div ref={bottomSentinelRef} className="h-px" />
-        </>
-      )}
-    </div>
+    <MessageActionsProvider value={actionsContextValue}>
+      <div ref={scrollContainerRef} data-testid="message-list-scroll" className="flex-1 overflow-y-auto p-4">
+        {loading ? (
+          <div className="flex items-center justify-center h-full text-faint text-sm">
+            Loading messages...
+          </div>
+        ) : error ? (
+          <div className="flex items-center justify-center h-full text-danger-text text-sm">
+            {error}
+          </div>
+        ) : messages.length === 0 && !ephemeralMessages?.length ? (
+          <div className="flex items-center justify-center h-full text-faint text-sm">
+            No messages yet. Start the conversation!
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="flex flex-col justify-end h-full">
+            {ephemeralMessages?.map((msg) => (
+              <EphemeralMessageItem key={msg.id} message={msg} />
+            ))}
+          </div>
+        ) : (
+          <>
+            <div ref={topSentinelRef} className="h-px" />
+            {loadingOlder && (
+              <div data-testid="loading-older" className="text-center text-faint text-xs py-2">
+                Loading older messages...
+              </div>
+            )}
+            {messages.map((msg, index) => {
+              const showSeparator =
+                index === 0 || isDifferentDay(messages[index - 1]!.createdAt, msg.createdAt);
+              const prevMsg = index > 0 ? messages[index - 1] : null;
+              const isGrouped =
+                !showSeparator &&
+                prevMsg != null &&
+                prevMsg.type !== "huddle" &&
+                msg.type !== "huddle" &&
+                msg.userId === prevMsg.userId &&
+                new Date(msg.createdAt).getTime() - new Date(prevMsg.createdAt).getTime() < 5 * 60 * 1000;
+              return (
+                <Fragment key={msg.id}>
+                  {showSeparator && <DaySeparator date={new Date(msg.createdAt)} />}
+                  {msg.type === "huddle" ? (
+                    <HuddleSystemMessage
+                      message={msg}
+                      activeHuddle={state.activeHuddles[msg.channelId] ?? null}
+                      onJoinHuddle={onJoinHuddle}
+                    />
+                  ) : (
+                    <MessageItem
+                      message={msg}
+                      isGrouped={isGrouped}
+                      senderStatusEmoji={(() => {
+                        const p = state.presence[msg.userId];
+                        if (!p?.statusEmoji) return null;
+                        if (p.statusExpiresAt && new Date(p.statusExpiresAt).getTime() <= Date.now()) return null;
+                        return p.statusEmoji;
+                      })()}
+                    />
+                  )}
+                </Fragment>
+              );
+            })}
+            {loadingNewer && (
+              <div data-testid="loading-newer" className="text-center text-faint text-xs py-2">
+                Loading newer messages...
+              </div>
+            )}
+            {ephemeralMessages?.map((msg) => (
+              <EphemeralMessageItem key={msg.id} message={msg} />
+            ))}
+            <div ref={bottomSentinelRef} className="h-px" />
+          </>
+        )}
+      </div>
+    </MessageActionsProvider>
   );
 }

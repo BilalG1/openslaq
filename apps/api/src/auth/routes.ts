@@ -19,7 +19,14 @@ authRoutes.get("/mobile-oauth-callback", (c) => {
     try {
       const parsed = JSON.parse(atob(state));
       if (typeof parsed.redirect === "string" && parsed.redirect) {
-        appRedirectBase = parsed.redirect;
+        try {
+          const redirectUrl = new URL(parsed.redirect);
+          if (redirectUrl.protocol === "openslaq:") {
+            appRedirectBase = parsed.redirect;
+          }
+        } catch {
+          // Invalid URL, use default
+        }
       }
     } catch {
       // Not JSON — legacy plain-string state, use default scheme

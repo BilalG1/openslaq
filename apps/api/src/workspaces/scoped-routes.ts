@@ -22,6 +22,8 @@ import fileBrowserRoutes from "../uploads/file-browser-routes";
 import customEmojiRoutes from "../emoji/routes";
 import bookmarkRoutes from "../channels/bookmark-routes";
 import commandRoutes from "../commands/routes";
+import marketplaceInstallRoutes from "../marketplace/install-routes";
+import { INTEGRATION_PLUGINS } from "../integrations/registry";
 import { okSchema, errorSchema } from "../openapi/schemas";
 
 const resolveWorkspace = createMiddleware<WorkspaceEnv>(async (c, next) => {
@@ -80,6 +82,14 @@ const routes = app
   .route("/files", fileBrowserRoutes)
   .route("/emoji", customEmojiRoutes)
   .route("/commands", commandRoutes)
+  .route("/marketplace", marketplaceInstallRoutes)
   .route("/", botAdminRoutes);
+
+// Mount integration plugin setup routes
+for (const plugin of INTEGRATION_PLUGINS) {
+  if (plugin.setupRoutes) {
+    routes.route(`/integrations/${plugin.slug}`, plugin.setupRoutes);
+  }
+}
 
 export default routes;

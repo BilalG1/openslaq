@@ -1,8 +1,31 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react-native";
 import { Linking } from "react-native";
-import { MessageAttachments } from "../MessageAttachments";
 import type { Attachment } from "@openslaq/shared";
+
+// Override string mock from jest.setup.js with functional mock for gallery tests.
+// Must use createElement (not JSX) to avoid nativewind babel injecting
+// _ReactNativeCSSInterop which breaks jest.mock() scope rules.
+jest.mock("react-native-image-viewing", () => {
+  const RN = require("react-native");
+  const R = require("react");
+  return {
+    __esModule: true,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    default: (mockProps: any) => {
+      if (!mockProps.visible) return null;
+      const mockIdx = mockProps.imageIndex ?? 0;
+      return R.createElement(
+        RN.View,
+        { testID: "image-viewing" },
+        mockProps.HeaderComponent?.({ imageIndex: mockIdx }),
+        mockProps.FooterComponent?.({ imageIndex: mockIdx }),
+      );
+    },
+  };
+});
+
+import { MessageAttachments } from "../MessageAttachments";
 
 jest.mock("@/lib/env", () => ({
   env: { EXPO_PUBLIC_API_URL: "http://api.test" },
@@ -108,6 +131,48 @@ describe("MessageAttachments", () => {
     expect(screen.getByTestId("attachment-image-a1")).toBeTruthy();
     expect(screen.getByTestId("attachment-video-a2")).toBeTruthy();
     expect(screen.getByTestId("attachment-file-a3")).toBeTruthy();
+  });
+
+  it("tapping image thumbnail opens gallery viewer", () => {
+    const att = makeAttachment({
+      id: "att-img" as Attachment["id"],
+      filename: "photo.jpg",
+      mimeType: "image/jpeg",
+    });
+    render(<MessageAttachments attachments={[att]} />);
+
+    // Gallery should not be visible initially
+    expect(screen.queryByTestId("image-viewing")).toBeNull();
+
+    fireEvent.press(screen.getByTestId("attachment-image-att-img"));
+    expect(screen.getByTestId("image-viewing")).toBeTruthy();
+  });
+
+  it("second image opens gallery at index 1", () => {
+    const attachments = [
+      makeAttachment({ id: "img1" as Attachment["id"], mimeType: "image/png", filename: "first.png" }),
+      makeAttachment({ id: "img2" as Attachment["id"], mimeType: "image/jpeg", filename: "second.jpg" }),
+    ];
+    render(<MessageAttachments attachments={attachments} />);
+
+    fireEvent.press(screen.getByTestId("attachment-image-img2"));
+    expect(screen.getByTestId("image-viewing")).toBeTruthy();
+    // The gallery header should show the second image filename
+    expect(screen.getByText("second.jpg")).toBeTruthy();
+  });
+
+  it("gallery receives correct image URIs for images only", () => {
+    const attachments = [
+      makeAttachment({ id: "img1" as Attachment["id"], mimeType: "image/png", filename: "pic.png" }),
+      makeAttachment({ id: "vid1" as Attachment["id"], mimeType: "video/mp4", filename: "vid.mp4" }),
+      makeAttachment({ id: "img2" as Attachment["id"], mimeType: "image/jpeg", filename: "pic2.jpg" }),
+    ];
+    render(<MessageAttachments attachments={attachments} />);
+
+    // Open gallery at second image
+    fireEvent.press(screen.getByTestId("attachment-image-img2"));
+    // Count text should show "2 of 2" (only images, not video)
+    expect(screen.getByText("2 of 2")).toBeTruthy();
   });
 
   it("formats sizes correctly", () => {

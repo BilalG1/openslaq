@@ -8,15 +8,15 @@ import { getIO } from "../socket/io";
 import { unfurlMessageLinks } from "./link-preview-service";
 import { webhookDispatcher } from "../bots/webhook-dispatcher";
 import type { ScheduledMessage } from "@openslaq/shared";
-import { asChannelId, asUserId, asMessageId } from "@openslaq/shared";
+import { asChannelId, asUserId, asMessageId, asScheduledMessageId, asAttachmentId } from "@openslaq/shared";
 
 function toScheduledMessage(row: typeof scheduledMessages.$inferSelect): ScheduledMessage {
   return {
-    id: row.id,
+    id: asScheduledMessageId(row.id),
     channelId: asChannelId(row.channelId),
     userId: asUserId(row.userId),
     content: row.content,
-    attachmentIds: (row.attachmentIds ?? []) as string[],
+    attachmentIds: (row.attachmentIds ?? []).map(asAttachmentId),
     scheduledFor: row.scheduledFor.toISOString(),
     status: row.status,
     failureReason: row.failureReason,
@@ -181,7 +181,7 @@ export async function processDueScheduledMessages(): Promise<void> {
             .where(eq(scheduledMessages.id, scheduled.id));
 
           io.to(`user:${scheduled.userId}`).emit("scheduledMessage:failed", {
-            id: scheduled.id,
+            id: asScheduledMessageId(scheduled.id),
             channelId: asChannelId(scheduled.channelId),
             failureReason: channel ? "Channel is archived" : "Channel not found",
           });
@@ -207,7 +207,7 @@ export async function processDueScheduledMessages(): Promise<void> {
             .where(eq(scheduledMessages.id, scheduled.id));
 
           io.to(`user:${scheduled.userId}`).emit("scheduledMessage:failed", {
-            id: scheduled.id,
+            id: asScheduledMessageId(scheduled.id),
             channelId: asChannelId(scheduled.channelId),
             failureReason: "User is no longer a channel member",
           });
@@ -248,7 +248,7 @@ export async function processDueScheduledMessages(): Promise<void> {
 
         // Notify the user
         io.to(`user:${scheduled.userId}`).emit("scheduledMessage:sent", {
-          id: scheduled.id,
+          id: asScheduledMessageId(scheduled.id),
           channelId: asChannelId(scheduled.channelId),
           messageId: asMessageId(message.id),
         });
@@ -264,7 +264,7 @@ export async function processDueScheduledMessages(): Promise<void> {
           .where(eq(scheduledMessages.id, scheduled.id));
 
         io.to(`user:${scheduled.userId}`).emit("scheduledMessage:failed", {
-          id: scheduled.id,
+          id: asScheduledMessageId(scheduled.id),
           channelId: asChannelId(scheduled.channelId),
           failureReason: "Internal error",
         });

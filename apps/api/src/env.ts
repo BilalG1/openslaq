@@ -20,6 +20,11 @@ const envSchema = z.object({
   APNS_KEY_PATH: z.string().optional(),
   APNS_BUNDLE_ID: z.string().default("com.openslaq.mobile"),
   APNS_ENVIRONMENT: z.enum(["sandbox", "production"]).default("sandbox"),
+  GITHUB_APP_ID: z.string().optional(),
+  GITHUB_APP_PRIVATE_KEY: z.string().optional(),
+  GITHUB_WEBHOOK_SECRET: z.string().optional(),
+  GITHUB_APP_CLIENT_ID: z.string().optional(),
+  GITHUB_APP_CLIENT_SECRET: z.string().optional(),
 });
 
 const parsed = envSchema.parse(process.env);

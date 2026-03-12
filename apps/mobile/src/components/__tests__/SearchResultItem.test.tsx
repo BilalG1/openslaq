@@ -24,8 +24,8 @@ describe("SearchResultItem", () => {
   it("renders #channelName for public channels", () => {
     render(<SearchResultItem item={makeItem()} onPress={jest.fn()} />);
 
-    const channelText = screen.getByTestId("search-result-channel");
-    expect(channelText.props.children).toEqual(["# ", "general"]);
+    expect(screen.getByTestId("search-result-channel")).toBeTruthy();
+    expect(screen.getByText(/# general/)).toBeTruthy();
   });
 
   it("renders lock icon for private channels", () => {
@@ -36,8 +36,7 @@ describe("SearchResultItem", () => {
       />,
     );
 
-    const channelText = screen.getByTestId("search-result-channel");
-    expect(channelText.props.children).toEqual(["\u{1F512} ", "secret"]);
+    expect(screen.getByTestId("icon-Lock")).toBeTruthy();
   });
 
   it("shows 'in thread' badge when parentMessageId present", () => {

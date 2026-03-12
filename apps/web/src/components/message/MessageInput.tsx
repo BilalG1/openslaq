@@ -61,7 +61,9 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(
               avatarUrl: m.avatarUrl,
             })),
         );
-      }).catch(() => {});
+      }).catch((err) => {
+        console.warn("Failed to load workspace members for mentions:", err);
+      });
     }, [workspaceSlug, listMembers, user?.id]);
 
     useImperativeHandle(ref, () => ({
@@ -94,18 +96,24 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(
         const hasContent = markdown.trim().length > 0;
         if (!hasContent && attachmentIds.length === 0) return;
 
-        const sent = await sendMessage({
-          channelId,
-          workspaceSlug,
-          content: markdown,
-          attachmentIds,
-          attachments,
-          parentMessageId,
-        });
+        try {
+          const sent = await sendMessage({
+            channelId,
+            workspaceSlug,
+            content: markdown,
+            attachmentIds,
+            attachments,
+            parentMessageId,
+          });
 
-        if (sent) {
-          upload.reset();
-          clearDraft();
+          if (sent) {
+            upload.reset();
+            clearDraft();
+          }
+        } catch (err) {
+          if (err instanceof AuthError) {
+            redirectToAuth();
+          }
         }
       } finally {
         setSubmitting(false);

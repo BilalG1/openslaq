@@ -1,5 +1,6 @@
 import { useState, useCallback, type MouseEvent } from "react";
 import clsx from "clsx";
+import { Check } from "lucide-react";
 import type { Channel, HuddleState, ChannelNotifyLevel } from "@openslaq/shared";
 import type { DmConversation, PresenceEntry } from "../../state/chat-store";
 import { Badge } from "../ui";
@@ -182,21 +183,21 @@ export function StarredList({
               onSelect={() => { if (contextMenuChannelId) onSetNotificationLevel(contextMenuChannelId, "all"); }}
               className="flex items-center gap-2"
             >
-              <span className="w-4 text-center">{(!pref || pref === "all") ? "\u2713" : ""}</span>
+              <span className="w-4 text-center">{(!pref || pref === "all") ? <Check size={14} /> : ""}</span>
               All messages
             </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={() => { if (contextMenuChannelId) onSetNotificationLevel(contextMenuChannelId, "mentions"); }}
               className="flex items-center gap-2"
             >
-              <span className="w-4 text-center">{pref === "mentions" ? "\u2713" : ""}</span>
+              <span className="w-4 text-center">{pref === "mentions" ? <Check size={14} /> : ""}</span>
               Mentions only
             </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={() => { if (contextMenuChannelId) onSetNotificationLevel(contextMenuChannelId, "muted"); }}
               className="flex items-center gap-2"
             >
-              <span className="w-4 text-center">{pref === "muted" ? "\u2713" : ""}</span>
+              <span className="w-4 text-center">{pref === "muted" ? <Check size={14} /> : ""}</span>
               Muted
             </DropdownMenuItem>
           </DropdownMenuContent>

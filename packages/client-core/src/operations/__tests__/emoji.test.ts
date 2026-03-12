@@ -1,22 +1,23 @@
 import { describe, test, expect } from "bun:test";
+import { asEmojiId, asWorkspaceId, asUserId } from "@openslaq/shared";
 import { chatReducer, initialState } from "../../chat-reducer";
 import type { CustomEmoji } from "@openslaq/shared";
 
 const emoji1: CustomEmoji = {
-  id: "e1",
-  workspaceId: "w1",
+  id: asEmojiId("e1"),
+  workspaceId: asWorkspaceId("w1"),
   name: "party-parrot",
   url: "https://cdn.example.com/emoji/party-parrot.png",
-  uploadedBy: "u1",
+  uploadedBy: asUserId("u1"),
   createdAt: "2026-01-01T00:00:00.000Z",
 };
 
 const emoji2: CustomEmoji = {
-  id: "e2",
-  workspaceId: "w1",
+  id: asEmojiId("e2"),
+  workspaceId: asWorkspaceId("w1"),
   name: "pepe-cry",
   url: "https://cdn.example.com/emoji/pepe-cry.png",
-  uploadedBy: "u2",
+  uploadedBy: asUserId("u2"),
   createdAt: "2026-01-02T00:00:00.000Z",
 };
 

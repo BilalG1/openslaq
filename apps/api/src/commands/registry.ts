@@ -3,6 +3,8 @@ import { db } from "../db";
 import { botSlashCommands } from "./slash-command-schema";
 import { botApps } from "../bots/schema";
 import type { SlashCommandDefinition } from "@openslaq/shared";
+import { asBotAppId } from "@openslaq/shared";
+import { INTEGRATION_PLUGINS } from "../integrations/registry";
 
 export const BUILTIN_COMMANDS: SlashCommandDefinition[] = [
   {
@@ -35,6 +37,10 @@ export const BUILTIN_COMMANDS: SlashCommandDefinition[] = [
     usage: "/unmute",
     source: "builtin",
   },
+  // Integration plugin commands
+  ...INTEGRATION_PLUGINS
+    .filter((p) => p.slashCommand)
+    .map((p) => p.slashCommand!.definition),
 ];
 
 export async function listCommandsForWorkspace(
@@ -64,7 +70,7 @@ export async function listCommandsForWorkspace(
     description: r.description,
     usage: r.usage,
     source: "bot" as const,
-    botAppId: r.botAppId,
+    botAppId: asBotAppId(r.botAppId),
     botName: r.botName,
   }));
 

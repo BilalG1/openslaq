@@ -56,21 +56,23 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
   // Restore session on mount (with Detox override for E2E testing)
   useEffect(() => {
     void (async () => {
-      try {
-        const { NativeModules, Settings } = require("react-native");
-        const devArgs = NativeModules.DevSettings?.launchArgs;
-        const testToken =
-          devArgs?.detoxTestToken ?? Settings.get("detoxTestToken");
-        const testUserId =
-          devArgs?.detoxTestUserId ?? Settings.get("detoxTestUserId");
-        if (testToken && testUserId) {
-          setAuthToken(testToken);
-          setUser({ id: testUserId });
-          setIsLoading(false);
-          return;
+      if (__DEV__) {
+        try {
+          const { NativeModules, Settings } = require("react-native");
+          const devArgs = NativeModules.DevSettings?.launchArgs;
+          const testToken =
+            devArgs?.detoxTestToken ?? Settings.get("detoxTestToken");
+          const testUserId =
+            devArgs?.detoxTestUserId ?? Settings.get("detoxTestUserId");
+          if (testToken && testUserId) {
+            setAuthToken(testToken);
+            setUser({ id: testUserId });
+            setIsLoading(false);
+            return;
+          }
+        } catch {
+          // SettingsManager TurboModule not available (e.g. Jest environment)
         }
-      } catch {
-        // SettingsManager TurboModule not available (e.g. Jest environment)
       }
 
       const tokens = await getTokens();

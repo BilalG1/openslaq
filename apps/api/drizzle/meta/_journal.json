@@ -225,6 +225,27 @@
       "when": 1772477638949,
       "tag": "0031_tired_shaman",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1773102075474,
+      "tag": "0032_past_spiral",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1773106591077,
+      "tag": "0033_pink_chameleon",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1773253006852,
+      "tag": "0034_ambiguous_flatman",
+      "breakpoints": true
     }
   ]
 }

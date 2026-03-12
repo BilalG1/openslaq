@@ -28,7 +28,8 @@ export function SearchModal({ open, onClose, onNavigateToMessage, workspaceSlug 
     if (open) {
       setSelectedIndex(0);
       reset();
-      setTimeout(() => inputRef.current?.focus(), 0);
+      const timer = setTimeout(() => inputRef.current?.focus(), 0);
+      return () => clearTimeout(timer);
     }
   }, [open, reset]);
 

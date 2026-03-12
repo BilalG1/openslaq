@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { asBotAppId, asWorkspaceId, asUserId } from "@openslaq/shared";
 import { AuthError } from "../../api/errors";
 import { listBots, createBot, deleteBot, regenerateBotToken, toggleBot } from "../bots";
 import type { ApiDeps } from "../types";
@@ -72,9 +73,9 @@ function makeApiDeps(resolvers: {
 }
 
 const sampleBot = {
-  id: "bot-1",
-  workspaceId: "ws-1",
-  userId: "u-bot-1",
+  id: asBotAppId("bot-1"),
+  workspaceId: asWorkspaceId("ws-1"),
+  userId: asUserId("u-bot-1"),
   name: "TestBot",
   description: "A test bot" as string | null,
   avatarUrl: null as string | null,
@@ -83,7 +84,8 @@ const sampleBot = {
   subscribedEvents: ["message:new"] as import("@openslaq/shared").BotEventType[],
   enabled: true,
   apiTokenPrefix: "osl_",
-  createdBy: "u-1",
+  marketplaceListingId: null as string | null,
+  createdBy: asUserId("u-1"),
   createdAt: "2026-01-01T00:00:00Z",
 };
 

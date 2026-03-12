@@ -134,6 +134,14 @@ export {
   updateGlobalNotificationPrefs,
   fetchSlashCommands,
   executeSlashCommand,
+  listApiKeys,
+  createApiKey,
+  deleteApiKey,
+  listMarketplaceListings,
+  getMarketplaceListing,
+  installMarketplaceListing,
+  uninstallMarketplaceListing,
+  getInstalledListings,
 } from "./operations";
 
 export {

@@ -1,7 +1,10 @@
-import { View, Text, ScrollView, Pressable } from "react-native";
+import { useCallback, useState } from "react";
+import { View, Text, ScrollView, Pressable, useWindowDimensions } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { useChatStore } from "@/contexts/ChatStoreProvider";
+import { getAllDraftKeys } from "@/lib/draft-storage";
 import Svg, { Path } from "react-native-svg";
 
 function ThreadsIcon({ color, size = 22 }: { color: string; size?: number }) {
@@ -74,6 +77,20 @@ function DraftsIcon({ color, size = 22 }: { color: string; size?: number }) {
   );
 }
 
+function FilesIcon({ color, size = 22 }: { color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2v11z"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 interface QuickActionCardProps {
   testID: string;
   icon: React.ReactNode;
@@ -82,6 +99,7 @@ interface QuickActionCardProps {
   countUnit: "new" | "live" | "item";
   onPress?: () => void;
   theme: ReturnType<typeof useMobileTheme>["theme"];
+  cardWidth: number;
 }
 
 function formatCount(count: number, unit: "new" | "live" | "item"): string {
@@ -91,30 +109,34 @@ function formatCount(count: number, unit: "new" | "live" | "item"): string {
   return `${count} ${unit}`;
 }
 
-function QuickActionCard({ testID, icon, label, count, countUnit, onPress, theme }: QuickActionCardProps) {
+function QuickActionCard({ testID, icon, label, count, countUnit, onPress, theme, cardWidth }: QuickActionCardProps) {
   return (
-    <Pressable
-      testID={testID}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        backgroundColor: pressed ? theme.colors.surfaceHover : theme.colors.surfaceSecondary,
-        borderWidth: 1,
-        borderColor: theme.colors.borderDefault,
+    <View
+      style={{
+        backgroundColor: "#3B3C41",
         borderRadius: 12,
-        paddingVertical: 12,
-        paddingHorizontal: 14,
         marginRight: 10,
-        minWidth: 100,
-      })}
+        overflow: "hidden",
+        width: cardWidth,
+      }}
     >
-      <View style={{ marginBottom: 4 }}>{icon}</View>
-      <Text style={{ fontSize: 13, fontWeight: "600", color: theme.colors.textPrimary }}>
-        {label}
-      </Text>
-      <Text style={{ fontSize: 12, color: theme.colors.textMuted, marginTop: 2 }}>
-        {formatCount(count, countUnit)}
-      </Text>
-    </Pressable>
+      <Pressable
+        testID={testID}
+        onPress={onPress}
+        style={{
+          paddingVertical: 12,
+          paddingHorizontal: 14,
+        }}
+      >
+        <View style={{ marginBottom: 6 }}>{icon}</View>
+        <Text style={{ fontSize: 14, fontWeight: "600", color: theme.colors.textPrimary }}>
+          {label}
+        </Text>
+        <Text style={{ fontSize: 12, color: theme.colors.textMuted, marginTop: 2 }}>
+          {formatCount(count, countUnit)}
+        </Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -123,16 +145,30 @@ export function QuickActionsRow() {
   const router = useRouter();
   const { workspaceSlug } = useLocalSearchParams<{ workspaceSlug: string }>();
   const { state } = useChatStore();
+  const { width: screenWidth } = useWindowDimensions();
+
+  const [draftCount, setDraftCount] = useState(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      void getAllDraftKeys().then((keys) => setDraftCount(keys.length));
+    }, []),
+  );
 
   const savedCount = state.savedMessageIds.length;
-  const iconColor = theme.colors.textSecondary;
+  const iconColor = theme.colors.textPrimary;
+  // Show ~3.5 cards so the 4th peeks from the right edge (like Slack)
+  const gap = 10;
+  const paddingLeft = 16;
+  const visibleCards = 4;
+  const cardWidth = (screenWidth - paddingLeft - (visibleCards - 1) * gap) / visibleCards;
 
   return (
-    <View style={{ paddingVertical: 12 }}>
+    <View style={{ paddingVertical: 10, borderBottomWidth: 0, borderBottomColor: theme.colors.borderDefault }}>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 16 }}
+        contentContainerStyle={{ paddingLeft: 16, paddingRight: 8 }}
       >
         <QuickActionCard
           testID="quick-action-threads"
@@ -141,6 +177,7 @@ export function QuickActionsRow() {
           count={0}
           countUnit="new"
           theme={theme}
+          cardWidth={cardWidth}
         />
         <QuickActionCard
           testID="quick-action-huddles"
@@ -149,6 +186,7 @@ export function QuickActionsRow() {
           count={0}
           countUnit="live"
           theme={theme}
+          cardWidth={cardWidth}
         />
         <QuickActionCard
           testID="quick-action-later"
@@ -158,14 +196,27 @@ export function QuickActionsRow() {
           countUnit="item"
           onPress={() => router.push(`/(app)/${workspaceSlug}/saved-items`)}
           theme={theme}
+          cardWidth={cardWidth}
         />
         <QuickActionCard
           testID="quick-action-drafts"
           icon={<DraftsIcon color={iconColor} />}
           label="Drafts"
+          count={draftCount}
+          countUnit="item"
+          onPress={() => router.push(`/(app)/${workspaceSlug}/drafts`)}
+          theme={theme}
+          cardWidth={cardWidth}
+        />
+        <QuickActionCard
+          testID="quick-action-files"
+          icon={<FilesIcon color={iconColor} />}
+          label="Files"
           count={0}
           countUnit="item"
+          onPress={() => router.push(`/(app)/${workspaceSlug}/files`)}
           theme={theme}
+          cardWidth={cardWidth}
         />
       </ScrollView>
     </View>

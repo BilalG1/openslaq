@@ -4,6 +4,7 @@ import { handleStatus, handleRemind, handleInvite, handleMute, handleUnmute } fr
 import { executeBotCommand } from "./bot-command-executor";
 import { BUILTIN_COMMANDS } from "./registry";
 import { isChannelMember } from "../channels/service";
+import { INTEGRATION_PLUGINS } from "../integrations/registry";
 
 interface ExecuteResult {
   ok: boolean;
@@ -29,6 +30,17 @@ export async function executeCommand(
   workspaceId: string,
   channelId: string,
 ): Promise<ExecuteResult> {
+  // Check integration plugin commands
+  const plugin = INTEGRATION_PLUGINS.find((p) => p.slashCommand?.definition.name === command);
+  if (plugin?.slashCommand) {
+    const isMember = await isChannelMember(asChannelId(channelId), asUserId(userId));
+    if (!isMember) {
+      return { ok: false, error: "You are not a member of this channel." };
+    }
+    const ephemeralMessages = await plugin.slashCommand.handler(args, userId, channelId, workspaceId);
+    return { ok: true, ephemeralMessages };
+  }
+
   // Check built-in commands
   const handler = BUILTIN_HANDLERS[command];
   if (handler) {

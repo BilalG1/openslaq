@@ -2,18 +2,20 @@ import { eq, and, inArray } from "drizzle-orm";
 import { db } from "../db";
 import { botApps, botEventSubscriptions, webhookDeliveries } from "./schema";
 import { channelMembers, channels } from "../channels/schema";
-import type { BotEventType, BotScope, WebhookEventPayload } from "@openslaq/shared";
+import type { BotScope, WebhookEventPayload, WebhookEventType, BotEventDataMap } from "@openslaq/shared";
+import { asChannelId, asBotAppId, asWorkspaceId } from "@openslaq/shared";
 import { validateWebhookUrl } from "./validate-url";
 import { createHmac } from "node:crypto";
 
 // In test mode, use near-instant retry delays instead of seconds-long backoff
 const RETRY_BASE_MS = process.env.E2E_TEST_SECRET ? 10 : 1000;
 
-const SCOPE_REQUIREMENTS: Record<string, BotScope> = {
+const SCOPE_REQUIREMENTS: Record<WebhookEventType, BotScope> = {
   "message:new": "chat:read",
   "message:updated": "chat:read",
   "message:deleted": "chat:read",
   "reaction:updated": "reactions:read",
+  "channel:updated": "channels:read",
   "channel:member-added": "channels:members:read",
   "channel:member-removed": "channels:members:read",
   "message:pinned": "chat:read",
@@ -21,17 +23,17 @@ const SCOPE_REQUIREMENTS: Record<string, BotScope> = {
   "presence:updated": "presence:read",
 };
 
-interface DispatchEvent {
-  type: BotEventType;
+interface DispatchEvent<T extends WebhookEventType = WebhookEventType> {
+  type: T;
   channelId?: string;
   workspaceId: string;
-  data: unknown;
+  data: BotEventDataMap[T];
   excludeBotUserId?: string; // Don't notify the bot that sent the event
 }
 
 class WebhookDispatcher {
   /** Convenience: dispatch using just channelId (looks up workspaceId from channel) */
-  async dispatchForChannel(event: Omit<DispatchEvent, "workspaceId"> & { channelId: string }): Promise<void> {
+  async dispatchForChannel<T extends WebhookEventType>(event: Omit<DispatchEvent<T>, "workspaceId"> & { channelId: string }): Promise<void> {
     try {
       const channel = await db.query.channels.findFirst({
         where: eq(channels.id, event.channelId),
@@ -43,7 +45,7 @@ class WebhookDispatcher {
     }
   }
 
-  async dispatch(event: DispatchEvent): Promise<void> {
+  async dispatch<T extends WebhookEventType>(event: DispatchEvent<T>): Promise<void> {
     try {
       // Find bots subscribed to this event type in this workspace
       const subs = await db
@@ -93,11 +95,11 @@ class WebhookDispatcher {
           event: {
             type: event.type,
             data: event.data,
-            channelId: event.channelId,
+            channelId: event.channelId !== undefined ? asChannelId(event.channelId) : undefined,
             timestamp: new Date().toISOString(),
           },
-          botAppId: bot.id,
-          workspaceId: event.workspaceId,
+          botAppId: asBotAppId(bot.id),
+          workspaceId: asWorkspaceId(event.workspaceId),
         };
 
         // Validate URL before fetching

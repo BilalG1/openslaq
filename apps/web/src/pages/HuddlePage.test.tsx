@@ -1,5 +1,6 @@
 import { describe, test, expect, afterEach, jest, mock, beforeEach } from "bun:test";
 import { render, screen, cleanup, act } from "../test-utils";
+import { fireEvent } from "@testing-library/react";
 
 // --- Mocks (must be before component import) ---
 
@@ -32,6 +33,10 @@ const mockSubscribe = jest.fn(() => jest.fn());
 const mockConnect = jest.fn(async () => {});
 const mockEnableMicrophone = jest.fn(async () => {});
 const mockDestroy = jest.fn();
+const mockToggleMicrophone = jest.fn(async () => {});
+const mockToggleCamera = jest.fn(async () => {});
+const mockStartScreenShare = jest.fn(async () => {});
+const mockStopScreenShare = jest.fn(async () => {});
 
 mock.module("@openslaq/huddle/client", () => ({
   HuddleClient: class {
@@ -39,28 +44,49 @@ mock.module("@openslaq/huddle/client", () => ({
     connect = mockConnect;
     enableMicrophone = mockEnableMicrophone;
     destroy = mockDestroy;
-    toggleMicrophone = jest.fn(async () => {});
-    toggleCamera = jest.fn(async () => {});
-    startScreenShare = jest.fn(async () => {});
-    stopScreenShare = jest.fn(async () => {});
+    toggleMicrophone = mockToggleMicrophone;
+    toggleCamera = mockToggleCamera;
+    startScreenShare = mockStartScreenShare;
+    stopScreenShare = mockStopScreenShare;
     switchAudioDevice = jest.fn(async () => {});
     getState = () => ({ localParticipant: null, participants: [] });
   },
-}));
-
-mock.module("../components/huddle/VideoGrid", () => ({
-  VideoGrid: () => <div data-testid="video-grid" />,
-}));
-
-mock.module("../components/huddle/DeviceSelector", () => ({
-  DeviceSelector: () => <div data-testid="device-selector" />,
 }));
 
 mock.module("../components/ui", () => ({
   Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+// Provide browser APIs needed by VideoTile / DeviceSelector in happy-dom
+class MockMediaStream {
+  tracks: unknown[];
+  constructor(tracks?: unknown[]) { this.tracks = tracks ?? []; }
+}
+(globalThis as unknown as { MediaStream: unknown }).MediaStream = MockMediaStream;
+Object.defineProperty(HTMLVideoElement.prototype, "srcObject", {
+  set(value: unknown) { (this as unknown as { _srcObject: unknown })._srcObject = value; },
+  get() { return (this as unknown as { _srcObject: unknown })._srcObject ?? null; },
+  configurable: true,
+});
+Object.defineProperty(navigator, "mediaDevices", {
+  value: { enumerateDevices: async () => [] },
+  configurable: true,
+});
+
 import { HuddlePage } from "./HuddlePage";
+
+function fullParticipant(overrides: Record<string, unknown> = {}) {
+  return {
+    userId: "user-1",
+    isMuted: false,
+    isCameraOn: false,
+    isScreenSharing: false,
+    isSpeaking: false,
+    cameraTrack: null,
+    screenTrack: null,
+    ...overrides,
+  };
+}
 
 // --- Tests ---
 
@@ -79,6 +105,10 @@ describe("HuddlePage", () => {
     mockConnect.mockClear();
     mockEnableMicrophone.mockClear();
     mockDestroy.mockClear();
+    mockToggleMicrophone.mockClear();
+    mockToggleCamera.mockClear();
+    mockStartScreenShare.mockClear();
+    mockStopScreenShare.mockClear();
   });
 
   afterEach(cleanup);
@@ -163,5 +193,147 @@ describe("HuddlePage", () => {
     });
 
     expect(screen.getByText("Connecting...")).toBeTruthy();
+  });
+
+  // ── New tests ──────────────────────────────────────────────────
+
+  test("successful join calls connect and enableMicrophone", async () => {
+    await act(async () => {
+      render(<HuddlePage />);
+    });
+
+    // Wait for async join flow
+    await act(() => Promise.resolve());
+
+    expect(mockConnect).toHaveBeenCalledWith("ws://localhost", "lk-token");
+    expect(mockEnableMicrophone).toHaveBeenCalled();
+  });
+
+  test("fetch error shows error text", async () => {
+    fetchSpy.mockResolvedValue({
+      ok: false,
+      json: async () => ({ error: "Room not found" }),
+    });
+
+    await act(async () => {
+      render(<HuddlePage />);
+    });
+
+    // Wait for async flow to complete
+    await act(() => Promise.resolve());
+
+    expect(screen.getByText("Room not found")).toBeTruthy();
+  });
+
+  test("connection error shows error state", async () => {
+    mockConnect.mockRejectedValue(new Error("Connection failed"));
+
+    await act(async () => {
+      render(<HuddlePage />);
+    });
+
+    await act(() => Promise.resolve());
+
+    // LiveKit connection failure is non-fatal (degraded mode), should not show error
+    // The error state is only set for fetch failures
+    expect(screen.queryByText("Connection failed")).toBeNull();
+  });
+
+  test("mute toggle calls toggleMicrophone", async () => {
+    // Let subscribe invoke the callback to set mediaState
+    (mockSubscribe as jest.Mock).mockImplementation((cb: Function) => {
+      cb({ localParticipant: fullParticipant(), participants: [] });
+      return jest.fn();
+    });
+
+    await act(async () => {
+      render(<HuddlePage />);
+    });
+    await act(() => Promise.resolve());
+
+    const muteBtn = screen.getByTestId("huddle-mute-toggle");
+    await act(async () => {
+      fireEvent.click(muteBtn);
+    });
+
+    expect(mockToggleMicrophone).toHaveBeenCalled();
+  });
+
+  test("camera toggle calls toggleCamera", async () => {
+    (mockSubscribe as jest.Mock).mockImplementation((cb: Function) => {
+      cb({ localParticipant: fullParticipant(), participants: [] });
+      return jest.fn();
+    });
+
+    await act(async () => {
+      render(<HuddlePage />);
+    });
+    await act(() => Promise.resolve());
+
+    const cameraBtn = screen.getByTestId("huddle-camera-toggle");
+    await act(async () => {
+      fireEvent.click(cameraBtn);
+    });
+
+    expect(mockToggleCamera).toHaveBeenCalled();
+  });
+
+  test("screen share toggle calls startScreenShare", async () => {
+    (mockSubscribe as jest.Mock).mockImplementation((cb: Function) => {
+      cb({ localParticipant: fullParticipant(), participants: [] });
+      return jest.fn();
+    });
+
+    await act(async () => {
+      render(<HuddlePage />);
+    });
+    await act(() => Promise.resolve());
+
+    const shareBtn = screen.getByTestId("huddle-screenshare-toggle");
+    await act(async () => {
+      fireEvent.click(shareBtn);
+    });
+
+    expect(mockStartScreenShare).toHaveBeenCalled();
+  });
+
+  test("leave button calls destroy", async () => {
+    (mockSubscribe as jest.Mock).mockImplementation((cb: Function) => {
+      cb({ localParticipant: fullParticipant(), participants: [] });
+      return jest.fn();
+    });
+
+    // Mock window.close to prevent errors
+    const closeSpy = jest.fn();
+    window.close = closeSpy;
+
+    await act(async () => {
+      render(<HuddlePage />);
+    });
+    await act(() => Promise.resolve());
+
+    const leaveBtn = screen.getByTestId("huddle-leave");
+    await act(async () => {
+      fireEvent.click(leaveBtn);
+    });
+
+    expect(mockDestroy).toHaveBeenCalled();
+  });
+
+  test("participant count updates when mediaState changes", async () => {
+    (mockSubscribe as jest.Mock).mockImplementation((cb: Function) => {
+      cb({
+        localParticipant: fullParticipant(),
+        participants: [fullParticipant({ userId: "remote-1" })],
+      });
+      return jest.fn();
+    });
+
+    await act(async () => {
+      render(<HuddlePage />);
+    });
+    await act(() => Promise.resolve());
+
+    expect(screen.getByText("2 participants")).toBeTruthy();
   });
 });

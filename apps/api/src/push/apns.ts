@@ -14,8 +14,32 @@ const JWT_TTL_MS = 55 * 60 * 1000; // 55 minutes (APNs tokens valid for 1 hour)
 let session: http2.ClientHttp2Session | null = null;
 let sessionConnecting = false;
 
+// Injectable APNS sender for testing
+type ApnsSendFn = (token: string, payload: ApnsPayload) => Promise<ApnsResult>;
+let customSender: ApnsSendFn | null = null;
+let fakeApnsEnabled = false;
+const sentLog: Array<{ token: string; payload: ApnsPayload; result: ApnsResult }> = [];
+
+export function setApnsSender(fn: ApnsSendFn): void {
+  customSender = fn;
+  fakeApnsEnabled = true;
+}
+
+export function resetApnsSender(): void {
+  customSender = null;
+  fakeApnsEnabled = false;
+}
+
+export function getApnsSentLog() {
+  return sentLog;
+}
+
+export function clearApnsSentLog() {
+  sentLog.length = 0;
+}
+
 export function isApnsConfigured(): boolean {
-  return !!(env.APNS_KEY_ID && env.APNS_TEAM_ID && env.APNS_KEY_PATH);
+  return fakeApnsEnabled || !!(env.APNS_KEY_ID && env.APNS_TEAM_ID && env.APNS_KEY_PATH);
 }
 
 async function getSigningKey(): Promise<CryptoKey> {
@@ -112,7 +136,7 @@ export interface ApnsResult {
   reason?: string;
 }
 
-export async function sendApnsNotification(
+async function sendApnsNotificationReal(
   deviceToken: string,
   payload: ApnsPayload,
 ): Promise<ApnsResult> {
@@ -162,6 +186,16 @@ export async function sendApnsNotification(
 
     req.end(body);
   });
+}
+
+export async function sendApnsNotification(
+  deviceToken: string,
+  payload: ApnsPayload,
+): Promise<ApnsResult> {
+  const sender = customSender ?? sendApnsNotificationReal;
+  const result = await sender(deviceToken, payload);
+  sentLog.push({ token: deviceToken, payload, result });
+  return result;
 }
 
 /** Clean up the HTTP/2 session (for graceful shutdown) */

@@ -9,6 +9,7 @@ import { NewDmDialog } from "../dm/NewDmDialog";
 import { CustomUserButton } from "../user/CustomUserButton";
 import { WorkspaceSettingsDialog } from "../settings/WorkspaceSettingsDialog";
 import { InviteDialog } from "../settings/InviteDialog";
+import { ChevronDown } from "lucide-react";
 import { Tooltip } from "../ui/tooltip";
 import {
   DropdownMenu,
@@ -130,7 +131,7 @@ export function Sidebar({
             <span className="overflow-hidden text-ellipsis whitespace-nowrap">
               {workspaceName}
             </span>
-            <span className="text-xs ml-2 shrink-0">&#9662;</span>
+            <ChevronDown size={14} className="ml-2 shrink-0" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" sideOffset={0} className="min-w-[200px] max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto">
@@ -170,18 +171,19 @@ export function Sidebar({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <div className="flex items-center justify-around px-2 py-2">
+      <div className="flex items-center justify-around px-2 py-2.5 gap-1">
         {onOpenSearch && (
           <Tooltip content={`Search (${navigator.platform.includes("Mac") ? "\u2318K" : "Ctrl+K"})`} side="bottom">
             <button
               type="button"
               onClick={onOpenSearch}
-              className="p-2 rounded border-none cursor-pointer text-gray-300 hover:bg-gray-800 hover:text-white"
+              className="flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg border-none cursor-pointer bg-white/5 text-gray-400 hover:bg-white/15 hover:text-white transition-all flex-1 min-w-0"
               data-testid="search-trigger"
             >
-              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
+              <span className="text-[9px] font-medium">Search</span>
             </button>
           </Tooltip>
         )}
@@ -194,17 +196,20 @@ export function Sidebar({
               <button
                 type="button"
                 onClick={onSelectUnreadsView}
-                className={`relative p-2 rounded border-none cursor-pointer hover:bg-gray-800 hover:text-white ${
-                  activeView === "unreads" ? "bg-white/15 text-white" : "text-gray-300"
+                className={`relative flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg border-none cursor-pointer transition-all flex-1 min-w-0 ${
+                  activeView === "unreads"
+                    ? "bg-indigo-500/30 text-indigo-200 ring-1 ring-indigo-400/50"
+                    : "bg-white/5 text-gray-400 hover:bg-white/15 hover:text-white"
                 }`}
                 data-testid="unreads-view-link"
               >
-                <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
                 </svg>
+                <span className="text-[9px] font-medium">Unreads</span>
                 {totalUnread > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 text-[9px] font-medium bg-red-600 text-white rounded-full px-1 min-w-[14px] text-center leading-[14px]">
-                    {totalUnread}
+                  <span className="absolute -top-0.5 -right-0.5 text-[8px] font-bold bg-red-500 text-white rounded-full w-[14px] h-[14px] flex items-center justify-center">
+                    {totalUnread > 9 ? "9+" : totalUnread}
                   </span>
                 )}
               </button>
@@ -216,14 +221,17 @@ export function Sidebar({
             <button
               type="button"
               onClick={onSelectSavedView}
-              className={`p-2 rounded border-none cursor-pointer hover:bg-gray-800 hover:text-white ${
-                activeView === "saved" ? "bg-white/15 text-white" : "text-gray-300"
+              className={`flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg border-none cursor-pointer transition-all flex-1 min-w-0 ${
+                activeView === "saved"
+                  ? "bg-amber-500/30 text-amber-200 ring-1 ring-amber-400/50"
+                  : "bg-white/5 text-gray-400 hover:bg-white/15 hover:text-white"
               }`}
               data-testid="saved-view-link"
             >
-              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
               </svg>
+              <span className="text-[9px] font-medium">Saved</span>
             </button>
           </Tooltip>
         )}
@@ -232,14 +240,17 @@ export function Sidebar({
             <button
               type="button"
               onClick={onSelectScheduledView}
-              className={`p-2 rounded border-none cursor-pointer hover:bg-gray-800 hover:text-white ${
-                activeView === "scheduled" ? "bg-white/15 text-white" : "text-gray-300"
+              className={`flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg border-none cursor-pointer transition-all flex-1 min-w-0 ${
+                activeView === "scheduled"
+                  ? "bg-cyan-500/30 text-cyan-200 ring-1 ring-cyan-400/50"
+                  : "bg-white/5 text-gray-400 hover:bg-white/15 hover:text-white"
               }`}
               data-testid="scheduled-view-link"
             >
-              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
               </svg>
+              <span className="text-[9px] font-medium">Later</span>
             </button>
           </Tooltip>
         )}
@@ -248,14 +259,17 @@ export function Sidebar({
             <button
               type="button"
               onClick={onSelectFilesView}
-              className={`p-2 rounded border-none cursor-pointer hover:bg-gray-800 hover:text-white ${
-                activeView === "files" ? "bg-white/15 text-white" : "text-gray-300"
+              className={`flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg border-none cursor-pointer transition-all flex-1 min-w-0 ${
+                activeView === "files"
+                  ? "bg-emerald-500/30 text-emerald-200 ring-1 ring-emerald-400/50"
+                  : "bg-white/5 text-gray-400 hover:bg-white/15 hover:text-white"
               }`}
               data-testid="files-view-link"
             >
-              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
               </svg>
+              <span className="text-[9px] font-medium">Files</span>
             </button>
           </Tooltip>
         )}
@@ -314,7 +328,7 @@ export function Sidebar({
       </div>
 
       {!isGallery && (
-        <div className="user-button-full-width border-t border-gray-800 p-2">
+        <div className="border-t border-gray-800 p-2">
           <CustomUserButton showUserInfo />
         </div>
       )}

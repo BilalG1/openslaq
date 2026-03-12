@@ -34,7 +34,7 @@ export default function WorkspaceLayout() {
                 options={{
                   headerShown: true,
                   title: "Thread",
-                  headerBackTitle: "Back",
+                  headerBackTitle: "",
                   headerStyle: { backgroundColor: theme.colors.surface },
                   headerTintColor: theme.colors.textPrimary,
                 }}
@@ -44,7 +44,7 @@ export default function WorkspaceLayout() {
                 options={{
                   headerShown: true,
                   title: "Profile",
-                  headerBackTitle: "Back",
+                  headerBackTitle: "",
                   headerStyle: { backgroundColor: theme.colors.surface },
                   headerTintColor: theme.colors.textPrimary,
                 }}
@@ -54,7 +54,7 @@ export default function WorkspaceLayout() {
                 options={{
                   headerShown: true,
                   title: "Settings",
-                  headerBackTitle: "Back",
+                  headerBackTitle: "",
                   headerStyle: { backgroundColor: theme.colors.surface },
                   headerTintColor: theme.colors.textPrimary,
                 }}
@@ -64,7 +64,7 @@ export default function WorkspaceLayout() {
                 options={{
                   headerShown: true,
                   title: "Workspace Settings",
-                  headerBackTitle: "Back",
+                  headerBackTitle: "",
                   headerStyle: { backgroundColor: theme.colors.surface },
                   headerTintColor: theme.colors.textPrimary,
                 }}
@@ -74,7 +74,7 @@ export default function WorkspaceLayout() {
                 options={{
                   headerShown: true,
                   title: "Notifications",
-                  headerBackTitle: "Back",
+                  headerBackTitle: "",
                   headerStyle: { backgroundColor: theme.colors.surface },
                   headerTintColor: theme.colors.textPrimary,
                 }}
@@ -84,7 +84,17 @@ export default function WorkspaceLayout() {
                 options={{
                   headerShown: true,
                   title: "Preferences",
-                  headerBackTitle: "Back",
+                  headerBackTitle: "",
+                  headerStyle: { backgroundColor: theme.colors.surface },
+                  headerTintColor: theme.colors.textPrimary,
+                }}
+              />
+              <Stack.Screen
+                name="scheduled-messages"
+                options={{
+                  headerShown: true,
+                  title: "Scheduled Messages",
+                  headerBackTitle: "",
                   headerStyle: { backgroundColor: theme.colors.surface },
                   headerTintColor: theme.colors.textPrimary,
                 }}
@@ -94,7 +104,17 @@ export default function WorkspaceLayout() {
                 options={{
                   headerShown: true,
                   title: "Saved Items",
-                  headerBackTitle: "Back",
+                  headerBackTitle: "",
+                  headerStyle: { backgroundColor: theme.colors.surface },
+                  headerTintColor: theme.colors.textPrimary,
+                }}
+              />
+              <Stack.Screen
+                name="files"
+                options={{
+                  headerShown: true,
+                  title: "Files",
+                  headerBackTitle: "",
                   headerStyle: { backgroundColor: theme.colors.surface },
                   headerTintColor: theme.colors.textPrimary,
                 }}

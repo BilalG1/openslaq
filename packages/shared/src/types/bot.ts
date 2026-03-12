@@ -1,3 +1,8 @@
+import type { UserId, ChannelId, MessageId, WorkspaceId, BotAppId } from "./ids";
+import type { Message } from "./message";
+import type { Channel } from "./channel";
+import type { ReactionGroup } from "./reaction";
+
 // Bot permission scopes
 export type BotScope =
   | "chat:write"
@@ -27,11 +32,28 @@ export type BotEventType =
   | "interaction"
   | "slash_command";
 
+/** Maps each dispatchable webhook event type to the shape of its `data` field. */
+export interface BotEventDataMap {
+  "message:new": Message;
+  "message:updated": Message;
+  "message:deleted": { id: MessageId; channelId: ChannelId };
+  "reaction:updated": { messageId: MessageId; channelId: ChannelId; reactions: ReactionGroup[] };
+  "channel:updated": { channelId: ChannelId; channel: Channel };
+  "channel:member-added": { channelId: ChannelId; userId: UserId };
+  "channel:member-removed": { channelId: ChannelId; userId: UserId };
+  "message:pinned": { messageId: MessageId; channelId: ChannelId; pinnedBy: UserId; pinnedAt: string };
+  "message:unpinned": { messageId: MessageId; channelId: ChannelId };
+  "presence:updated": { userId: UserId; status: "online" | "offline"; lastSeenAt: string | null };
+}
+
+/** Event types that can be dispatched via webhooks (subset of BotEventType). */
+export type WebhookEventType = keyof BotEventDataMap;
+
 // Bot app info (returned by API)
 export interface BotApp {
-  id: string;
-  workspaceId: string;
-  userId: string;
+  id: BotAppId;
+  workspaceId: WorkspaceId;
+  userId: UserId;
   name: string;
   description: string | null;
   avatarUrl: string | null;
@@ -40,7 +62,8 @@ export interface BotApp {
   scopes: BotScope[];
   subscribedEvents: BotEventType[];
   enabled: boolean;
-  createdBy: string;
+  marketplaceListingId: string | null;
+  createdBy: UserId;
   createdAt: string;
 }
 
@@ -58,26 +81,26 @@ export interface WebhookEventPayload {
   type: "event" | "interaction" | "slash_command";
   event?: {
     type: BotEventType;
-    data: unknown;
-    channelId?: string;
-    userId?: string;
+    data: BotEventDataMap[WebhookEventType];
+    channelId?: ChannelId;
+    userId?: UserId;
     timestamp: string;
   };
   interaction?: {
     actionId: string;
     value?: string;
-    messageId: string;
-    channelId: string;
-    userId: string;
+    messageId: MessageId;
+    channelId: ChannelId;
+    userId: UserId;
     timestamp: string;
   };
   slashCommand?: {
     command: string;
     args: string;
-    channelId: string;
-    userId: string;
+    channelId: ChannelId;
+    userId: UserId;
     timestamp: string;
   };
-  botAppId: string;
-  workspaceId: string;
+  botAppId: BotAppId;
+  workspaceId: WorkspaceId;
 }

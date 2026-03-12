@@ -157,7 +157,7 @@ export function setupSocketHandlers(
         users: workspaceMemberRows.map((m) => {
           const expired = isStatusExpired(m.statusExpiresAt);
           return {
-            userId: m.userId,
+            userId: asUserId(m.userId),
             status: (onlineIds.has(m.userId) ? "online" : "offline") as "online" | "offline",
             lastSeenAt: m.lastSeenAt?.toISOString() ?? null,
             statusEmoji: expired ? null : (m.statusEmoji ?? null),

@@ -6,9 +6,12 @@ export type {
   BotScope,
   BotEventType,
   BotApp,
+  BotEventDataMap,
+  WebhookEventType,
   MessageActionButton,
   WebhookEventPayload,
 } from "./types/bot";
+export type { MarketplaceListing } from "./types/marketplace";
 export type { UnreadChannelGroup, AllUnreadsResponse } from "./types/unreads";
 export type { ReactionGroup } from "./types/reaction";
 export type { Attachment } from "./types/attachment";
@@ -38,12 +41,18 @@ export type {
   GlobalNotificationPreferences,
   RegisterPushTokenRequest,
 } from "./types/push";
+export type { ApiKey } from "./types/api-key";
 export type {
   UserId,
   WorkspaceId,
   ChannelId,
   MessageId,
   AttachmentId,
+  BotAppId,
+  BookmarkId,
+  EmojiId,
+  ScheduledMessageId,
+  ApiKeyId,
 } from "./types/ids";
 export {
   asUserId,
@@ -51,6 +60,21 @@ export {
   asChannelId,
   asMessageId,
   asAttachmentId,
+  asBotAppId,
+  asBookmarkId,
+  asEmojiId,
+  asScheduledMessageId,
+  asApiKeyId,
+  zUserId,
+  zWorkspaceId,
+  zChannelId,
+  zMessageId,
+  zAttachmentId,
+  zBotAppId,
+  zBookmarkId,
+  zEmojiId,
+  zScheduledMessageId,
+  zApiKeyId,
 } from "./types/ids";
 export { ROLES, CHANNEL_TYPES, DEFAULT_CHANNELS } from "./types/constants";
 export type { Role, ChannelType } from "./types/constants";

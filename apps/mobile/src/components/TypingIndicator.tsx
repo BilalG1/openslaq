@@ -22,10 +22,9 @@ export function TypingIndicator({ typingUsers }: Props) {
   if (typingUsers.length === 0) return null;
 
   return (
-    <View testID="typing-indicator" className="px-4 py-1">
+    <View testID="typing-indicator" style={{ paddingHorizontal: 16, paddingVertical: 4 }}>
       <Text
-        className="text-xs italic"
-        style={{ color: theme.colors.textMuted }}
+        style={{ fontSize: 12, fontStyle: 'italic', color: theme.colors.textMuted }}
       >
         {formatTypingText(typingUsers)}
       </Text>

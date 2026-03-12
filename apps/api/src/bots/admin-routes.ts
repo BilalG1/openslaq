@@ -60,6 +60,7 @@ const botAppSchema = z.object({
   scopes: z.array(z.enum(BOT_SCOPES)),
   subscribedEvents: z.array(z.enum(BOT_EVENT_TYPES)),
   enabled: z.boolean(),
+  marketplaceListingId: z.string().nullable(),
   createdBy: z.string(),
   createdAt: z.string(),
 }).openapi("BotApp");

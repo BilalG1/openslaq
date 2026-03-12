@@ -1,4 +1,5 @@
 import { Pressable, Text, View } from "react-native";
+import { Lock } from "lucide-react-native";
 import type { SearchResultItem as SearchResult } from "@openslaq/shared";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { HeadlineRenderer } from "./HeadlineRenderer";
@@ -22,9 +23,9 @@ function formatRelativeTime(dateStr: string): string {
   return date.toLocaleDateString();
 }
 
-function channelPrefix(channelType: string): string {
-  if (channelType === "private") return "\u{1F512} ";
-  if (channelType === "dm") return "";
+function channelPrefixText(channelType: string): string | null {
+  if (channelType === "private") return null;
+  if (channelType === "dm") return null;
   return "# ";
 }
 
@@ -45,13 +46,18 @@ export function SearchResultItem({ item, onPress }: Props) {
       })}
     >
       <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
-        <Text
+        <View
           testID="search-result-channel"
-          style={{ fontSize: 13, fontWeight: "600", color: theme.colors.textSecondary, flex: 1 }}
-          numberOfLines={1}
+          style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
         >
-          {channelPrefix(item.channelType)}{item.channelName}
-        </Text>
+          {item.channelType === "private" && <Lock size={13} color={theme.colors.textSecondary} style={{ marginRight: 3 }} />}
+          <Text
+            style={{ fontSize: 13, fontWeight: "600", color: theme.colors.textSecondary }}
+            numberOfLines={1}
+          >
+            {channelPrefixText(item.channelType)}{item.channelName}
+          </Text>
+        </View>
         {item.parentMessageId && (
           <View
             testID="search-result-thread-badge"

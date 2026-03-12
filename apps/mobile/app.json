@@ -13,7 +13,11 @@
       "supportsTablet": true,
       "icon": "./assets/icon.png",
       "infoPlist": {
-        "UIBackgroundModes": ["audio", "remote-notification"]
+        "UIBackgroundModes": ["audio", "remote-notification", "voip"],
+        "NSMicrophoneUsageDescription": "OpenSlaq needs microphone access to record voice messages",
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
       }
     },
     "android": {
@@ -29,7 +33,15 @@
       "expo-web-browser",
       "expo-apple-authentication",
       "expo-notifications",
-      "@config-plugins/react-native-webrtc"
+      "@config-plugins/react-native-webrtc",
+      "expo-av",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow OpenSlaq to save images to your photo library.",
+          "savePhotosPermission": "Allow OpenSlaq to save images to your photo library."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

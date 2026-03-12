@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import type { SlashCommandDefinition, EphemeralMessage } from "@openslaq/shared";
-import { asChannelId } from "@openslaq/shared";
+import { asChannelId, asBotAppId } from "@openslaq/shared";
 
 // Test the pure logic parts of slash commands rather than the full hook
 // (which requires complex mocking of react-router-dom, auth, etc.)
@@ -50,12 +50,12 @@ describe("useSlashCommands (logic)", () => {
       description: "Deploy the app",
       usage: "/deploy [env]",
       source: "bot",
-      botAppId: "bot-123",
+      botAppId: asBotAppId("bot-123"),
       botName: "DeployBot",
     };
 
     expect(cmd.source).toBe("bot");
-    expect(cmd.botAppId).toBe("bot-123");
+    expect(String(cmd.botAppId)).toBe("bot-123");
     expect(cmd.botName).toBe("DeployBot");
   });
 

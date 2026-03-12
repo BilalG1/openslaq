@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet } from "react-native";
 import { VideoTrack } from "@livekit/react-native";
 import type { TrackReference } from "@livekit/react-native";
+import { ScreenShare, MicOff } from "lucide-react-native";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 
 interface VideoTileProps {
@@ -9,6 +10,7 @@ interface VideoTileProps {
   isMuted: boolean;
   isLocal: boolean;
   videoTrackRef: TrackReference | undefined;
+  isScreenShare?: boolean;
   style?: object;
 }
 
@@ -18,6 +20,7 @@ export function VideoTile({
   isMuted,
   isLocal,
   videoTrackRef,
+  isScreenShare,
   style,
 }: VideoTileProps) {
   const { theme } = useMobileTheme();
@@ -31,8 +34,8 @@ export function VideoTile({
         <VideoTrack
           trackRef={videoTrackRef}
           style={styles.video}
-          objectFit="cover"
-          mirror={isLocal}
+          objectFit={isScreenShare ? "contain" : "cover"}
+          mirror={!isScreenShare && isLocal}
         />
       ) : (
         <View style={[styles.avatarFallback, { backgroundColor: theme.colors.avatarFallbackBg }]}>
@@ -47,7 +50,8 @@ export function VideoTile({
           {displayName}
           {isLocal ? " (You)" : ""}
         </Text>
-        {isMuted && <Text style={styles.mutedIcon}>{"\u{1F507}"}</Text>}
+        {isScreenShare && <ScreenShare size={12} color="#fff" />}
+        {isMuted && !isScreenShare && <MicOff size={12} color="#fff" />}
       </View>
     </View>
   );
@@ -89,8 +93,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
     flex: 1,
-  },
-  mutedIcon: {
-    fontSize: 12,
   },
 });

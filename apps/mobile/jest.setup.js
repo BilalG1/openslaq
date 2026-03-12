@@ -104,12 +104,26 @@ jest.mock("@react-native-async-storage/async-storage", () => ({
     pairs.forEach(([k, v]) => mockAsyncStore.set(k, v));
     return Promise.resolve();
   }),
+  getAllKeys: jest.fn(() => Promise.resolve([...mockAsyncStore.keys()])),
+  multiRemove: jest.fn((keys) => {
+    keys.forEach((k) => mockAsyncStore.delete(k));
+    return Promise.resolve();
+  }),
 }));
 
 // Mock expo-clipboard
 jest.mock("expo-clipboard", () => ({
   setStringAsync: jest.fn(() => Promise.resolve(true)),
   getStringAsync: jest.fn(() => Promise.resolve("")),
+}));
+
+// Mock expo-haptics
+jest.mock("expo-haptics", () => ({
+  impactAsync: jest.fn(() => Promise.resolve()),
+  selectionAsync: jest.fn(() => Promise.resolve()),
+  notificationAsync: jest.fn(() => Promise.resolve()),
+  ImpactFeedbackStyle: { Light: "LIGHT", Medium: "MEDIUM", Heavy: "HEAVY" },
+  NotificationFeedbackType: { Success: "SUCCESS", Warning: "WARNING", Error: "ERROR" },
 }));
 
 // Mock react-native-svg (render as string tags — avoids babel/nativewind interference)
@@ -124,13 +138,109 @@ jest.mock("react-native-svg", () => ({
   ClipPath: "ClipPath",
 }));
 
-// Mock react-native-css-interop runtime (loaded by nativewind JSX transform)
-jest.mock("react-native-css-interop", () => ({
-  cssInterop: (component) => component,
-  remapProps: () => (component) => component,
+// Mock expo-av
+jest.mock("expo-av", () => {
+  const mockSound = {
+    playAsync: jest.fn(() => Promise.resolve()),
+    pauseAsync: jest.fn(() => Promise.resolve()),
+    unloadAsync: jest.fn(() => Promise.resolve()),
+    setPositionAsync: jest.fn(() => Promise.resolve()),
+    setOnPlaybackStatusUpdate: jest.fn(),
+  };
+  const mockRecording = {
+    prepareToRecordAsync: jest.fn(() => Promise.resolve()),
+    startAsync: jest.fn(() => Promise.resolve()),
+    stopAndUnloadAsync: jest.fn(() => Promise.resolve()),
+    getStatusAsync: jest.fn(() => Promise.resolve({ durationMillis: 1500 })),
+    getURI: jest.fn(() => "file:///mock-recording.m4a"),
+  };
+  return {
+    Audio: {
+      Recording: jest.fn(() => mockRecording),
+      Sound: {
+        createAsync: jest.fn(() =>
+          Promise.resolve({ sound: mockSound, status: { durationMillis: 45000 } }),
+        ),
+      },
+      requestPermissionsAsync: jest.fn(() =>
+        Promise.resolve({ granted: true, status: "granted" }),
+      ),
+      setAudioModeAsync: jest.fn(() => Promise.resolve()),
+      RecordingOptionsPresets: {
+        HIGH_QUALITY: {},
+      },
+    },
+  };
+});
+
+// Mock lucide-react-native (each icon renders as <Text testID="icon-{Name}">{Name}</Text>)
+jest.mock("lucide-react-native", () => {
+  const React = require("react");
+  const { Text } = require("react-native");
+  return new Proxy(
+    {},
+    {
+      get: (_, name) => {
+        if (name === "__esModule") return true;
+        const iconName = String(name);
+        return (props) =>
+          React.createElement(
+            Text,
+            { testID: props?.testID ?? `icon-${iconName}` },
+            iconName,
+          );
+      },
+    },
+  );
+});
+
+// Mock react-native-safe-area-context
+jest.mock("react-native-safe-area-context", () => ({
+  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
+  SafeAreaProvider: ({ children }) => children,
+  SafeAreaView: ({ children }) => children,
 }));
 
-// Mock nativewind styled (safety net if CSS interop fails in JSDOM)
-jest.mock("nativewind", () => ({
-  styled: (component) => component,
+// Mock react-native-image-viewing
+// NOTE: Factory must not require("react-native") — nativewind babel injects
+// _ReactNativeCSSInterop which breaks jest.mock() scope rules.
+const mockImageViewing = "react-native-image-viewing";
+jest.mock(mockImageViewing, () => ({
+  __esModule: true,
+  default: "ImageViewing",
 }));
+
+// Mock expo-file-system (v55 API)
+const mockExpoFile = jest.fn(function mockFile(_dir, mockFilename) {
+  this.uri = "file:///cache/" + mockFilename;
+});
+mockExpoFile.downloadFileAsync = jest.fn((_url, mockDest) =>
+  Promise.resolve({ uri: mockDest.uri }),
+);
+jest.mock("expo-file-system", () => ({
+  Paths: { cache: { uri: "file:///cache/" } },
+  File: mockExpoFile,
+}));
+
+// Mock expo-sharing
+jest.mock("expo-sharing", () => ({
+  shareAsync: jest.fn(() => Promise.resolve()),
+}));
+
+// Mock expo-media-library
+jest.mock("expo-media-library", () => ({
+  requestPermissionsAsync: jest.fn(() => Promise.resolve({ status: "granted" })),
+  saveToLibraryAsync: jest.fn(() => Promise.resolve()),
+}));
+
+// Mock @react-navigation/native (useFocusEffect runs callback immediately in tests)
+jest.mock("@react-navigation/native", () => {
+  const React = require("react");
+  return {
+    useFocusEffect: (cb) => {
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      React.useEffect(() => { cb(); }, []);
+    },
+    useNavigation: () => ({ setOptions: jest.fn() }),
+  };
+});

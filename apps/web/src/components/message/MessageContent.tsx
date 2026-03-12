@@ -3,6 +3,7 @@ import ReactMarkdown, { MarkdownHooks } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeShiki from "@shikijs/rehype";
 import type { Components } from "react-markdown";
+import type { Node } from "unist";
 import type { Mention, CustomEmoji } from "@openslaq/shared";
 import { findCustomEmoji } from "@openslaq/client-core";
 import { CodeBlock } from "./CodeBlock";
@@ -46,10 +47,16 @@ const sharedComponents: Components = {
 // Remark plugin: split text nodes on mention/emoji tokens into custom inline nodes
 const TOKEN_PATTERN = /<@([^>]+)>|:custom:([a-z0-9][a-z0-9_-]*[a-z0-9]):/g;
 
+interface TokenNode extends Node {
+  value?: string;
+  children?: TokenNode[];
+  data?: { hName: string; hProperties: Record<string, string> };
+}
+
 function remarkTokens() {
-  function walk(node: any) {
+  function walk(node: TokenNode) {
     if (!node.children) return;
-    const next: any[] = [];
+    const next: TokenNode[] = [];
     let changed = false;
     for (const child of node.children) {
       if (child.type !== "text") {
@@ -58,10 +65,10 @@ function remarkTokens() {
         continue;
       }
       TOKEN_PATTERN.lastIndex = 0;
-      const val: string = child.value;
+      const val: string = child.value ?? "";
       let last = 0;
       let m: RegExpExecArray | null;
-      const parts: any[] = [];
+      const parts: TokenNode[] = [];
       while ((m = TOKEN_PATTERN.exec(val)) !== null) {
         if (m.index > last) parts.push({ type: "text", value: val.slice(last, m.index) });
         if (m[1]) {
@@ -89,7 +96,7 @@ function remarkTokens() {
     }
     if (changed) node.children = next;
   }
-  return (tree: any) => { walk(tree); };
+  return (tree: TokenNode) => { walk(tree); };
 }
 
 // Stable plugin arrays — MarkdownHooks' useEffect depends on array identity
@@ -151,13 +158,11 @@ export function MessageContent({ content, mentions = [], onOpenProfile, customEm
 
   const components = useMemo(() => ({
     ...sharedComponents,
-    "mention-badge": (props: any) => {
-      const token: string | undefined = props.token;
-      return token ? <MentionBadge token={token} mentions={mentions} onOpenProfile={onOpenProfile} /> : null;
+    "mention-badge": (props: { token?: string }) => {
+      return props.token ? <MentionBadge token={props.token} mentions={mentions} onOpenProfile={onOpenProfile} /> : null;
     },
-    "custom-emoji-inline": (props: any) => {
-      const name: string | undefined = props.name;
-      return name ? <CustomEmojiInline name={name} customEmojis={customEmojis} /> : null;
+    "custom-emoji-inline": (props: { name?: string }) => {
+      return props.name ? <CustomEmojiInline name={props.name} customEmojis={customEmojis} /> : null;
     },
   } as Components), [mentions, onOpenProfile, customEmojis]);
 

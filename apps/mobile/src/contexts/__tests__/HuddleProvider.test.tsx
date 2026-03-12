@@ -1,6 +1,6 @@
 import React from "react";
 import { Text, TouchableOpacity } from "react-native";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react-native";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react-native";
 import { HuddleProvider, useHuddle } from "../HuddleProvider";
 import { useAuth } from "../AuthContext";
 import { useChatStore } from "../ChatStoreProvider";
@@ -10,6 +10,7 @@ const mockConnect = jest.fn(() => Promise.resolve());
 const mockDisconnect = jest.fn();
 const mockSetMicrophoneEnabled = jest.fn(() => Promise.resolve());
 const mockSetCameraEnabled = jest.fn(() => Promise.resolve());
+const mockSetScreenShareEnabled = jest.fn(() => Promise.resolve());
 const mockRoom = {
   connect: mockConnect,
   disconnect: mockDisconnect,
@@ -18,8 +19,10 @@ const mockRoom = {
     identity: "user-1",
     isMicrophoneEnabled: true,
     isCameraEnabled: false,
+    isScreenShareEnabled: false,
     setMicrophoneEnabled: mockSetMicrophoneEnabled,
     setCameraEnabled: mockSetCameraEnabled,
+    setScreenShareEnabled: mockSetScreenShareEnabled,
     trackPublications: new Map(),
   },
   remoteParticipants: new Map(),
@@ -73,7 +76,7 @@ const useAuthMock = useAuth as jest.Mock;
 const useChatStoreMock = useChatStore as jest.Mock;
 
 function Probe() {
-  const { channelId, connected, isMuted, isCameraOn, participants, error, joinHuddle, leaveHuddle, toggleMute, toggleCamera } =
+  const { channelId, connected, isMuted, isCameraOn, isScreenSharing, participants, error, joinHuddle, leaveHuddle, toggleMute, toggleCamera, toggleScreenShare } =
     useHuddle();
 
   return (
@@ -82,12 +85,14 @@ function Probe() {
       <Text testID="connected">{String(connected)}</Text>
       <Text testID="isMuted">{String(isMuted)}</Text>
       <Text testID="isCameraOn">{String(isCameraOn)}</Text>
+      <Text testID="isScreenSharing">{String(isScreenSharing)}</Text>
       <Text testID="participants">{participants.length}</Text>
       <Text testID="error">{error ?? "none"}</Text>
       <TouchableOpacity testID="join" onPress={() => joinHuddle("ch-1")} />
       <TouchableOpacity testID="leave" onPress={leaveHuddle} />
       <TouchableOpacity testID="toggleMute" onPress={toggleMute} />
       <TouchableOpacity testID="toggleCamera" onPress={toggleCamera} />
+      <TouchableOpacity testID="toggleScreenShare" onPress={toggleScreenShare} />
     </>
   );
 }
@@ -98,6 +103,7 @@ describe("HuddleProvider", () => {
     mockRoom.state = "connected";
     mockRoom.localParticipant.isMicrophoneEnabled = true;
     mockRoom.localParticipant.isCameraEnabled = false;
+    mockRoom.localParticipant.isScreenShareEnabled = false;
     mockRoom.remoteParticipants = new Map();
 
     useAuthMock.mockReturnValue({
@@ -300,5 +306,97 @@ describe("HuddleProvider", () => {
     fireEvent.press(screen.getByTestId("toggleCamera"));
 
     expect(mockSetCameraEnabled).toHaveBeenCalledWith(true);
+  });
+
+  it("does not set connected state after rapid join/leave", async () => {
+    let resolveJoin: ((v: any) => void) | null = null;
+    global.fetch = jest.fn(
+      () =>
+        new Promise((resolve) => {
+          resolveJoin = resolve;
+        }),
+    ) as unknown as typeof fetch;
+
+    // Start with huddle active
+    useChatStoreMock.mockReturnValue({
+      state: {
+        currentHuddleChannelId: "ch-1",
+        activeHuddles: {},
+        channels: [],
+        dms: [],
+      },
+      dispatch: mockDispatch,
+    });
+
+    const { rerender } = render(
+      <HuddleProvider>
+        <Probe />
+      </HuddleProvider>,
+    );
+
+    // Wait for fetch to be called
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalled();
+    });
+
+    // Leave immediately (channelId goes null before fetch resolves)
+    useChatStoreMock.mockReturnValue({
+      state: {
+        currentHuddleChannelId: null,
+        activeHuddles: {},
+        channels: [],
+        dms: [],
+      },
+      dispatch: mockDispatch,
+    });
+    rerender(
+      <HuddleProvider>
+        <Probe />
+      </HuddleProvider>,
+    );
+
+    // Now resolve the stale fetch — should not set connected
+    await act(async () => {
+      resolveJoin!({
+        ok: true,
+        json: () => Promise.resolve({ token: "lk-token", wsUrl: "wss://lk.local" }),
+      });
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    expect(screen.getByTestId("connected").children.join("")).toBe("false");
+  });
+
+  it("toggleScreenShare calls setScreenShareEnabled", async () => {
+    global.fetch = jest.fn(() =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ token: "lk-token", wsUrl: "wss://lk.local" }),
+      }),
+    ) as unknown as typeof fetch;
+
+    useChatStoreMock.mockReturnValue({
+      state: {
+        currentHuddleChannelId: "ch-1",
+        activeHuddles: {},
+        channels: [],
+        dms: [],
+      },
+      dispatch: mockDispatch,
+    });
+
+    render(
+      <HuddleProvider>
+        <Probe />
+      </HuddleProvider>,
+    );
+
+    await waitFor(() => {
+      expect(mockConnect).toHaveBeenCalled();
+    });
+
+    fireEvent.press(screen.getByTestId("toggleScreenShare"));
+
+    expect(mockSetScreenShareEnabled).toHaveBeenCalledWith(true);
   });
 });

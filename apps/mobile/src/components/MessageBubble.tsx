@@ -1,8 +1,10 @@
 import { useCallback, useRef } from "react";
-import { View, Text, Pressable } from "react-native";
+import { View, Text, Pressable, Image } from "react-native";
 import type { GestureResponderEvent } from "react-native";
-import type { Message } from "@openslaq/shared";
+import type { Message, CustomEmoji } from "@openslaq/shared";
+import { parseCustomEmojiName, findCustomEmoji } from "@openslaq/client-core";
 import { useMobileTheme } from "@/theme/ThemeProvider";
+import { haptics } from "@/utils/haptics";
 import { MessageContent } from "./MessageContent";
 import { MessageAttachments } from "./MessageAttachments";
 import { LinkPreviewCard } from "./LinkPreviewCard";
@@ -15,6 +17,7 @@ interface Props {
   onToggleReaction?: (messageId: string, emoji: string) => void;
   onLongPress?: (message: Message) => void;
   onPressSender?: (userId: string) => void;
+  customEmojis?: CustomEmoji[];
 }
 
 function formatTime(iso: string): string {
@@ -26,6 +29,25 @@ function isEdited(message: Message): boolean {
   return new Date(message.updatedAt) > new Date(message.createdAt);
 }
 
+function ReactionEmoji({ emoji, customEmojis }: { emoji: string; customEmojis?: CustomEmoji[] }) {
+  const customName = parseCustomEmojiName(emoji);
+  if (customName && customEmojis) {
+    const found = findCustomEmoji(customName, customEmojis);
+    if (found) {
+      return (
+        <Image
+          testID={`custom-reaction-${customName}`}
+          source={{ uri: found.url }}
+          style={{ width: 16, height: 16 }}
+          accessibilityLabel={customName}
+        />
+      );
+    }
+    return <Text style={{ fontSize: 14, marginRight: 4 }}>:{customName}:</Text>;
+  }
+  return <Text style={{ fontSize: 14, marginRight: 4 }}>{emoji}</Text>;
+}
+
 export function MessageBubble({
   message,
   onPressThread,
@@ -33,6 +55,7 @@ export function MessageBubble({
   onToggleReaction,
   onLongPress,
   onPressSender,
+  customEmojis,
 }: Props) {
   const { theme } = useMobileTheme();
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -46,6 +69,7 @@ export function MessageBubble({
     (_e: GestureResponderEvent) => {
       if (!onLongPress) return;
       longPressTimer.current = setTimeout(() => {
+        haptics.heavy();
         onLongPress(message);
       }, 400);
     },
@@ -59,29 +83,28 @@ export function MessageBubble({
   return (
     <View
       testID={`message-bubble-${message.id}`}
-      className="px-4 py-2"
+      style={{ paddingHorizontal: 16, paddingVertical: 8 }}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchEnd}
     >
-      <View className="flex-row items-baseline mb-0.5">
+      <View style={{ flexDirection: 'row', alignItems: 'baseline', marginBottom: 2 }}>
         <Pressable
           testID={`sender-name-${message.id}`}
           onPress={() => onPressSender?.(message.userId)}
           disabled={!onPressSender}
         >
-          <Text className="font-semibold text-sm mr-2" style={{ color: theme.colors.textPrimary }}>
+          <Text style={{ fontWeight: '600', fontSize: 14, marginRight: 8, color: theme.colors.textPrimary }}>
             {message.senderDisplayName ?? "Unknown"}
           </Text>
         </Pressable>
-        <Text className="text-xs" style={{ color: theme.colors.textFaint }}>
+        <Text style={{ fontSize: 12, color: theme.colors.textFaint }}>
           {formatTime(message.createdAt)}
         </Text>
         {isEdited(message) && (
           <Text
             testID={`message-edited-${message.id}`}
-            className="text-xs ml-1"
-            style={{ color: theme.colors.textFaint }}
+            style={{ fontSize: 12, marginLeft: 4, color: theme.colors.textFaint }}
           >
             (edited)
           </Text>
@@ -94,20 +117,21 @@ export function MessageBubble({
         <MessageContent
           content={message.content}
           mentions={message.mentions}
+          customEmojis={customEmojis}
         />
       </View>
       {message.attachments.length > 0 && (
         <MessageAttachments attachments={message.attachments} />
       )}
       {message.linkPreviews && message.linkPreviews.length > 0 && (
-        <View className="mt-1 gap-1.5">
+        <View style={{ marginTop: 4, gap: 6 }}>
           {message.linkPreviews.map((p) => (
             <LinkPreviewCard key={p.url} preview={p} />
           ))}
         </View>
       )}
       {message.reactions && message.reactions.length > 0 && (
-        <View className="flex-row flex-wrap mt-1 gap-1">
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 4, gap: 4 }}>
           {message.reactions.map((r) => {
             const isActive = currentUserId != null && r.userIds.some((userId) => userId === currentUserId);
             return (
@@ -115,15 +139,19 @@ export function MessageBubble({
                 key={r.emoji}
                 testID={`reaction-${message.id}-${r.emoji}`}
                 onPress={() => onToggleReaction?.(message.id, r.emoji)}
-                className="flex-row items-center rounded-full px-2 py-0.5"
                 style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  borderRadius: 9999,
+                  paddingHorizontal: 8,
+                  paddingVertical: 2,
                   backgroundColor: isActive ? theme.colors.surfaceSelected : theme.colors.surfaceTertiary,
                   borderWidth: 1,
                   borderColor: isActive ? theme.brand.primary : "transparent",
                 }}
               >
-                <Text className="text-sm mr-1">{r.emoji}</Text>
-                <Text className="text-xs" style={{ color: theme.colors.textMuted }}>{r.count}</Text>
+                <ReactionEmoji emoji={r.emoji} customEmojis={customEmojis} />
+                <Text style={{ fontSize: 12, color: theme.colors.textMuted }}>{r.count}</Text>
               </Pressable>
             );
           })}
@@ -131,10 +159,9 @@ export function MessageBubble({
             <Pressable
               testID={`reaction-add-${message.id}`}
               onPress={() => onLongPress?.(message)}
-              className="flex-row items-center rounded-full px-2 py-0.5"
-              style={{ backgroundColor: theme.colors.surfaceTertiary }}
+              style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 9999, paddingHorizontal: 8, paddingVertical: 2, backgroundColor: theme.colors.surfaceTertiary }}
             >
-              <Text className="text-sm" style={{ color: theme.colors.textMuted }}>+</Text>
+              <Text style={{ fontSize: 14, color: theme.colors.textMuted }}>+</Text>
             </Pressable>
           )}
         </View>
@@ -143,13 +170,17 @@ export function MessageBubble({
         <Pressable
           testID={`reply-count-${message.id}`}
           onPress={() => onPressThread?.(message.id)}
-          className="self-start mt-1 rounded-full px-2.5 py-1"
           style={({ pressed }) => ({
+            alignSelf: 'flex-start',
+            marginTop: 4,
+            borderRadius: 9999,
+            paddingHorizontal: 10,
+            paddingVertical: 4,
             backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
           })}
           hitSlop={4}
         >
-          <Text className="text-xs font-medium" style={{ color: theme.brand.primary }}>
+          <Text style={{ fontSize: 12, fontWeight: '500', color: theme.brand.primary }}>
             {message.replyCount} {message.replyCount === 1 ? "reply" : "replies"}
           </Text>
         </Pressable>

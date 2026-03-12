@@ -1,0 +1,65 @@
+---
+title: CLI Installation
+description: Install the OpenSlaq CLI.
+---
+
+import { Tabs, TabItem } from "@astrojs/starlight/components";
+
+The OpenSlaq CLI lets you manage bots, API keys, and workspace configuration from your terminal.
+
+## Install
+
+<Tabs>
+  <TabItem label="npm">
+  ```bash
+  npm install -g openslaq
+  ```
+  </TabItem>
+  <TabItem label="bun">
+  ```bash
+  bun install -g openslaq
+  ```
+  </TabItem>
+  <TabItem label="pnpm">
+  ```bash
+  pnpm add -g openslaq
+  ```
+  </TabItem>
+</Tabs>
+
+## Verify
+
+```bash
+openslaq --version
+```
+
+## Authentication
+
+Log in to your workspace:
+
+```bash
+openslaq login
+```
+
+This opens your browser to complete the OAuth flow. Your credentials are stored locally at `~/.openslaq/credentials.json`.
+
+To log in to a self-hosted instance:
+
+```bash
+openslaq login --api-url https://api.your-instance.com
+```
+
+## Shell completions
+
+Generate shell completions for your shell:
+
+```bash
+# bash
+openslaq completions bash >> ~/.bashrc
+
+# zsh
+openslaq completions zsh >> ~/.zshrc
+
+# fish
+openslaq completions fish > ~/.config/fish/completions/openslaq.fish
+```

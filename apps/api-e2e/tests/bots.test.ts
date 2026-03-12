@@ -1,8 +1,8 @@
 import { describe, test, expect, beforeAll } from "bun:test";
-import { createTestClient, testId, createTestWorkspace, addToWorkspace } from "./helpers/api-client";
+import { createTestClient, testId, createTestWorkspace, addToWorkspace, TestApiClient } from "./helpers/api-client";
 
 describe("bot admin API", () => {
-  let client: any;
+  let client: TestApiClient;
   let slug: string;
 
   beforeAll(async () => {

@@ -1,5 +1,6 @@
 import { FlatList, Pressable, Text, View } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
+import { Settings } from "lucide-react-native";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { useChatStore } from "@/contexts/ChatStoreProvider";
 import { useWorkspaceDrawer } from "@/contexts/WorkspaceDrawerContext";
@@ -74,7 +75,7 @@ export function WorkspaceSidebar() {
               justifyContent: "center",
             }}
           >
-            <Text style={{ fontSize: 18 }}>{"\u2699\uFE0F"}</Text>
+            <Settings size={18} color={theme.colors.textSecondary} />
           </View>
         </Pressable>
       )}

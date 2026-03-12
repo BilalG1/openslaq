@@ -1,4 +1,5 @@
 import type { Attachment } from "@openslaq/shared";
+import { AudioPlayer } from "./AudioPlayer";
 
 interface MessageAttachmentsProps {
   attachments: Attachment[];
@@ -55,6 +56,9 @@ export function MessageAttachments({ attachments }: MessageAttachmentsProps) {
       {attachments.map((att) => {
         if (att.mimeType.startsWith("image/")) {
           return <ImageAttachment key={att.id} attachment={att} />;
+        }
+        if (att.mimeType.startsWith("audio/")) {
+          return <AudioPlayer key={att.id} src={att.downloadUrl} filename={att.filename} />;
         }
         if (att.mimeType.startsWith("video/")) {
           return <VideoAttachment key={att.id} attachment={att} />;

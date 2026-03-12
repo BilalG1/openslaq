@@ -1,4 +1,5 @@
 import { Pressable, Text, View, StyleSheet } from "react-native";
+import { Headphones } from "lucide-react-native";
 import { useHuddle } from "@/contexts/HuddleProvider";
 import { useHuddleForChannel } from "@/hooks/useHuddleForChannel";
 import { useMobileTheme } from "@/theme/ThemeProvider";
@@ -45,9 +46,7 @@ export function HuddleHeaderButton({ channelId }: HuddleHeaderButtonProps) {
       style={styles.startButton}
       hitSlop={8}
     >
-      <Text style={{ color: theme.brand.primary, fontSize: 18 }}>
-        {"\u{1F3A7}"}
-      </Text>
+      <Headphones size={18} color={theme.brand.primary} />
     </Pressable>
   );
 }

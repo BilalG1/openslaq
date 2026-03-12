@@ -9,6 +9,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { Lock, Check } from "lucide-react-native";
 import type { Channel, Message } from "@openslaq/shared";
 import type { DmConversation, GroupDmConversation } from "@openslaq/client-core";
 import { useMobileTheme } from "@/theme/ThemeProvider";
@@ -309,19 +310,15 @@ export function ShareMessageModal({
                         : "transparent",
                     })}
                   >
-                    <Text
-                      style={{
-                        fontSize: 14,
-                        color: theme.colors.textFaint,
-                        width: 24,
-                      }}
-                    >
-                      {item.type === "private"
-                        ? "\u{1F512}"
-                        : item.type === "dm"
-                          ? "@"
-                          : "#"}
-                    </Text>
+                    <View style={{ width: 24, alignItems: "center", justifyContent: "center" }}>
+                      {item.type === "private" ? (
+                        <Lock size={14} color={theme.colors.textFaint} />
+                      ) : (
+                        <Text style={{ fontSize: 14, color: theme.colors.textFaint }}>
+                          {item.type === "dm" ? "@" : "#"}
+                        </Text>
+                      )}
+                    </View>
                     <Text
                       style={{
                         fontSize: 16,
@@ -333,16 +330,11 @@ export function ShareMessageModal({
                       {item.name}
                     </Text>
                     {isSelected && (
-                      <Text
+                      <Check
                         testID={`share-destination-check-${item.id}`}
-                        style={{
-                          fontSize: 16,
-                          color: theme.brand.primary,
-                          fontWeight: "600",
-                        }}
-                      >
-                        {"\u2713"}
-                      </Text>
+                        size={16}
+                        color={theme.brand.primary}
+                      />
                     )}
                   </Pressable>
                 );

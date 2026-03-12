@@ -3,6 +3,7 @@ import { AppState } from "react-native";
 import * as Notifications from "expo-notifications";
 import { router } from "expo-router";
 import type { ChannelId } from "@openslaq/shared";
+import { isValidSlug, isValidId } from "@/utils/deep-link-validation";
 import { registerPushToken, unregisterPushToken } from "@openslaq/client-core";
 import type { ApiDeps } from "@openslaq/client-core";
 
@@ -97,8 +98,11 @@ export function usePushNotifications({
         const ws = data.workspaceSlug;
         const channelId = data.channelId;
 
+        if (!isValidSlug(ws) || !isValidId(channelId)) return;
+
         if (data.parentMessageId) {
-          router.push(`/(app)/${ws}/(tabs)/(channels)/${channelId}` as any);
+          if (!isValidId(data.parentMessageId)) return;
+          router.push(`/(app)/${ws}/thread/${data.parentMessageId}` as any);
         } else {
           router.push(`/(app)/${ws}/(tabs)/(channels)/${channelId}` as any);
         }

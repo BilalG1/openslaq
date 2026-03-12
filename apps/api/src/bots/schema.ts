@@ -2,6 +2,7 @@ import { pgTable, text, timestamp, uuid, boolean, index, jsonb } from "drizzle-o
 import { workspaces } from "../workspaces/schema";
 import { users } from "../users/schema";
 import { messages } from "../messages/schema";
+import { marketplaceListings } from "../marketplace/schema";
 
 export const botApps = pgTable(
   "bot_apps",
@@ -22,6 +23,10 @@ export const botApps = pgTable(
     apiTokenPrefix: text("api_token_prefix").notNull(), // first 8 chars for display
     scopes: text("scopes").array().notNull(),
     enabled: boolean("enabled").notNull().default(true),
+    marketplaceListingId: uuid("marketplace_listing_id").references(
+      () => marketplaceListings.id,
+      { onDelete: "set null" },
+    ),
     createdBy: text("created_by")
       .notNull()
       .references(() => users.id),

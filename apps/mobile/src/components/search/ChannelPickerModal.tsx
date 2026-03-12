@@ -5,7 +5,9 @@ import {
   Pressable,
   Text,
   TextInput,
+  View,
 } from "react-native";
+import { Lock } from "lucide-react-native";
 import type { Channel } from "@openslaq/shared";
 import type { DmConversation } from "@openslaq/client-core";
 import { useMobileTheme } from "@/theme/ThemeProvider";
@@ -115,9 +117,13 @@ export function ChannelPickerModal({ visible, onClose, onSelect, channels, dms }
                   alignItems: "center",
                 })}
               >
-                <Text style={{ fontSize: 14, color: theme.colors.textFaint, width: 24 }}>
-                  {item.type === "private" ? "\u{1F512}" : item.type === "dm" ? "@" : "#"}
-                </Text>
+                <View style={{ width: 24, alignItems: "center", justifyContent: "center" }}>
+                  {item.type === "private" ? (
+                    <Lock size={14} color={theme.colors.textFaint} />
+                  ) : (
+                    <Text style={{ fontSize: 14, color: theme.colors.textFaint }}>{item.type === "dm" ? "@" : "#"}</Text>
+                  )}
+                </View>
                 <Text
                   style={{ fontSize: 16, color: theme.colors.textPrimary, flex: 1 }}
                   numberOfLines={1}

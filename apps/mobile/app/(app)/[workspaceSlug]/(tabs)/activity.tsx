@@ -1,4 +1,5 @@
 import { View, Text } from "react-native";
+import { Bell } from "lucide-react-native";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 
 export default function ActivityScreen() {
@@ -14,7 +15,7 @@ export default function ActivityScreen() {
         backgroundColor: theme.colors.surface,
       }}
     >
-      <Text style={{ fontSize: 40, marginBottom: 12 }}>{"\uD83D\uDD14"}</Text>
+      <Bell size={40} color={theme.colors.textFaint} style={{ marginBottom: 12 }} />
       <Text style={{ fontSize: 18, fontWeight: "600", color: theme.colors.textPrimary }}>
         No new activity
       </Text>

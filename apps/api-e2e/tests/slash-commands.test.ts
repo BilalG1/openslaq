@@ -1,8 +1,8 @@
 import { describe, test, expect, beforeAll } from "bun:test";
-import { createTestClient, testId, createTestWorkspace, addToWorkspace } from "./helpers/api-client";
+import { createTestClient, testId, createTestWorkspace, addToWorkspace, getBaseUrl, TestApiClient } from "./helpers/api-client";
 
 describe("Slash Commands", () => {
-  let ownerClient: any;
+  let ownerClient: TestApiClient;
   let ownerSlug: string;
   let channelId: string;
 
@@ -31,7 +31,7 @@ describe("Slash Commands", () => {
     });
     expect(res.status).toBe(200);
     const commands = (await res.json()) as any[];
-    expect(commands.length).toBeGreaterThanOrEqual(5);
+    expect(commands.length).toBeGreaterThanOrEqual(6);
 
     const names = commands.map((c: any) => c.name);
     expect(names).toContain("status");
@@ -39,10 +39,11 @@ describe("Slash Commands", () => {
     expect(names).toContain("invite");
     expect(names).toContain("mute");
     expect(names).toContain("unmute");
+    expect(names).toContain("github");
 
     // All built-in commands should have source "builtin"
     const builtins = commands.filter((c: any) => c.source === "builtin");
-    expect(builtins.length).toBe(5);
+    expect(builtins.length).toBe(6);
   });
 
   test("POST /commands/execute with /status sets user status", async () => {
@@ -131,6 +132,54 @@ describe("Slash Commands", () => {
     expect(result.ephemeralMessages[0].text).toContain("standup");
   });
 
+  test("/status with no args returns usage", async () => {
+    const res = await ownerClient.api.workspaces[":slug"].commands.execute.$post({
+      param: { slug: ownerSlug },
+      json: { command: "status", args: "", channelId },
+    });
+    expect(res.status).toBe(200);
+    const result = (await res.json()) as any;
+    expect(result.ok).toBe(true);
+    expect(result.ephemeralMessages).toHaveLength(1);
+    expect(result.ephemeralMessages[0].text).toContain("Usage");
+  });
+
+  test("/remind with no args returns usage", async () => {
+    const res = await ownerClient.api.workspaces[":slug"].commands.execute.$post({
+      param: { slug: ownerSlug },
+      json: { command: "remind", args: "", channelId },
+    });
+    expect(res.status).toBe(200);
+    const result = (await res.json()) as any;
+    expect(result.ok).toBe(true);
+    expect(result.ephemeralMessages).toHaveLength(1);
+    expect(result.ephemeralMessages[0].text).toContain("Usage");
+  });
+
+  test("/invite with no args returns usage", async () => {
+    const res = await ownerClient.api.workspaces[":slug"].commands.execute.$post({
+      param: { slug: ownerSlug },
+      json: { command: "invite", args: "", channelId },
+    });
+    expect(res.status).toBe(200);
+    const result = (await res.json()) as any;
+    expect(result.ok).toBe(true);
+    expect(result.ephemeralMessages).toHaveLength(1);
+    expect(result.ephemeralMessages[0].text).toContain("Usage");
+  });
+
+  test("/invite with non-workspace-member returns error", async () => {
+    const res = await ownerClient.api.workspaces[":slug"].commands.execute.$post({
+      param: { slug: ownerSlug },
+      json: { command: "invite", args: "<@nonexistent-user-id>", channelId },
+    });
+    expect(res.status).toBe(200);
+    const result = (await res.json()) as any;
+    expect(result.ok).toBe(true);
+    expect(result.ephemeralMessages).toHaveLength(1);
+    expect(result.ephemeralMessages[0].text).toContain("not a member of this workspace");
+  });
+
   test("unknown command returns error", async () => {
     const res = await ownerClient.api.workspaces[":slug"].commands.execute.$post({
       param: { slug: ownerSlug },
@@ -187,5 +236,157 @@ describe("Slash Commands", () => {
     });
     const afterCommands = (await afterRes.json()) as any[];
     expect(afterCommands.find((c: any) => c.name === "deploy")).toBeFalsy();
+  });
+
+  describe("bot command execution", () => {
+    const apiBaseUrl = getBaseUrl();
+
+    test("webhook returns JSON with text field → ephemeral message with bot response", async () => {
+      const botRes = await ownerClient.api.workspaces[":slug"].bots.$post({
+        param: { slug: ownerSlug },
+        json: {
+          name: `Echo Bot ${testId()}`,
+          webhookUrl: `${apiBaseUrl}/api/test/webhook-echo-text`,
+          scopes: ["chat:write", "commands:write"],
+          subscribedEvents: ["slash_command"],
+        },
+      });
+      expect(botRes.status).toBe(201);
+      const { bot } = (await botRes.json()) as any;
+
+      // Register command
+      const cmdRes = await ownerClient.api.workspaces[":slug"].bots[":botId"].commands.$post({
+        param: { slug: ownerSlug, botId: bot.id },
+        json: { name: `echo${testId()}`, description: "Echo test", usage: "/echo" },
+      });
+      expect(cmdRes.status).toBe(201);
+      const cmd = (await cmdRes.json()) as any;
+
+      // Execute the command
+      const execRes = await ownerClient.api.workspaces[":slug"].commands.execute.$post({
+        param: { slug: ownerSlug },
+        json: { command: cmd.name, args: "hello", channelId },
+      });
+      expect(execRes.status).toBe(200);
+      const result = (await execRes.json()) as any;
+      expect(result.ok).toBe(true);
+      expect(result.ephemeralMessages).toHaveLength(1);
+      expect(result.ephemeralMessages[0].text).toBe("Bot response from webhook");
+      expect(result.ephemeralMessages[0].ephemeral).toBe(true);
+      expect(result.ephemeralMessages[0].senderName).toBe(bot.name);
+    });
+
+    test("webhook returns JSON without text field → unknown command", async () => {
+      // Use /health endpoint which returns { ok: true } (no text field)
+      const botRes = await ownerClient.api.workspaces[":slug"].bots.$post({
+        param: { slug: ownerSlug },
+        json: {
+          name: `NoText Bot ${testId()}`,
+          webhookUrl: `${apiBaseUrl}/health`,
+          scopes: ["chat:write", "commands:write"],
+          subscribedEvents: ["slash_command"],
+        },
+      });
+      expect(botRes.status).toBe(201);
+      const { bot } = (await botRes.json()) as any;
+
+      const cmdName = `notext${testId()}`;
+      const cmdRes = await ownerClient.api.workspaces[":slug"].bots[":botId"].commands.$post({
+        param: { slug: ownerSlug, botId: bot.id },
+        json: { name: cmdName, description: "No text test", usage: `/${cmdName}` },
+      });
+      expect(cmdRes.status).toBe(201);
+
+      const execRes = await ownerClient.api.workspaces[":slug"].commands.execute.$post({
+        param: { slug: ownerSlug },
+        json: { command: cmdName, args: "", channelId },
+      });
+      expect(execRes.status).toBe(200);
+      const result = (await execRes.json()) as any;
+      // executeBotCommand returns [] → falls through to "Unknown command"
+      expect(result.ok).toBe(false);
+      expect(result.error).toContain("Unknown command");
+    });
+
+    test("webhook fetch fails → unknown command + error logged", async () => {
+      // Use an unreachable URL
+      const botRes = await ownerClient.api.workspaces[":slug"].bots.$post({
+        param: { slug: ownerSlug },
+        json: {
+          name: `Fail Bot ${testId()}`,
+          webhookUrl: "http://127.0.0.1:1/webhook",
+          scopes: ["chat:write", "commands:write"],
+          subscribedEvents: ["slash_command"],
+        },
+      });
+      expect(botRes.status).toBe(201);
+      const { bot } = (await botRes.json()) as any;
+
+      const cmdName = `fail${testId()}`;
+      const cmdRes = await ownerClient.api.workspaces[":slug"].bots[":botId"].commands.$post({
+        param: { slug: ownerSlug, botId: bot.id },
+        json: { name: cmdName, description: "Fail test", usage: `/${cmdName}` },
+      });
+      expect(cmdRes.status).toBe(201);
+
+      const execRes = await ownerClient.api.workspaces[":slug"].commands.execute.$post({
+        param: { slug: ownerSlug },
+        json: { command: cmdName, args: "", channelId },
+      });
+      expect(execRes.status).toBe(200);
+      const result = (await execRes.json()) as any;
+      expect(result.ok).toBe(false);
+      expect(result.error).toContain("Unknown command");
+
+      // Verify webhook delivery was logged with error status
+      const testSecret = process.env.E2E_TEST_SECRET;
+      const deliveriesRes = await fetch(
+        `${apiBaseUrl}/api/test/webhook-deliveries/${bot.id}`,
+        { headers: { Authorization: `Bearer ${testSecret}` } },
+      );
+      expect(deliveriesRes.status).toBe(200);
+      const deliveries = (await deliveriesRes.json()) as any[];
+      const errorDelivery = deliveries.find((d: any) => d.statusCode === "error");
+      expect(errorDelivery).toBeTruthy();
+    });
+
+    test("invalid webhook URL → ephemeral error message", async () => {
+      // Create bot with valid URL first
+      const botRes = await ownerClient.api.workspaces[":slug"].bots.$post({
+        param: { slug: ownerSlug },
+        json: {
+          name: `Invalid URL Bot ${testId()}`,
+          webhookUrl: "https://example.com/webhook",
+          scopes: ["chat:write", "commands:write"],
+          subscribedEvents: ["slash_command"],
+        },
+      });
+      expect(botRes.status).toBe(201);
+      const { bot } = (await botRes.json()) as any;
+
+      const cmdName = `invalidurl${testId()}`;
+      const cmdRes = await ownerClient.api.workspaces[":slug"].bots[":botId"].commands.$post({
+        param: { slug: ownerSlug, botId: bot.id },
+        json: { name: cmdName, description: "Invalid URL test", usage: `/${cmdName}` },
+      });
+      expect(cmdRes.status).toBe(201);
+
+      // Update webhook URL to invalid via bot update endpoint
+      const updateRes = await ownerClient.api.workspaces[":slug"].bots[":botId"].$put({
+        param: { slug: ownerSlug, botId: bot.id },
+        json: { webhookUrl: "ftp://invalid" },
+      });
+      expect(updateRes.status).toBe(200);
+
+      const execRes = await ownerClient.api.workspaces[":slug"].commands.execute.$post({
+        param: { slug: ownerSlug },
+        json: { command: cmdName, args: "", channelId },
+      });
+      expect(execRes.status).toBe(200);
+      const result = (await execRes.json()) as any;
+      expect(result.ok).toBe(true);
+      expect(result.ephemeralMessages).toHaveLength(1);
+      expect(result.ephemeralMessages[0].text).toContain("webhook URL is invalid");
+    });
   });
 });

@@ -1,6 +1,7 @@
 import { Alert, Modal, Pressable, Text, View } from "react-native";
 import type { Message } from "@openslaq/shared";
 import { useMobileTheme } from "@/theme/ThemeProvider";
+import { haptics } from "@/utils/haptics";
 
 const QUICK_REACTIONS = ["✅", "👀", "🙌"];
 
@@ -19,6 +20,7 @@ interface Props {
   onUnsaveMessage?: (messageId: string) => void;
   onCopyText?: (message: Message) => void;
   onCopyLink?: (message: Message) => void;
+  onMarkAsUnread?: (messageId: string) => void;
   onShareMessage?: (message: Message) => void;
   onClose: () => void;
 }
@@ -38,6 +40,7 @@ export function MessageActionSheet({
   onUnsaveMessage,
   onCopyText,
   onCopyLink,
+  onMarkAsUnread,
   onShareMessage,
   onClose,
 }: Props) {
@@ -48,56 +51,73 @@ export function MessageActionSheet({
   const isOwnMessage = currentUserId != null && message.userId === currentUserId;
 
   const handleReaction = (emoji: string) => {
+    haptics.selection();
     onReaction(message.id, emoji);
     onClose();
   };
 
   const handleOpenPicker = () => {
+    haptics.selection();
     onClose();
     onOpenEmojiPicker();
   };
 
   const handlePin = () => {
+    haptics.selection();
     onClose();
     onPinMessage?.(message.id);
   };
 
   const handleUnpin = () => {
+    haptics.selection();
     onClose();
     onUnpinMessage?.(message.id);
   };
 
   const handleSave = () => {
+    haptics.selection();
     onClose();
     onSaveMessage?.(message.id);
   };
 
   const handleUnsave = () => {
+    haptics.selection();
     onClose();
     onUnsaveMessage?.(message.id);
   };
 
   const handleCopyText = () => {
+    haptics.selection();
     onClose();
     onCopyText?.(message);
   };
 
   const handleCopyLink = () => {
+    haptics.selection();
     onClose();
     onCopyLink?.(message);
   };
 
+  const handleMarkAsUnread = () => {
+    haptics.selection();
+    onClose();
+    onMarkAsUnread?.(message.id);
+  };
+
   const handleShareMessage = () => {
+    haptics.selection();
     onClose();
     onShareMessage?.(message);
   };
 
   const handleEdit = () => {
+    haptics.selection();
     onClose();
     onEditMessage(message);
   };
 
   const handleDelete = () => {
+    haptics.selection();
     onClose();
     Alert.alert(
       "Delete Message",
@@ -260,6 +280,22 @@ export function MessageActionSheet({
           >
             <Text style={{ fontSize: 16, color: theme.colors.textPrimary }}>Copy Link</Text>
           </Pressable>
+
+          {/* Mark as Unread */}
+          {onMarkAsUnread && (
+            <Pressable
+              testID="action-mark-as-unread"
+              onPress={handleMarkAsUnread}
+              style={({ pressed }) => ({
+                paddingVertical: 14,
+                paddingHorizontal: 8,
+                borderRadius: 8,
+                backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
+              })}
+            >
+              <Text style={{ fontSize: 16, color: theme.colors.textPrimary }}>Mark as Unread</Text>
+            </Pressable>
+          )}
 
           {/* Share Message */}
           {onShareMessage && (

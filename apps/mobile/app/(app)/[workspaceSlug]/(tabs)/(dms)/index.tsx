@@ -1,6 +1,7 @@
 import { View, Text, FlatList } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useChatStore } from "@/contexts/ChatStoreProvider";
+import { Users } from "lucide-react-native";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { ListRow } from "@/components/ui/ListRow";
 import type { DmConversation, GroupDmConversation } from "@openslaq/client-core";
@@ -71,7 +72,7 @@ export default function DmsScreen() {
                       backgroundColor: theme.colors.avatarFallbackBg,
                     }}
                   >
-                    <Text style={{ fontSize: 16 }}>{"\uD83D\uDC65"}</Text>
+                    <Users size={16} color={theme.colors.textMuted} />
                   </View>
                 </View>
                 <Text

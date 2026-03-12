@@ -1,5 +1,5 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
-import { asMessageId } from "@openslaq/shared";
+import { asMessageId, zChannelId, zMessageId } from "@openslaq/shared";
 import { createMessageSchema, messagesPaginationSchema, shareMessageSchema } from "./validation";
 import { getMessages, createMessage, getMessageById, getThreadReplies, createThreadReply, getMessagesAround, createSharedMessage } from "./service";
 import { isChannelMember } from "../channels/service";
@@ -15,7 +15,7 @@ import { jsonResponse } from "../openapi/responses";
 import { webhookDispatcher } from "../bots/webhook-dispatcher";
 import { scheduleMessagePush } from "../push/service";
 
-const channelIdParam = z.object({ id: z.string().describe("Channel ID") });
+const channelIdParam = z.object({ id: zChannelId() });
 
 const getMessagesRoute = createRoute({
   method: "get",
@@ -75,8 +75,8 @@ const getMessagesAroundRoute = createRoute({
   middleware: [rlRead, resolveChannel, requireChannelMember] as const,
   request: {
     params: z.object({
-      id: z.string().describe("Channel ID"),
-      messageId: z.string().describe("Target message ID"),
+      id: zChannelId(),
+      messageId: zMessageId(),
     }),
   },
   responses: {
@@ -101,8 +101,8 @@ const getThreadRepliesRoute = createRoute({
   middleware: [rlRead, resolveChannel, requireChannelMember] as const,
   request: {
     params: z.object({
-      id: z.string().describe("Channel ID"),
-      messageId: z.string().describe("Parent message ID"),
+      id: zChannelId(),
+      messageId: zMessageId(),
     }),
     query: messagesPaginationSchema,
   },
@@ -124,8 +124,8 @@ const createThreadReplyRoute = createRoute({
   middleware: [rlMessageSend, resolveChannel, requireChannelMember] as const,
   request: {
     params: z.object({
-      id: z.string().describe("Channel ID"),
-      messageId: z.string().describe("Parent message ID"),
+      id: zChannelId(),
+      messageId: zMessageId(),
     }),
     body: { content: { "application/json": { schema: createMessageSchema } } },
   },
@@ -150,8 +150,8 @@ const createThreadReplyRoute = createRoute({
 });
 
 const messageIdParam = z.object({
-  id: z.string().describe("Channel ID"),
-  messageId: z.string().describe("Message ID"),
+  id: zChannelId(),
+  messageId: zMessageId(),
 });
 
 const pinMessageRoute = createRoute({
@@ -323,7 +323,7 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
   })
   .openapi(getMessagesAroundRoute, async (c) => {
     const channel = c.get("channel");
-    const messageId = asMessageId(c.req.valid("param").messageId);
+    const messageId = c.req.valid("param").messageId;
     const result = await getMessagesAround(channel.id, messageId);
     if (!result.targetFound) {
       return c.json({ error: "Message not found" }, 404);
@@ -332,7 +332,7 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
   })
   .openapi(getThreadRepliesRoute, async (c) => {
     const channel = c.get("channel");
-    const messageId = asMessageId(c.req.valid("param").messageId);
+    const messageId = c.req.valid("param").messageId;
     const { cursor, limit, direction } = c.req.valid("query");
     const result = await getThreadReplies(messageId, channel.id, cursor, limit, direction);
     return jsonResponse(c, result, 200);
@@ -345,7 +345,7 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
       return c.json({ error: "Channel is archived" }, 403);
     }
 
-    const messageId = asMessageId(c.req.valid("param").messageId);
+    const messageId = c.req.valid("param").messageId;
     const { content, attachmentIds } = c.req.valid("json");
 
     const result = await createThreadReply(messageId, channel.id, user.id, content, attachmentIds);
@@ -369,7 +369,7 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
   .openapi(pinMessageRoute, async (c) => {
     const user = c.get("user");
     const channel = c.get("channel");
-    const messageId = asMessageId(c.req.valid("param").messageId);
+    const messageId = c.req.valid("param").messageId;
 
     const result = await pinMessage(channel.id, messageId, user.id);
     if (!result) {
@@ -400,7 +400,7 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
   .openapi(unpinMessageRoute, async (c) => {
     const user = c.get("user");
     const channel = c.get("channel");
-    const messageId = asMessageId(c.req.valid("param").messageId);
+    const messageId = c.req.valid("param").messageId;
 
     await unpinMessage(channel.id, messageId);
 
@@ -468,7 +468,7 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
   })
   .openapi(saveMessageRoute, async (c) => {
     const user = c.get("user");
-    const messageId = asMessageId(c.req.valid("param").messageId);
+    const messageId = c.req.valid("param").messageId;
 
     const result = await saveMessage(user.id, messageId);
     if (!result) {
@@ -479,7 +479,7 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
   })
   .openapi(unsaveMessageRoute, async (c) => {
     const user = c.get("user");
-    const messageId = asMessageId(c.req.valid("param").messageId);
+    const messageId = c.req.valid("param").messageId;
 
     await unsaveMessage(user.id, messageId);
 

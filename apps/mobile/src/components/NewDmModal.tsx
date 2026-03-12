@@ -8,6 +8,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { Check, X } from "lucide-react-native";
 import {
   listWorkspaceMembers,
   createDm,
@@ -188,9 +189,7 @@ export function NewDmModal({
                   <Text style={{ fontSize: 14, color: theme.colors.textPrimary }}>
                     {m.displayName}
                   </Text>
-                  <Text style={{ fontSize: 14, color: theme.colors.textFaint, marginLeft: 4 }}>
-                    ×
-                  </Text>
+                  <X size={14} color={theme.colors.textFaint} style={{ marginLeft: 4 }} />
                 </Pressable>
               ))}
             </View>
@@ -294,7 +293,7 @@ export function NewDmModal({
                         }}
                       >
                         {isSelected && (
-                          <Text style={{ color: "#fff", fontSize: 12, fontWeight: "bold" }}>✓</Text>
+                          <Check size={12} color="#fff" />
                         )}
                       </View>
                       <View style={{ flex: 1 }}>

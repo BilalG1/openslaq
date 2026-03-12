@@ -11,6 +11,7 @@ import {
   Room,
   RoomEvent,
   ConnectionState,
+  Track,
 } from "livekit-client";
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import type { ChannelId, UserId } from "@openslaq/shared";
@@ -25,6 +26,7 @@ export interface HuddleParticipantInfo {
   userId: string;
   isMuted: boolean;
   isCameraOn: boolean;
+  isScreenSharing: boolean;
 }
 
 interface HuddleContextValue {
@@ -32,6 +34,8 @@ interface HuddleContextValue {
   connected: boolean;
   isMuted: boolean;
   isCameraOn: boolean;
+  isScreenSharing: boolean;
+  screenShareUserId: string | null;
   participants: HuddleParticipantInfo[];
   room: Room | null;
   error: string | null;
@@ -39,6 +43,7 @@ interface HuddleContextValue {
   leaveHuddle: () => void;
   toggleMute: () => void;
   toggleCamera: () => void;
+  toggleScreenShare: () => void;
 }
 
 const HuddleContext = createContext<HuddleContextValue | null>(null);
@@ -50,6 +55,8 @@ export function HuddleProvider({ children }: { children: ReactNode }) {
   const [connected, setConnected] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOn, setIsCameraOn] = useState(false);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [screenShareUserId, setScreenShareUserId] = useState<string | null>(null);
   const [participants, setParticipants] = useState<HuddleParticipantInfo[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,36 +70,52 @@ export function HuddleProvider({ children }: { children: ReactNode }) {
 
     const infos: HuddleParticipantInfo[] = [];
 
+    let foundScreenShareUserId: string | null = null;
+
     // Local participant
     const local = room.localParticipant;
     if (local) {
+      const localScreenSharing = local.isScreenShareEnabled;
       infos.push({
         userId: local.identity,
         isMuted: !local.isMicrophoneEnabled,
         isCameraOn: local.isCameraEnabled,
+        isScreenSharing: localScreenSharing,
       });
       setIsMuted(!local.isMicrophoneEnabled);
       setIsCameraOn(local.isCameraEnabled);
+      setIsScreenSharing(localScreenSharing);
+      if (localScreenSharing) {
+        foundScreenShareUserId = local.identity;
+      }
     }
 
     // Remote participants
     for (const p of room.remoteParticipants.values()) {
       let muted = true;
       let camera = false;
+      let screenSharing = false;
       for (const pub of p.trackPublications.values()) {
         if (pub.source === "microphone") {
           muted = pub.isMuted;
         } else if (pub.source === "camera") {
           camera = !pub.isMuted && !!pub.track;
+        } else if (pub.source === Track.Source.ScreenShare) {
+          screenSharing = !pub.isMuted && !!pub.track;
         }
+      }
+      if (screenSharing) {
+        foundScreenShareUserId = p.identity;
       }
       infos.push({
         userId: p.identity,
         isMuted: muted,
         isCameraOn: camera,
+        isScreenSharing: screenSharing,
       });
     }
 
+    setScreenShareUserId(foundScreenShareUserId);
     setParticipants(infos);
   }, []);
 
@@ -108,12 +131,15 @@ export function HuddleProvider({ children }: { children: ReactNode }) {
       setConnected(false);
       setIsMuted(false);
       setIsCameraOn(false);
+      setIsScreenSharing(false);
+      setScreenShareUserId(null);
       setParticipants([]);
       setError(null);
       deactivateKeepAwake("huddle");
       return;
     }
 
+    let cancelled = false;
     const room = new Room();
     roomRef.current = room;
 
@@ -157,11 +183,14 @@ export function HuddleProvider({ children }: { children: ReactNode }) {
     (async () => {
       try {
         const headers = await authorizedHeaders(authProvider);
+        if (cancelled) return;
         const res = await fetch(`${API_URL}/api/huddle/join`, {
           method: "POST",
           headers: { ...headers, "Content-Type": "application/json" },
           body: JSON.stringify({ channelId }),
         });
+
+        if (cancelled) return;
 
         if (!res.ok) {
           const body = (await res.json().catch(() => ({ error: "Unknown error" }))) as {
@@ -175,13 +204,18 @@ export function HuddleProvider({ children }: { children: ReactNode }) {
           wsUrl: string;
         };
 
+        if (cancelled) return;
+
         await room.connect(wsUrl, token);
+        if (cancelled) return;
         await room.localParticipant.setMicrophoneEnabled(true);
+        if (cancelled) return;
         setConnected(true);
         setError(null);
         refreshParticipants();
         activateKeepAwakeAsync("huddle");
       } catch (err) {
+        if (cancelled) return;
         console.error("Failed to join huddle:", err);
         setError(err instanceof Error ? err.message : "Failed to join huddle");
         dispatch({ type: "huddle/setCurrentChannel", channelId: null });
@@ -189,6 +223,7 @@ export function HuddleProvider({ children }: { children: ReactNode }) {
     })();
 
     return () => {
+      cancelled = true;
       room.disconnect();
       if (roomRef.current === room) {
         roomRef.current = null;
@@ -231,11 +266,22 @@ export function HuddleProvider({ children }: { children: ReactNode }) {
     });
   }, [refreshParticipants]);
 
+  const toggleScreenShare = useCallback(() => {
+    const room = roomRef.current;
+    if (!room) return;
+    const enabled = room.localParticipant.isScreenShareEnabled;
+    room.localParticipant.setScreenShareEnabled(!enabled).then(() => {
+      refreshParticipants();
+    });
+  }, [refreshParticipants]);
+
   const value: HuddleContextValue = {
     channelId,
     connected,
     isMuted,
     isCameraOn,
+    isScreenSharing,
+    screenShareUserId,
     participants,
     room: roomRef.current,
     error,
@@ -243,6 +289,7 @@ export function HuddleProvider({ children }: { children: ReactNode }) {
     leaveHuddle,
     toggleMute,
     toggleCamera,
+    toggleScreenShare,
   };
 
   return (

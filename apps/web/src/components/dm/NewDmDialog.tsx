@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { useGalleryMode, useGalleryMockData } from "../../gallery/gallery-context";
+import { useAsyncEffect } from "../../hooks/useAsyncEffect";
 import { api } from "../../api";
 import { authorizedRequest } from "../../lib/api-client";
 import { AuthError, getErrorMessage } from "../../lib/errors";
 import { redirectToAuth } from "../../lib/auth";
+import { X } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "../ui";
 
 interface Member {
@@ -46,12 +48,10 @@ export function NewDmDialog({
     }
   }, [open]);
 
-  useEffect(() => {
-    if (!open || !user || !workspaceSlug) return;
+  useAsyncEffect(
+    async (signal) => {
+      if (!open || !user || !workspaceSlug) return;
 
-    let cancelled = false;
-
-    async function run() {
       setLoading(true);
       setError(null);
       try {
@@ -62,7 +62,7 @@ export function NewDmDialog({
             email: member.email,
             avatarUrl: member.avatarUrl,
           }));
-          if (!cancelled) {
+          if (!signal.cancelled) {
             setMembers(demoMembers);
           }
           return;
@@ -72,7 +72,7 @@ export function NewDmDialog({
           api.api.workspaces[":slug"].members.$get({ param: { slug: workspaceSlug }, query: {} }, { headers }),
         );
         const data = (await res.json()) as Member[];
-        if (!cancelled) {
+        if (!signal.cancelled) {
           setMembers(data);
         }
       } catch (err) {
@@ -81,22 +81,17 @@ export function NewDmDialog({
           return;
         }
 
-        if (!cancelled) {
+        if (!signal.cancelled) {
           setError(getErrorMessage(err, "Failed to load members"));
         }
       } finally {
-        if (!cancelled) {
+        if (!signal.cancelled) {
           setLoading(false);
         }
       }
-    }
-
-    void run();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [galleryMockData?.members, isGallery, open, user, workspaceSlug]);
+    },
+    [galleryMockData?.members, isGallery, open, user, workspaceSlug],
+  );
 
   const toggleMember = useCallback((memberId: string) => {
     setSelectedIds((prev) =>
@@ -145,7 +140,7 @@ export function NewDmDialog({
                   onClick={() => toggleMember(m.id)}
                   className="text-slaq-blue hover:text-white bg-transparent border-none cursor-pointer text-xs leading-none p-0"
                 >
-                  &times;
+                  <X size={12} />
                 </button>
               </span>
             ))}

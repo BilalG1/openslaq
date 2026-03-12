@@ -4,6 +4,7 @@ import { pinMessageOp, unpinMessageOp, fetchPinnedMessages, fetchPinnedMessageCo
 import { useChatSelectors, useChatStore } from "../../state/chat-store";
 import { useGalleryMode } from "../../gallery/gallery-context";
 import { useOperationDeps } from "./useOperationDeps";
+import { useAsyncEffect } from "../useAsyncEffect";
 
 export function usePinnedMessages(workspaceSlug: string | undefined) {
   const deps = useOperationDeps();
@@ -72,16 +73,17 @@ export function usePinnedMessages(workspaceSlug: string | undefined) {
   }, [activeChannel?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch lightweight count when channel changes (not full messages)
-  useEffect(() => {
-    if (isGallery || !workspaceSlug || !activeChannel) return;
-    let cancelled = false;
-    fetchPinnedMessageCount(deps, { workspaceSlug, channelId: activeChannel.id })
-      .then((count) => {
-        if (!cancelled) setPinnedCount(count);
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [deps, isGallery, workspaceSlug, activeChannel?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useAsyncEffect(
+    async (signal) => {
+      if (isGallery || !workspaceSlug || !activeChannel) return;
+      try {
+        const count = await fetchPinnedMessageCount(deps, { workspaceSlug, channelId: activeChannel.id });
+        if (!signal.cancelled) setPinnedCount(count);
+      } catch { /* ignore */ }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [deps, isGallery, workspaceSlug, activeChannel?.id],
+  );
 
   return { pinsOpen, pinnedMessages, pinnedLoading, pinnedCount, openPins, closePins, pinMessage, unpinMessage, jumpToPinnedMessage };
 }

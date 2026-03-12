@@ -1,0 +1,85 @@
+---
+title: CLI Usage
+description: Reference for all OpenSlaq CLI commands.
+---
+
+## Commands
+
+### `openslaq login`
+
+Authenticate with your OpenSlaq workspace.
+
+```bash
+openslaq login [--api-url <url>]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--api-url` | API URL for self-hosted instances (default: `https://api.openslaq.com`) |
+
+### `openslaq bot`
+
+Manage bots in your workspace.
+
+```bash
+# List all bots
+openslaq bot list
+
+# Create a new bot
+openslaq bot create <name> [--description <desc>]
+
+# Delete a bot
+openslaq bot delete <bot-id>
+
+# Rotate a bot's token
+openslaq bot rotate-token <bot-id>
+```
+
+### `openslaq api-key`
+
+Manage API keys.
+
+```bash
+# List API keys
+openslaq api-key list
+
+# Create a new API key
+openslaq api-key create <name> [--scopes <scope1,scope2>]
+
+# Revoke an API key
+openslaq api-key revoke <key-id>
+```
+
+### `openslaq workspace`
+
+View workspace information.
+
+```bash
+# Show current workspace info
+openslaq workspace info
+
+# List workspace members
+openslaq workspace members
+```
+
+### `openslaq channel`
+
+Manage channels.
+
+```bash
+# List channels
+openslaq channel list
+
+# Send a message to a channel
+openslaq channel send <channel-id> "Hello from the CLI!"
+```
+
+## Global flags
+
+| Flag | Description |
+|------|-------------|
+| `--help`, `-h` | Show help for a command |
+| `--version`, `-v` | Show CLI version |
+| `--api-url` | Override the API URL |
+| `--token` | Use a specific API token (instead of stored credentials) |
+| `--json` | Output in JSON format |

@@ -58,7 +58,7 @@ describe("mobile OAuth callback", () => {
     expect(res.status).toBe(400);
   });
 
-  test("uses app redirect URI from encoded state (Expo Go support)", async () => {
+  test("rejects non-openslaq:// scheme in state redirect (open redirect prevention)", async () => {
     const statePayload = JSON.stringify({
       nonce: "abc123",
       redirect: "exp://10.0.0.1:8081/--/",
@@ -70,9 +70,25 @@ describe("mobile OAuth callback", () => {
     );
     expect(res.status).toBe(302);
     const location = res.headers.get("location")!;
-    expect(location).toContain("exp://10.0.0.1:8081/--/");
+    // Non-openslaq:// schemes fall back to the default redirect
+    expect(location).toStartWith("openslaq://oauth-callback?");
     expect(location).toContain("code=mycode");
-    expect(location).toContain(`state=${encodeURIComponent(encodedState)}`);
+  });
+
+  test("allows openslaq:// scheme in state redirect", async () => {
+    const statePayload = JSON.stringify({
+      nonce: "abc123",
+      redirect: "openslaq://custom-path",
+    });
+    const encodedState = btoa(statePayload);
+    const res = await fetch(
+      `${getApiUrl()}/api/auth/mobile-oauth-callback?code=mycode&state=${encodeURIComponent(encodedState)}`,
+      { redirect: "manual" },
+    );
+    expect(res.status).toBe(302);
+    const location = res.headers.get("location")!;
+    expect(location).toStartWith("openslaq://custom-path?");
+    expect(location).toContain("code=mycode");
   });
 
   test("falls back to openslaq:// when state is plain string", async () => {

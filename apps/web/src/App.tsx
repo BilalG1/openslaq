@@ -33,6 +33,10 @@ const AdminPage = lazy(() =>
   import("./pages/admin/AdminPage").then((m) => ({ default: m.AdminPage })),
 );
 
+const MarketplacePage = lazy(() =>
+  import("./pages/MarketplacePage").then((m) => ({ default: m.MarketplacePage })),
+);
+
 function HandlerRoutes() {
   const location = useLocation();
   return (
@@ -104,6 +108,14 @@ export function App() {
                 element={
                   <StackProvider app={stackApp}>
                     <AdminPage />
+                  </StackProvider>
+                }
+              />
+              <Route
+                path="/marketplace/*"
+                element={
+                  <StackProvider app={stackApp}>
+                    <MarketplacePage />
                   </StackProvider>
                 }
               />

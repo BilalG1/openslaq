@@ -54,7 +54,7 @@ describe("ChannelPickerModal", () => {
   it("renders private channels with lock icon", () => {
     renderModal();
 
-    expect(screen.getByText("\u{1F512}")).toBeTruthy();
+    expect(screen.getByTestId("icon-Lock")).toBeTruthy();
     expect(screen.getByText("secret")).toBeTruthy();
   });
 

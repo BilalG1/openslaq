@@ -8,7 +8,7 @@ import { resolveChannel, requireChannelMember, requirePrivateChannelAdmin } from
 import type { WorkspaceMemberEnv } from "../workspaces/role-middleware";
 import { rlChannelCreate, rlChannelJoinLeave, rlMarkAsRead, rlRead, rlMemberManage } from "../rate-limit";
 import { hasMinimumRole } from "../auth/permissions";
-import { ROLES, CHANNEL_TYPES, asUserId, asMessageId, asChannelId } from "@openslaq/shared";
+import { ROLES, CHANNEL_TYPES, asUserId, asMessageId, zChannelId, zUserId } from "@openslaq/shared";
 import type { ChannelNotifyLevel } from "@openslaq/shared";
 import { getWorkspaceMember } from "../workspaces/service";
 import { getIO } from "../socket/io";
@@ -17,7 +17,7 @@ import { channelSchema, browseChannelSchema, channelMemberSchema, okSchema, erro
 import { jsonResponse } from "../openapi/responses";
 import { webhookDispatcher } from "../bots/webhook-dispatcher";
 
-const channelIdParam = z.object({ id: z.string().describe("Channel ID") });
+const channelIdParam = z.object({ id: zChannelId() });
 
 const listChannelsRoute = createRoute({
   method: "get",
@@ -153,8 +153,8 @@ const removeChannelMemberRoute = createRoute({
   middleware: [rlMemberManage, resolveChannel, requireChannelMember, requirePrivateChannelAdmin] as const,
   request: {
     params: z.object({
-      id: z.string().describe("Channel ID"),
-      userId: z.string().describe("User ID to remove"),
+      id: zChannelId(),
+      userId: zUserId(),
     }),
   },
   responses: {
@@ -396,14 +396,14 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
   .openapi(getNotificationPrefRoute, async (c) => {
     const user = c.get("user");
     const channel = c.get("channel");
-    const level = await getChannelNotificationPref(user.id, asChannelId(channel.id));
+    const level = await getChannelNotificationPref(user.id, channel.id);
     return c.json({ level }, 200);
   })
   .openapi(setNotificationPrefRoute, async (c) => {
     const user = c.get("user");
     const channel = c.get("channel");
     const { level } = c.req.valid("json");
-    await setChannelNotificationPref(user.id, asChannelId(channel.id), level as ChannelNotifyLevel);
+    await setChannelNotificationPref(user.id, channel.id, level as ChannelNotifyLevel);
     return c.json({ ok: true as const }, 200);
   })
   .openapi(createChannelRoute, async (c) => {
@@ -482,7 +482,7 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
   })
   .openapi(removeChannelMemberRoute, async (c) => {
     const channel = c.get("channel");
-    const targetUserId = asUserId(c.req.valid("param").userId);
+    const targetUserId = c.req.valid("param").userId;
 
     if (channel.createdBy === targetUserId) {
       return c.json({ error: "Cannot remove the channel creator" }, 400);

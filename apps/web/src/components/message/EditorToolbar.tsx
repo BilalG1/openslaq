@@ -1,5 +1,6 @@
 import type { Editor } from "@tiptap/react";
 import { useCallback, useRef, useState } from "react";
+import { Link, List } from "lucide-react";
 import { Button, Tooltip } from "../ui";
 import { EmojiPicker } from "./EmojiPicker";
 import { LinkDialog } from "./LinkDialog";
@@ -115,12 +116,12 @@ export function EditorToolbar({ editor, onSend, disabled, onFileSelect, uploadin
 
   const blockButtons: ButtonDef[] = [
     { label: ">", action: () => editor.chain().focus().toggleBlockquote().run(), active: editor.isActive("blockquote"), tooltip: "Blockquote" },
-    { label: "\u2022", action: () => editor.chain().focus().toggleBulletList().run(), active: editor.isActive("bulletList"), tooltip: "Bullet list" },
+    { label: <List size={14} />, action: () => editor.chain().focus().toggleBulletList().run(), active: editor.isActive("bulletList"), tooltip: "Bullet list" },
     { label: "1.", action: () => editor.chain().focus().toggleOrderedList().run(), active: editor.isActive("orderedList"), tooltip: "Ordered list" },
   ];
 
   const linkButtons: ButtonDef[] = [
-    { label: "\uD83D\uDD17", action: openLinkDialog, active: editor.isActive("link"), tooltip: "Link" },
+    { label: <Link size={14} />, action: openLinkDialog, active: editor.isActive("link"), tooltip: "Link" },
   ];
 
   const groups = [inlineButtons, codeButtons, blockButtons, linkButtons];

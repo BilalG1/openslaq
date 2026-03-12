@@ -5,6 +5,7 @@ import { users } from "../users/schema";
 import { workspaceMembers } from "../workspaces/schema";
 import { generateApiToken } from "./token";
 import type { BotScope, BotEventType, BotApp, MessageActionButton } from "@openslaq/shared";
+import { asBotAppId, asWorkspaceId, asUserId } from "@openslaq/shared";
 
 export async function createBotApp(
   workspaceId: string,
@@ -15,6 +16,7 @@ export async function createBotApp(
   scopes: BotScope[],
   subscribedEvents: BotEventType[],
   createdBy: string,
+  marketplaceListingId?: string | null,
 ): Promise<{ bot: BotApp; apiToken: string }> {
   const { token, hash, prefix } = generateApiToken();
   const botUserId = `bot:${crypto.randomUUID()}`;
@@ -48,6 +50,7 @@ export async function createBotApp(
         apiToken: hash,
         apiTokenPrefix: prefix,
         scopes,
+        marketplaceListingId: marketplaceListingId ?? null,
         createdBy,
       })
       .returning();
@@ -240,9 +243,9 @@ function toBotApp(
   subscribedEvents: BotEventType[],
 ): BotApp {
   return {
-    id: b.id,
-    workspaceId: b.workspaceId,
-    userId: b.userId,
+    id: asBotAppId(b.id),
+    workspaceId: asWorkspaceId(b.workspaceId),
+    userId: asUserId(b.userId),
     name: b.name,
     description: b.description,
     avatarUrl: b.avatarUrl,
@@ -251,7 +254,8 @@ function toBotApp(
     scopes: b.scopes as BotScope[],
     subscribedEvents,
     enabled: b.enabled,
-    createdBy: b.createdBy,
+    marketplaceListingId: b.marketplaceListingId,
+    createdBy: asUserId(b.createdBy),
     createdAt: b.createdAt.toISOString(),
   };
 }

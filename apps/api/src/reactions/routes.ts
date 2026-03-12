@@ -1,5 +1,5 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
-import { asMessageId } from "@openslaq/shared";
+import { zMessageId } from "@openslaq/shared";
 import { auth } from "../auth/middleware";
 import { requireMessageChannelAccess } from "../messages/middleware";
 import { toggleReaction } from "./service";
@@ -18,7 +18,7 @@ const toggleReactionRoute = createRoute({
   security: [{ Bearer: [] }],
   middleware: [auth, rlReaction, requireMessageChannelAccess] as const,
   request: {
-    params: z.object({ id: z.string().describe("Message ID") }),
+    params: z.object({ id: zMessageId() }),
     body: {
       content: {
         "application/json": {
@@ -43,7 +43,7 @@ const toggleReactionRoute = createRoute({
 
 const app = new OpenAPIHono().openapi(toggleReactionRoute, async (c) => {
   const user = c.get("user");
-  const messageId = asMessageId(c.req.valid("param").id);
+  const messageId = c.req.valid("param").id;
   const { emoji } = c.req.valid("json");
 
   const result = await toggleReaction(messageId, user.id, emoji);

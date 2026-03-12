@@ -1,4 +1,5 @@
 import type { ChannelBookmark, ChannelId, UserId } from "@openslaq/shared";
+import { asBookmarkId } from "@openslaq/shared";
 import { BookmarksBar } from "../../components/channel/BookmarksBar";
 import { VariantGrid, VariantItem } from "../ShowcaseSection";
 import type { ComponentStory } from "../showcase-registry";
@@ -7,7 +8,7 @@ const noop = () => {};
 
 function bookmark(id: string, title: string, url: string): ChannelBookmark {
   return {
-    id,
+    id: asBookmarkId(id),
     channelId: "ch_showcase" as ChannelId,
     url,
     title,

@@ -1,7 +1,7 @@
-import type { ChannelId, UserId } from "./ids";
+import type { BookmarkId, ChannelId, UserId } from "./ids";
 
 export interface ChannelBookmark {
-  id: string;
+  id: BookmarkId;
   channelId: ChannelId;
   url: string;
   title: string;

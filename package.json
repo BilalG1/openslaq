@@ -3,11 +3,11 @@
   "private": true,
   "workspaces": ["packages/*", "apps/*"],
   "scripts": {
-    "dev": "bun run --filter '!@openslaq/desktop' --filter '!@openslaq/mobile' dev",
+    "dev": "bun run --filter '!@openslaq/desktop' --filter '!@openslaq/mobile' --filter '!@openslaq/cli' --filter '!@openslaq/docs' dev",
     "dev:desktop": "bun run --filter @openslaq/api dev & bun run --filter @openslaq/desktop dev",
     "dev:mobile": "bun run --filter @openslaq/api dev & bun run --filter @openslaq/mobile dev",
     "build:desktop": "bun run --filter @openslaq/desktop build",
-    "dev:bg": "bun run --filter '!@openslaq/desktop' --filter '!@openslaq/mobile' dev &> .dev.log & echo $! > .dev.pid && echo \"Started (pid $(cat .dev.pid))\"",
+    "dev:bg": "bun run --filter '!@openslaq/desktop' --filter '!@openslaq/mobile' --filter '!@openslaq/cli' dev &> .dev.log & echo $! > .dev.pid && echo \"Started (pid $(cat .dev.pid))\"",
     "dev:stop": "kill $(cat .dev.pid) 2>/dev/null; PREFIX=$(grep '^PORT_PREFIX=' .env 2>/dev/null | cut -d= -f2); PREFIX=${PREFIX:-30}; lsof -ti :${PREFIX}00 -i :${PREFIX}01 | xargs kill 2>/dev/null; rm -f .dev.pid && echo 'Stopped'",
     "lint": "oxlint --deny-warnings .",
     "pretypecheck": "bun run scripts/pretypecheck.ts",
@@ -18,6 +18,8 @@
     "test:web:e2e": "bun run --filter @openslaq/web-e2e test",
     "test:api": "bun run --filter @openslaq/api-e2e test",
     "test:huddle": "bun run --filter @openslaq/huddle test",
+    "test:sdk": "bun run --filter openslaq test",
+    "test:cli": "bun run --filter @openslaq/cli test",
     "test:mobile": "bun run --filter @openslaq/mobile test",
     "test:mobile:e2e": "bun run --filter @openslaq/mobile e2e:test",
     "release:desktop": "export TAURI_SIGNING_PRIVATE_KEY=\"$(cat ~/.tauri/openslaq.key)\" && bash scripts/release-desktop.sh",
@@ -39,5 +41,8 @@
     "@typescript/native-preview": "^7.0.0-dev.20260218.1",
     "oxlint": "^0.16.6",
     "typescript": "^5.7.3"
+  },
+  "dependencies": {
+    "expo-file-system": "~19.0.21"
   }
 }

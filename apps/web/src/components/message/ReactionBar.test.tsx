@@ -2,6 +2,7 @@ import { describe, expect, test, afterEach, jest } from "bun:test";
 import { render, screen, cleanup } from "../../test-utils";
 import { ReactionBar } from "./ReactionBar";
 import type { ReactionGroup, UserId, CustomEmoji } from "@openslaq/shared";
+import { asEmojiId, asWorkspaceId, asUserId } from "@openslaq/shared";
 
 const noop = () => {};
 const uid = (id: string) => id as UserId;
@@ -69,7 +70,7 @@ describe("ReactionBar", () => {
 
   test("renders custom emoji reaction as an img tag", () => {
     const customEmojis: CustomEmoji[] = [
-      { id: "e1", workspaceId: "w1", name: "party-parrot", url: "https://example.com/party-parrot.png", uploadedBy: "u1", createdAt: "" },
+      { id: asEmojiId("e1"), workspaceId: asWorkspaceId("w1"), name: "party-parrot", url: "https://example.com/party-parrot.png", uploadedBy: asUserId("u1"), createdAt: "" },
     ];
     const reactions: ReactionGroup[] = [
       { emoji: ":custom:party-parrot:", count: 2, userIds: [uid("u-1"), uid("u-2")] },
@@ -85,7 +86,7 @@ describe("ReactionBar", () => {
 
   test("custom emoji in reaction has w-5 h-5 sizing", () => {
     const customEmojis: CustomEmoji[] = [
-      { id: "e1", workspaceId: "w1", name: "tada", url: "https://example.com/tada.png", uploadedBy: "u1", createdAt: "" },
+      { id: asEmojiId("e1"), workspaceId: asWorkspaceId("w1"), name: "tada", url: "https://example.com/tada.png", uploadedBy: asUserId("u1"), createdAt: "" },
     ];
     const reactions: ReactionGroup[] = [
       { emoji: ":custom:tada:", count: 1, userIds: [uid("u-1")] },

@@ -10,7 +10,7 @@ import {
   Alert,
 } from "react-native";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import type { Message, ChannelId, MessageId, ReactionGroup } from "@openslaq/shared";
+import type { Message, ChannelId, MessageId, ReactionGroup, SlashCommandDefinition, EphemeralMessage } from "@openslaq/shared";
 import {
   loadChannelMessages,
   sendMessage as coreSendMessage,
@@ -26,6 +26,10 @@ import {
   saveMessageOp,
   unsaveMessageOp,
   shareMessageOp,
+  fetchSlashCommands,
+  executeSlashCommand,
+  createScheduledMessageOp,
+  markChannelAsUnread,
 } from "@openslaq/client-core";
 import * as Clipboard from "expo-clipboard";
 import type { ChannelNotifyLevel } from "@openslaq/shared";
@@ -37,9 +41,10 @@ import { useSocketEvent } from "@/hooks/useSocketEvent";
 import { useMessageActions } from "@/hooks/useMessageActions";
 import { useTypingEmitter } from "@/hooks/useTypingEmitter";
 import { useTypingTracking } from "@/hooks/useTypingTracking";
-import { useFileUpload } from "@/hooks/useFileUpload";
+import { useFileUpload, type PendingFile } from "@/hooks/useFileUpload";
 import { api } from "@/lib/api";
 import { MessageBubble } from "@/components/MessageBubble";
+import { EphemeralMessageBubble } from "@/components/EphemeralMessageBubble";
 import { MessageInput } from "@/components/MessageInput";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { MessageActionSheet } from "@/components/MessageActionSheet";
@@ -47,6 +52,8 @@ import { EmojiPickerSheet } from "@/components/EmojiPickerSheet";
 import { EditTopicModal } from "@/components/EditTopicModal";
 import { PinnedMessagesSheet } from "@/components/PinnedMessagesSheet";
 import { ShareMessageModal } from "@/components/ShareMessageModal";
+import { NotificationLevelSheet } from "@/components/NotificationLevelSheet";
+import { Pin } from "lucide-react-native";
 import { HuddleHeaderButton } from "@/components/huddle/HuddleHeaderButton";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 
@@ -81,12 +88,16 @@ export default function ChannelScreen() {
   const [pinnedMessages, setPinnedMessages] = useState<Message[]>([]);
   const [pinnedLoading, setPinnedLoading] = useState(false);
   const [shareMessage, setShareMessage] = useState<Message | null>(null);
+  const [slashCommands, setSlashCommands] = useState<SlashCommandDefinition[]>([]);
+  const [ephemeralMessages, setEphemeralMessages] = useState<EphemeralMessage[]>([]);
+  const [showNotificationSheet, setShowNotificationSheet] = useState(false);
 
   const { emitTyping } = useTypingEmitter(channelId);
   const typingUsers = useTypingTracking(channelId, user?.id, members);
   const fileUpload = useFileUpload();
 
   const channel = state.channels.find((c) => c.id === channelId);
+  const customEmojis = state.customEmojis;
 
   const handleLeaveChannel = useCallback(() => {
     if (!channelId || !workspaceSlug) return;
@@ -109,33 +120,21 @@ export default function ChannelScreen() {
   }, [authProvider, channelId, dispatch, router, socket, state, workspaceSlug]);
 
   const handleNotificationPref = useCallback(() => {
-    const currentLevel = state.channelNotificationPrefs[channelId] ?? "all";
-    const levels: { label: string; value: ChannelNotifyLevel }[] = [
-      { label: "All messages", value: "all" },
-      { label: "Mentions only", value: "mentions" },
-      { label: "Muted", value: "muted" },
-    ];
-    Alert.alert(
-      "Notifications",
-      "Choose notification level for this channel",
-      [
-        ...levels.map((l) => ({
-          text: l.value === currentLevel ? `${l.label} \u2713` : l.label,
-          onPress: () => {
-            if (l.value !== currentLevel) {
-              const deps = { api, auth: authProvider, dispatch, getState: () => state };
-              void setChannelNotificationPref(deps, {
-                slug: workspaceSlug,
-                channelId,
-                level: l.value,
-              });
-            }
-          },
-        })),
-        { text: "Cancel", style: "cancel" },
-      ],
-    );
-  }, [authProvider, channelId, dispatch, state, workspaceSlug]);
+    setShowNotificationSheet(true);
+  }, []);
+
+  const handleNotificationSelect = useCallback(
+    (level: ChannelNotifyLevel) => {
+      const deps = { api, auth: authProvider, dispatch, getState: () => state };
+      void setChannelNotificationPref(deps, {
+        slug: workspaceSlug,
+        channelId,
+        level,
+      });
+      setShowNotificationSheet(false);
+    },
+    [authProvider, channelId, dispatch, state, workspaceSlug],
+  );
 
   const isStarred = state.starredChannelIds.includes(channelId);
 
@@ -212,6 +211,51 @@ export default function ChannelScreen() {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceSlug, authProvider]);
+
+  // Load slash commands
+  useEffect(() => {
+    if (!workspaceSlug) return;
+    let cancelled = false;
+    const deps = { api, auth: authProvider, dispatch, getState: () => state };
+    void fetchSlashCommands(deps, { workspaceSlug }).then((cmds) => {
+      if (cancelled) return;
+      setSlashCommands(cmds);
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaceSlug, authProvider]);
+
+  const handleSlashCommand = useCallback(
+    async (command: string, args: string) => {
+      if (!workspaceSlug || !channelId) return;
+      try {
+        const deps = { api, auth: authProvider, dispatch, getState: () => state };
+        const result = await executeSlashCommand(deps, {
+          workspaceSlug,
+          channelId,
+          command,
+          args,
+        });
+        if (result.ephemeralMessages?.length) {
+          setEphemeralMessages((prev) => [...prev, ...result.ephemeralMessages!]);
+        }
+      } catch {
+        setEphemeralMessages((prev) => [
+          ...prev,
+          {
+            id: `error-${Date.now()}`,
+            channelId: channelId as ChannelId,
+            text: `Command /${command} failed. Please try again.`,
+            senderName: "Slaqbot",
+            senderAvatarUrl: null,
+            createdAt: new Date().toISOString(),
+            ephemeral: true,
+          },
+        ]);
+      }
+    },
+    [authProvider, channelId, dispatch, state, workspaceSlug],
+  );
 
   // Join/leave socket room
   useEffect(() => {
@@ -343,6 +387,15 @@ export default function ChannelScreen() {
     [workspaceSlug, channelId],
   );
 
+  const handleMarkAsUnread = useCallback(
+    async (messageId: string) => {
+      if (!workspaceSlug || !channelId) return;
+      const deps = { api, auth: authProvider, dispatch, getState: () => state };
+      await markChannelAsUnread(deps, { workspaceSlug, channelId, messageId });
+    },
+    [authProvider, channelId, dispatch, state, workspaceSlug],
+  );
+
   const handleShareMessage = useCallback((message: Message) => {
     setShareMessage(message);
   }, []);
@@ -368,18 +421,20 @@ export default function ChannelScreen() {
   );
 
   // Set the header title and options button
+  const currentNotifLevel = state.channelNotificationPrefs[channelId] ?? "all";
+
   useEffect(() => {
     if (channel) {
+      const isMuted = currentNotifLevel === "muted";
       navigation.setOptions({
-        title: `# ${channel.name}`,
+        title: isMuted ? `# ${channel.name} 🔇` : `# ${channel.name}`,
         headerRight: () => (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
             <HuddleHeaderButton channelId={channel.id} />
             {pinCount > 0 && (
-              <Pressable testID="pinned-messages-button" onPress={handleOpenPinnedMessages} hitSlop={8}>
-                <Text style={{ color: theme.brand.primary, fontSize: 14 }}>
-                  {"\u{1F4CC}"}{pinCount}
-                </Text>
+              <Pressable testID="pinned-messages-button" onPress={handleOpenPinnedMessages} hitSlop={8} style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
+                <Pin size={14} color={theme.brand.primary} />
+                <Text style={{ color: theme.brand.primary, fontSize: 14 }}>{pinCount}</Text>
               </Pressable>
             )}
             <Pressable testID="channel-options-button" onPress={handleShowOptions} hitSlop={8}>
@@ -389,7 +444,7 @@ export default function ChannelScreen() {
         ),
       });
     }
-  }, [channel, handleOpenPinnedMessages, handleShowOptions, navigation, pinCount, theme.brand.primary]);
+  }, [channel, currentNotifLevel, handleOpenPinnedMessages, handleShowOptions, navigation, pinCount, theme.brand.primary]);
 
   const isLoading = channelId
     ? state.ui.channelMessagesLoading[channelId]
@@ -407,6 +462,25 @@ export default function ChannelScreen() {
       router.push(`/(app)/${workspaceSlug}/profile/${userId}`);
     },
     [router, workspaceSlug],
+  );
+
+  const handleSendVoiceMessage = useCallback(
+    async (uri: string, _durationMs: number) => {
+      if (!workspaceSlug || !channelId) return;
+      const file: PendingFile = {
+        id: `voice-${Date.now()}`,
+        uri,
+        name: `voice-message-${Date.now()}.m4a`,
+        mimeType: "audio/mp4",
+        isImage: false,
+      };
+      fileUpload.addFile(file);
+      const attachmentIds = await fileUpload.uploadAll(() => authProvider.requireAccessToken());
+      const deps = { api, auth: authProvider, dispatch, getState: () => state };
+      await coreSendMessage(deps, { channelId, workspaceSlug, content: "", attachmentIds });
+      fileUpload.reset();
+    },
+    [authProvider, channelId, dispatch, fileUpload, state, workspaceSlug],
   );
 
   const handleAddAttachment = useCallback(() => {
@@ -475,6 +549,31 @@ export default function ChannelScreen() {
     [emojiPickerMessageId, handleToggleReaction],
   );
 
+  const handleScheduleSend = useCallback(
+    async (content: string, scheduledFor: Date) => {
+      if (!workspaceSlug || !channelId) return;
+      try {
+        const deps = { api, auth: authProvider, dispatch, getState: () => state };
+        let attachmentIds: string[] = [];
+        if (fileUpload.hasFiles) {
+          attachmentIds = await fileUpload.uploadAll(() => authProvider.requireAccessToken());
+        }
+        await createScheduledMessageOp(deps, {
+          workspaceSlug,
+          channelId,
+          content,
+          scheduledFor: scheduledFor.toISOString(),
+          attachmentIds,
+        });
+        fileUpload.reset();
+        Alert.alert("Scheduled", "Your message has been scheduled.");
+      } catch {
+        Alert.alert("Error", "Failed to schedule message.");
+      }
+    },
+    [authProvider, channelId, dispatch, fileUpload, state, workspaceSlug],
+  );
+
   const handleSaveTopic = useCallback(
     async (description: string | null) => {
       if (!workspaceSlug || !channelId) return;
@@ -496,7 +595,7 @@ export default function ChannelScreen() {
       keyboardVerticalOffset={90}
     >
       {isLoading && messages.length === 0 ? (
-        <View className="flex-1 items-center justify-center">
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator size="large" color={theme.brand.primary} />
         </View>
       ) : (
@@ -534,11 +633,21 @@ export default function ChannelScreen() {
               onToggleReaction={handleToggleReaction}
               onLongPress={handleLongPress}
               onPressSender={handlePressSender}
+              customEmojis={customEmojis}
             />
           )}
           inverted={false}
+          ListFooterComponent={
+            ephemeralMessages.length > 0 ? (
+              <View testID="ephemeral-messages">
+                {ephemeralMessages.map((msg) => (
+                  <EphemeralMessageBubble key={msg.id} message={msg} />
+                ))}
+              </View>
+            ) : undefined
+          }
           ListEmptyComponent={
-            <View className="flex-1 items-center justify-center py-12">
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 48 }}>
               <Text style={{ color: theme.colors.textFaint }}>No messages yet</Text>
             </View>
           }
@@ -552,6 +661,7 @@ export default function ChannelScreen() {
       <MessageInput
         onSend={handleSend}
         placeholder={channel ? `Message #${channel.name}` : "Message"}
+        draftKey={channelId}
         editingMessage={editingMessage}
         onCancelEdit={handleCancelEdit}
         onSaveEdit={handleSaveEdit}
@@ -561,6 +671,10 @@ export default function ChannelScreen() {
         onAddAttachment={handleAddAttachment}
         onRemoveFile={fileUpload.removeFile}
         uploading={fileUpload.uploading}
+        slashCommands={slashCommands}
+        onSlashCommand={handleSlashCommand}
+        onScheduleSend={handleScheduleSend}
+        onSendVoiceMessage={handleSendVoiceMessage}
       />
       <MessageActionSheet
         visible={actionSheetMessage != null}
@@ -577,6 +691,7 @@ export default function ChannelScreen() {
         onUnsaveMessage={handleUnsaveMessage}
         onCopyText={handleCopyText}
         onCopyLink={handleCopyLink}
+        onMarkAsUnread={handleMarkAsUnread}
         onShareMessage={handleShareMessage}
         onClose={() => setActionSheetMessage(null)}
       />
@@ -587,6 +702,7 @@ export default function ChannelScreen() {
           setShowEmojiPicker(false);
           setEmojiPickerMessageId(null);
         }}
+        customEmojis={customEmojis}
       />
       <EditTopicModal
         visible={showTopicEdit}
@@ -609,6 +725,12 @@ export default function ChannelScreen() {
         groupDms={state.groupDms}
         onShare={handleConfirmShare}
         onClose={() => setShareMessage(null)}
+      />
+      <NotificationLevelSheet
+        visible={showNotificationSheet}
+        currentLevel={currentNotifLevel}
+        onSelect={handleNotificationSelect}
+        onClose={() => setShowNotificationSheet(false)}
       />
     </KeyboardAvoidingView>
   );

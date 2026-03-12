@@ -6,6 +6,7 @@ process.env.E2E_TEST_SECRET ??= "openslaq-e2e-test-secret-do-not-use-in-prod";
 process.env.VITE_STACK_PROJECT_ID ??= "924565c5-6377-44b7-aa75-6b7de8d311f4";
 process.env.ADMIN_USER_IDS = "admin-test-user";
 process.env.API_ARTIFICIAL_DELAY_MS ??= "0";
+process.env.GITHUB_WEBHOOK_SECRET ??= "test-webhook-secret-123";
 
 const [{ default: app }, { setIO }, { setEnabled }] = await Promise.all([
   import("../../api/src/app"),

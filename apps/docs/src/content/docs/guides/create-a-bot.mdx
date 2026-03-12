@@ -1,0 +1,94 @@
+---
+title: Create a Bot
+description: Build a bot that responds to messages and slash commands.
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+Bots are automated users that can send messages, respond to commands, and react to events in your workspace.
+
+## Register the bot
+
+<Steps>
+
+1. **Via CLI** (recommended):
+
+   ```bash
+   openslaq bot create my-bot --description "A helpful bot"
+   ```
+
+   Save the bot token from the output — you'll need it to authenticate.
+
+2. **Via workspace settings**:
+
+   Go to **Settings > Bots > Create Bot**, fill in the name and description, and copy the generated token.
+
+</Steps>
+
+## Respond to messages
+
+```ts
+import { OpenSlaq } from "openslaq";
+
+const client = new OpenSlaq({
+  token: process.env.OPENSLAQ_BOT_TOKEN!,
+});
+
+client.on("message", async (message) => {
+  // Ignore messages from other bots
+  if (message.isBot) return;
+
+  if (message.content.toLowerCase().includes("hello")) {
+    await client.chat.postMessage({
+      channelId: message.channelId,
+      content: `Hey <@${message.userId}>! How can I help?`,
+    });
+  }
+});
+
+client.connect();
+```
+
+## Slash commands
+
+Bots can register slash commands that users invoke with `/command`.
+
+### Register a command
+
+```bash
+openslaq bot add-command my-bot \
+  --command /weather \
+  --description "Get the current weather" \
+  --usage "/weather <city>"
+```
+
+### Handle the command
+
+```ts
+client.on("slash_command", async (command) => {
+  if (command.name === "/weather") {
+    const city = command.text || "San Francisco";
+    const weather = await fetchWeather(city);
+
+    await client.chat.postMessage({
+      channelId: command.channelId,
+      content: `The weather in ${city}: ${weather.summary}, ${weather.temp}F`,
+    });
+  }
+});
+```
+
+## Webhooks (alternative)
+
+Instead of maintaining a persistent connection, you can receive events via webhooks. See the [Webhooks guide](/guides/webhooks/).
+
+## Bot permissions
+
+Bots can only interact with channels they've been invited to. To add a bot to a channel:
+
+```bash
+# Via CLI
+openslaq channel invite <channel-id> --bot <bot-id>
+```
+
+Or mention the bot in a channel — it will be auto-invited on first mention.

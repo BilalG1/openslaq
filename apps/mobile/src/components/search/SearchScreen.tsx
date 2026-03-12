@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import type { SearchResultItem } from "@openslaq/shared";
+import { ArrowLeft, X } from "lucide-react-native";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { useSearch } from "@/hooks/useSearch";
 import { FilterChips } from "./FilterChips";
@@ -134,7 +135,7 @@ export function SearchScreen() {
         }}
       >
         <Pressable testID="search-back-button" onPress={handleBack} hitSlop={8} style={{ padding: 4 }}>
-          <Text style={{ fontSize: 28, color: theme.brand.primary, lineHeight: 32 }}>{"\u2039"}</Text>
+          <ArrowLeft size={24} color={theme.brand.primary} />
         </Pressable>
         <TextInput
           ref={inputRef}
@@ -157,7 +158,7 @@ export function SearchScreen() {
         />
         {filters.q.length > 0 && (
           <Pressable testID="search-clear-button" onPress={handleClear} hitSlop={8} style={{ padding: 4 }}>
-            <Text style={{ fontSize: 18, color: theme.colors.textFaint }}>{"\u00D7"}</Text>
+            <X size={18} color={theme.colors.textFaint} />
           </Pressable>
         )}
       </View>

@@ -46,6 +46,12 @@ jest.mock("@/contexts/ChatStoreProvider", () => ({
   useChatStore: () => ({
     state: {
       workspaces: [{ slug: "acme", name: "Acme Corp" }],
+      channels: [],
+      dms: [],
+      groupDms: [],
+      unreadCounts: {},
+      starredChannelIds: [],
+      presence: {},
     },
   }),
 }));
@@ -85,10 +91,10 @@ describe("HomeHeader", () => {
     expect(screen.getByTestId("filter-icon")).toBeTruthy();
   });
 
-  it("navigates to search when search pill is pressed", () => {
+  it("opens quick switcher when search pill is pressed", () => {
     render(<HomeHeader />);
     fireEvent.press(screen.getByTestId("search-pill"));
-    expect(mockPush).toHaveBeenCalledWith("/(app)/acme/search");
+    expect(screen.getByTestId("quick-switcher-modal")).toBeTruthy();
   });
 
   it("renders header avatar button", () => {

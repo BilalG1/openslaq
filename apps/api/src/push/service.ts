@@ -79,7 +79,7 @@ export async function scheduleMessagePush(
   }
 }
 
-async function deliverPush(
+export async function deliverPush(
   message: Message,
   userId: UserId,
   workspaceSlug: string,

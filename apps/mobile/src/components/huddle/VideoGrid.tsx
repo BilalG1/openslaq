@@ -9,6 +9,7 @@ interface GridParticipant {
   isCameraOn: boolean;
   isLocal: boolean;
   videoTrackRef: TrackReference | undefined;
+  screenShareTrackRef?: TrackReference | undefined;
 }
 
 interface VideoGridProps {
@@ -20,6 +21,41 @@ export function VideoGrid({ participants }: VideoGridProps) {
   const count = participants.length;
 
   if (count === 0) return null;
+
+  // Presentation layout: screen share takes main area, others in bottom strip
+  const screenSharer = participants.find((p) => p.screenShareTrackRef);
+  if (screenSharer) {
+    const availableHeight = height - 200;
+    const availableWidth = width - 24;
+    const stripTileSize = 80;
+
+    return (
+      <View style={styles.fixedContainer}>
+        <VideoTile
+          userId={screenSharer.userId}
+          displayName={screenSharer.displayName}
+          isMuted={screenSharer.isMuted}
+          isLocal={screenSharer.isLocal}
+          videoTrackRef={screenSharer.screenShareTrackRef}
+          isScreenShare
+          style={{ width: availableWidth, height: availableHeight - stripTileSize - 16 }}
+        />
+        <ScrollView
+          horizontal
+          style={styles.stripContainer}
+          contentContainerStyle={styles.stripContent}
+        >
+          {participants.map((p) => (
+            <VideoTile
+              key={p.userId}
+              {...p}
+              style={{ width: stripTileSize, height: stripTileSize }}
+            />
+          ))}
+        </ScrollView>
+      </View>
+    );
+  }
 
   // For 5+ participants, use a scrollable 2-column grid
   if (count > 4) {
@@ -104,6 +140,12 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
+    gap: 8,
+  },
+  stripContainer: {
+    flexGrow: 0,
+  },
+  stripContent: {
     gap: 8,
   },
 });

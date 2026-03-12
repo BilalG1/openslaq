@@ -22,31 +22,30 @@ export function FilePreviewStrip({ files, onRemove }: Props) {
       testID="file-preview-strip"
       horizontal
       showsHorizontalScrollIndicator={false}
-      className="px-3 py-2"
-      style={{ backgroundColor: theme.colors.surface }}
+      style={{ paddingHorizontal: 12, paddingVertical: 8, backgroundColor: theme.colors.surface }}
     >
       {files.map((file) => (
-        <View key={file.id} className="mr-2 relative">
+        <View key={file.id} style={{ marginRight: 8, position: 'relative' }}>
           {file.isImage ? (
             <Image
               testID={`file-preview-${file.id}`}
               source={{ uri: file.uri }}
-              className="rounded-lg"
-              style={{ width: 60, height: 60 }}
+              style={{ borderRadius: 8, width: 60, height: 60 }}
             />
           ) : (
             <View
               testID={`file-preview-${file.id}`}
-              className="rounded-lg items-center justify-center"
               style={{
+                borderRadius: 8,
+                alignItems: 'center',
+                justifyContent: 'center',
                 width: 60,
                 height: 60,
                 backgroundColor: theme.colors.surfaceTertiary,
               }}
             >
               <Text
-                className="text-xs font-bold"
-                style={{ color: theme.colors.textMuted }}
+                style={{ fontSize: 12, fontWeight: 'bold', color: theme.colors.textMuted }}
               >
                 {getExtension(file.name)}
               </Text>
@@ -56,10 +55,9 @@ export function FilePreviewStrip({ files, onRemove }: Props) {
             testID={`file-remove-${file.id}`}
             onPress={() => onRemove(file.id)}
             hitSlop={12}
-            className="absolute -top-1 -right-1 w-5 h-5 rounded-full items-center justify-center"
-            style={{ backgroundColor: theme.colors.borderStrong }}
+            style={{ position: 'absolute', top: -4, right: -4, width: 20, height: 20, borderRadius: 9999, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.borderStrong }}
           >
-            <Text className="text-white text-xs font-bold">X</Text>
+            <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>X</Text>
           </Pressable>
         </View>
       ))}

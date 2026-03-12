@@ -35,7 +35,7 @@ export default function AppLayout() {
         <HuddleProvider>
           <PushNotificationSetup />
           <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="create-workspace" options={{ headerShown: true, title: "Create Workspace", headerBackTitle: "Back" }} />
+            <Stack.Screen name="create-workspace" options={{ headerShown: true, title: "Create Workspace", headerBackTitle: "" }} />
           </Stack>
         </HuddleProvider>
       </SocketProvider>

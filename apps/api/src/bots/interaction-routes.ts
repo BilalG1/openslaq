@@ -1,7 +1,7 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { createHmac } from "node:crypto";
 import { eq } from "drizzle-orm";
-import { asMessageId, asChannelId, asUserId } from "@openslaq/shared";
+import { asMessageId, asChannelId, asUserId, asBotAppId, asWorkspaceId } from "@openslaq/shared";
 import type { MessageActionButton, WebhookEventPayload } from "@openslaq/shared";
 import { auth } from "../auth/middleware";
 import type { AuthEnv } from "../auth/types";
@@ -91,13 +91,13 @@ const app = new OpenAPIHono<AuthEnv>().openapi(interactionRoute, async (c) => {
     interaction: {
       actionId,
       value: action.value,
-      messageId,
-      channelId: message.channelId,
-      userId: user.id,
+      messageId: asMessageId(messageId),
+      channelId: asChannelId(message.channelId),
+      userId: asUserId(user.id),
       timestamp: new Date().toISOString(),
     },
-    botAppId: bot.id,
-    workspaceId: bot.workspaceId,
+    botAppId: asBotAppId(bot.id),
+    workspaceId: asWorkspaceId(bot.workspaceId),
   };
 
   try {

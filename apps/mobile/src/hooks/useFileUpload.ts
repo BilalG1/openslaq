@@ -19,6 +19,7 @@ interface UseFileUploadReturn {
   addFromImagePicker: () => Promise<void>;
   addFromCamera: () => Promise<void>;
   addFromDocumentPicker: () => Promise<void>;
+  addFile: (file: PendingFile) => void;
   removeFile: (id: string) => void;
   uploadAll: (getToken: () => Promise<string>) => Promise<string[]>;
   reset: () => void;
@@ -95,6 +96,11 @@ export function useFileUpload(): UseFileUploadReturn {
     setError(null);
   }, []);
 
+  const addFile = useCallback((file: PendingFile) => {
+    setPendingFiles((prev) => [...prev, file]);
+    setError(null);
+  }, []);
+
   const removeFile = useCallback((id: string) => {
     setPendingFiles((prev) => prev.filter((f) => f.id !== id));
   }, []);
@@ -155,6 +161,7 @@ export function useFileUpload(): UseFileUploadReturn {
     addFromImagePicker,
     addFromCamera,
     addFromDocumentPicker,
+    addFile,
     removeFile,
     uploadAll,
     reset,

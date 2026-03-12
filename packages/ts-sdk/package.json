@@ -1,0 +1,18 @@
+{
+  "name": "openslaq",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsgo --noEmit"
+  },
+  "devDependencies": {
+    "@openslaq/shared": "workspace:*",
+    "@types/bun": "^1.3.9",
+    "typescript": "^5.7.3"
+  }
+}

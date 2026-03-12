@@ -48,19 +48,19 @@ export default function ChannelsLayout() {
         />
         <Stack.Screen
           name="browse"
-          options={{ title: "Browse Channels", headerBackTitle: "Back" }}
+          options={{ title: "Browse Channels", headerBackTitle: "" }}
         />
         <Stack.Screen
           name="[channelId]"
-          options={{ title: "", headerBackTitle: "Back" }}
+          options={{ title: "", headerBackTitle: "" }}
         />
         <Stack.Screen
           name="channel-members"
-          options={{ title: "Members", headerBackTitle: "Back" }}
+          options={{ title: "Members", headerBackTitle: "" }}
         />
         <Stack.Screen
           name="dm/[channelId]"
-          options={{ title: "", headerBackTitle: "Back" }}
+          options={{ title: "", headerBackTitle: "" }}
         />
       </Stack>
       <CreateChannelModal

@@ -1,0 +1,112 @@
+---
+title: Webhooks
+description: Receive real-time event notifications via HTTP webhooks.
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+Webhooks let your server receive HTTP POST requests when events happen in OpenSlaq. They're an alternative to maintaining a persistent Socket.IO connection.
+
+## Set up a webhook
+
+<Steps>
+
+1. **Register a webhook URL on your bot**:
+
+   ```bash
+   openslaq bot set-webhook my-bot --url https://your-server.com/webhook
+   ```
+
+2. **Verify the endpoint** (OpenSlaq sends a verification challenge):
+
+   ```ts
+   app.post("/webhook", (req, res) => {
+     // Respond to URL verification
+     if (req.body.type === "url_verification") {
+       return res.json({ challenge: req.body.challenge });
+     }
+
+     // Handle events
+     const event = req.body;
+     console.log("Received event:", event.type);
+
+     res.sendStatus(200);
+   });
+   ```
+
+3. **Subscribe to events**:
+
+   ```bash
+   openslaq bot subscribe my-bot \
+     --events message_created,reaction_added
+   ```
+
+</Steps>
+
+## Event payload
+
+All webhook payloads follow this structure:
+
+```json
+{
+  "type": "message_created",
+  "timestamp": "2026-03-11T12:00:00.000Z",
+  "data": {
+    "messageId": "msg_abc123",
+    "channelId": "ch_xyz789",
+    "userId": "usr_def456",
+    "content": "Hello, world!"
+  }
+}
+```
+
+## Available events
+
+| Event | Description |
+|-------|-------------|
+| `message_created` | A new message was posted |
+| `message_updated` | A message was edited |
+| `message_deleted` | A message was deleted |
+| `reaction_added` | A reaction was added to a message |
+| `reaction_removed` | A reaction was removed |
+| `channel_created` | A new channel was created |
+| `member_joined` | A user joined a channel |
+| `member_left` | A user left a channel |
+| `slash_command` | A slash command was invoked |
+
+## Signature verification
+
+Every webhook request includes a signature header for verifying authenticity:
+
+```
+X-OpenSlaq-Signature: sha256=abc123...
+```
+
+Verify it using your bot's signing secret:
+
+```ts
+import { createHmac } from "node:crypto";
+
+function verifySignature(
+  body: string,
+  signature: string,
+  secret: string,
+): boolean {
+  const expected = createHmac("sha256", secret).update(body).digest("hex");
+  return `sha256=${expected}` === signature;
+}
+```
+
+:::tip
+Always verify webhook signatures in production to prevent spoofed requests.
+:::
+
+## Retry behavior
+
+If your endpoint returns a non-2xx status code or times out (after 10 seconds), OpenSlaq retries up to 3 times with exponential backoff:
+
+1. Retry after 1 minute
+2. Retry after 5 minutes
+3. Retry after 30 minutes
+
+After 3 failed retries, the webhook is marked as failing. You can view and reset failed webhooks in workspace settings.

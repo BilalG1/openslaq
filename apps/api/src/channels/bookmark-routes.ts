@@ -2,13 +2,13 @@ import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { resolveChannel, requireChannelMember } from "./middleware";
 import type { WorkspaceMemberEnv } from "../workspaces/role-middleware";
 import { rlRead, rlMemberManage } from "../rate-limit";
-import { asChannelId, asUserId } from "@openslaq/shared";
+import { asChannelId, asUserId, asBookmarkId, zChannelId } from "@openslaq/shared";
 import type { ChannelBookmark } from "@openslaq/shared";
 import { addBookmark, removeBookmark, getBookmarks } from "./bookmark-service";
 import { getIO } from "../socket/io";
 import { okSchema, errorSchema } from "../openapi/schemas";
 
-const channelIdParam = z.object({ id: z.string().describe("Channel ID") });
+const channelIdParam = z.object({ id: zChannelId() });
 
 const bookmarkSchema = z.object({
   id: z.string(),
@@ -76,7 +76,7 @@ const removeBookmarkRoute = createRoute({
   middleware: [rlMemberManage, resolveChannel, requireChannelMember] as const,
   request: {
     params: z.object({
-      id: z.string().describe("Channel ID"),
+      id: zChannelId(),
       bookmarkId: z.string().describe("Bookmark ID"),
     }),
   },
@@ -101,7 +101,7 @@ function toBookmarkResponse(row: {
   createdAt: Date;
 }): ChannelBookmark {
   return {
-    id: row.id,
+    id: asBookmarkId(row.id),
     channelId: asChannelId(row.channelId),
     url: row.url,
     title: row.title,
@@ -113,7 +113,7 @@ function toBookmarkResponse(row: {
 const app = new OpenAPIHono<WorkspaceMemberEnv>()
   .openapi(listBookmarksRoute, async (c) => {
     const channel = c.get("channel");
-    const rows = await getBookmarks(asChannelId(channel.id));
+    const rows = await getBookmarks(channel.id);
     const bookmarks = rows.map(toBookmarkResponse);
     return c.json({ bookmarks }, 200);
   })
@@ -126,7 +126,7 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     }
 
     const { url, title } = c.req.valid("json");
-    const row = await addBookmark(asChannelId(channel.id), url, title, asUserId(user.id));
+    const row = await addBookmark(channel.id, url, title, user.id);
     const bookmark = toBookmarkResponse(row);
 
     const io = getIO();
@@ -138,15 +138,15 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     const channel = c.get("channel");
     const { bookmarkId } = c.req.valid("param");
 
-    const removed = await removeBookmark(asChannelId(channel.id), bookmarkId);
+    const removed = await removeBookmark(channel.id, bookmarkId);
     if (!removed) {
       return c.json({ error: "Bookmark not found" }, 404);
     }
 
     const io = getIO();
     io.to(`channel:${channel.id}`).emit("bookmark:removed", {
-      channelId: asChannelId(channel.id),
-      bookmarkId,
+      channelId: channel.id,
+      bookmarkId: asBookmarkId(bookmarkId),
     });
 
     return c.json({ ok: true as const }, 200);

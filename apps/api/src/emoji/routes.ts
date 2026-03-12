@@ -11,6 +11,8 @@ import {
 } from "./service";
 import { getIO } from "../socket/io";
 import { errorSchema } from "../openapi/schemas";
+import type { CustomEmoji } from "@openslaq/shared";
+import { asEmojiId } from "@openslaq/shared";
 
 const listRoute = createRoute({
   method: "get",
@@ -148,7 +150,7 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     const emoji = await createCustomEmoji(workspace.id, name, { bytes, type: file.type }, user.id);
 
     const io = getIO();
-    io.to(`workspace:${workspace.id}`).emit("emoji:added", { emoji });
+    io.to(`workspace:${workspace.id}`).emit("emoji:added", { emoji: emoji as CustomEmoji });
 
     return c.json({ emoji }, 201);
   })
@@ -162,7 +164,7 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     }
 
     const io = getIO();
-    io.to(`workspace:${workspace.id}`).emit("emoji:deleted", { emojiId });
+    io.to(`workspace:${workspace.id}`).emit("emoji:deleted", { emojiId: asEmojiId(emojiId) });
 
     return c.json({ ok: true as const }, 200);
   });

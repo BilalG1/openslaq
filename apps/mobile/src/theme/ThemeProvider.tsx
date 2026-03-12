@@ -1,5 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+
 import { useColorScheme } from "react-native";
+
 import { getMobileTheme, type MobileTheme, type ThemeMode } from "@openslaq/shared";
 import {
   getThemePreference,
@@ -18,7 +20,6 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function MobileThemeProvider({ children }: { children: ReactNode }) {
-  const systemColorScheme = useColorScheme();
   const [themePreference, setThemePreferenceState] = useState<ThemePreference>("system");
 
   useEffect(() => {
@@ -30,8 +31,9 @@ export function MobileThemeProvider({ children }: { children: ReactNode }) {
     void persistThemePreference(pref);
   }, []);
 
-  const systemMode: ThemeMode = systemColorScheme === "dark" ? "dark" : "light";
-  const mode: ThemeMode = themePreference === "system" ? systemMode : themePreference;
+  const systemScheme = useColorScheme();
+  const mode: ThemeMode =
+    themePreference === "system" ? (systemScheme === "dark" ? "dark" : "light") : themePreference;
 
   const value = useMemo(
     () => ({

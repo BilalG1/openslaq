@@ -1,8 +1,11 @@
 import { useState } from "react";
-import { View, Text, Image, Pressable, Modal, Linking } from "react-native";
+import { View, Text, Image, Pressable } from "react-native";
 import type { Attachment } from "@openslaq/shared";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { env } from "@/lib/env";
+import { openSafeUrl } from "@/utils/url-validation";
+import { AudioPlayer } from "./AudioPlayer";
+import { ImageGalleryViewer } from "./ImageGalleryViewer";
 
 interface Props {
   attachments: Attachment[];
@@ -18,48 +21,30 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function ImageAttachment({ attachment }: { attachment: Attachment }) {
-  const [fullscreen, setFullscreen] = useState(false);
+function ImageAttachment({
+  attachment,
+  onPress,
+}: {
+  attachment: Attachment;
+  onPress: () => void;
+}) {
   const url = getDownloadUrl(attachment.id);
 
   return (
-    <>
-      <Pressable
-        testID={`attachment-image-${attachment.id}`}
-        onPress={() => setFullscreen(true)}
-      >
-        <Image
-          source={{ uri: url }}
-          style={{
-            maxWidth: 240,
-            height: 160,
-            borderRadius: 8,
-          }}
-          resizeMode="cover"
-        />
-      </Pressable>
-      <Modal
-        visible={fullscreen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setFullscreen(false)}
-      >
-        <Pressable
-          testID={`attachment-fullscreen-${attachment.id}`}
-          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.9)", justifyContent: "center", alignItems: "center" }}
-          onPress={() => setFullscreen(false)}
-        >
-          <Image
-            source={{ uri: url }}
-            style={{ width: "90%", height: "70%" }}
-            resizeMode="contain"
-          />
-          <Text style={{ color: "#fff", marginTop: 12, fontSize: 14 }}>
-            {attachment.filename}
-          </Text>
-        </Pressable>
-      </Modal>
-    </>
+    <Pressable
+      testID={`attachment-image-${attachment.id}`}
+      onPress={onPress}
+    >
+      <Image
+        source={{ uri: url }}
+        style={{
+          maxWidth: 240,
+          height: 160,
+          borderRadius: 8,
+        }}
+        resizeMode="cover"
+      />
+    </Pressable>
   );
 }
 
@@ -70,20 +55,18 @@ function VideoAttachment({ attachment }: { attachment: Attachment }) {
   return (
     <Pressable
       testID={`attachment-video-${attachment.id}`}
-      onPress={() => void Linking.openURL(url)}
-      className="flex-row items-center rounded-lg px-3 py-2"
-      style={{ backgroundColor: theme.colors.surfaceTertiary }}
+      onPress={() => openSafeUrl(url)}
+      style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: theme.colors.surfaceTertiary }}
     >
-      <Text className="mr-2">🎬</Text>
-      <View className="flex-1">
+      <Text style={{ marginRight: 8 }}>🎬</Text>
+      <View style={{ flex: 1 }}>
         <Text
-          className="text-sm"
-          style={{ color: theme.brand.primary }}
+          style={{ fontSize: 14, color: theme.brand.primary }}
           numberOfLines={1}
         >
           {attachment.filename}
         </Text>
-        <Text className="text-xs" style={{ color: theme.colors.textMuted }}>
+        <Text style={{ fontSize: 12, color: theme.colors.textMuted }}>
           {formatSize(attachment.size)}
         </Text>
       </View>
@@ -98,20 +81,18 @@ function FileAttachment({ attachment }: { attachment: Attachment }) {
   return (
     <Pressable
       testID={`attachment-file-${attachment.id}`}
-      onPress={() => void Linking.openURL(url)}
-      className="flex-row items-center rounded-lg px-3 py-2"
-      style={{ backgroundColor: theme.colors.surfaceTertiary }}
+      onPress={() => openSafeUrl(url)}
+      style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: theme.colors.surfaceTertiary }}
     >
-      <Text className="mr-2">📎</Text>
-      <View className="flex-1">
+      <Text style={{ marginRight: 8 }}>📎</Text>
+      <View style={{ flex: 1 }}>
         <Text
-          className="text-sm"
-          style={{ color: theme.brand.primary }}
+          style={{ fontSize: 14, color: theme.brand.primary }}
           numberOfLines={1}
         >
           {attachment.filename}
         </Text>
-        <Text className="text-xs" style={{ color: theme.colors.textMuted }}>
+        <Text style={{ fontSize: 12, color: theme.colors.textMuted }}>
           {formatSize(attachment.size)}
         </Text>
       </View>
@@ -120,19 +101,51 @@ function FileAttachment({ attachment }: { attachment: Attachment }) {
 }
 
 export function MessageAttachments({ attachments }: Props) {
+  const [galleryVisible, setGalleryVisible] = useState(false);
+  const [galleryIndex, setGalleryIndex] = useState(0);
+
   if (attachments.length === 0) return null;
 
+  const imageAttachments = attachments.filter((a) => a.mimeType.startsWith("image/"));
+  const galleryImages = imageAttachments.map((a) => ({
+    uri: getDownloadUrl(a.id),
+    filename: a.filename,
+  }));
+
+  let imageIndex = 0;
+
   return (
-    <View testID="message-attachments" className="mt-1 gap-1.5">
+    <View testID="message-attachments" style={{ marginTop: 4, gap: 6 }}>
       {attachments.map((att) => {
         if (att.mimeType.startsWith("image/")) {
-          return <ImageAttachment key={att.id} attachment={att} />;
+          const idx = imageIndex++;
+          return (
+            <ImageAttachment
+              key={att.id}
+              attachment={att}
+              onPress={() => {
+                setGalleryIndex(idx);
+                setGalleryVisible(true);
+              }}
+            />
+          );
+        }
+        if (att.mimeType.startsWith("audio/")) {
+          return <AudioPlayer key={att.id} uri={getDownloadUrl(att.id)} filename={att.filename} />;
         }
         if (att.mimeType.startsWith("video/")) {
           return <VideoAttachment key={att.id} attachment={att} />;
         }
         return <FileAttachment key={att.id} attachment={att} />;
       })}
+      {galleryImages.length > 0 && (
+        <ImageGalleryViewer
+          images={galleryImages}
+          visible={galleryVisible}
+          initialIndex={galleryIndex}
+          onClose={() => setGalleryVisible(false)}
+        />
+      )}
     </View>
   );
 }

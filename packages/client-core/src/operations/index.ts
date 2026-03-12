@@ -106,3 +106,11 @@ export {
   updateGlobalNotificationPrefs,
 } from "./push";
 export { fetchSlashCommands, executeSlashCommand } from "./slash-commands";
+export { listApiKeys, createApiKey, deleteApiKey } from "./api-keys";
+export {
+  listMarketplaceListings,
+  getMarketplaceListing,
+  installMarketplaceListing,
+  uninstallMarketplaceListing,
+  getInstalledListings,
+} from "./marketplace";

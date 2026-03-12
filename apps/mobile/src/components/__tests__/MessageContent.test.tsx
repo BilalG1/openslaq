@@ -1,36 +1,47 @@
 import React from "react";
 import { render, screen } from "@testing-library/react-native";
 import { MessageContent } from "../MessageContent";
-import type { Mention } from "@openslaq/shared";
-import { asUserId } from "@openslaq/shared";
+import type { Mention, CustomEmoji } from "@openslaq/shared";
+import { asUserId, asEmojiId, asWorkspaceId } from "@openslaq/shared";
 
 // Mock the markdown renderer to render plain text for testability
 jest.mock("@ronradtke/react-native-markdown-display", () => {
   const { Text } = require("react-native");
-  // Simple mock: render children as Text, apply custom rules for links
+  // Simple mock: render children as Text, apply custom rules for links and images
   return {
     __esModule: true,
     default: ({ children, rules }: { children: string; rules?: Record<string, Function> }) => {
-      // Simple: extract mention links and render via rules
-      const mentionRegex = /\[@([^\]]+)\]\(mention:([^)]+)\)/g;
+      // Handle mention links and image syntax
+      const tokenRegex = /\[@([^\]]+)\]\(mention:([^)]+)\)|!\[([^\]]*)\]\(([^)]+)\)/g;
       const parts: React.ReactNode[] = [];
       let lastIndex = 0;
       let match: RegExpExecArray | null;
       let key = 0;
 
-      mentionRegex.lastIndex = 0;
-      while ((match = mentionRegex.exec(children)) !== null) {
+      tokenRegex.lastIndex = 0;
+      while ((match = tokenRegex.exec(children)) !== null) {
         if (match.index > lastIndex) {
           parts.push(<Text key={key++}>{children.slice(lastIndex, match.index)}</Text>);
         }
-        // Simulate calling the link rule
-        if (rules?.link) {
-          const node = {
-            key: `link-${key}`,
-            attributes: { href: `mention:${match[2]}` },
-            children: [{ content: match[1] }],
-          };
-          parts.push(rules.link(node, [], null, {}));
+        if (match[1] != null) {
+          // Mention link
+          if (rules?.link) {
+            const node = {
+              key: `link-${key}`,
+              attributes: { href: `mention:${match[2]}` },
+              children: [{ content: match[1] }],
+            };
+            parts.push(rules.link(node, [], null, {}));
+          }
+        } else if (match[3] != null) {
+          // Image syntax
+          if (rules?.image) {
+            const node = {
+              key: `image-${key}`,
+              attributes: { src: match[4], alt: match[3] },
+            };
+            parts.push(rules.image(node));
+          }
         }
         lastIndex = match.index + match[0].length;
         key++;
@@ -126,5 +137,65 @@ describe("MessageContent", () => {
     );
 
     expect(screen.getByText("@unknown-user")).toBeTruthy();
+  });
+
+  describe("custom emoji", () => {
+    const customEmojis: CustomEmoji[] = [
+      {
+        id: asEmojiId("emoji-1"),
+        workspaceId: asWorkspaceId("ws-1"),
+        name: "party-parrot",
+        url: "https://cdn.test/party-parrot.png",
+        uploadedBy: asUserId("user-1"),
+        createdAt: "2025-01-01T00:00:00Z",
+      },
+    ];
+
+    it("renders custom emoji inline as Image", () => {
+      render(
+        <MessageContent
+          content="Check this out :custom:party-parrot: cool!"
+          customEmojis={customEmojis}
+        />,
+      );
+
+      expect(screen.getByTestId("custom-emoji-inline-party-parrot")).toBeTruthy();
+    });
+
+    it("renders unknown custom emoji as text fallback", () => {
+      render(
+        <MessageContent
+          content="Look :custom:unknown-thing: here"
+          customEmojis={customEmojis}
+        />,
+      );
+
+      expect(screen.queryByTestId("custom-emoji-inline-unknown-thing")).toBeNull();
+      expect(screen.getByText(":unknown-thing:")).toBeTruthy();
+    });
+
+    it("renders multiple custom emoji in same message", () => {
+      const emojis: CustomEmoji[] = [
+        ...customEmojis,
+        {
+          id: asEmojiId("emoji-2"),
+          workspaceId: asWorkspaceId("ws-1"),
+          name: "pepe",
+          url: "https://cdn.test/pepe.png",
+          uploadedBy: asUserId("user-1"),
+          createdAt: "2025-01-01T00:00:00Z",
+        },
+      ];
+
+      render(
+        <MessageContent
+          content=":custom:party-parrot: and :custom:pepe:"
+          customEmojis={emojis}
+        />,
+      );
+
+      expect(screen.getByTestId("custom-emoji-inline-party-parrot")).toBeTruthy();
+      expect(screen.getByTestId("custom-emoji-inline-pepe")).toBeTruthy();
+    });
   });
 });

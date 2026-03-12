@@ -6,6 +6,7 @@ import { userSchema, errorSchema, okSchema } from "../openapi/schemas";
 import { jsonResponse } from "../openapi/responses";
 import { getIO } from "../socket/io";
 import { getUserWorkspaceIds } from "../presence/service";
+import { asUserId } from "@openslaq/shared";
 
 function toUserResponse(user: {
   id: string;
@@ -120,7 +121,7 @@ async function broadcastStatusUpdate(
   const workspaceIds = await getUserWorkspaceIds(userId);
   for (const wsId of workspaceIds) {
     io.to(`workspace:${wsId}`).emit("user:statusUpdated", {
-      userId,
+      userId: asUserId(userId),
       statusEmoji: status.statusEmoji,
       statusText: status.statusText,
       statusExpiresAt: status.statusExpiresAt,

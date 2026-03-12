@@ -1,8 +1,10 @@
+import type { EmojiId, WorkspaceId, UserId } from "./ids";
+
 export interface CustomEmoji {
-  id: string;
-  workspaceId: string;
+  id: EmojiId;
+  workspaceId: WorkspaceId;
   name: string;
   url: string;
-  uploadedBy: string;
+  uploadedBy: UserId;
   createdAt: string;
 }

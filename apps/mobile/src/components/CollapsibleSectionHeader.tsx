@@ -1,22 +1,9 @@
 import { Pressable, Text, View } from "react-native";
 import { useMobileTheme } from "@/theme/ThemeProvider";
+import { haptics } from "@/utils/haptics";
 import Svg, { Path } from "react-native-svg";
 
-function ChevronRight({ color, size = 12 }: { color: string; size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M9 18l6-6-6-6"
-        stroke={color}
-        strokeWidth={2.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function ChevronDown({ color, size = 12 }: { color: string; size?: number }) {
+function ChevronDown({ color, size = 14 }: { color: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -51,13 +38,16 @@ export function CollapsibleSectionHeader({
   return (
     <Pressable
       testID={`section-header-${sectionKey}`}
-      onPress={onToggle}
+      onPress={() => { haptics.light(); onToggle(); }}
       style={{
         flexDirection: "row",
         alignItems: "center",
-        paddingHorizontal: 16,
-        paddingVertical: 8,
+        paddingHorizontal: 24,
+        paddingTop: 20,
+        paddingBottom: 10,
         backgroundColor: theme.colors.surface,
+        borderTopWidth: 0.5,
+        borderTopColor: theme.colors.borderDefault,
       }}
     >
       <Text
@@ -75,12 +65,15 @@ export function CollapsibleSectionHeader({
           ({count})
         </Text>
       )}
-      <View testID={`chevron-${collapsed ? "right" : "down"}`} style={{ width: 20, alignItems: "center" }}>
-        {collapsed ? (
-          <ChevronRight color={theme.colors.textFaint} />
-        ) : (
-          <ChevronDown color={theme.colors.textFaint} />
-        )}
+      <View
+        testID={`chevron-${collapsed ? "right" : "down"}`}
+        style={{
+          width: 20,
+          alignItems: "center",
+          transform: [{ rotate: collapsed ? "-90deg" : "0deg" }],
+        }}
+      >
+        <ChevronDown color={theme.colors.textFaint} />
       </View>
     </Pressable>
   );

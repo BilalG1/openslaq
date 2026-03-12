@@ -1,25 +1,29 @@
 import { memo, useMemo } from "react";
-import { Text, Linking } from "react-native";
+import { Text, Image } from "react-native";
 import Markdown, { type RenderRules } from "@ronradtke/react-native-markdown-display";
-import type { Mention } from "@openslaq/shared";
+import type { Mention, CustomEmoji } from "@openslaq/shared";
+import { findCustomEmoji } from "@openslaq/client-core";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { MentionBadge } from "./MentionBadge";
+import { openSafeUrl } from "@/utils/url-validation";
 import { CodeBlock } from "./CodeBlock";
 
 interface Props {
   content: string;
   mentions?: Mention[];
   onPressMention?: (userId: string) => void;
+  customEmojis?: CustomEmoji[];
 }
 
 const MENTION_REGEX = /<@([^>]+)>/g;
+const CUSTOM_EMOJI_INLINE_REGEX = /:custom:([a-z0-9][a-z0-9_-]*[a-z0-9]):/g;
 
 /**
- * Preprocess mentions: replace `<@token>` with markdown links `[@name](mention:token)`
- * so the markdown renderer can handle them via a custom link rule.
+ * Preprocess mentions and custom emoji shortcodes into markdown syntax
+ * so the markdown renderer can handle them via custom rules.
  */
-function preprocessMentions(content: string, mentions: Mention[]): string {
-  return content.replace(MENTION_REGEX, (_match, token: string) => {
+function preprocessContent(content: string, mentions: Mention[]): string {
+  let result = content.replace(MENTION_REGEX, (_match, token: string) => {
     if (token === "here" || token === "channel") {
       return `[@${token}](mention:${token})`;
     }
@@ -27,14 +31,19 @@ function preprocessMentions(content: string, mentions: Mention[]): string {
     const displayName = mention?.displayName ?? token;
     return `[@${displayName}](mention:${token})`;
   });
+  // Convert :custom:name: shortcodes to markdown image syntax
+  result = result.replace(CUSTOM_EMOJI_INLINE_REGEX, (_match, name: string) => {
+    return `![${name}](custom-emoji:${name})`;
+  });
+  return result;
 }
 
-function MessageContentInner({ content, mentions = [], onPressMention }: Props) {
+function MessageContentInner({ content, mentions = [], onPressMention, customEmojis = [] }: Props) {
   const { theme, mode } = useMobileTheme();
   const isDark = mode === "dark";
 
   const processedContent = useMemo(
-    () => preprocessMentions(content, mentions),
+    () => preprocessContent(content, mentions),
     [content, mentions],
   );
 
@@ -118,7 +127,7 @@ function MessageContentInner({ content, mentions = [], onPressMention }: Props) 
             key={node.key}
             style={styles.link}
             onPress={() => {
-              if (href) void Linking.openURL(href);
+              if (href) openSafeUrl(href);
             }}
           >
             {children}
@@ -130,8 +139,36 @@ function MessageContentInner({ content, mentions = [], onPressMention }: Props) 
         const code = node.content?.replace(/\n$/, "") ?? "";
         return <CodeBlock key={node.key} language={language}>{code}</CodeBlock>;
       },
+      image: (node) => {
+        const src = node.attributes?.src ?? "";
+        const alt = node.attributes?.alt ?? "";
+        if (src.startsWith("custom-emoji:")) {
+          const name = src.slice("custom-emoji:".length);
+          const found = findCustomEmoji(name, customEmojis);
+          if (found) {
+            return (
+              <Image
+                key={node.key}
+                testID={`custom-emoji-inline-${name}`}
+                source={{ uri: found.url }}
+                style={{ width: 20, height: 20 }}
+                accessibilityLabel={name}
+              />
+            );
+          }
+          return <Text key={node.key}>:{name}:</Text>;
+        }
+        return (
+          <Image
+            key={node.key}
+            source={{ uri: src }}
+            accessibilityLabel={alt}
+            style={{ width: 100, height: 100 }}
+          />
+        );
+      },
     }),
-    [onPressMention],
+    [onPressMention, customEmojis],
   );
 
   return (

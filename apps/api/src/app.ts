@@ -19,6 +19,10 @@ import botApiRoutes from "./bots/bot-api-routes";
 import interactionRoutes from "./bots/interaction-routes";
 import authRoutes from "./auth/routes";
 import pushRoutes from "./push/routes";
+import marketplaceRoutes from "./marketplace/routes";
+import marketplaceTokenRoutes from "./marketplace/token-routes";
+import apiKeyRoutes from "./api-keys/routes";
+import { INTEGRATION_PLUGINS } from "./integrations/registry";
 
 const app = new OpenAPIHono();
 
@@ -54,6 +58,8 @@ app.doc31("/api/openapi.json", {
     { name: "Search", description: "Full-text message search" },
     { name: "Presence", description: "User online presence" },
     { name: "Bots", description: "Bot app management and API" },
+    { name: "Marketplace", description: "Bot marketplace catalog and installation" },
+    { name: "API Keys", description: "User API key management" },
   ],
 });
 
@@ -84,7 +90,17 @@ const routes = app
   .route("/api/bot", botApiRoutes)
   .route("/api/bot-interactions", interactionRoutes)
   .route("/api/auth", authRoutes)
-  .route("/api", pushRoutes);
+  .route("/api", pushRoutes)
+  .route("/api/marketplace", marketplaceRoutes)
+  .route("/api/marketplace/oauth", marketplaceTokenRoutes)
+  .route("/api/api-keys", apiKeyRoutes);
+
+// Mount integration plugin webhook routes
+for (const plugin of INTEGRATION_PLUGINS) {
+  if (plugin.webhookRoutes) {
+    routes.route(`/api/integrations/${plugin.slug}`, plugin.webhookRoutes);
+  }
+}
 
 // Export the app type for Hono RPC client (end-to-end type safety)
 export type AppType = typeof routes;

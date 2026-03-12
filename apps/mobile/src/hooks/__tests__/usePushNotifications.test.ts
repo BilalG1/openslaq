@@ -150,7 +150,7 @@ describe("usePushNotifications", () => {
             content: {
               data: {
                 workspaceSlug: "my-workspace",
-                channelId: "channel-123",
+                channelId: "550e8400-e29b-41d4-a716-446655440000",
               },
             },
           },
@@ -159,7 +159,7 @@ describe("usePushNotifications", () => {
     });
 
     expect(router.push).toHaveBeenCalledWith(
-      expect.stringContaining("channel-123"),
+      expect.stringContaining("550e8400-e29b-41d4-a716-446655440000"),
     );
   });
 
@@ -179,8 +179,8 @@ describe("usePushNotifications", () => {
             content: {
               data: {
                 workspaceSlug: "my-workspace",
-                channelId: "channel-123",
-                parentMessageId: "msg-456",
+                channelId: "550e8400-e29b-41d4-a716-446655440000",
+                parentMessageId: "660e8400-e29b-41d4-a716-446655440000",
               },
             },
           },
@@ -189,8 +189,62 @@ describe("usePushNotifications", () => {
     });
 
     expect(router.push).toHaveBeenCalledWith(
-      expect.stringContaining("channel-123"),
+      expect.stringContaining("thread/660e8400-e29b-41d4-a716-446655440000"),
     );
+  });
+
+  it("ignores notification with path-traversal workspaceSlug", () => {
+    renderHook(() =>
+      usePushNotifications({
+        deps: mockDeps,
+        activeChannelId: null,
+        workspaceSlug: "default",
+      }),
+    );
+
+    act(() => {
+      notificationResponseCallback!({
+        notification: {
+          request: {
+            content: {
+              data: {
+                workspaceSlug: "../../../etc",
+                channelId: "550e8400-e29b-41d4-a716-446655440000",
+              },
+            },
+          },
+        },
+      });
+    });
+
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it("ignores notification with invalid channelId", () => {
+    renderHook(() =>
+      usePushNotifications({
+        deps: mockDeps,
+        activeChannelId: null,
+        workspaceSlug: "default",
+      }),
+    );
+
+    act(() => {
+      notificationResponseCallback!({
+        notification: {
+          request: {
+            content: {
+              data: {
+                workspaceSlug: "my-workspace",
+                channelId: "not-a-uuid",
+              },
+            },
+          },
+        },
+      });
+    });
+
+    expect(router.push).not.toHaveBeenCalled();
   });
 
   it("suppresses foreground notification when in same channel", () => {

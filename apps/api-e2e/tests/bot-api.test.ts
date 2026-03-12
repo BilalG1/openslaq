@@ -1,11 +1,11 @@
 import { describe, test, expect } from "bun:test";
-import { createTestClient, testId, createTestWorkspace } from "./helpers/api-client";
+import { createTestClient, testId, createTestWorkspace, TestApiClient } from "./helpers/api-client";
 
 function getApiUrl() {
   return process.env.API_BASE_URL ?? "http://localhost:3001";
 }
 
-async function createBotWithToken(client: any, slug: string) {
+async function createBotWithToken(client: TestApiClient, slug: string) {
   const res = await client.api.workspaces[":slug"].bots.$post({
     param: { slug },
     json: {
@@ -20,7 +20,7 @@ async function createBotWithToken(client: any, slug: string) {
   return data;
 }
 
-async function addBotToChannel(client: any, slug: string, channelId: string, botUserId: string) {
+async function addBotToChannel(client: TestApiClient, slug: string, channelId: string, botUserId: string) {
   const res = await client.api.workspaces[":slug"].channels[":id"].members.$post({
     param: { slug, id: channelId },
     json: { userId: botUserId },

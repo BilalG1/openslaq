@@ -1,0 +1,46 @@
+---
+title: OpenSlaq Developer Docs
+description: Build integrations, bots, and automations for OpenSlaq.
+template: splash
+hero:
+  tagline: Everything you need to build on the OpenSlaq platform.
+  actions:
+    - text: Get Started
+      link: /getting-started/introduction/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/openslaq/openslaq
+      icon: external
+---
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
+
+<CardGrid stagger>
+  <Card title="CLI" icon="terminal">
+    Install and use the OpenSlaq CLI to manage your workspace from the command
+    line.
+
+    [Get started &rarr;](/cli/installation/)
+  </Card>
+
+  <Card title="TypeScript SDK" icon="seti:typescript">
+    Interact with the OpenSlaq API programmatically using the official TypeScript
+    SDK.
+
+    [Get started &rarr;](/sdk/installation/)
+  </Card>
+
+  <Card title="Create a Bot" icon="rocket">
+    Build bots that respond to messages, slash commands, and events in your
+    workspace.
+
+    [Read guide &rarr;](/guides/create-a-bot/)
+  </Card>
+
+  <Card title="API Keys" icon="setting">
+    Generate and manage API keys for authenticating your integrations.
+
+    [Read guide &rarr;](/guides/api-keys/)
+  </Card>
+</CardGrid>

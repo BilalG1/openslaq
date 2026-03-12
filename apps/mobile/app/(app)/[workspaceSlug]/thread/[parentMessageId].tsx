@@ -18,6 +18,7 @@ import {
   sendMessage as coreSendMessage,
   listWorkspaceMembers,
   shareMessageOp,
+  markChannelAsUnread,
 } from "@openslaq/client-core";
 import type { MentionSuggestionItem } from "@/hooks/useMentionAutocomplete";
 import { useAuth } from "@/contexts/AuthContext";
@@ -26,7 +27,7 @@ import { useSocketEvent } from "@/hooks/useSocketEvent";
 import { useMessageActions } from "@/hooks/useMessageActions";
 import { useTypingEmitter } from "@/hooks/useTypingEmitter";
 import { useTypingTracking } from "@/hooks/useTypingTracking";
-import { useFileUpload } from "@/hooks/useFileUpload";
+import { useFileUpload, type PendingFile } from "@/hooks/useFileUpload";
 import { api } from "@/lib/api";
 import { MessageBubble } from "@/components/MessageBubble";
 import { MessageInput } from "@/components/MessageInput";
@@ -66,6 +67,7 @@ export default function ThreadScreen() {
     ? state.messagesById[parentMessageId]
     : undefined;
   const channelId = parentMessage?.channelId;
+  const customEmojis = state.customEmojis;
 
   const { emitTyping } = useTypingEmitter(channelId);
   const typingUsers = useTypingTracking(channelId, user?.id, members);
@@ -169,6 +171,25 @@ export default function ThreadScreen() {
     [router, workspaceSlug],
   );
 
+  const handleSendVoiceMessage = useCallback(
+    async (uri: string, _durationMs: number) => {
+      if (!workspaceSlug || !channelId || !parentMessageId) return;
+      const file: PendingFile = {
+        id: `voice-${Date.now()}`,
+        uri,
+        name: `voice-message-${Date.now()}.m4a`,
+        mimeType: "audio/mp4",
+        isImage: false,
+      };
+      fileUpload.addFile(file);
+      const attachmentIds = await fileUpload.uploadAll(() => authProvider.requireAccessToken());
+      const deps = { api, auth: authProvider, dispatch, getState: () => state };
+      await coreSendMessage(deps, { channelId, workspaceSlug, content: "", attachmentIds, parentMessageId });
+      fileUpload.reset();
+    },
+    [authProvider, channelId, dispatch, fileUpload, parentMessageId, state, workspaceSlug],
+  );
+
   const handleAddAttachment = useCallback(() => {
     Alert.alert("Attach", undefined, [
       { text: "Photo Library", onPress: () => void fileUpload.addFromImagePicker() },
@@ -263,6 +284,15 @@ export default function ThreadScreen() {
     [emojiPickerMessageId, handleToggleReaction],
   );
 
+  const handleMarkAsUnread = useCallback(
+    async (messageId: string) => {
+      if (!workspaceSlug || !channelId) return;
+      const deps = { api, auth: authProvider, dispatch, getState: () => state };
+      await markChannelAsUnread(deps, { workspaceSlug, channelId, messageId });
+    },
+    [authProvider, channelId, dispatch, state, workspaceSlug],
+  );
+
   const handleShareMessage = useCallback((message: Message) => {
     setShareMessage(message);
   }, []);
@@ -316,11 +346,11 @@ export default function ThreadScreen() {
       keyboardVerticalOffset={90}
     >
       {isLoading && data.length === 0 ? (
-        <View className="flex-1 items-center justify-center">
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator size="large" color={theme.brand.primary} />
         </View>
       ) : error ? (
-        <View className="flex-1 items-center justify-center px-6">
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
           <Text style={{ color: theme.colors.textFaint }}>{error}</Text>
         </View>
       ) : (
@@ -337,15 +367,15 @@ export default function ThreadScreen() {
                 onToggleReaction={handleToggleReaction}
                 onLongPress={handleLongPress}
                 onPressSender={handlePressSender}
+                customEmojis={customEmojis}
               />
               {index === 0 && replies.length > 0 && (
                 <>
                   <View
-                    className="mx-4 my-2 border-b"
-                    style={{ borderColor: theme.colors.borderDefault }}
+                    style={{ marginHorizontal: 16, marginVertical: 8, borderBottomWidth: 1, borderColor: theme.colors.borderDefault }}
                   />
                   {pagination?.loadingOlder && (
-                    <View testID="thread-load-more-spinner" className="items-center py-4">
+                    <View testID="thread-load-more-spinner" style={{ alignItems: 'center', paddingVertical: 16 }}>
                       <ActivityIndicator size="small" color={theme.brand.primary} />
                     </View>
                   )}
@@ -354,7 +384,7 @@ export default function ThreadScreen() {
             </View>
           )}
           ListEmptyComponent={
-            <View className="flex-1 items-center justify-center py-12">
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 48 }}>
               <Text style={{ color: theme.colors.textFaint }}>
                 No replies yet
               </Text>
@@ -372,6 +402,7 @@ export default function ThreadScreen() {
       <MessageInput
         onSend={handleSend}
         placeholder="Reply in thread"
+        draftKey={parentMessageId ? `thread-${parentMessageId}` : undefined}
         editingMessage={editingMessage}
         onCancelEdit={handleCancelEdit}
         onSaveEdit={handleSaveEdit}
@@ -381,6 +412,7 @@ export default function ThreadScreen() {
         onAddAttachment={handleAddAttachment}
         onRemoveFile={fileUpload.removeFile}
         uploading={fileUpload.uploading}
+        onSendVoiceMessage={handleSendVoiceMessage}
       />
       <MessageActionSheet
         visible={actionSheetMessage != null}
@@ -390,6 +422,7 @@ export default function ThreadScreen() {
         onOpenEmojiPicker={handleOpenEmojiPicker}
         onEditMessage={handleStartEdit}
         onDeleteMessage={handleDeleteMessage}
+        onMarkAsUnread={handleMarkAsUnread}
         onShareMessage={handleShareMessage}
         onClose={() => setActionSheetMessage(null)}
       />
@@ -400,6 +433,7 @@ export default function ThreadScreen() {
           setShowEmojiPicker(false);
           setEmojiPickerMessageId(null);
         }}
+        customEmojis={customEmojis}
       />
       <ShareMessageModal
         visible={shareMessage != null}

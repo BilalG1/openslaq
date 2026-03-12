@@ -92,7 +92,7 @@ Backend and shared client-core operations already exist for all of these. Only m
 - Key files: `packages/client-core/src/operations/share.ts`, `MessageActionSheet.tsx`, web ref `ShareMessageDialog.tsx`
 
 ### MM-008: Channel Bookmarks Bar
-- Status: Open
+- Status: Later
 - Impact: Medium
 - Estimate: Small
 - Dependencies: None — `operations/bookmarks.ts` fully built, reducer tracks `channelBookmarks`
@@ -128,7 +128,7 @@ Backend and shared client-core operations already exist for all of these. Only m
 - Key files: `packages/client-core/src/operations/group-dm.ts`, `NewDmModal.tsx`, DM list `index.tsx`
 
 ### MM-011: Scheduled Messages
-- Status: Open
+- Status: Done
 - Impact: Medium
 - Estimate: Medium
 - Dependencies: None — `operations/scheduled.ts` fully built
@@ -140,7 +140,7 @@ Backend and shared client-core operations already exist for all of these. Only m
 - Key files: `packages/client-core/src/operations/scheduled.ts`, `MessageInput.tsx`, web ref `ScheduleMessageDialog.tsx`, `ScheduledMessagesView.tsx`
 
 ### MM-012: Files Browser
-- Status: Open
+- Status: Done
 - Impact: Medium
 - Estimate: Medium
 - Dependencies: None — `operations/files.ts` fully built with cursor pagination and filters
@@ -152,7 +152,7 @@ Backend and shared client-core operations already exist for all of these. Only m
 - Key files: `packages/client-core/src/operations/files.ts`, web ref `FilesView.tsx`
 
 ### MM-013: Custom Emoji in Picker
-- Status: Open
+- Status: Done
 - Impact: Medium
 - Estimate: Medium
 - Dependencies: None — `operations/emoji.ts` fully built, reducer tracks `customEmojis`
@@ -163,13 +163,87 @@ Backend and shared client-core operations already exist for all of these. Only m
   - Admin users can upload new custom emoji from settings.
 - Key files: `packages/client-core/src/operations/emoji.ts`, `EmojiPickerSheet.tsx`, `MessageBubble.tsx`
 
+### MM-027: Slash Commands
+- Status: Done
+- Impact: High
+- Estimate: Medium
+- Dependencies: None — bot/slash-command system fully built on backend
+- Summary: Support typing `/` to invoke slash commands in the message input.
+- Acceptance criteria:
+  - Typing `/` at the start of input shows a list of available commands.
+  - Autocomplete filters commands as the user types.
+  - Command execution sends to the API and renders ephemeral responses inline.
+- Key files: `MessageInput.tsx`, `apps/api/src/bots/`, web ref `SlashCommandMenu.tsx`
+
+### MM-028: Code Syntax Highlighting
+- Status: Done
+- Impact: Low
+- Estimate: Small
+- Dependencies: None — messages already render fenced code blocks
+- Summary: Add language-aware syntax highlighting to code blocks in messages.
+- Acceptance criteria:
+  - Fenced code blocks with a language tag render with syntax highlighting.
+  - At minimum support JS/TS, Python, JSON, HTML/CSS, Go, Rust.
+  - Dark and light theme variants for highlighted code.
+- Key files: `CodeBlock.tsx`, web ref uses Shiki
+
+### MM-029: Channel Archiving
+- Status: Open
+- Impact: Medium
+- Estimate: Small
+- Dependencies: None — archive/unarchive API endpoints already exist
+- Summary: Allow archiving and unarchiving channels from mobile.
+- Acceptance criteria:
+  - "Archive channel" option in channel settings/details.
+  - Archived channels show a visual indicator and disable message input.
+  - "Unarchive" option available on archived channels for admins.
+- Key files: Channel details screen, web ref channel settings
+
+### MM-030: Per-Channel Notification Levels
+- Status: Done
+- Impact: Medium
+- Estimate: Small
+- Dependencies: None — notification preference API already supports per-channel levels
+- Summary: Allow setting notification level per channel (all, mentions, nothing).
+- Acceptance criteria:
+  - Notification level picker in channel details/settings.
+  - Options: Default, All messages, Mentions only, Nothing.
+  - Push notification delivery respects per-channel settings.
+- Key files: Channel details screen, `apps/api/src/push/`
+
+### MM-031: Bot & App Management
+- Status: Open
+- Impact: Medium
+- Estimate: Large
+- Dependencies: None — full bot CRUD API exists on backend
+- Summary: Create, configure, and manage workspace bots/apps from mobile.
+- Acceptance criteria:
+  - Bots section in workspace settings listing installed bots.
+  - Create new bot with name, avatar, and scope selection.
+  - Edit bot configuration, event subscriptions, and slash commands.
+  - Delete bot with confirmation.
+- Key files: Workspace settings screen, `apps/api/src/bots/`, web ref `BotSettingsPage.tsx`
+
+### MM-032: Screen Sharing in Huddles
+- Status: Done
+- Impact: Medium
+- Estimate: Medium
+- Dependencies: LiveKit screen capture support for React Native
+- Summary: Share device screen during an active huddle.
+- Acceptance criteria:
+  - "Share screen" button in huddle controls.
+  - Screen capture stream shared via LiveKit to all participants.
+  - Visual indicator when a participant is sharing their screen.
+  - Tap shared screen to view full-screen.
+- Key files: `HuddleControls.tsx`, `VideoGrid.tsx`, `VideoTile.tsx`
+
 ## Tier 2: New Mobile Features
 
 Important Slack-like features that improve mobile UX. Some need minor backend work.
 
 ### MM-014: Pull to Refresh
-- Status: Open
-- Impact: Medium
+- Status: Unnecessary — Socket.IO handles live updates
+- Impact: Low
 - Estimate: Small
 - Dependencies: None — uses React Native's built-in RefreshControl
 - Summary: Add pull-to-refresh on key list screens.
@@ -180,7 +254,7 @@ Important Slack-like features that improve mobile UX. Some need minor backend wo
 - Key files: Channel screen `[channelId].tsx`, channel list `index.tsx`, DM list `index.tsx`
 
 ### MM-015: Mark as Unread
-- Status: Open
+- Status: Done
 - Impact: Medium
 - Estimate: Small
 - Dependencies: None — read position API already exists
@@ -192,7 +266,7 @@ Important Slack-like features that improve mobile UX. Some need minor backend wo
 - Key files: `MessageActionSheet.tsx`, `apps/api/src/channels/read-positions-service.ts`
 
 ### MM-016: Quick Switcher
-- Status: Open
+- Status: Done
 - Impact: High
 - Estimate: Medium
 - Dependencies: None — data already in chat store (channels, dms, groupDms, members)
@@ -204,7 +278,7 @@ Important Slack-like features that improve mobile UX. Some need minor backend wo
 - Key files: Workspace layout `_layout.tsx`
 
 ### MM-017: Image Gallery Viewer
-- Status: Open
+- Status: Done
 - Impact: Medium
 - Estimate: Medium
 - Dependencies: None — images already delivered as message attachments
@@ -216,7 +290,7 @@ Important Slack-like features that improve mobile UX. Some need minor backend wo
 - Key files: `MessageAttachments.tsx`, consider `react-native-image-viewing` library
 
 ### MM-018: Drafts
-- Status: Open
+- Status: Done
 - Impact: Medium
 - Estimate: Medium
 - Dependencies: None — can start with AsyncStorage (client-only)
@@ -225,10 +299,10 @@ Important Slack-like features that improve mobile UX. Some need minor backend wo
   - Text in MessageInput auto-saves as a draft when navigating away.
   - Draft restores when returning to the channel.
   - Dedicated Drafts screen lists channels with unsent drafts.
-- Key files: `MessageInput.tsx`, web ref `useDraftMessage.test.ts`
+- Key files: `useDraftMessage.ts`, `draft-storage.ts`, `MessageInput.tsx`, `drafts.tsx`, `QuickActionsRow.tsx`
 
 ### MM-019: Haptic Feedback
-- Status: Open
+- Status: Done
 - Impact: Low
 - Estimate: Small
 - Dependencies: None — uses `expo-haptics`
@@ -239,37 +313,12 @@ Important Slack-like features that improve mobile UX. Some need minor backend wo
   - Light haptic on reaction selection.
 - Key files: `MessageBubble.tsx`, `MessageInput.tsx`, `MessageActionSheet.tsx`
 
-### MM-020: Do Not Disturb
-- Status: Open
-- Impact: Medium
-- Estimate: Medium
-- Dependencies: New backend DND state per user with expiration
-- Summary: Pause notifications for a set duration.
-- Acceptance criteria:
-  - DND options: 30 min, 1 hour, until tomorrow, custom.
-  - DND indicator shown on user's presence.
-  - Push notification delivery respects DND state.
-  - Accessible from notification settings screen.
-- Key files: `apps/api/src/push/`, notification settings screen
-
 ## Tier 3: Polish & Extended
 
 Lower priority features for future iterations.
 
-### MM-021: Swipe Gestures
-- Status: Open
-- Impact: Low
-- Estimate: Medium
-- Dependencies: `react-native-gesture-handler` Swipeable
-- Summary: Swipe-to-reply on messages and swipe-to-read on channel rows.
-- Acceptance criteria:
-  - Swipe right on a message opens thread reply.
-  - Swipe right on a channel row marks it as read.
-  - Smooth gesture animations with proper haptic feedback.
-- Key files: `MessageBubble.tsx`, channel list `index.tsx`
-
 ### MM-022: Rich Text Toolbar
-- Status: Open
+- Status: Done
 - Impact: Low
 - Estimate: Medium
 - Dependencies: Markdown shortcut insertion or a rich-text editor library
@@ -305,7 +354,7 @@ Lower priority features for future iterations.
 - Key files: `MessageInput.tsx`, socket provider
 
 ### MM-025: Voice Messages
-- Status: Open
+- Status: Done
 - Impact: Low
 - Estimate: Large
 - Dependencies: Audio recording (`expo-av`), new attachment type, audio player UI
@@ -314,7 +363,7 @@ Lower priority features for future iterations.
   - Record button in MessageInput for capturing audio.
   - Audio player UI in message bubbles for playback.
   - Backend supports audio file upload and streaming.
-- Key files: `MessageInput.tsx`, `apps/api/src/uploads/`
+- Key files: `useAudioRecorder.ts`, `AudioPlayer.tsx`, `MessageInput.tsx`, `MessageAttachments.tsx`
 
 ### MM-026: Message Reminders
 - Status: Open

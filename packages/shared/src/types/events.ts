@@ -1,4 +1,4 @@
-import type { MessageId, ChannelId, UserId } from "./ids";
+import type { MessageId, ChannelId, UserId, ScheduledMessageId, EmojiId, BookmarkId } from "./ids";
 import type { ScheduledMessage } from "./scheduled-message";
 import type { Channel } from "./channel";
 import type { Message } from "./message";
@@ -43,13 +43,13 @@ export interface ServerToClientEvents {
     reactions: ReactionGroup[];
   }) => void;
   "presence:updated": (payload: {
-    userId: string;
+    userId: UserId;
     status: "online" | "offline";
     lastSeenAt: string | null;
   }) => void;
   "presence:sync": (payload: {
     users: Array<{
-      userId: string;
+      userId: UserId;
       status: "online" | "offline";
       lastSeenAt: string | null;
       statusEmoji?: string | null;
@@ -58,7 +58,7 @@ export interface ServerToClientEvents {
     }>;
   }) => void;
   "user:statusUpdated": (payload: {
-    userId: string;
+    userId: UserId;
     statusEmoji: string | null;
     statusText: string | null;
     statusExpiresAt: string | null;
@@ -72,14 +72,14 @@ export interface ServerToClientEvents {
   "channel:member-removed": (payload: { channelId: ChannelId; userId: UserId }) => void;
   "message:pinned": (payload: { messageId: MessageId; channelId: ChannelId; pinnedBy: UserId; pinnedAt: string }) => void;
   "message:unpinned": (payload: { messageId: MessageId; channelId: ChannelId }) => void;
-  "scheduledMessage:created": (payload: { id: string; channelId: ChannelId; scheduledFor: string; status: ScheduledMessage["status"] }) => void;
-  "scheduledMessage:updated": (payload: { id: string; channelId: ChannelId; scheduledFor: string; status: ScheduledMessage["status"] }) => void;
-  "scheduledMessage:deleted": (payload: { id: string; channelId: ChannelId }) => void;
-  "scheduledMessage:sent": (payload: { id: string; channelId: ChannelId; messageId: MessageId }) => void;
-  "scheduledMessage:failed": (payload: { id: string; channelId: ChannelId; failureReason: string }) => void;
+  "scheduledMessage:created": (payload: { id: ScheduledMessageId; channelId: ChannelId; scheduledFor: string; status: ScheduledMessage["status"] }) => void;
+  "scheduledMessage:updated": (payload: { id: ScheduledMessageId; channelId: ChannelId; scheduledFor: string; status: ScheduledMessage["status"] }) => void;
+  "scheduledMessage:deleted": (payload: { id: ScheduledMessageId; channelId: ChannelId }) => void;
+  "scheduledMessage:sent": (payload: { id: ScheduledMessageId; channelId: ChannelId; messageId: MessageId }) => void;
+  "scheduledMessage:failed": (payload: { id: ScheduledMessageId; channelId: ChannelId; failureReason: string }) => void;
   "emoji:added": (payload: { emoji: CustomEmoji }) => void;
-  "emoji:deleted": (payload: { emojiId: string }) => void;
+  "emoji:deleted": (payload: { emojiId: EmojiId }) => void;
   "bookmark:added": (payload: { bookmark: ChannelBookmark }) => void;
-  "bookmark:removed": (payload: { channelId: ChannelId; bookmarkId: string }) => void;
+  "bookmark:removed": (payload: { channelId: ChannelId; bookmarkId: BookmarkId }) => void;
   "command:ephemeral": (payload: EphemeralMessage) => void;
 }

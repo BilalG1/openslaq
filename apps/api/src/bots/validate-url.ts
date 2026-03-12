@@ -15,7 +15,7 @@ const BLOCKED_HOSTNAMES = new Set([
 ]);
 
 /** IPv4 ranges that should never be fetched from the server */
-function isBlockedIPv4(ip: string): boolean {
+export function isBlockedIPv4(ip: string): boolean {
   const parts = ip.split(".").map(Number);
   if (parts.length !== 4 || parts.some((p) => Number.isNaN(p))) return false;
 

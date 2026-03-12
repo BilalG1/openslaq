@@ -1,5 +1,6 @@
 import type { Message, MessageId, ChannelId, UserId } from "@openslaq/shared";
 import { MessageItem } from "../../components/message/MessageItem";
+import { MessageActionsProvider } from "../../components/message/MessageActionsContext";
 import { VariantGrid, VariantItem } from "../ShowcaseSection";
 import type { ComponentStory } from "../showcase-registry";
 
@@ -64,16 +65,22 @@ const botMessage = msg({
   isBot: true,
 });
 
+const actionsContext = {
+  currentUserId: "u_viewer" as string,
+  onToggleReaction: noop,
+  onOpenThread: noop,
+};
+
 export const messageItemStory: ComponentStory = {
   id: "message-item",
   name: "MessageItem",
   source: "components/message/MessageItem.tsx",
   render: () => (
-    <>
+    <MessageActionsProvider value={actionsContext}>
       <VariantGrid title="Basic">
         <VariantItem label="default">
           <div className="w-[500px]">
-            <MessageItem message={basicMessage} currentUserId={"u_viewer" as string} onToggleReaction={noop} />
+            <MessageItem message={basicMessage} />
           </div>
         </VariantItem>
       </VariantGrid>
@@ -81,7 +88,7 @@ export const messageItemStory: ComponentStory = {
       <VariantGrid title="With Reactions">
         <VariantItem label="two reactions">
           <div className="w-[500px]">
-            <MessageItem message={withReactions} currentUserId={"u_alice" as string} onToggleReaction={noop} />
+            <MessageItem message={withReactions} />
           </div>
         </VariantItem>
       </VariantGrid>
@@ -89,7 +96,7 @@ export const messageItemStory: ComponentStory = {
       <VariantGrid title="Thread Replies">
         <VariantItem label="5 replies">
           <div className="w-[500px]">
-            <MessageItem message={withThread} currentUserId={"u_viewer" as string} onOpenThread={noop} onToggleReaction={noop} />
+            <MessageItem message={withThread} />
           </div>
         </VariantItem>
       </VariantGrid>
@@ -97,7 +104,7 @@ export const messageItemStory: ComponentStory = {
       <VariantGrid title="Pinned">
         <VariantItem label="pinned message">
           <div className="w-[500px]">
-            <MessageItem message={pinned} currentUserId={"u_viewer" as string} onToggleReaction={noop} />
+            <MessageItem message={pinned} />
           </div>
         </VariantItem>
       </VariantGrid>
@@ -105,7 +112,7 @@ export const messageItemStory: ComponentStory = {
       <VariantGrid title="Bot Message">
         <VariantItem label="APP badge">
           <div className="w-[500px]">
-            <MessageItem message={botMessage} currentUserId={"u_viewer" as string} onToggleReaction={noop} />
+            <MessageItem message={botMessage} />
           </div>
         </VariantItem>
       </VariantGrid>
@@ -113,10 +120,10 @@ export const messageItemStory: ComponentStory = {
       <VariantGrid title="With Status Emoji">
         <VariantItem label="vacation">
           <div className="w-[500px]">
-            <MessageItem message={basicMessage} currentUserId={"u_viewer" as string} senderStatusEmoji="🌴" onToggleReaction={noop} />
+            <MessageItem message={basicMessage} senderStatusEmoji="🌴" />
           </div>
         </VariantItem>
       </VariantGrid>
-    </>
+    </MessageActionsProvider>
   ),
 };

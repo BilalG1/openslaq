@@ -2,6 +2,7 @@ import { describe, expect, test, afterEach, jest } from "bun:test";
 import { render, cleanup } from "../../test-utils";
 import { MessageContent } from "./MessageContent";
 import type { Mention, UserId, CustomEmoji } from "@openslaq/shared";
+import { asEmojiId, asWorkspaceId, asUserId } from "@openslaq/shared";
 
 function mention(userId: string, displayName: string): Mention {
   return { userId: userId as UserId, displayName, type: "user" };
@@ -150,7 +151,7 @@ describe("MessageContent", () => {
 
   test("renders custom emoji as an img tag", () => {
     const emojis: CustomEmoji[] = [
-      { id: "e1", workspaceId: "w1", name: "party-parrot", url: "https://example.com/party-parrot.png", uploadedBy: "u1", createdAt: "" },
+      { id: asEmojiId("e1"), workspaceId: asWorkspaceId("w1"), name: "party-parrot", url: "https://example.com/party-parrot.png", uploadedBy: asUserId("u1"), createdAt: "" },
     ];
     const { container } = render(
       <MessageContent content="Check this :custom:party-parrot:" customEmojis={emojis} />,
@@ -199,7 +200,7 @@ describe("MessageContent", () => {
 
   test("renders custom emoji alongside mentions", () => {
     const emojis: CustomEmoji[] = [
-      { id: "e1", workspaceId: "w1", name: "thumbsup", url: "https://example.com/thumbsup.png", uploadedBy: "u1", createdAt: "" },
+      { id: asEmojiId("e1"), workspaceId: asWorkspaceId("w1"), name: "thumbsup", url: "https://example.com/thumbsup.png", uploadedBy: asUserId("u1"), createdAt: "" },
     ];
     const { container } = render(
       <MessageContent

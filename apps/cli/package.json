@@ -1,0 +1,26 @@
+{
+  "name": "@openslaq/cli",
+  "version": "0.0.1",
+  "type": "module",
+  "bin": {
+    "openslaq": "./dist/index.js"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "prebuild": "bun run scripts/generate-version.ts",
+    "build": "bun run prebuild && bun build src/index.ts --outdir dist --target bun --minify && bun run scripts/prepend-shebang.ts",
+    "prepublishOnly": "bun run build",
+    "test": "bun --env-file=../../.env test",
+    "typecheck": "tsgo --noEmit"
+  },
+  "dependencies": {
+    "hono": "^4.7.4"
+  },
+  "devDependencies": {
+    "@openslaq/api": "workspace:*",
+    "@openslaq/shared": "workspace:*",
+    "@openslaq/test-utils": "workspace:*",
+    "@types/bun": "^1.2.4",
+    "typescript": "^5.7.3"
+  }
+}

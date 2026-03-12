@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import type { Message, CustomEmoji } from "@openslaq/shared";
+import type { Message } from "@openslaq/shared";
+import { useMessageActionsContext } from "./MessageActionsContext";
 import { MessageContent } from "./MessageContent";
 import { MessageAttachments } from "./MessageAttachments";
 import { MessageActions } from "./MessageActions";
@@ -11,45 +12,34 @@ import { Avatar, Button } from "../ui";
 
 interface MessageItemProps {
   message: Message;
-  currentUserId?: string;
   senderStatusEmoji?: string | null;
   isGrouped?: boolean;
-  onOpenThread?: (messageId: string) => void;
-  onToggleReaction?: (messageId: string, emoji: string) => void;
-  onOpenProfile?: (userId: string) => void;
-  onEditMessage?: (messageId: string, content: string) => void;
-  onDeleteMessage?: (messageId: string) => void;
-  onMarkAsUnread?: (messageId: string) => void;
-  onPinMessage?: (messageId: string) => void;
-  onUnpinMessage?: (messageId: string) => void;
-  onShareMessage?: (messageId: string) => void;
-  onSaveMessage?: (messageId: string) => void;
-  onUnsaveMessage?: (messageId: string) => void;
-  isSaved?: boolean;
-  onBotAction?: (messageId: string, actionId: string) => void;
-  customEmojis?: CustomEmoji[];
 }
 
 export function MessageItem({
   message,
-  currentUserId,
   senderStatusEmoji,
   isGrouped,
-  onOpenThread,
-  onToggleReaction,
-  onOpenProfile,
-  onEditMessage,
-  onDeleteMessage,
-  onMarkAsUnread,
-  onPinMessage,
-  onUnpinMessage,
-  onShareMessage,
-  onSaveMessage,
-  onUnsaveMessage,
-  isSaved,
-  onBotAction,
-  customEmojis,
 }: MessageItemProps) {
+  const {
+    currentUserId,
+    onOpenThread,
+    onToggleReaction,
+    onOpenProfile,
+    onEditMessage,
+    onDeleteMessage,
+    onMarkAsUnread,
+    onPinMessage,
+    onUnpinMessage,
+    onShareMessage,
+    onSaveMessage,
+    onUnsaveMessage,
+    onBotAction,
+    savedMessageIds,
+    customEmojis,
+  } = useMessageActionsContext();
+
+  const isSaved = savedMessageIds?.includes(message.id);
   const isTopLevel = !message.parentMessageId;
   const displayName = message.senderDisplayName ?? message.userId;
   const isOwnMessage = Boolean(currentUserId && message.userId === currentUserId);
@@ -91,9 +81,9 @@ export function MessageItem({
   const compactTime = new Date(message.createdAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: false });
 
   return (
-    <div className={`${isGrouped ? "mb-1" : "mb-3"} relative group px-4 -mx-4 rounded hover:bg-surface-secondary/50`} data-message-id={message.id}>
+    <div className={`${isGrouped ? "" : "mb-0 border-b border-border-default/60"} relative group px-4 -mx-4 py-1.5 hover:bg-surface-secondary/40 transition-colors duration-75`} data-message-id={message.id}>
       {onToggleReaction && (
-        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-75">
           <MessageActionBar
             onAddReaction={(emoji) => onToggleReaction(message.id, emoji)}
             customEmojis={customEmojis?.map((e) => ({ id: e.id, name: e.name, url: e.url }))}
@@ -117,8 +107,8 @@ export function MessageItem({
       )}
       <div className="flex gap-2.5 items-start">
         {isGrouped ? (
-          <div className="w-9 h-5 flex items-center justify-center shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-            <span className="text-[10px] text-faint leading-none">{compactTime}</span>
+          <div className="w-9 h-5 flex items-center justify-center shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-75">
+            <span className="text-[11px] text-faint leading-none">{compactTime}</span>
           </div>
         ) : onOpenProfile && !message.isBot ? (
           <button
@@ -150,12 +140,12 @@ export function MessageItem({
               <button
                 type="button"
                 onClick={() => onOpenProfile(message.userId)}
-                className="bg-transparent border-none p-0 font-semibold text-sm text-primary cursor-pointer hover:underline"
+                className="bg-transparent border-none p-0 font-bold text-[15px] text-primary cursor-pointer hover:underline"
               >
                 {displayName}
               </button>
             ) : (
-              <span className="font-semibold text-sm text-primary">
+              <span className="font-bold text-[15px] text-primary">
                 {displayName}
               </span>
             )}
@@ -163,7 +153,7 @@ export function MessageItem({
               <span className="text-xs" data-testid={`msg-status-emoji-${message.id}`}>{senderStatusEmoji}</span>
             )}
             {message.isBot && (
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300" data-testid="bot-badge">
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-surface-tertiary text-secondary" data-testid="bot-badge">
                 APP
               </span>
             )}
@@ -187,7 +177,7 @@ export function MessageItem({
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value)}
                 onKeyDown={handleEditKeyDown}
-                className="w-full bg-surface border border-border-default rounded-md px-3 py-2 text-sm text-primary resize-none focus:outline-none focus:border-slaq-blue"
+                className="w-full bg-surface border-2 border-slaq-blue rounded-md px-3 py-2 text-sm text-primary resize-none focus:outline-none"
                 rows={2}
               />
               <div className="flex gap-2 mt-1 text-xs text-faint">

@@ -1,3 +1,9 @@
+/**
+ * Variant B: "Full-bleed Header"
+ * Colored gradient-style header band with avatar overlapping the edge.
+ * Content below in a white/dark sheet with rounded top corners.
+ * Feels like a modern social profile page.
+ */
 import { useCallback, useEffect, useState } from "react";
 import {
   View,
@@ -12,6 +18,7 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { getCurrentUser, updateCurrentUser, type UserProfile } from "@openslaq/client-core";
+import { ChevronRight, Bell, Palette, Settings2, LogOut } from "lucide-react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { useChatStore } from "@/contexts/ChatStoreProvider";
 import { useMobileTheme } from "@/theme/ThemeProvider";
@@ -20,9 +27,7 @@ import { api } from "@/lib/api";
 function getInitials(name?: string | null): string {
   if (!name) return "?";
   const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-  }
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
   return name[0].toUpperCase();
 }
 
@@ -83,13 +88,10 @@ export default function SettingsScreen() {
       base64: true,
       quality: 0.7,
     });
-
     if (result.canceled || !result.assets[0]?.base64) return;
-
     const asset = result.assets[0];
     const mimeType = asset.mimeType ?? "image/jpeg";
     const dataUrl = `data:${mimeType};base64,${asset.base64}`;
-
     setSaving(true);
     try {
       const updated = await updateCurrentUser(deps, { avatarUrl: dataUrl });
@@ -117,173 +119,149 @@ export default function SettingsScreen() {
     );
   }
 
+  const AVATAR_SIZE = 88;
+  const HEADER_HEIGHT = 120;
+
   return (
     <ScrollView
       testID="settings-screen"
       style={{ flex: 1, backgroundColor: theme.colors.surface }}
-      contentContainerStyle={{ paddingVertical: 24, paddingHorizontal: 24 }}
+      contentContainerStyle={{ paddingBottom: 48 }}
     >
-      {/* Workspace Settings link (admin/owner only) */}
-      {isAdminOrOwner && (
-        <Pressable
-          testID="workspace-settings-link"
-          onPress={() => router.push(`/(app)/${workspaceSlug}/workspace-settings`)}
-          style={({ pressed }) => ({
-            backgroundColor: pressed ? theme.colors.surfaceSecondary : theme.colors.surfaceTertiary,
-            borderRadius: 10,
-            paddingVertical: 14,
-            paddingHorizontal: 16,
-            marginBottom: 24,
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-          })}
-        >
-          <Text style={{ color: theme.colors.textPrimary, fontSize: 16, fontWeight: "500" }}>
-            Workspace Settings
-          </Text>
-          <Text style={{ color: theme.colors.textSecondary, fontSize: 16 }}>{"\u203A"}</Text>
-        </Pressable>
-      )}
-
-      {/* Notifications link */}
-      <Pressable
-        testID="notification-settings-link"
-        onPress={() => router.push(`/(app)/${workspaceSlug}/notification-settings`)}
-        style={({ pressed }) => ({
-          backgroundColor: pressed ? theme.colors.surfaceSecondary : theme.colors.surfaceTertiary,
-          borderRadius: 10,
-          paddingVertical: 14,
-          paddingHorizontal: 16,
-          marginBottom: 12,
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-        })}
-      >
-        <Text style={{ color: theme.colors.textPrimary, fontSize: 16, fontWeight: "500" }}>
-          Notifications
-        </Text>
-        <Text style={{ color: theme.colors.textSecondary, fontSize: 16 }}>{"\u203A"}</Text>
-      </Pressable>
-
-      {/* Preferences link */}
-      <Pressable
-        testID="preferences-link"
-        onPress={() => router.push(`/(app)/${workspaceSlug}/preferences`)}
-        style={({ pressed }) => ({
-          backgroundColor: pressed ? theme.colors.surfaceSecondary : theme.colors.surfaceTertiary,
-          borderRadius: 10,
-          paddingVertical: 14,
-          paddingHorizontal: 16,
-          marginBottom: 24,
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-        })}
-      >
-        <Text style={{ color: theme.colors.textPrimary, fontSize: 16, fontWeight: "500" }}>
-          Preferences
-        </Text>
-        <Text style={{ color: theme.colors.textSecondary, fontSize: 16 }}>{"\u203A"}</Text>
-      </Pressable>
-
-      {/* Avatar section */}
-      <View style={{ alignItems: "center", marginBottom: 32 }}>
-        {profile?.avatarUrl ? (
-          <Image
-            source={{ uri: profile.avatarUrl }}
-            style={{
-              width: 96,
-              height: 96,
-              borderRadius: 48,
-              backgroundColor: theme.colors.surfaceTertiary,
-              marginBottom: 12,
-            }}
-          />
-        ) : (
-          <View
-            style={{
-              width: 96,
-              height: 96,
-              borderRadius: 48,
-              backgroundColor: theme.brand.primary,
-              alignItems: "center",
-              justifyContent: "center",
-              marginBottom: 12,
-            }}
-          >
-            <Text style={{ color: "#fff", fontSize: 36, fontWeight: "700" }}>
-              {getInitials(profile?.displayName)}
-            </Text>
-          </View>
-        )}
-        <Pressable
-          testID="change-photo-button"
-          onPress={handleChangePhoto}
-          disabled={saving}
-        >
-          <Text style={{ color: theme.brand.primary, fontSize: 16 }}>Change Photo</Text>
-        </Pressable>
-      </View>
-
-      {/* Display Name section */}
-      <View style={{ marginBottom: 24 }}>
-        <Text style={{ color: theme.colors.textSecondary, fontSize: 13, fontWeight: "600", marginBottom: 6 }}>
-          Display Name
-        </Text>
-        <TextInput
-          testID="settings-display-name-input"
-          value={displayName}
-          onChangeText={setDisplayName}
+      {/* Colored header band */}
+      <View style={{ height: HEADER_HEIGHT + AVATAR_SIZE / 2, position: "relative" }}>
+        <View
           style={{
-            backgroundColor: theme.colors.surfaceSecondary,
-            color: theme.colors.textPrimary,
-            borderRadius: 8,
-            paddingHorizontal: 12,
-            paddingVertical: 10,
-            fontSize: 16,
-            borderWidth: 1,
-            borderColor: theme.colors.borderDefault,
+            height: HEADER_HEIGHT,
+            backgroundColor: theme.brand.primary,
           }}
-          placeholder="Display name"
-          placeholderTextColor={theme.colors.textFaint}
         />
-        {hasNameChanged && (
-          <Pressable
-            testID="settings-save-name"
-            onPress={handleSaveName}
-            disabled={saving || !displayName.trim()}
-            style={({ pressed }) => ({
-              backgroundColor: saving || !displayName.trim()
-                ? theme.colors.surfaceTertiary
-                : pressed
-                  ? theme.brand.primary + "dd"
-                  : theme.brand.primary,
-              paddingVertical: 10,
-              borderRadius: 8,
-              alignItems: "center",
-              marginTop: 8,
-            })}
-          >
-            <Text style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}>
-              {saving ? "Saving..." : "Save"}
-            </Text>
+        {/* Avatar floating on the border */}
+        <View style={{ position: "absolute", bottom: 0, alignSelf: "center" }}>
+          <Pressable testID="change-photo-button" onPress={handleChangePhoto} disabled={saving}>
+            {profile?.avatarUrl ? (
+              <Image
+                source={{ uri: profile.avatarUrl }}
+                style={{
+                  width: AVATAR_SIZE,
+                  height: AVATAR_SIZE,
+                  borderRadius: AVATAR_SIZE / 2,
+                  borderWidth: 4,
+                  borderColor: theme.colors.surface,
+                  backgroundColor: theme.colors.surfaceTertiary,
+                }}
+              />
+            ) : (
+              <View
+                style={{
+                  width: AVATAR_SIZE,
+                  height: AVATAR_SIZE,
+                  borderRadius: AVATAR_SIZE / 2,
+                  backgroundColor: theme.colors.surfaceTertiary,
+                  borderWidth: 4,
+                  borderColor: theme.colors.surface,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Text style={{ color: theme.brand.primary, fontSize: 32, fontWeight: "700" }}>
+                  {getInitials(profile?.displayName)}
+                </Text>
+              </View>
+            )}
           </Pressable>
-        )}
+        </View>
       </View>
 
-      {/* Email section */}
-      <View style={{ marginBottom: 32 }}>
-        <Text style={{ color: theme.colors.textSecondary, fontSize: 13, fontWeight: "600", marginBottom: 6 }}>
-          Email
+      {/* Name + email centered */}
+      <View style={{ alignItems: "center", marginTop: 12, paddingHorizontal: 24 }}>
+        <Text style={{ color: theme.colors.textPrimary, fontSize: 24, fontWeight: "700" }}>
+          {profile?.displayName ?? ""}
         </Text>
         <Text
           testID="settings-email"
-          style={{ color: theme.colors.textPrimary, fontSize: 16 }}
+          style={{ color: theme.colors.textMuted, fontSize: 14, marginTop: 4 }}
         >
           {profile?.email ?? ""}
         </Text>
+      </View>
+
+      {/* Edit Profile section */}
+      <View style={{ marginHorizontal: 20, marginTop: 28 }}>
+        <Text style={{ color: theme.colors.textMuted, fontSize: 12, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, marginLeft: 4 }}>
+          Profile
+        </Text>
+        <View style={{ backgroundColor: theme.colors.surfaceSecondary, borderRadius: 14, overflow: "hidden" }}>
+          <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
+            <Text style={{ color: theme.colors.textMuted, fontSize: 12, marginBottom: 4 }}>Display Name</Text>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <TextInput
+                testID="settings-display-name-input"
+                value={displayName}
+                onChangeText={setDisplayName}
+                style={{
+                  flex: 1,
+                  color: theme.colors.textPrimary,
+                  fontSize: 16,
+                  paddingVertical: 4,
+                }}
+                placeholder="Display name"
+                placeholderTextColor={theme.colors.textFaint}
+              />
+              {hasNameChanged && (
+                <Pressable
+                  testID="settings-save-name"
+                  onPress={handleSaveName}
+                  disabled={saving || !displayName.trim()}
+                  style={{
+                    backgroundColor: theme.brand.primary,
+                    paddingVertical: 6,
+                    paddingHorizontal: 16,
+                    borderRadius: 8,
+                    marginLeft: 8,
+                  }}
+                >
+                  <Text style={{ color: "#fff", fontSize: 14, fontWeight: "600" }}>
+                    {saving ? "..." : "Save"}
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+          </View>
+        </View>
+      </View>
+
+      {/* Settings nav section */}
+      <View style={{ marginHorizontal: 20, marginTop: 24 }}>
+        <Text style={{ color: theme.colors.textMuted, fontSize: 12, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, marginLeft: 4 }}>
+          Settings
+        </Text>
+        <View style={{ backgroundColor: theme.colors.surfaceSecondary, borderRadius: 14, overflow: "hidden" }}>
+          {isAdminOrOwner && (
+            <NavRow
+              icon={<Settings2 size={20} color={theme.colors.textSecondary} />}
+              label="Workspace Settings"
+              onPress={() => router.push(`/(app)/${workspaceSlug}/workspace-settings`)}
+              testID="workspace-settings-link"
+              theme={theme}
+            />
+          )}
+          <NavRow
+            icon={<Bell size={20} color={theme.colors.textSecondary} />}
+            label="Notifications"
+            onPress={() => router.push(`/(app)/${workspaceSlug}/notification-settings`)}
+            testID="notification-settings-link"
+            theme={theme}
+          />
+          <NavRow
+            icon={<Palette size={20} color={theme.colors.textSecondary} />}
+            label="Preferences"
+            onPress={() => router.push(`/(app)/${workspaceSlug}/preferences`)}
+            testID="preferences-link"
+            theme={theme}
+            isLast
+          />
+        </View>
       </View>
 
       {/* Sign Out */}
@@ -291,16 +269,56 @@ export default function SettingsScreen() {
         testID="settings-sign-out"
         onPress={handleSignOut}
         style={({ pressed }) => ({
-          backgroundColor: pressed ? "#ef444422" : "transparent",
-          paddingVertical: 14,
-          borderRadius: 8,
+          marginHorizontal: 20,
+          marginTop: 32,
+          flexDirection: "row",
           alignItems: "center",
-          borderWidth: 1,
-          borderColor: "#ef4444",
+          justifyContent: "center",
+          gap: 8,
+          paddingVertical: 14,
+          borderRadius: 14,
+          backgroundColor: pressed ? theme.colors.dangerBg : theme.colors.surfaceSecondary,
         })}
       >
-        <Text style={{ color: "#ef4444", fontSize: 16, fontWeight: "600" }}>Sign Out</Text>
+        <LogOut size={18} color={theme.colors.dangerText} />
+        <Text style={{ color: theme.colors.dangerText, fontSize: 16, fontWeight: "600" }}>Sign Out</Text>
       </Pressable>
     </ScrollView>
+  );
+}
+
+function NavRow({
+  icon,
+  label,
+  onPress,
+  testID,
+  theme,
+  isLast = false,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onPress: () => void;
+  testID: string;
+  theme: ReturnType<typeof useMobileTheme>["theme"];
+  isLast?: boolean;
+}) {
+  return (
+    <Pressable
+      testID={testID}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flexDirection: "row",
+        alignItems: "center",
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        backgroundColor: pressed ? theme.colors.surfaceHover : "transparent",
+        borderBottomWidth: isLast ? 0 : 1,
+        borderBottomColor: theme.colors.borderSecondary,
+      })}
+    >
+      <View style={{ marginRight: 14 }}>{icon}</View>
+      <Text style={{ flex: 1, color: theme.colors.textPrimary, fontSize: 16 }}>{label}</Text>
+      <ChevronRight size={18} color={theme.colors.textFaint} />
+    </Pressable>
   );
 }

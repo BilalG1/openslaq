@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { View, Text, Pressable } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -6,6 +7,7 @@ import { useMobileTheme } from "@/theme/ThemeProvider";
 import { useChatStore } from "@/contexts/ChatStoreProvider";
 import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
 import { HeaderAvatarButton } from "@/components/HeaderAvatarButton";
+import { QuickSwitcherModal } from "@/components/QuickSwitcherModal";
 import Svg, { Path, Line } from "react-native-svg";
 
 function SearchIcon({ color }: { color: string }) {
@@ -43,6 +45,7 @@ export function HomeHeader() {
   const router = useRouter();
   const { workspaceSlug } = useLocalSearchParams<{ workspaceSlug: string }>();
   const { profile } = useCurrentUserProfile();
+  const [quickSwitcherOpen, setQuickSwitcherOpen] = useState(false);
 
   const workspace = state.workspaces.find((ws) => ws.slug === workspaceSlug);
   const workspaceName = workspace?.name ?? "Home";
@@ -54,9 +57,9 @@ export function HomeHeader() {
       {/* Top bar */}
       <View
         style={{
-          paddingTop: insets.top + 8,
+          paddingTop: insets.top + 6,
           paddingHorizontal: 16,
-          paddingBottom: 10,
+          paddingBottom: 8,
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
@@ -67,7 +70,7 @@ export function HomeHeader() {
             style={{
               width: 32,
               height: 32,
-              borderRadius: 8,
+              borderRadius: 10,
               backgroundColor: "rgba(255,255,255,0.2)",
               alignItems: "center",
               justifyContent: "center",
@@ -92,14 +95,14 @@ export function HomeHeader() {
       {/* Search pill */}
       <Pressable
         testID="search-pill"
-        onPress={() => router.push(`/(app)/${workspaceSlug}/search`)}
+        onPress={() => setQuickSwitcherOpen(true)}
         style={{
           marginHorizontal: 16,
-          marginBottom: 12,
+          marginBottom: 10,
           backgroundColor: theme.colors.headerSearchBg,
-          borderRadius: 8,
-          paddingVertical: 8,
-          paddingHorizontal: 12,
+          borderRadius: 10,
+          paddingVertical: 10,
+          paddingHorizontal: 14,
           flexDirection: "row",
           alignItems: "center",
         }}
@@ -110,6 +113,7 @@ export function HomeHeader() {
         </Text>
         <FilterIcon color={theme.colors.headerText} />
       </Pressable>
+      <QuickSwitcherModal visible={quickSwitcherOpen} onClose={() => setQuickSwitcherOpen(false)} />
     </View>
   );
 }

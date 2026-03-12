@@ -1,10 +1,16 @@
 import { useCallback } from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, Pressable, Platform, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Track } from "livekit-client";
-import { useTracks, useParticipants, RoomContext } from "@livekit/react-native";
+import {
+  useTracks,
+  useParticipants,
+  RoomContext,
+} from "@livekit/react-native";
+import { ScreenCapturePickerView } from "@livekit/react-native-webrtc";
 import type { TrackReference } from "@livekit/react-native";
+import { ChevronDown } from "lucide-react-native";
 import { useHuddle } from "@/contexts/HuddleProvider";
 import { useChatStore } from "@/contexts/ChatStoreProvider";
 import { HuddleControls } from "@/components/huddle/HuddleControls";
@@ -12,15 +18,23 @@ import { VideoGrid } from "@/components/huddle/VideoGrid";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 
 function HuddleModalContent() {
-  const { channelId, isMuted, isCameraOn, leaveHuddle, toggleMute, toggleCamera } =
-    useHuddle();
+  const {
+    channelId,
+    isMuted,
+    isCameraOn,
+    isScreenSharing,
+    leaveHuddle,
+    toggleMute,
+    toggleCamera,
+    toggleScreenShare,
+  } = useHuddle();
   const { state } = useChatStore();
   const { top, bottom } = useSafeAreaInsets();
   const { theme } = useMobileTheme();
   const router = useRouter();
 
   const lkParticipants = useParticipants();
-  const tracks = useTracks([Track.Source.Camera], {
+  const tracks = useTracks([Track.Source.Camera, Track.Source.ScreenShare], {
     onlySubscribed: false,
   });
 
@@ -51,13 +65,24 @@ function HuddleModalContent() {
         "publication" in t,
     );
 
+    // Find screen share track for this participant
+    const screenShareTrackRef = tracks.find(
+      (t): t is TrackReference =>
+        t.participant.identity === userId &&
+        t.source === Track.Source.ScreenShare &&
+        "publication" in t,
+    );
+
     let muted = true;
     let camera = false;
+    let screenSharing = false;
     for (const pub of p.trackPublications.values()) {
       if (pub.source === Track.Source.Microphone) {
         muted = pub.isMuted;
       } else if (pub.source === Track.Source.Camera) {
         camera = !pub.isMuted && !!pub.track;
+      } else if (pub.source === Track.Source.ScreenShare) {
+        screenSharing = !pub.isMuted && !!pub.track;
       }
     }
 
@@ -68,17 +93,18 @@ function HuddleModalContent() {
       isCameraOn: camera,
       isLocal,
       videoTrackRef: camera ? videoTrackRef : undefined,
+      screenShareTrackRef: screenSharing ? screenShareTrackRef : undefined,
     };
   });
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
+      {Platform.OS === "ios" && <ScreenCapturePickerView />}
+
       {/* Header */}
       <View style={[styles.header, { paddingTop: top + 8 }]}>
         <Pressable onPress={handleCollapse} hitSlop={8}>
-          <Text style={[styles.closeButton, { color: theme.colors.textSecondary }]}>
-            {"\u{2B07}\u{FE0F}"}
-          </Text>
+          <ChevronDown size={24} color={theme.colors.textSecondary} />
         </Pressable>
         <View style={styles.headerCenter}>
           <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>
@@ -100,8 +126,10 @@ function HuddleModalContent() {
         <HuddleControls
           isMuted={isMuted}
           isCameraOn={isCameraOn}
+          isScreenSharing={isScreenSharing}
           onToggleMute={toggleMute}
           onToggleCamera={toggleCamera}
+          onToggleScreenShare={toggleScreenShare}
           onLeave={handleLeave}
         />
       </View>

@@ -1,11 +1,11 @@
-import type { ChannelId, MessageId, UserId } from "./ids";
+import type { AttachmentId, ChannelId, MessageId, ScheduledMessageId, UserId } from "./ids";
 
 export interface ScheduledMessage {
-  id: string;
+  id: ScheduledMessageId;
   channelId: ChannelId;
   userId: UserId;
   content: string;
-  attachmentIds: string[];
+  attachmentIds: AttachmentId[];
   scheduledFor: string;
   status: "pending" | "sent" | "failed";
   failureReason: string | null;

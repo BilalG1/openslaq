@@ -42,7 +42,7 @@ setupSocketHandlers(io);
 setIO(io);
 
 const port = env.PORT ?? env.API_PORT;
-httpServer.listen(port, () => {
+httpServer.listen(port, "0.0.0.0", () => {
   console.log(`API server running on http://localhost:${port}`);
   startCleanup();
   startScheduledMessageProcessor();

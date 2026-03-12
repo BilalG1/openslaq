@@ -19,6 +19,8 @@ import {
   saveMessageOp,
   unsaveMessageOp,
   shareMessageOp,
+  createScheduledMessageOp,
+  markChannelAsUnread,
 } from "@openslaq/client-core";
 import * as Clipboard from "expo-clipboard";
 import type { ChannelNotifyLevel } from "@openslaq/shared";
@@ -30,7 +32,7 @@ import { useSocketEvent } from "@/hooks/useSocketEvent";
 import { useMessageActions } from "@/hooks/useMessageActions";
 import { useTypingEmitter } from "@/hooks/useTypingEmitter";
 import { useTypingTracking } from "@/hooks/useTypingTracking";
-import { useFileUpload } from "@/hooks/useFileUpload";
+import { useFileUpload, type PendingFile } from "@/hooks/useFileUpload";
 import { api } from "@/lib/api";
 import { MessageBubble } from "@/components/MessageBubble";
 import { MessageInput } from "@/components/MessageInput";
@@ -74,6 +76,7 @@ export default function DmScreen() {
   const typingUsers = useTypingTracking(dmChannelId, user?.id, members);
   const fileUpload = useFileUpload();
 
+  const customEmojis = state.customEmojis;
   const dm = state.dms.find((d) => d.channel.id === dmChannelId);
   const groupDm = state.groupDms.find((g) => g.channel.id === dmChannelId);
   const displayName = dm
@@ -269,6 +272,25 @@ export default function DmScreen() {
     [router, workspaceSlug],
   );
 
+  const handleSendVoiceMessage = useCallback(
+    async (uri: string, _durationMs: number) => {
+      if (!workspaceSlug || !dmChannelId) return;
+      const file: PendingFile = {
+        id: `voice-${Date.now()}`,
+        uri,
+        name: `voice-message-${Date.now()}.m4a`,
+        mimeType: "audio/mp4",
+        isImage: false,
+      };
+      fileUpload.addFile(file);
+      const attachmentIds = await fileUpload.uploadAll(() => authProvider.requireAccessToken());
+      const deps = { api, auth: authProvider, dispatch, getState: () => state };
+      await coreSendMessage(deps, { channelId: dmChannelId, workspaceSlug, content: "", attachmentIds });
+      fileUpload.reset();
+    },
+    [authProvider, dmChannelId, dispatch, fileUpload, state, workspaceSlug],
+  );
+
   const handleAddAttachment = useCallback(() => {
     Alert.alert("Attach", undefined, [
       { text: "Photo Library", onPress: () => void fileUpload.addFromImagePicker() },
@@ -370,9 +392,43 @@ export default function DmScreen() {
     [workspaceSlug, dmChannelId],
   );
 
+  const handleMarkAsUnread = useCallback(
+    async (messageId: string) => {
+      if (!workspaceSlug || !dmChannelId) return;
+      const deps = { api, auth: authProvider, dispatch, getState: () => state };
+      await markChannelAsUnread(deps, { workspaceSlug, channelId: dmChannelId, messageId });
+    },
+    [authProvider, dmChannelId, dispatch, state, workspaceSlug],
+  );
+
   const handleShareMessage = useCallback((message: Message) => {
     setShareMessage(message);
   }, []);
+
+  const handleScheduleSend = useCallback(
+    async (content: string, scheduledFor: Date) => {
+      if (!workspaceSlug || !dmChannelId) return;
+      try {
+        const deps = { api, auth: authProvider, dispatch, getState: () => state };
+        let attachmentIds: string[] = [];
+        if (fileUpload.hasFiles) {
+          attachmentIds = await fileUpload.uploadAll(() => authProvider.requireAccessToken());
+        }
+        await createScheduledMessageOp(deps, {
+          workspaceSlug,
+          channelId: dmChannelId,
+          content,
+          scheduledFor: scheduledFor.toISOString(),
+          attachmentIds,
+        });
+        fileUpload.reset();
+        Alert.alert("Scheduled", "Your message has been scheduled.");
+      } catch {
+        Alert.alert("Error", "Failed to schedule message.");
+      }
+    },
+    [authProvider, dmChannelId, dispatch, fileUpload, state, workspaceSlug],
+  );
 
   const handleConfirmShare = useCallback(
     async (destinationChannelId: string, destinationName: string, comment: string) => {
@@ -401,7 +457,7 @@ export default function DmScreen() {
       keyboardVerticalOffset={90}
     >
       {isLoading && messages.length === 0 ? (
-        <View className="flex-1 items-center justify-center">
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator size="large" color={theme.brand.primary} />
         </View>
       ) : (
@@ -417,11 +473,12 @@ export default function DmScreen() {
               onToggleReaction={handleToggleReaction}
               onLongPress={handleLongPress}
               onPressSender={handlePressSender}
+              customEmojis={customEmojis}
             />
           )}
           inverted={false}
           ListEmptyComponent={
-            <View className="flex-1 items-center justify-center py-12">
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 48 }}>
               <Text style={{ color: theme.colors.textFaint }}>No messages yet</Text>
             </View>
           }
@@ -434,6 +491,7 @@ export default function DmScreen() {
       <MessageInput
         onSend={handleSend}
         placeholder={`Message ${displayName}`}
+        draftKey={dmChannelId}
         editingMessage={editingMessage}
         onCancelEdit={handleCancelEdit}
         onSaveEdit={handleSaveEdit}
@@ -443,6 +501,8 @@ export default function DmScreen() {
         onAddAttachment={handleAddAttachment}
         onRemoveFile={fileUpload.removeFile}
         uploading={fileUpload.uploading}
+        onScheduleSend={handleScheduleSend}
+        onSendVoiceMessage={handleSendVoiceMessage}
       />
       <MessageActionSheet
         visible={actionSheetMessage != null}
@@ -457,6 +517,7 @@ export default function DmScreen() {
         onUnsaveMessage={handleUnsaveMessage}
         onCopyText={handleCopyText}
         onCopyLink={handleCopyLink}
+        onMarkAsUnread={handleMarkAsUnread}
         onShareMessage={handleShareMessage}
         onClose={() => setActionSheetMessage(null)}
       />
@@ -467,6 +528,7 @@ export default function DmScreen() {
           setShowEmojiPicker(false);
           setEmojiPickerMessageId(null);
         }}
+        customEmojis={customEmojis}
       />
       <ShareMessageModal
         visible={shareMessage != null}
