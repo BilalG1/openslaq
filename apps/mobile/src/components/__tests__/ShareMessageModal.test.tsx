@@ -168,7 +168,7 @@ describe("ShareMessageModal", () => {
       <ShareMessageModal {...defaultProps} message={makeMessage()} onClose={onClose} />,
     );
 
-    fireEvent.press(screen.getByTestId("share-message-backdrop"));
+    fireEvent.press(screen.getByTestId("share-message-modal-backdrop"));
 
     expect(onClose).toHaveBeenCalled();
   });

@@ -21,8 +21,8 @@ export function useViewRouteSync(
     if (window.location.pathname.endsWith("/saved") && state.activeView !== "saved") {
       dispatch({ type: "workspace/selectSavedView" });
     }
-    if (window.location.pathname.endsWith("/scheduled") && state.activeView !== "scheduled") {
-      dispatch({ type: "workspace/selectScheduledView" });
+    if (window.location.pathname.endsWith("/outbox") && state.activeView !== "outbox") {
+      dispatch({ type: "workspace/selectOutboxView" });
     }
     if (window.location.pathname.endsWith("/files") && state.activeView !== "files") {
       dispatch({ type: "workspace/selectFilesView" });
@@ -43,9 +43,9 @@ export function useViewRouteSync(
       if (!window.location.pathname.endsWith("/saved")) {
         navigate(target, { replace: true });
       }
-    } else if (state.activeView === "scheduled") {
-      const target = `${base}/scheduled`;
-      if (!window.location.pathname.endsWith("/scheduled")) {
+    } else if (state.activeView === "outbox") {
+      const target = `${base}/outbox`;
+      if (!window.location.pathname.endsWith("/outbox")) {
         navigate(target, { replace: true });
       }
     } else if (state.activeView === "files") {

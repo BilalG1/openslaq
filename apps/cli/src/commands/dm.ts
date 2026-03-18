@@ -3,18 +3,18 @@ import { defineCommand, type FlagSchema } from "../framework";
 import { printHelp, formatMessages, formatDmTable } from "../output";
 import { getAuthenticatedClient, type CliClient } from "../client";
 
-async function openDmChannel(client: CliClient, workspace: string, userId: string): Promise<string> {
+async function openDmChannel(client: CliClient, workspace: string, userId: string): Promise<{ channel: { id: string } }> {
   const res = await client.api.workspaces[":slug"].dm.$post({
     param: { slug: workspace },
     json: { userId },
   });
-  const data = (await res.json()) as { channel: { id: string } };
   if (!res.ok) {
-    const error = (data as { error?: string }).error;
+    const body = await res.json().catch(() => null);
+    const error = (body as { error?: string })?.error;
     console.error(error ?? `Failed to open DM: ${res.status}`);
     process.exit(1);
   }
-  return data.channel.id;
+  return (await res.json()) as { channel: { id: string } };
 }
 
 const openFlags = {
@@ -64,16 +64,7 @@ export const dmCommand = defineCommand({
       flags: openFlags,
       async action(f) {
         const client = await getAuthenticatedClient();
-        const res = await client.api.workspaces[":slug"].dm.$post({
-          param: { slug: f.workspace },
-          json: { userId: f.user },
-        });
-        const data = (await res.json()) as { channel: { id: string } };
-        if (!res.ok) {
-          const error = (data as { error?: string }).error;
-          console.error(error ?? `Failed to open DM: ${res.status}`);
-          process.exit(1);
-        }
+        const data = await openDmChannel(client, f.workspace, f.user);
 
         if (f.json) {
           console.log(JSON.stringify(data, null, 2));
@@ -120,10 +111,10 @@ export const dmCommand = defineCommand({
       flags: sendFlags,
       async action(f) {
         const client = await getAuthenticatedClient();
-        const channelId = await openDmChannel(client, f.workspace, f.user);
+        const { channel } = await openDmChannel(client, f.workspace, f.user);
 
         const msgRes = await client.api.workspaces[":slug"].channels[":id"].messages.$post({
-          param: { slug: f.workspace, id: channelId },
+          param: { slug: f.workspace, id: channel.id },
           json: { content: f.text },
         });
         if (!msgRes.ok) {
@@ -151,10 +142,10 @@ export const dmCommand = defineCommand({
       flags: messagesFlags,
       async action(f) {
         const client = await getAuthenticatedClient();
-        const channelId = await openDmChannel(client, f.workspace, f.user);
+        const { channel } = await openDmChannel(client, f.workspace, f.user);
 
         const msgRes = await client.api.workspaces[":slug"].channels[":id"].messages.$get({
-          param: { slug: f.workspace, id: channelId },
+          param: { slug: f.workspace, id: channel.id },
           query: { limit: Number(f.limit) },
         });
         if (!msgRes.ok) {

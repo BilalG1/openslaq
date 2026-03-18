@@ -49,6 +49,10 @@ const message = await client.messages.send("ch_abc123", {
 
 List messages in a channel.
 
+:::tip
+Use the `nextCursor` value from the response to paginate through results. Pass it as the `cursor` option in the next request.
+:::
+
 ```ts
 const { messages, nextCursor } = await client.messages.list("ch_abc123", {
   limit: 50,
@@ -163,6 +167,138 @@ Get the number of pinned messages in a channel.
 
 ```ts
 const { count } = await client.messages.getPinCount("ch_abc123");
+```
+
+### `client.messages.save(channelId, messageId)`
+
+Save a message for later.
+
+```ts
+await client.messages.save("ch_abc123", "msg_abc123");
+```
+
+### `client.messages.unsave(channelId, messageId)`
+
+Remove a message from saved items.
+
+```ts
+await client.messages.unsave("ch_abc123", "msg_abc123");
+```
+
+### `client.messages.listSaved()`
+
+List all saved messages across the workspace.
+
+```ts
+const { messages } = await client.messages.listSaved();
+// [{ message, channelName, savedAt }]
+```
+
+### `client.messages.listSavedIds()`
+
+Get just the IDs of saved messages (useful for checking save state).
+
+```ts
+const { messageIds } = await client.messages.listSavedIds();
+```
+
+### `client.messages.share(channelId, options)`
+
+Share an existing message into a channel.
+
+```ts
+const message = await client.messages.share("ch_abc123", {
+  sharedMessageId: "msg_xyz789",
+  comment: "Check this out!", // optional
+});
+```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `sharedMessageId` | `string` | ID of the message to share (required) |
+| `comment` | `string` | Comment to include with the share (optional) |
+
+### `client.messages.getAround(channelId, messageId)`
+
+Get messages surrounding a specific message (useful for jump-to-message).
+
+```ts
+const result = await client.messages.getAround("ch_abc123", "msg_abc123");
+// { messages, targetFound, olderCursor, newerCursor, hasOlder, hasNewer }
+```
+
+---
+
+## Scheduled Messages
+
+### `client.scheduledMessages.create(options)`
+
+Schedule a message for future delivery.
+
+```ts
+const scheduled = await client.scheduledMessages.create({
+  channelId: "ch_abc123",
+  content: "Good morning team!",
+  scheduledFor: "2026-03-15T09:00:00Z",
+  attachmentIds: [], // optional
+});
+```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `channelId` | `string` | Target channel (required) |
+| `content` | `string` | Message content (required) |
+| `scheduledFor` | `string` | ISO 8601 delivery time (required) |
+| `attachmentIds` | `string[]` | File attachment IDs (optional) |
+
+### `client.scheduledMessages.list()`
+
+List all scheduled messages. Returns messages with channel names.
+
+```ts
+const scheduled = await client.scheduledMessages.list();
+// [{ id, channelId, channelName, content, scheduledFor, status, ... }]
+```
+
+### `client.scheduledMessages.get(id)`
+
+Get a single scheduled message by ID.
+
+```ts
+const scheduled = await client.scheduledMessages.get("sched_abc123");
+```
+
+### `client.scheduledMessages.update(id, options)`
+
+Update a pending scheduled message.
+
+```ts
+const updated = await client.scheduledMessages.update("sched_abc123", {
+  content: "Updated content",
+  scheduledFor: "2026-03-16T09:00:00Z",
+});
+```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `content` | `string` | New message content (optional) |
+| `attachmentIds` | `string[]` | New attachment IDs (optional) |
+| `scheduledFor` | `string` | New delivery time (optional) |
+
+### `client.scheduledMessages.delete(id)`
+
+Delete a scheduled message.
+
+```ts
+await client.scheduledMessages.delete("sched_abc123");
+```
+
+### `client.scheduledMessages.countByChannel(channelId)`
+
+Get the number of scheduled messages for a channel.
+
+```ts
+const { count } = await client.scheduledMessages.countByChannel("ch_abc123");
 ```
 
 ---
@@ -509,6 +645,10 @@ const results = await client.search.query({
 ---
 
 ## Error Handling
+
+:::caution
+Always wrap SDK calls in try/catch blocks for production use. Network errors and rate limits can occur at any time.
+:::
 
 The SDK throws typed errors for API failures.
 

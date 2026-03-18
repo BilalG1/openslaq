@@ -1,7 +1,7 @@
 .tiptap {
   outline: none;
   padding: 10px 14px;
-  min-height: 44px;
+  min-height: 52px;
   max-height: 200px;
   overflow-y: auto;
   font-size: 15px;
@@ -65,6 +65,12 @@
   height: 0;
 }
 
+/* Formatting bar — always visible */
+.formatting-bar {
+  max-height: 40px;
+  opacity: 1;
+}
+
 /* Toolbar buttons */
 .editor-toolbar-btn {
   border: none;
@@ -90,22 +96,24 @@
   background-color: var(--surface-selected);
 }
 
-/* Send button */
+/* Send button — circular, slaq-blue */
 .editor-send-btn {
   border: none;
-  background: #007a5a;
+  background: var(--color-slaq-blue, #1264a3);
   color: white;
   cursor: pointer;
-  padding: 6px 10px;
-  border-radius: 4px;
+  width: 32px;
+  height: 32px;
+  border-radius: 9999px;
   display: flex;
   align-items: center;
   justify-content: center;
   line-height: 1;
+  padding: 0;
 }
 
 .editor-send-btn:hover {
-  background-color: #148567;
+  background-color: #0e5a94;
 }
 
 .editor-send-btn:disabled {
@@ -114,7 +122,7 @@
 }
 
 .editor-send-btn:disabled:hover {
-  background-color: #007a5a;
+  background-color: var(--color-slaq-blue, #1264a3);
 }
 
 /* Mention badges in the editor */

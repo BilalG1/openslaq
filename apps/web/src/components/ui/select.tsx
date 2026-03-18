@@ -1,5 +1,6 @@
 import { forwardRef, type ComponentPropsWithoutRef } from "react";
 import * as SelectPrimitive from "@radix-ui/react-select";
+import { ChevronDown } from "lucide-react";
 import { cva, type VariantProps } from "class-variance-authority";
 import clsx from "clsx";
 
@@ -33,9 +34,7 @@ const SelectTrigger = forwardRef<
   >
     {children}
     <SelectPrimitive.Icon className="ml-1">
-      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-        <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
+      <ChevronDown className="w-3 h-3" />
     </SelectPrimitive.Icon>
   </SelectPrimitive.Trigger>
 ));

@@ -4,8 +4,7 @@ import { Server as SocketIOServer } from "socket.io";
 import { io as ioClient, type Socket as ClientSocket } from "socket.io-client";
 import { setupSocketHandlers } from "../../api/src/socket";
 import {
-  removeSocket,
-  getSocketIdsForUser,
+  removeAllSocketsForUser,
   getWorkspacePresence,
 } from "../../api/src/presence/service";
 import {
@@ -50,6 +49,7 @@ function connectSocket(token: string): Promise<ClientSocket> {
       auth: { token },
       transports: ["websocket"],
       forceNew: true,
+      reconnection: false,
     });
     socket.on("connect", () => resolve(socket));
     socket.on("connect_error", (err) => reject(err));
@@ -131,11 +131,9 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-/** Properly remove all tracked sockets for a user from the presence service */
-function cleanupPresence(userId: string) {
-  for (const sid of getSocketIdsForUser(userId)) {
-    removeSocket(userId, sid);
-  }
+/** Remove all presence entries for a user directly (avoids races with in-flight disconnect handlers) */
+async function cleanupPresence(userId: string) {
+  await removeAllSocketsForUser(userId);
 }
 
 // ---------------------------------------------------------------------------
@@ -253,8 +251,8 @@ afterEach(async () => {
     if (s.connected) s.disconnect();
   }
   activeSockets = [];
-  // Wait for server-side disconnect handlers to complete
-  await sleep(50);
+  // Wait for server-side disconnect handlers (which do async DB ops) to complete
+  await sleep(500);
 });
 
 afterAll(async () => {
@@ -309,10 +307,10 @@ describe("socket.io integration", () => {
 
   // ---- Connection Handler ----
   describe("connection handler", () => {
-    beforeEach(() => {
-      cleanupPresence(user1Id);
-      cleanupPresence(user2Id);
-      resetHuddles();
+    beforeEach(async () => {
+      await cleanupPresence(user1Id);
+      await cleanupPresence(user2Id);
+      await resetHuddles();
     });
 
     test("emits presence:sync to connecting client", async () => {
@@ -380,7 +378,7 @@ describe("socket.io integration", () => {
     });
 
     test("emits huddle:sync when active huddles exist", async () => {
-      startHuddle(channelId, user2Id);
+      await startHuddle(channelId, user2Id);
 
       const socket = track(await connectSocket(user1Token));
       const data = await waitForEvent<{ huddles: Array<{ channelId: string }> }>(
@@ -500,10 +498,10 @@ describe("socket.io integration", () => {
 
   // ---- Disconnect ----
   describe("disconnect", () => {
-    beforeEach(() => {
-      cleanupPresence(user1Id);
-      cleanupPresence(user2Id);
-      resetHuddles();
+    beforeEach(async () => {
+      await cleanupPresence(user1Id);
+      await cleanupPresence(user2Id);
+      await resetHuddles();
     });
 
     test("emits presence:updated offline when last socket disconnects", async () => {
@@ -543,7 +541,7 @@ describe("socket.io integration", () => {
     });
 
     test("huddle ended (last participant): emits huddle:ended", async () => {
-      startHuddle(channelId, user1Id);
+      await startHuddle(channelId, user1Id);
 
       const observer = track(await connectAndSettle(user2Token));
       const s1 = track(await connectAndSettle(user1Token));
@@ -561,14 +559,14 @@ describe("socket.io integration", () => {
     });
 
     test("huddle ended with messageId: emits message:updated", async () => {
-      const huddle = startHuddle(channelId, user1Id);
+      const huddle = await startHuddle(channelId, user1Id);
 
       const sysMsg = await createHuddleMessage(
         asChannelId(channelId),
         asUserId(user1Id),
         { huddleStartedAt: huddle.startedAt },
       );
-      setHuddleMessageId(channelId, sysMsg.id);
+      await setHuddleMessageId(channelId, sysMsg.id);
 
       const observer = track(await connectAndSettle(user2Token));
       const s1 = track(await connectAndSettle(user1Token));
@@ -586,7 +584,7 @@ describe("socket.io integration", () => {
     });
 
     test("huddle ended with no messageId: emits huddle:ended without message:updated", async () => {
-      startHuddle(channelId, user1Id);
+      await startHuddle(channelId, user1Id);
 
       const observer = track(await connectAndSettle(user2Token));
       const s1 = track(await connectAndSettle(user1Token));
@@ -611,8 +609,8 @@ describe("socket.io integration", () => {
     });
 
     test("huddle continues (others remain): emits huddle:updated", async () => {
-      startHuddle(channelId, user1Id);
-      startHuddle(channelId, user2Id); // joins existing
+      await startHuddle(channelId, user1Id);
+      await startHuddle(channelId, user2Id); // joins existing
 
       const observer = track(await connectAndSettle(user2Token));
       const s1 = track(await connectAndSettle(user1Token));
@@ -632,7 +630,7 @@ describe("socket.io integration", () => {
     });
 
     test("persistLastSeen is called on disconnect (verifiable via DB)", async () => {
-      cleanupPresence(user1Id);
+      await cleanupPresence(user1Id);
       const s1 = track(await connectAndSettle(user1Token));
 
       activeSockets = activeSockets.filter((s) => s !== s1);

@@ -14,12 +14,14 @@ interface MessageItemProps {
   message: Message;
   senderStatusEmoji?: string | null;
   isGrouped?: boolean;
+  isFollowedByGrouped?: boolean;
 }
 
 export function MessageItem({
   message,
   senderStatusEmoji,
   isGrouped,
+  isFollowedByGrouped,
 }: MessageItemProps) {
   const {
     currentUserId,
@@ -81,7 +83,7 @@ export function MessageItem({
   const compactTime = new Date(message.createdAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: false });
 
   return (
-    <div className={`${isGrouped ? "" : "mb-0 border-b border-border-default/60"} relative group px-4 -mx-4 py-1.5 hover:bg-surface-secondary/40 transition-colors duration-75`} data-message-id={message.id}>
+    <div className={`${!isGrouped && !isFollowedByGrouped ? "mb-0 border-b border-border-default/60" : ""} ${message.isPinned ? "bg-yellow-50 dark:bg-yellow-900/20" : ""} relative group px-4 -mx-4 py-1.5 hover:bg-surface-secondary/40 transition-colors duration-75`} data-message-id={message.id}>
       {onToggleReaction && (
         <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-75">
           <MessageActionBar
@@ -161,10 +163,11 @@ export function MessageItem({
               {fullTime}
             </span>
             {message.isPinned && (
-              <span className="inline-flex items-center text-faint" data-testid="pin-badge" title="Pinned">
+              <span className="inline-flex items-center gap-1 text-xs text-yellow-700 dark:text-yellow-400" data-testid="pin-badge">
                 <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
                   <path d="M4.456.734a1.75 1.75 0 0 1 2.826.504l.613 1.327a3.08 3.08 0 0 0 2.084 1.707l2.454.584c1.332.317 1.8 1.972.832 2.94L11.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06L10 11.06l-2.204 2.205c-.968.968-2.623.5-2.94-.832l-.584-2.454a3.08 3.08 0 0 0-1.707-2.084l-1.327-.613a1.75 1.75 0 0 1-.504-2.826L4.456.734Z" />
                 </svg>
+                {message.pinnedBy === currentUserId ? "Pinned by you" : "Pinned"}
               </span>
             )}
           </div>

@@ -18,7 +18,6 @@
       "WebSearch",
       "Bash(lsof:*)",
       "Bash(bun test:*)",
-      "Bash(bun -e:*)",
       "Bash(grep:*)",
       "Bash(echo:*)",
       "Bash(node -e:*)",

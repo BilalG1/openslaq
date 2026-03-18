@@ -30,6 +30,10 @@ export interface SetNotificationPrefOptions {
   level: ChannelNotifyLevel;
 }
 
+export interface GetNotificationPrefResponse {
+  level: ChannelNotifyLevel;
+}
+
 export class Channels {
   constructor(private readonly http: HttpClient) {}
 
@@ -41,7 +45,7 @@ export class Channels {
   async browse(options?: BrowseChannelsOptions): Promise<BrowseChannel[]> {
     const path = this.http.workspacePath("/channels/browse");
     return this.http.get<BrowseChannel[]>(path, {
-      includeArchived: options?.includeArchived ? "true" : undefined,
+      includeArchived: options?.includeArchived,
     });
   }
 
@@ -120,9 +124,9 @@ export class Channels {
     return this.http.get<NotificationPrefsMap>(path);
   }
 
-  async getNotificationPref(id: string): Promise<{ level: ChannelNotifyLevel }> {
+  async getNotificationPref(id: string): Promise<GetNotificationPrefResponse> {
     const path = this.http.workspacePath(`/channels/${id}/notification-pref`);
-    return this.http.get<{ level: ChannelNotifyLevel }>(path);
+    return this.http.get<GetNotificationPrefResponse>(path);
   }
 
   async setNotificationPref(id: string, options: SetNotificationPrefOptions): Promise<void> {

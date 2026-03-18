@@ -7,6 +7,7 @@ import { MessageInput } from "./MessageInput";
 import { DaySeparator } from "./DaySeparator";
 import { isDifferentDay } from "./message-date-utils";
 import { X } from "lucide-react";
+import { EmptyState, LoadingState, ErrorState } from "../ui";
 import type { Message, MessageId, ChannelId, ReactionGroup } from "@openslaq/shared";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { useThreadMessages } from "../../hooks/chat/useThreadMessages";
@@ -143,13 +144,9 @@ export function ThreadPanel({ channelId, parentMessageId, onClose, onOpenProfile
       <MessageActionsProvider value={actionsContextValue}>
         <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4">
           {loading ? (
-            <div className="text-faint text-[13px] text-center p-4">
-              Loading thread...
-            </div>
+            <LoadingState label="Loading thread..." size="sm" />
           ) : error ? (
-            <div className="text-danger-text text-[13px] text-center p-4">
-              {error}
-            </div>
+            <ErrorState message={error} size="sm" />
           ) : (
             <>
               {parentMessage && (
@@ -166,9 +163,7 @@ export function ThreadPanel({ channelId, parentMessageId, onClose, onOpenProfile
               )}
 
               {replies.length === 0 ? (
-                <div className="text-faint text-[13px] text-center p-4">
-                  No replies yet
-                </div>
+                <EmptyState title="No replies yet" size="sm" />
               ) : (
                 replies.map((reply, index) => {
                   const prevCreatedAt =
@@ -185,12 +180,20 @@ export function ThreadPanel({ channelId, parentMessageId, onClose, onOpenProfile
                     reply.userId === prevUserId &&
                     prevCreatedAt != null &&
                     new Date(reply.createdAt).getTime() - new Date(prevCreatedAt).getTime() < 5 * 60 * 1000;
+                  const nextReply = index < replies.length - 1 ? replies[index + 1] : null;
+                  const nextShowSeparator = nextReply != null && isDifferentDay(reply.createdAt, nextReply.createdAt);
+                  const isFollowedByGrouped =
+                    !nextShowSeparator &&
+                    nextReply != null &&
+                    nextReply.userId === reply.userId &&
+                    new Date(nextReply.createdAt).getTime() - new Date(reply.createdAt).getTime() < 5 * 60 * 1000;
                   return (
                     <Fragment key={reply.id}>
                       {showSeparator && <DaySeparator date={new Date(reply.createdAt)} />}
                       <MessageItem
                         message={reply}
                         isGrouped={isGrouped}
+                        isFollowedByGrouped={isFollowedByGrouped}
                       />
                     </Fragment>
                   );

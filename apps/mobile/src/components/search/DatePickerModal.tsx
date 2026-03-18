@@ -1,11 +1,11 @@
 import { useState } from "react";
 import {
-  Modal,
   Pressable,
   Text,
   TextInput,
 } from "react-native";
 import { useMobileTheme } from "@/theme/ThemeProvider";
+import { BottomSheet } from "@/components/ui/BottomSheet";
 
 interface Props {
   visible: boolean;
@@ -54,109 +54,79 @@ export function DatePickerModal({ visible, onClose, onApply, initialFrom, initia
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
-      <Pressable
-        testID="date-picker-backdrop"
-        style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" }}
-        onPress={handleClose}
-      >
-        <Pressable
-          testID="date-picker-modal"
-          style={{
-            backgroundColor: theme.colors.surface,
-            borderTopLeftRadius: 16,
-            borderTopRightRadius: 16,
-            paddingTop: 16,
-            paddingBottom: 34,
-            paddingHorizontal: 16,
-          }}
-          onPress={(e) => e.stopPropagation()}
+    <BottomSheet visible={visible} onClose={handleClose} title="Date Range" testID="date-picker-modal">
+      <Text style={{ fontSize: 13, color: theme.colors.textSecondary, marginBottom: 4 }}>
+        From (YYYY-MM-DD)
+      </Text>
+      <TextInput
+        testID="date-picker-from"
+        placeholder="2025-01-01"
+        placeholderTextColor={theme.colors.textFaint}
+        value={fromDate}
+        onChangeText={setFromDate}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="numbers-and-punctuation"
+        style={{
+          borderWidth: 1,
+          borderColor: theme.colors.borderDefault,
+          borderRadius: 8,
+          paddingHorizontal: 12,
+          paddingVertical: 10,
+          fontSize: 16,
+          color: theme.colors.textPrimary,
+          backgroundColor: theme.colors.surfaceSecondary,
+          marginBottom: 12,
+        }}
+      />
+
+      <Text style={{ fontSize: 13, color: theme.colors.textSecondary, marginBottom: 4 }}>
+        To (YYYY-MM-DD)
+      </Text>
+      <TextInput
+        testID="date-picker-to"
+        placeholder="2025-12-31"
+        placeholderTextColor={theme.colors.textFaint}
+        value={toDate}
+        onChangeText={setToDate}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="numbers-and-punctuation"
+        style={{
+          borderWidth: 1,
+          borderColor: theme.colors.borderDefault,
+          borderRadius: 8,
+          paddingHorizontal: 12,
+          paddingVertical: 10,
+          fontSize: 16,
+          color: theme.colors.textPrimary,
+          backgroundColor: theme.colors.surfaceSecondary,
+          marginBottom: 12,
+        }}
+      />
+
+      {error && (
+        <Text
+          testID="date-picker-error"
+          style={{ color: theme.colors.dangerText, marginBottom: 12, fontSize: 14 }}
         >
-          <Text
-            style={{
-              fontSize: 18,
-              fontWeight: "600",
-              color: theme.colors.textPrimary,
-              marginBottom: 16,
-            }}
-          >
-            Date Range
-          </Text>
+          {error}
+        </Text>
+      )}
 
-          <Text style={{ fontSize: 13, color: theme.colors.textSecondary, marginBottom: 4 }}>
-            From (YYYY-MM-DD)
-          </Text>
-          <TextInput
-            testID="date-picker-from"
-            placeholder="2025-01-01"
-            placeholderTextColor={theme.colors.textFaint}
-            value={fromDate}
-            onChangeText={setFromDate}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="numbers-and-punctuation"
-            style={{
-              borderWidth: 1,
-              borderColor: theme.colors.borderDefault,
-              borderRadius: 8,
-              paddingHorizontal: 12,
-              paddingVertical: 10,
-              fontSize: 16,
-              color: theme.colors.textPrimary,
-              backgroundColor: theme.colors.surfaceSecondary,
-              marginBottom: 12,
-            }}
-          />
-
-          <Text style={{ fontSize: 13, color: theme.colors.textSecondary, marginBottom: 4 }}>
-            To (YYYY-MM-DD)
-          </Text>
-          <TextInput
-            testID="date-picker-to"
-            placeholder="2025-12-31"
-            placeholderTextColor={theme.colors.textFaint}
-            value={toDate}
-            onChangeText={setToDate}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="numbers-and-punctuation"
-            style={{
-              borderWidth: 1,
-              borderColor: theme.colors.borderDefault,
-              borderRadius: 8,
-              paddingHorizontal: 12,
-              paddingVertical: 10,
-              fontSize: 16,
-              color: theme.colors.textPrimary,
-              backgroundColor: theme.colors.surfaceSecondary,
-              marginBottom: 12,
-            }}
-          />
-
-          {error && (
-            <Text
-              testID="date-picker-error"
-              style={{ color: theme.colors.dangerText, marginBottom: 12, fontSize: 14 }}
-            >
-              {error}
-            </Text>
-          )}
-
-          <Pressable
-            testID="date-picker-apply"
-            onPress={handleApply}
-            style={({ pressed }) => ({
-              opacity: pressed ? 0.8 : 1,
-              backgroundColor: theme.brand.primary,
-              borderRadius: 8,
-              paddingVertical: 12,
-              alignItems: "center",
-            })}
-          >
-            <Text style={{ color: "#fff", fontWeight: "600", fontSize: 16 }}>Apply</Text>
-          </Pressable>
-        </Pressable>
+      <Pressable
+        testID="date-picker-apply"
+        onPress={handleApply}
+        style={({ pressed }) => ({
+          opacity: pressed ? 0.8 : 1,
+          backgroundColor: theme.brand.primary,
+          borderRadius: 8,
+          paddingVertical: 12,
+          alignItems: "center",
+        })}
+      >
+        <Text style={{ color: "#fff", fontWeight: "600", fontSize: 16 }}>Apply</Text>
       </Pressable>
-    </Modal>
+    </BottomSheet>
   );
 }

@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { apiReference } from "@scalar/hono-api-reference";
 import { env } from "./env";
+import { Sentry } from "./sentry";
 import { artificialDelay } from "./middleware/artificial-delay";
 import workspaceRoutes from "./workspaces/routes";
 import workspaceScopedRoutes from "./workspaces/scoped-routes";
@@ -25,6 +26,11 @@ import apiKeyRoutes from "./api-keys/routes";
 import { INTEGRATION_PLUGINS } from "./integrations/registry";
 
 const app = new OpenAPIHono();
+
+app.onError((err, c) => {
+  Sentry.captureException(err);
+  return c.json({ error: "Internal Server Error" }, 500);
+});
 
 app.get("/health", (c) => c.json({ status: "ok" }));
 app.post("/health", (c) => c.json({ status: "ok" }));

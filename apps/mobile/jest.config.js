@@ -26,5 +26,5 @@ module.exports = {
     "!src/global.css",
   ],
   setupFiles: ["./jest.setup.js"],
-  testPathIgnorePatterns: ["/node_modules/", "/e2e/"],
+  testPathIgnorePatterns: ["/node_modules/", "/e2e/", "\\.spec\\.ts$"],
 };

@@ -10,20 +10,21 @@ import {
   createWebhookReceiver,
   type LiveKitConfig,
 } from "@openslaq/huddle/server";
-import { MAX_HUDDLE_PARTICIPANTS } from "@openslaq/huddle/shared";
+import { MAX_HUDDLE_PARTICIPANTS, MAX_TOTAL_HUDDLE_PARTICIPANTS } from "@openslaq/huddle/shared";
 import { getIO } from "../socket/io";
 import {
   joinHuddle,
   leaveHuddle,
   getHuddleForChannel,
   setHuddleMessageId,
+  isUserInAnyHuddle,
 } from "./service";
 import {
   createHuddleMessage,
   updateHuddleMessage,
 } from "../messages/service";
 import type { HuddleMessageMetadata, ChannelId, UserId } from "@openslaq/shared";
-import { rlRead } from "../rate-limit/tiers";
+import { rlHuddleJoin } from "../rate-limit/tiers";
 
 const liveKitConfig: LiveKitConfig = {
   apiKey: env.LIVEKIT_API_KEY,
@@ -42,7 +43,7 @@ const joinRoute = createRoute({
   summary: "Join a huddle",
   description: "Get a LiveKit token to join a huddle in a channel. Creates the room if needed.",
   security: [{ Bearer: [] }],
-  middleware: [auth, rlRead] as const,
+  middleware: [auth, rlHuddleJoin] as const,
   request: {
     body: {
       content: {
@@ -69,6 +70,7 @@ const joinRoute = createRoute({
     },
     403: { description: "Not a channel member" },
     409: { description: "Room is full" },
+    503: { description: "Server at capacity" },
   },
 });
 
@@ -128,7 +130,19 @@ const routes = new OpenAPIHono<AuthEnv>()
       return c.json({ error: "Not a channel member" }, 403);
     }
 
-    // Check participant limit
+    // Check if user is already in a different huddle
+    const existing = await isUserInAnyHuddle(user.id);
+    if (existing.inHuddle && existing.channelId !== channelId) {
+      return c.json({ error: "You are already in a huddle in another channel. Leave it first." }, 409);
+    }
+
+    // Check server-wide capacity
+    const totalParticipants = await roomManager.getTotalParticipantCount();
+    if (totalParticipants >= MAX_TOTAL_HUDDLE_PARTICIPANTS) {
+      return c.json({ error: "Huddle servers are at capacity. Please try again later." }, 503);
+    }
+
+    // Check per-room participant limit
     const existingParticipants = await roomManager.listParticipants(channelId);
     if (existingParticipants.length >= MAX_HUDDLE_PARTICIPANTS) {
       return c.json({ error: "Huddle is full" }, 409);
@@ -145,22 +159,17 @@ const routes = new OpenAPIHono<AuthEnv>()
     });
 
     // Update server-side huddle state
-    const huddle = joinHuddle(channelId, user.id);
+    const huddle = await joinHuddle(channelId, user.id);
     const io = getIO();
 
     // Create system message if this is a new huddle (first participant, no messageId yet)
     if (huddle.participants.length === 1 && !huddle.messageId) {
-      // Set synchronously to prevent duplicate from concurrent requests
-      // (e.g. React StrictMode double-mount)
-      huddle.messageId = "pending";
       try {
         const metadata: HuddleMessageMetadata = { huddleStartedAt: huddle.startedAt };
         const sysMsg = await createHuddleMessage(channelId as ChannelId, user.id as UserId, metadata);
-        setHuddleMessageId(channelId, sysMsg.id);
-        huddle.messageId = sysMsg.id;
+        await setHuddleMessageId(channelId, sysMsg.id);
         io.to(`channel:${channelId}`).emit("message:new", sysMsg);
       } catch (err) {
-        huddle.messageId = null; // Reset on failure so it can be retried
         console.error("Failed to create huddle system message:", err);
       }
     }
@@ -187,7 +196,7 @@ const routes = new OpenAPIHono<AuthEnv>()
       // Extract channelId from room name
       const channelId = event.room.name.replace(/^huddle-/, "");
       // Clean up server-side state
-      const huddle = getHuddleForChannel(channelId);
+      const huddle = await getHuddleForChannel(channelId);
       if (huddle) {
         // Participants have all left, end the huddle
         io.to(`channel:${channelId}`).emit("huddle:ended", { channelId: asChannelId(channelId) });
@@ -204,20 +213,20 @@ const routes = new OpenAPIHono<AuthEnv>()
         if (!isMember) {
           console.warn(`Huddle participant_joined: user ${participantId} is not a member of channel ${channelId}, skipping`);
         } else {
-          const huddle = joinHuddle(channelId, participantId);
+          const huddle = await joinHuddle(channelId, participantId);
           io.to(`channel:${channelId}`).emit("huddle:updated", huddle);
         }
       } catch (err) {
         // If membership check fails (e.g. invalid channelId), still join the huddle
         // since the user was already authorized by LiveKit token issuance
         console.warn(`Huddle participant_joined: membership check failed for ${participantId} in ${channelId}, joining anyway:`, err);
-        const huddle = joinHuddle(channelId, participantId);
+        const huddle = await joinHuddle(channelId, participantId);
         io.to(`channel:${channelId}`).emit("huddle:updated", huddle);
       }
     }
 
     if (event.event === "participant_left" && event.room?.name && event.participant) {
-      const result = leaveHuddle(event.participant.identity);
+      const result = await leaveHuddle(event.participant.identity);
       if (result.channelId) {
         if (result.ended) {
           if (result.messageId && result.startedAt) {

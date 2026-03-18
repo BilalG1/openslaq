@@ -118,6 +118,10 @@ const createBotRoute = createRoute({
       },
       description: "Created bot with API token",
     },
+    400: {
+      content: { "application/json": { schema: errorSchema } },
+      description: "Quota exceeded",
+    },
   },
 });
 
@@ -293,6 +297,13 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     const workspace = c.get("workspace");
     const user = c.get("user");
     const body = c.req.valid("json");
+
+    // Cap bots per workspace
+    const existingBots = await listBotApps(workspace.id);
+    if (existingBots.length >= 25) {
+      return c.json({ error: "Maximum 25 bots per workspace" }, 400);
+    }
+
     const result = await createBotApp(
       workspace.id,
       body.name,
@@ -357,7 +368,8 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     const commands = await db
       .select()
       .from(botSlashCommands)
-      .where(eq(botSlashCommands.botAppId, botId));
+      .where(eq(botSlashCommands.botAppId, botId))
+      .limit(100);
     return jsonResponse(
       c,
       commands.map((cmd) => ({

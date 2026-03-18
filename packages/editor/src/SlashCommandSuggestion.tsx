@@ -4,7 +4,7 @@ export interface SlashCommandItem {
   name: string;
   description: string;
   usage: string;
-  source: "builtin" | "bot";
+  source: "builtin" | "bot" | "integration";
   botName?: string;
 }
 

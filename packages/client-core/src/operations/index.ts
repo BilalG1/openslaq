@@ -1,7 +1,8 @@
 export type { OperationDeps, ApiDeps } from "./types";
 export { bootstrapWorkspace } from "./bootstrap";
 export { loadChannelMessages, loadOlderMessages, loadNewerMessages } from "./messages";
-export { loadThreadMessages, loadOlderReplies, loadMoreReplies } from "./threads";
+export { loadThreadMessages, loadOlderReplies, loadMoreReplies, fetchUserThreads } from "./threads";
+export type { UserThreadItem } from "./threads";
 export {
   toggleReaction,
   sendMessage,
@@ -95,6 +96,14 @@ export {
   deleteScheduledMessageOp,
 } from "./scheduled";
 export type { ScheduledMessageItem } from "./scheduled";
+export {
+  fetchDrafts,
+  upsertDraftOp,
+  deleteDraftOp,
+  deleteDraftByKeyOp,
+  fetchDraftForChannel,
+} from "./drafts";
+export type { DraftItem } from "./drafts";
 export { fetchFiles } from "./files";
 export type { FetchFilesParams, FetchFilesResult } from "./files";
 export { fetchCustomEmojis, uploadCustomEmoji, deleteCustomEmoji } from "./emoji";
@@ -114,3 +123,11 @@ export {
   uninstallMarketplaceListing,
   getInstalledListings,
 } from "./marketplace";
+export {
+  getFeatureFlags,
+} from "./feature-flags";
+export {
+  getAdminFeatureFlags,
+  updateAdminFeatureFlags,
+  bulkUpdateFeatureFlag,
+} from "./admin-feature-flags";

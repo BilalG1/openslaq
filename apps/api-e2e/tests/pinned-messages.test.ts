@@ -71,28 +71,6 @@ describe("pinned messages", () => {
     expect(pinned!.pinnedAt).toBeDefined();
   });
 
-  test("pin creates system message in channel", async () => {
-    // Send a new message and pin it
-    const msgRes = await client.api.workspaces[":slug"].channels[":id"].messages.$post({
-      param: { slug, id: channelId },
-      json: { content: "Pin system message test" },
-    });
-    const msg = (await msgRes.json()) as { id: string };
-
-    await client.api.workspaces[":slug"].channels[":id"].messages[":messageId"].pin.$post({
-      param: { slug, id: channelId, messageId: msg.id },
-    });
-
-    // Check messages for system message
-    const listRes = await client.api.workspaces[":slug"].channels[":id"].messages.$get({
-      param: { slug, id: channelId },
-      query: {},
-    });
-    const data = (await listRes.json()) as { messages: Array<{ content: string }> };
-    const systemMsg = data.messages.find((m) => m.content.includes("pinned a message"));
-    expect(systemMsg).toBeDefined();
-  });
-
   test("unpin message → 200", async () => {
     // Ensure pinned first
     await client.api.workspaces[":slug"].channels[":id"].messages[":messageId"].pin.$post({

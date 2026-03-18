@@ -1,18 +1,29 @@
-import { useCallback, useState } from "react";
-import { View, Text, SectionList, ActivityIndicator, Pressable, StyleSheet } from "react-native";
+import { useCallback, useRef, useState } from "react";
+import { View, Text, SectionList, ActivityIndicator, Pressable, StyleSheet, Alert } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { getAllDraftKeys } from "@/lib/draft-storage";
 import { useChatStore } from "@/contexts/ChatStoreProvider";
+import { useAuth } from "@/contexts/AuthContext";
+import { api } from "@/lib/api";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { ListRow } from "@/components/ui/ListRow";
 import { CollapsibleSectionHeader } from "@/components/CollapsibleSectionHeader";
 import { HomeHeader } from "@/components/home/HomeHeader";
 import { QuickActionsRow } from "@/components/home/QuickActionsRow";
+import { ChannelActionSheet } from "@/components/ChannelActionSheet";
 import { useHomeActions } from "@/contexts/HomeActionsContext";
+import { haptics } from "@/utils/haptics";
+import {
+  starChannelOp,
+  unstarChannelOp,
+  setChannelNotificationPrefOp,
+  archiveChannel,
+} from "@openslaq/client-core";
+import type { Channel, ChannelId, ChannelNotifyLevel } from "@openslaq/shared";
 import { Lock, Users } from "lucide-react-native";
-import type { Channel } from "@openslaq/shared";
 import type { DmConversation, GroupDmConversation } from "@openslaq/client-core";
+import { routes } from "@/lib/routes";
 
 type HomeItem =
   | { kind: "channel"; channel: Channel }
@@ -28,11 +39,50 @@ interface HomeSection {
 export default function HomeScreen() {
   const router = useRouter();
   const { workspaceSlug } = useLocalSearchParams<{ workspaceSlug: string }>();
-  const { state } = useChatStore();
+  const { state, dispatch } = useChatStore();
+  const { authProvider } = useAuth();
   const { theme } = useMobileTheme();
   const { openCreateChannel, openNewDm } = useHomeActions();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [draftSet, setDraftSet] = useState<Set<string>>(new Set());
+  const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
+  const [actionSheetVisible, setActionSheetVisible] = useState(false);
+
+  // Ref for getState callback (avoids stale closures)
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  const operationDeps = {
+    api,
+    auth: authProvider,
+    dispatch,
+    getState: () => stateRef.current,
+  };
+
+  const workspace = state.workspaces?.find((w: { slug: string }) => w.slug === workspaceSlug);
+  const isAdmin = workspace?.role === "owner" || workspace?.role === "admin";
+
+  const handleLongPressChannel = (channel: Channel) => {
+    haptics.heavy();
+    setSelectedChannel(channel);
+    setActionSheetVisible(true);
+  };
+
+  const handleStar = (channelId: string) => {
+    void starChannelOp(operationDeps, { slug: workspaceSlug, channelId });
+  };
+
+  const handleUnstar = (channelId: string) => {
+    void unstarChannelOp(operationDeps, { slug: workspaceSlug, channelId });
+  };
+
+  const handleSetNotificationPref = (channelId: string, level: ChannelNotifyLevel) => {
+    void setChannelNotificationPrefOp(operationDeps, { slug: workspaceSlug, channelId, level });
+  };
+
+  const handleArchiveChannel = (channelId: string) => {
+    void archiveChannel(operationDeps, { workspaceSlug, channelId: channelId as ChannelId });
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -66,7 +116,7 @@ export default function HomeScreen() {
   // Unreads: channels + DMs + group DMs with unread > 0 and not muted
   const unreadItems: HomeItem[] = [];
   for (const ch of state.channels) {
-    if ((state.unreadCounts[ch.id] ?? 0) > 0 && !mutedSet.has(ch.id)) {
+    if ((state.unreadCounts[ch.id] ?? 0) > 0 && !mutedSet.has(ch.id) && !ch.isArchived) {
       unreadItems.push({ kind: "channel", channel: ch });
     }
   }
@@ -83,12 +133,12 @@ export default function HomeScreen() {
 
   // Starred channels
   const starredItems: HomeItem[] = state.channels
-    .filter((c) => starredSet.has(c.id))
+    .filter((c) => starredSet.has(c.id) && !c.isArchived)
     .map((channel) => ({ kind: "channel" as const, channel }));
 
   // Regular channels (non-starred)
   const channelItems: HomeItem[] = state.channels
-    .filter((c) => !starredSet.has(c.id))
+    .filter((c) => !starredSet.has(c.id) && !c.isArchived)
     .map((channel) => ({ kind: "channel" as const, channel }));
 
   // DMs + Group DMs
@@ -128,7 +178,7 @@ export default function HomeScreen() {
       <SectionList
         testID="channel-list"
         sections={sections}
-        keyExtractor={(item, index) => `${getItemKey(item)}-${index}`}
+        keyExtractor={(item) => getItemKey(item)}
         ListHeaderComponent={<QuickActionsRow />}
         renderSectionHeader={({ section }) => (
           <CollapsibleSectionHeader
@@ -152,8 +202,9 @@ export default function HomeScreen() {
               <Pressable
                 testID={`channel-row-${ch.id}`}
                 onPress={() =>
-                  router.push(`/(app)/${workspaceSlug}/(channels)/${ch.id}`)
+                  router.push(routes.channel(workspaceSlug, ch.id))
                 }
+                onLongPress={() => handleLongPressChannel(ch)}
               >
                 <View style={{ paddingHorizontal: 20, paddingVertical: 10, flexDirection: "row", alignItems: "center" }}>
                   <View style={{ width: 28, alignItems: "center", justifyContent: "center" }}>
@@ -198,7 +249,7 @@ export default function HomeScreen() {
               <Pressable
                 testID={`group-dm-row-${groupDm.channel.id}`}
                 onPress={() =>
-                  router.push(`/(app)/${workspaceSlug}/(tabs)/(channels)/dm/${groupDm.channel.id}`)
+                  router.push(routes.dm(workspaceSlug, groupDm.channel.id))
                 }
               >
                 <View style={{ paddingHorizontal: 20, paddingVertical: 10, flexDirection: "row", alignItems: "center" }}>
@@ -249,7 +300,7 @@ export default function HomeScreen() {
             <Pressable
               testID={`dm-row-${dm.channel.id}`}
               onPress={() =>
-                router.push(`/(app)/${workspaceSlug}/(tabs)/(channels)/dm/${dm.channel.id}`)
+                router.push(routes.dm(workspaceSlug, dm.channel.id))
               }
             >
               <View style={{ paddingHorizontal: 20, paddingVertical: 10, flexDirection: "row", alignItems: "center" }}>
@@ -301,7 +352,13 @@ export default function HomeScreen() {
             return (
               <ListRow
                 testID="add-channel-link"
-                onPress={openCreateChannel}
+                onPress={() => {
+                  Alert.alert("Add Channel", undefined, [
+                    { text: "Create a Channel", onPress: openCreateChannel },
+                    { text: "Browse Channels", onPress: () => router.push(routes.browse(workspaceSlug)) },
+                    { text: "Cancel", style: "cancel" },
+                  ]);
+                }}
               >
                 <View style={{ width: 28, alignItems: "center", justifyContent: "center" }}>
                   <Text style={{ color: theme.colors.textMuted, fontSize: 18, fontWeight: "300" }}>+</Text>
@@ -339,29 +396,19 @@ export default function HomeScreen() {
           return null;
         }}
       />
-      {/* FAB */}
-      <Pressable
-        testID="fab-compose"
-        onPress={openNewDm}
-        style={{
-          position: "absolute",
-          bottom: 20,
-          right: 20,
-          width: 56,
-          height: 56,
-          borderRadius: 28,
-          backgroundColor: theme.brand.primary,
-          alignItems: "center",
-          justifyContent: "center",
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.25,
-          shadowRadius: 4,
-          elevation: 5,
-        }}
-      >
-        <Text style={{ color: "#fff", fontSize: 28, fontWeight: "300", marginTop: -2 }}>+</Text>
-      </Pressable>
+      <ChannelActionSheet
+        visible={actionSheetVisible}
+        channel={selectedChannel}
+        isStarred={selectedChannel ? starredSet.has(selectedChannel.id) : false}
+        isMuted={selectedChannel ? mutedSet.has(selectedChannel.id) : false}
+        notifyLevel={selectedChannel ? (state.channelNotificationPrefs[selectedChannel.id] ?? "all") : "all"}
+        isAdmin={isAdmin}
+        onStar={handleStar}
+        onUnstar={handleUnstar}
+        onSetNotificationPref={handleSetNotificationPref}
+        onArchive={handleArchiveChannel}
+        onClose={() => setActionSheetVisible(false)}
+      />
     </View>
   );
 }

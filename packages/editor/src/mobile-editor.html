@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<style>
+:root {
+  --text-primary: #1d1c1d;
+  --text-muted: #616061;
+  --text-faint: #ababad;
+  --border-strong: #868686;
+  --surface-tertiary: #f8f8f8;
+  --brand-primary: #1264a3;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: auto;
+  overflow: hidden;
+  background: transparent;
+}
+
+.tiptap {
+  outline: none;
+  padding: 8px 0;
+  font-family: -apple-system, system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--text-primary);
+  overflow: hidden;
+  min-height: 20px;
+}
+
+.tiptap p { margin: 0; }
+.tiptap p + p { margin-top: 4px; }
+
+.tiptap code {
+  background: var(--surface-tertiary);
+  border-radius: 3px;
+  padding: 0.2em 0.4em;
+  font-size: 0.85em;
+}
+
+.tiptap pre {
+  background: var(--surface-tertiary);
+  border-radius: 6px;
+  padding: 8px 12px;
+  overflow-x: auto;
+  margin: 4px 0;
+}
+
+.tiptap pre code {
+  background: none;
+  padding: 0;
+}
+
+.tiptap blockquote {
+  border-left: 3px solid var(--border-strong);
+  padding-left: 12px;
+  margin-left: 0;
+  margin-top: 4px;
+  margin-bottom: 4px;
+  color: var(--text-muted);
+}
+
+.tiptap blockquote > p:first-child { margin-top: 0; }
+.tiptap blockquote > p:last-child { margin-bottom: 0; }
+
+.tiptap ul, .tiptap ol {
+  margin: 4px 0;
+  padding-left: 24px;
+}
+
+.tiptap ul { list-style-type: disc; }
+.tiptap ol { list-style-type: decimal; }
+
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--text-faint);
+  pointer-events: none;
+  height: 0;
+  font-family: -apple-system, system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 20px;
+}
+
+.tiptap a {
+  color: var(--brand-primary);
+  text-decoration: underline;
+}
+
+.tiptap .mention {
+  background: rgba(18, 100, 163, 0.1);
+  color: #1264a3;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-weight: 500;
+  font-size: 14px;
+}
+</style>
+</head>
+<body>
+<div id="editor"></div>
+<script type="module">
+import { Editor } from "@tiptap/core";
+import StarterKit from "@tiptap/starter-kit";
+import Link from "@tiptap/extension-link";
+import Placeholder from "@tiptap/extension-placeholder";
+import { Markdown } from "tiptap-markdown";
+import { MentionWithMarkdown } from "./MentionMarkdown.ts";
+import { SlashCommand } from "./SlashCommandExtension.ts";
+import Suggestion from "@tiptap/suggestion";
+
+// Store suggestion props references for insert commands
+let mentionSuggestionProps = null;
+let slashSuggestionProps = null;
+// Store pending callbacks for get-markdown round-trips
+const pendingCallbacks = {};
+
+function postToRN(type, payload) {
+  if (window.ReactNativeWebView) {
+    window.ReactNativeWebView.postMessage(JSON.stringify({ type, ...payload }));
+  }
+}
+
+const editor = new Editor({
+  element: document.getElementById("editor"),
+  extensions: [
+    StarterKit.configure({
+      heading: false,
+      codeBlock: true,
+    }),
+    Link.configure({
+      autolink: true,
+      openOnClick: false,
+    }),
+    MentionWithMarkdown.configure({
+      HTMLAttributes: { class: "mention" },
+      suggestion: {
+        char: "@",
+        allowedPrefixes: null,
+        items: () => [],
+        render: () => ({
+          onStart(props) {
+            mentionSuggestionProps = props;
+            postToRN("mention-query", { query: props.query });
+          },
+          onUpdate(props) {
+            mentionSuggestionProps = props;
+            postToRN("mention-query", { query: props.query });
+          },
+          onExit() {
+            mentionSuggestionProps = null;
+            postToRN("mention-query", { query: null });
+          },
+          onKeyDown() { return false; },
+        }),
+      },
+    }),
+    Placeholder.configure({
+      placeholder: "Message",
+    }),
+    Markdown.configure({
+      transformPastedText: true,
+      transformCopiedText: true,
+    }),
+    SlashCommand.configure({
+      suggestion: {
+        char: "/",
+        allowedPrefixes: null,
+        startOfLine: true,
+        items: () => [],
+        render: () => ({
+          onStart(props) {
+            slashSuggestionProps = props;
+            postToRN("slash-query", { query: props.query });
+          },
+          onUpdate(props) {
+            slashSuggestionProps = props;
+            postToRN("slash-query", { query: props.query });
+          },
+          onExit() {
+            slashSuggestionProps = null;
+            postToRN("slash-query", { query: null });
+          },
+          onKeyDown() { return false; },
+        }),
+        command: ({ editor, range, props }) => {
+          editor.chain().focus().deleteRange(range).insertContent(`/${props.name} `).run();
+        },
+      },
+    }),
+  ],
+  editorProps: {
+    attributes: {
+      class: "tiptap",
+    },
+  },
+  onTransaction({ editor: e }) {
+    // Post content change
+    const storage = e.storage.markdown;
+    const markdown = storage?.getMarkdown?.() ?? "";
+    const text = e.getText();
+    const isEmpty = e.isEmpty;
+    postToRN("content-change", { markdown, text, isEmpty });
+
+    // Post formatting state
+    postToRN("formatting-state", {
+      bold: e.isActive("bold"),
+      italic: e.isActive("italic"),
+      strike: e.isActive("strike"),
+      code: e.isActive("code"),
+      blockquote: e.isActive("blockquote"),
+      bulletList: e.isActive("bulletList"),
+      orderedList: e.isActive("orderedList"),
+    });
+  },
+});
+
+// Height observation
+const proseMirrorEl = document.querySelector(".tiptap");
+if (proseMirrorEl) {
+  let lastHeight = 0;
+  const observer = new ResizeObserver(() => {
+    const h = proseMirrorEl.scrollHeight;
+    if (h !== lastHeight) {
+      lastHeight = h;
+      postToRN("height-change", { height: h });
+    }
+  });
+  observer.observe(proseMirrorEl);
+  // Initial height report
+  requestAnimationFrame(() => {
+    postToRN("height-change", { height: proseMirrorEl.scrollHeight });
+  });
+}
+
+// Command handler for RN → WebView messages
+window.__editorBridge = {
+  handleCommand(msg) {
+    switch (msg.type) {
+      case "set-content":
+        editor.commands.setContent(msg.content || "");
+        break;
+      case "clear":
+        editor.commands.clearContent(true);
+        break;
+      case "focus":
+        if (msg.position === "start") {
+          editor.commands.focus("start");
+        } else {
+          editor.commands.focus("end");
+        }
+        break;
+      case "get-markdown": {
+        const storage = editor.storage.markdown;
+        const md = storage?.getMarkdown?.() ?? "";
+        postToRN("markdown-result", { callbackId: msg.callbackId, markdown: md });
+        break;
+      }
+      case "toggle-bold":
+        editor.chain().focus().toggleBold().run();
+        break;
+      case "toggle-italic":
+        editor.chain().focus().toggleItalic().run();
+        break;
+      case "toggle-strike":
+        editor.chain().focus().toggleStrike().run();
+        break;
+      case "toggle-code":
+        editor.chain().focus().toggleCode().run();
+        break;
+      case "toggle-blockquote":
+        editor.chain().focus().toggleBlockquote().run();
+        break;
+      case "toggle-bullet-list":
+        editor.chain().focus().toggleBulletList().run();
+        break;
+      case "toggle-ordered-list":
+        editor.chain().focus().toggleOrderedList().run();
+        break;
+      case "set-link":
+        editor.chain().focus().setLink({ href: msg.url }).run();
+        break;
+      case "unset-link":
+        editor.chain().focus().unsetLink().run();
+        break;
+      case "insert-mention":
+        if (mentionSuggestionProps) {
+          mentionSuggestionProps.command({ id: msg.id, label: msg.label });
+        }
+        break;
+      case "insert-slash-command":
+        if (slashSuggestionProps) {
+          slashSuggestionProps.command({ name: msg.name });
+        }
+        break;
+      case "set-theme": {
+        const root = document.documentElement;
+        const colors = msg.colors || {};
+        for (const [key, value] of Object.entries(colors)) {
+          root.style.setProperty(`--${key}`, value);
+        }
+        break;
+      }
+      case "set-placeholder":
+        editor.extensionManager.extensions.find(e => e.name === "placeholder")
+          ?.options && (editor.extensionManager.extensions.find(e => e.name === "placeholder").options.placeholder = msg.text);
+        editor.view.dispatch(editor.state.tr);
+        break;
+    }
+  },
+};
+
+// Signal ready
+postToRN("ready", {});
+</script>
+</body>
+</html>

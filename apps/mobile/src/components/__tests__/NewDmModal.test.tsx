@@ -169,7 +169,7 @@ describe("NewDmModal", () => {
     fireEvent.press(screen.getByTestId("new-dm-member-user-1"));
 
     expect(screen.getByTestId("new-dm-go-button")).toBeTruthy();
-    expect(screen.getByText("Go")).toBeTruthy();
+    expect(screen.getByText("Open")).toBeTruthy();
   });
 
   it("shows Start Group DM button for multiple selections", async () => {
@@ -278,7 +278,7 @@ describe("NewDmModal", () => {
       expect(screen.getByTestId("new-dm-member-list")).toBeTruthy();
     });
 
-    fireEvent.press(screen.getByTestId("new-dm-backdrop"));
+    fireEvent.press(screen.getByTestId("new-dm-modal-backdrop"));
 
     expect(props.onClose).toHaveBeenCalled();
   });
@@ -295,7 +295,7 @@ describe("NewDmModal", () => {
     expect(screen.getByTestId("selected-chips")).toBeTruthy();
 
     // Close
-    fireEvent.press(screen.getByTestId("new-dm-backdrop"));
+    fireEvent.press(screen.getByTestId("new-dm-modal-backdrop"));
 
     // Re-open
     rerender(<NewDmModal {...{ ...props, visible: true }} />);

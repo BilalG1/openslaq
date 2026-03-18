@@ -1,4 +1,7 @@
-const store = new Map<string, { count: number; windowStart: number }>();
+import postgres from "postgres";
+import { env } from "../env";
+
+const sql = postgres(env.DATABASE_URL, { max: 3 });
 
 let enabled = true;
 
@@ -9,62 +12,67 @@ export interface RateLimitResult {
   resetAt: number;
 }
 
-export function checkRateLimit(
+export async function checkRateLimit(
   key: string,
   max: number,
   windowSec: number,
-): RateLimitResult {
+): Promise<RateLimitResult> {
   if (!enabled) {
     return { allowed: true, limit: max, remaining: max, resetAt: Date.now() + windowSec * 1000 };
   }
 
-  const now = Date.now();
-  const entry = store.get(key);
+  const now = new Date();
+  const windowMs = windowSec * 1000;
 
-  if (!entry || now - entry.windowStart >= windowSec * 1000) {
-    store.set(key, { count: 1, windowStart: now });
-    return {
-      allowed: true,
-      limit: max,
-      remaining: max - 1,
-      resetAt: now + windowSec * 1000,
-    };
-  }
+  const rows = await sql`
+    INSERT INTO rate_limit_entries (key, count, window_start)
+    VALUES (${key}, 1, ${now})
+    ON CONFLICT (key) DO UPDATE SET
+      count = CASE
+        WHEN rate_limit_entries.window_start < ${new Date(now.getTime() - windowMs)} THEN 1
+        ELSE rate_limit_entries.count + 1
+      END,
+      window_start = CASE
+        WHEN rate_limit_entries.window_start < ${new Date(now.getTime() - windowMs)} THEN ${now}
+        ELSE rate_limit_entries.window_start
+      END
+    RETURNING count, window_start
+  `;
 
-  entry.count++;
+  const row = rows[0]!;
+  const count = row.count as number;
+  const windowStart = new Date(row.window_start as string).getTime();
+  const resetAt = windowStart + windowMs;
 
-  if (entry.count > max) {
+  if (count > max) {
     return {
       allowed: false,
       limit: max,
       remaining: 0,
-      resetAt: entry.windowStart + windowSec * 1000,
+      resetAt,
     };
   }
 
   return {
     allowed: true,
     limit: max,
-    remaining: max - entry.count,
-    resetAt: entry.windowStart + windowSec * 1000,
+    remaining: max - count,
+    resetAt,
   };
 }
 
-export function cleanupExpiredEntries() {
-  const now = Date.now();
-  for (const [key, entry] of store) {
-    if (now - entry.windowStart > 120_000) {
-      store.delete(key);
-    }
-  }
+export async function cleanupExpiredEntries(): Promise<void> {
+  await sql`DELETE FROM rate_limit_entries WHERE window_start < now() - interval '120 seconds'`;
 }
 
 export function startCleanup() {
-  return setInterval(cleanupExpiredEntries, 60_000);
+  return setInterval(() => {
+    cleanupExpiredEntries().catch(console.error);
+  }, 60_000);
 }
 
-export function resetStore() {
-  store.clear();
+export async function resetStore(): Promise<void> {
+  await sql`DELETE FROM rate_limit_entries`;
 }
 
 export function setEnabled(value: boolean) {

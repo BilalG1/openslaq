@@ -8,7 +8,7 @@ let mockThemePreference = "system";
 jest.mock("@/theme/ThemeProvider", () => ({
   useMobileTheme: () => ({
     theme: {
-      brand: { primary: "#4A154B" },
+      brand: { primary: "#1264a3" },
       colors: {
         surface: "#fff",
         surfaceSecondary: "#f0f0f0",

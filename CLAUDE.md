@@ -1,7 +1,8 @@
 # OpenSlaq
 
 Bun monorepo: `apps/web` (React + Vite), `apps/api` (Hono), `packages/shared`.
-Runs on port 3000 (web), 3001 (api), 3002 (postgres). New services should always run on next avaiale 3xxx port
+Runs on port 3000 (web), 3001 (api), 3002 (postgres). New services should always run on next avaiale 3xxx port.
+NEVER GIT STASH ACROSS REPO. If you need to use git stash, do so for a specific folder to not interfere with other agents working on other parts of codebase
 
 ## Commands
 

@@ -5,8 +5,10 @@ import { useSocketEvent } from "../../hooks/useSocketEvent";
 import { MessageItem } from "./MessageItem";
 import { MessageActionsProvider } from "./MessageActionsContext";
 import { HuddleSystemMessage } from "./HuddleSystemMessage";
+import { ChannelEventSystemMessage } from "./ChannelEventSystemMessage";
 import { DaySeparator } from "./DaySeparator";
 import { isDifferentDay } from "./message-date-utils";
+import { EmptyState, LoadingState, ErrorState } from "../ui";
 import type { Message, ChannelId, MessageId, UserId, ReactionGroup } from "@openslaq/shared";
 import { asChannelId } from "@openslaq/shared";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
@@ -214,17 +216,11 @@ export function MessageList({ channelId, onOpenThread, onOpenProfile, onJoinHudd
     <MessageActionsProvider value={actionsContextValue}>
       <div ref={scrollContainerRef} data-testid="message-list-scroll" className="flex-1 overflow-y-auto p-4">
         {loading ? (
-          <div className="flex items-center justify-center h-full text-faint text-sm">
-            Loading messages...
-          </div>
+          <LoadingState label="Loading messages..." className="h-full" />
         ) : error ? (
-          <div className="flex items-center justify-center h-full text-danger-text text-sm">
-            {error}
-          </div>
+          <ErrorState message={error} className="h-full" />
         ) : messages.length === 0 && !ephemeralMessages?.length ? (
-          <div className="flex items-center justify-center h-full text-faint text-sm">
-            No messages yet. Start the conversation!
-          </div>
+          <EmptyState title="No messages yet. Start the conversation!" className="h-full" />
         ) : messages.length === 0 ? (
           <div className="flex flex-col justify-end h-full">
             {ephemeralMessages?.map((msg) => (
@@ -243,17 +239,31 @@ export function MessageList({ channelId, onOpenThread, onOpenProfile, onJoinHudd
               const showSeparator =
                 index === 0 || isDifferentDay(messages[index - 1]!.createdAt, msg.createdAt);
               const prevMsg = index > 0 ? messages[index - 1] : null;
+              const isSystemMessage = msg.type === "huddle" || msg.type === "channel_event";
+              const prevIsSystemMessage = prevMsg?.type === "huddle" || prevMsg?.type === "channel_event";
               const isGrouped =
                 !showSeparator &&
                 prevMsg != null &&
-                prevMsg.type !== "huddle" &&
-                msg.type !== "huddle" &&
+                !prevIsSystemMessage &&
+                !isSystemMessage &&
                 msg.userId === prevMsg.userId &&
                 new Date(msg.createdAt).getTime() - new Date(prevMsg.createdAt).getTime() < 5 * 60 * 1000;
+              const nextMsg = index < messages.length - 1 ? messages[index + 1] : null;
+              const nextShowSeparator = nextMsg != null && isDifferentDay(msg.createdAt, nextMsg.createdAt);
+              const nextIsSystemMessage = nextMsg?.type === "huddle" || nextMsg?.type === "channel_event";
+              const isFollowedByGrouped =
+                !nextShowSeparator &&
+                nextMsg != null &&
+                !nextIsSystemMessage &&
+                !isSystemMessage &&
+                nextMsg.userId === msg.userId &&
+                new Date(nextMsg.createdAt).getTime() - new Date(msg.createdAt).getTime() < 5 * 60 * 1000;
               return (
                 <Fragment key={msg.id}>
                   {showSeparator && <DaySeparator date={new Date(msg.createdAt)} />}
-                  {msg.type === "huddle" ? (
+                  {msg.type === "channel_event" ? (
+                    <ChannelEventSystemMessage message={msg} />
+                  ) : msg.type === "huddle" ? (
                     <HuddleSystemMessage
                       message={msg}
                       activeHuddle={state.activeHuddles[msg.channelId] ?? null}
@@ -263,6 +273,7 @@ export function MessageList({ channelId, onOpenThread, onOpenProfile, onJoinHudd
                     <MessageItem
                       message={msg}
                       isGrouped={isGrouped}
+                      isFollowedByGrouped={isFollowedByGrouped}
                       senderStatusEmoji={(() => {
                         const p = state.presence[msg.userId];
                         if (!p?.statusEmoji) return null;

@@ -1,10 +1,10 @@
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { db } from "../db";
 import { savedMessages } from "./saved-schema";
 import { messages } from "./schema";
 import { channels } from "../channels/schema";
-import { getMessageById } from "./service";
-import type { MessageId, UserId } from "@openslaq/shared";
+import { hydrateMessages } from "./service";
+import type { Message, MessageId, UserId } from "@openslaq/shared";
 
 export async function saveMessage(
   userId: UserId,
@@ -59,7 +59,7 @@ export async function getSavedMessageIds(userId: UserId): Promise<MessageId[]> {
 export async function getSavedMessages(
   userId: UserId,
   workspaceId: string,
-): Promise<Array<{ message: NonNullable<Awaited<ReturnType<typeof getMessageById>>>; channelName: string; savedAt: string }>> {
+): Promise<Array<{ message: Message; channelName: string; savedAt: string }>> {
   const rows = await db
     .select({
       messageId: savedMessages.messageId,
@@ -77,16 +77,23 @@ export async function getSavedMessages(
     )
     .orderBy(desc(savedMessages.savedAt));
 
-  const results = [];
-  for (const row of rows) {
-    const msg = await getMessageById(row.messageId as MessageId);
-    if (msg) {
-      results.push({
-        message: msg,
-        channelName: row.channelName,
-        savedAt: row.savedAt.toISOString(),
-      });
-    }
+  if (rows.length === 0) return [];
+
+  const messageIds = rows.map((r) => r.messageId);
+  const messageRows = await db.query.messages.findMany({
+    where: inArray(messages.id, messageIds),
+  });
+  const hydrated = await hydrateMessages(messageRows);
+  const messageMap = new Map<string, Message>();
+  for (const msg of hydrated) {
+    messageMap.set(msg.id, msg);
   }
-  return results;
+
+  return rows
+    .filter((row) => messageMap.has(row.messageId))
+    .map((row) => ({
+      message: messageMap.get(row.messageId)!,
+      channelName: row.channelName,
+      savedAt: row.savedAt.toISOString(),
+    }));
 }

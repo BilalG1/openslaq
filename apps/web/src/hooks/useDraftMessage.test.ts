@@ -1,12 +1,39 @@
-import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { describe, expect, test, beforeEach, afterEach, mock, jest } from "bun:test";
 import { renderHook, act, cleanup } from "../test-utils";
-import { useDraftMessage } from "./useDraftMessage";
 
 const PREFIX = "openslaq-draft-";
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+// Mock external dependencies used by useDraftMessage
+const _realClientCore = require("@openslaq/client-core");
+mock.module("@openslaq/client-core", () => ({
+  ..._realClientCore,
+  upsertDraftOp: jest.fn(async () => ({})),
+  deleteDraftByKeyOp: jest.fn(async () => {}),
+  fetchDraftForChannel: jest.fn(async () => null),
+}));
+
+mock.module("../state/chat-store", () => ({
+  useChatStore: () => ({
+    state: { activeView: "channel" },
+    dispatch: jest.fn(),
+  }),
+}));
+
+const _realApiClient = require("../lib/api-client");
+mock.module("../lib/api-client", () => ({
+  ..._realApiClient,
+  useAuthProvider: () => ({ getToken: async () => "test-token" }),
+}));
+
+mock.module("../api", () => ({
+  api: {},
+}));
+
+const { useDraftMessage } = await import("./useDraftMessage");
 
 describe("useDraftMessage", () => {
   beforeEach(() => {
@@ -20,10 +47,16 @@ describe("useDraftMessage", () => {
     expect(result.current.draft).toBeNull();
   });
 
-  test("returns saved draft from localStorage on mount", () => {
+  test("returns saved draft from localStorage on mount (legacy string)", () => {
     localStorage.setItem(PREFIX + "ch-1", "hello world");
     const { result } = renderHook(() => useDraftMessage("ch-1"));
     expect(result.current.draft).toBe("hello world");
+  });
+
+  test("returns saved draft from localStorage on mount (JSON format)", () => {
+    localStorage.setItem(PREFIX + "ch-1", JSON.stringify({ content: "json draft", updatedAt: Date.now() }));
+    const { result } = renderHook(() => useDraftMessage("ch-1"));
+    expect(result.current.draft).toBe("json draft");
   });
 
   test("returns null draft when draftKey is undefined", () => {
@@ -44,7 +77,8 @@ describe("useDraftMessage", () => {
     // Wait for debounce to fire
     await sleep(350);
 
-    expect(localStorage.getItem(PREFIX + "ch-1")).toBe("new draft");
+    const stored = JSON.parse(localStorage.getItem(PREFIX + "ch-1")!);
+    expect(stored.content).toBe("new draft");
   });
 
   test("saveDraft trims whitespace", async () => {
@@ -55,11 +89,12 @@ describe("useDraftMessage", () => {
     });
 
     await sleep(350);
-    expect(localStorage.getItem(PREFIX + "ch-1")).toBe("trimmed");
+    const stored = JSON.parse(localStorage.getItem(PREFIX + "ch-1")!);
+    expect(stored.content).toBe("trimmed");
   });
 
   test("clearDraft removes from localStorage", () => {
-    localStorage.setItem(PREFIX + "ch-1", "draft text");
+    localStorage.setItem(PREFIX + "ch-1", JSON.stringify({ content: "draft text", updatedAt: Date.now() }));
     const { result } = renderHook(() => useDraftMessage("ch-1"));
 
     act(() => {
@@ -82,8 +117,8 @@ describe("useDraftMessage", () => {
   });
 
   test("different channels maintain separate drafts", () => {
-    localStorage.setItem(PREFIX + "ch-1", "draft 1");
-    localStorage.setItem(PREFIX + "ch-2", "draft 2");
+    localStorage.setItem(PREFIX + "ch-1", JSON.stringify({ content: "draft 1", updatedAt: Date.now() }));
+    localStorage.setItem(PREFIX + "ch-2", JSON.stringify({ content: "draft 2", updatedAt: Date.now() }));
 
     const { result: r1 } = renderHook(() => useDraftMessage("ch-1"));
     const { result: r2 } = renderHook(() => useDraftMessage("ch-2"));

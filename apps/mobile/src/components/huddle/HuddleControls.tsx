@@ -1,8 +1,5 @@
-import { Pressable, Text, View, StyleSheet } from "react-native";
+import { Pressable, View, StyleSheet } from "react-native";
 import { Mic, MicOff, Video, VideoOff, ScreenShare, PhoneOff } from "lucide-react-native";
-import { useMobileTheme } from "@/theme/ThemeProvider";
-
-const GREEN = "#22c55e";
 
 interface HuddleControlsProps {
   isMuted: boolean;
@@ -14,6 +11,8 @@ interface HuddleControlsProps {
   onLeave: () => void;
 }
 
+const GREEN = "#22c55e";
+
 export function HuddleControls({
   isMuted,
   isCameraOn,
@@ -23,26 +22,17 @@ export function HuddleControls({
   onToggleScreenShare,
   onLeave,
 }: HuddleControlsProps) {
-  const { theme } = useMobileTheme();
-
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.surfaceSecondary }]}>
+    <View style={styles.container}>
       <Pressable
         testID="huddle-control-mute"
         onPress={onToggleMute}
         style={[
           styles.button,
-          {
-            backgroundColor: isMuted
-              ? theme.brand.danger
-              : theme.colors.surfaceTertiary,
-          },
+          { backgroundColor: isMuted ? "#dc2626" : "rgba(255,255,255,0.15)" },
         ]}
       >
-        {isMuted ? <MicOff size={24} color="#fff" /> : <Mic size={24} color="#fff" />}
-        <Text style={[styles.label, { color: theme.colors.textSecondary }]}>
-          {isMuted ? "Unmute" : "Mute"}
-        </Text>
+        {isMuted ? <MicOff size={22} color="#fff" /> : <Mic size={22} color="#fff" />}
       </Pressable>
 
       <Pressable
@@ -50,17 +40,10 @@ export function HuddleControls({
         onPress={onToggleCamera}
         style={[
           styles.button,
-          {
-            backgroundColor: isCameraOn
-              ? GREEN
-              : theme.colors.surfaceTertiary,
-          },
+          { backgroundColor: isCameraOn ? GREEN : "rgba(255,255,255,0.15)" },
         ]}
       >
-        {isCameraOn ? <Video size={24} color="#fff" /> : <VideoOff size={24} color="#fff" />}
-        <Text style={[styles.label, { color: theme.colors.textSecondary }]}>
-          {isCameraOn ? "Stop" : "Camera"}
-        </Text>
+        {isCameraOn ? <Video size={22} color="#fff" /> : <VideoOff size={22} color="#fff" />}
       </Pressable>
 
       <Pressable
@@ -68,26 +51,18 @@ export function HuddleControls({
         onPress={onToggleScreenShare}
         style={[
           styles.button,
-          {
-            backgroundColor: isScreenSharing
-              ? GREEN
-              : theme.colors.surfaceTertiary,
-          },
+          { backgroundColor: isScreenSharing ? GREEN : "rgba(255,255,255,0.15)" },
         ]}
       >
-        <ScreenShare size={24} color="#fff" />
-        <Text style={[styles.label, { color: theme.colors.textSecondary }]}>
-          {isScreenSharing ? "Stop" : "Share"}
-        </Text>
+        <ScreenShare size={22} color="#fff" />
       </Pressable>
 
       <Pressable
         testID="huddle-control-leave"
         onPress={onLeave}
-        style={[styles.button, { backgroundColor: theme.brand.danger }]}
+        style={[styles.button, styles.leaveButton]}
       >
         <PhoneOff size={24} color="#fff" />
-        <Text style={[styles.label, { color: "#fff" }]}>Leave</Text>
       </Pressable>
     </View>
   );
@@ -97,20 +72,22 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: 16,
+    alignItems: "center",
+    gap: 20,
     paddingVertical: 16,
     paddingHorizontal: 24,
   },
   button: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: "center",
-    gap: 4,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    minWidth: 80,
+    justifyContent: "center",
   },
-  label: {
-    fontSize: 12,
-    fontWeight: "500",
+  leaveButton: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#dc2626",
   },
 });

@@ -31,12 +31,14 @@ function SlashCommandSuggestionListInner({ suggestions, onSelect }: Props) {
         shadowOpacity: isDark ? 0.3 : 0.1,
         shadowRadius: 4,
         elevation: 4,
+        zIndex: 50,
       }}
     >
       <FlatList
         data={suggestions}
         keyExtractor={(item) => item.name}
         keyboardShouldPersistTaps="always"
+        nestedScrollEnabled={true}
         renderItem={({ item }) => (
           <Pressable
             testID={`slash-command-${item.name}`}

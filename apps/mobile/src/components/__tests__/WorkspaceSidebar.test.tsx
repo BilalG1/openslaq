@@ -16,8 +16,8 @@ jest.mock("@/contexts/WorkspaceDrawerContext", () => ({
 }));
 
 let mockWorkspaces = [
-  { slug: "acme", name: "Acme Corp", role: "owner", id: "ws-1", createdAt: "" },
-  { slug: "beta", name: "Beta Inc", role: "member", id: "ws-2", createdAt: "" },
+  { slug: "acme", name: "Acme Corp", role: "owner", id: "ws-1", createdAt: "", memberCount: 12 },
+  { slug: "beta", name: "Beta Inc", role: "member", id: "ws-2", createdAt: "", memberCount: 5 },
 ];
 
 jest.mock("@/contexts/ChatStoreProvider", () => ({
@@ -36,7 +36,7 @@ jest.mock("@/theme/ThemeProvider", () => ({
         textPrimary: "#000",
         textSecondary: "#666",
       },
-      brand: { primary: "#4A154B" },
+      brand: { primary: "#1264a3" },
     },
   }),
 }));
@@ -45,23 +45,34 @@ describe("WorkspaceSidebar", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockWorkspaces = [
-      { slug: "acme", name: "Acme Corp", role: "owner", id: "ws-1", createdAt: "" },
-      { slug: "beta", name: "Beta Inc", role: "member", id: "ws-2", createdAt: "" },
+      { slug: "acme", name: "Acme Corp", role: "owner", id: "ws-1", createdAt: "", memberCount: 12 },
+      { slug: "beta", name: "Beta Inc", role: "member", id: "ws-2", createdAt: "", memberCount: 5 },
     ];
   });
 
-  it("renders workspace list", () => {
+  it("renders workspace cards with name, member count, and role", () => {
     render(<WorkspaceSidebar />);
 
     expect(screen.getByTestId("workspace-sidebar")).toBeTruthy();
+    expect(screen.getByText("Acme Corp")).toBeTruthy();
+    expect(screen.getByText("Beta Inc")).toBeTruthy();
+    expect(screen.getByText("12 members")).toBeTruthy();
+    expect(screen.getByText("5 members")).toBeTruthy();
+    expect(screen.getByText("Owner")).toBeTruthy();
+    expect(screen.getByText("Member")).toBeTruthy();
+  });
+
+  it("renders workspace initials in cards", () => {
+    render(<WorkspaceSidebar />);
+
     expect(screen.getByText("A")).toBeTruthy();
     expect(screen.getByText("B")).toBeTruthy();
   });
 
-  it("switches workspace when tapping a different one", () => {
+  it("switches workspace when tapping a different card", () => {
     render(<WorkspaceSidebar />);
 
-    fireEvent.press(screen.getByTestId("workspace-icon-Beta Inc"));
+    fireEvent.press(screen.getByTestId("workspace-card-Beta Inc"));
 
     expect(mockClose).toHaveBeenCalledTimes(1);
     expect(mockReplace).toHaveBeenCalledWith("/(app)/beta/(channels)");
@@ -70,7 +81,7 @@ describe("WorkspaceSidebar", () => {
   it("closes drawer without navigating when tapping current workspace", () => {
     render(<WorkspaceSidebar />);
 
-    fireEvent.press(screen.getByTestId("workspace-icon-Acme Corp"));
+    fireEvent.press(screen.getByTestId("workspace-card-Acme Corp"));
 
     expect(mockClose).toHaveBeenCalledTimes(1);
     expect(mockReplace).not.toHaveBeenCalled();
@@ -93,7 +104,7 @@ describe("WorkspaceSidebar", () => {
 
   it("hides settings button for non-admin", () => {
     mockWorkspaces = [
-      { slug: "acme", name: "Acme Corp", role: "member", id: "ws-1", createdAt: "" },
+      { slug: "acme", name: "Acme Corp", role: "member", id: "ws-1", createdAt: "", memberCount: 3 },
     ];
 
     render(<WorkspaceSidebar />);
@@ -108,5 +119,26 @@ describe("WorkspaceSidebar", () => {
 
     expect(mockClose).toHaveBeenCalledTimes(1);
     expect(mockPush).toHaveBeenCalledWith("/(app)/acme/workspace-settings");
+  });
+
+  it("handles singular member count", () => {
+    mockWorkspaces = [
+      { slug: "acme", name: "Acme Corp", role: "owner", id: "ws-1", createdAt: "", memberCount: 1 },
+    ];
+
+    render(<WorkspaceSidebar />);
+
+    expect(screen.getByText("1 member")).toBeTruthy();
+  });
+
+  it("handles missing member count gracefully", () => {
+    mockWorkspaces = [
+      { slug: "acme", name: "Acme Corp", role: "owner", id: "ws-1", createdAt: "" } as any,
+    ];
+
+    render(<WorkspaceSidebar />);
+
+    expect(screen.getByText("Acme Corp")).toBeTruthy();
+    expect(screen.getByText("Owner")).toBeTruthy();
   });
 });

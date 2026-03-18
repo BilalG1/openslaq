@@ -9,6 +9,7 @@ import { InviteAcceptPage } from "./pages/InviteAccept";
 import { DemoPage } from "./pages/Demo";
 import { NotFoundPage } from "./pages/NotFound";
 import { DesktopPage } from "./pages/Desktop";
+import { InstallPage } from "./pages/Install";
 import { HuddlePage } from "./pages/HuddlePage";
 import { SocketProvider } from "./socket/SocketProvider";
 import { ChatStoreProvider } from "./state/chat-store";
@@ -95,6 +96,7 @@ export function App() {
             <Routes>
               <Route path="/demo/*" element={<DemoPage />} />
               <Route path="/desktop" element={<DesktopPage />} />
+              <Route path="/install" element={<InstallPage />} />
               <Route
                 path="/huddle/:channelId"
                 element={

@@ -13,6 +13,7 @@ const fakeDmChannel: DmChannel = {
     isArchived: false,
     createdBy: "user-1",
     createdAt: "2026-01-01T00:00:00Z",
+    memberCount: 2,
   },
   otherUser: {
     id: "user-2",

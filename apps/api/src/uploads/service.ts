@@ -1,6 +1,16 @@
 import { eq, and, isNull, isNotNull, or, inArray, sql } from "drizzle-orm";
 import { db } from "../db";
 import { attachments } from "./schema";
+
+export const MAX_STORAGE_PER_USER_BYTES = 1_073_741_824; // 1 GB
+
+export async function getUserStorageUsage(userId: string): Promise<number> {
+  const [row] = await db
+    .select({ total: sql<string>`COALESCE(SUM(${attachments.size}), 0)` })
+    .from(attachments)
+    .where(eq(attachments.uploadedBy, userId));
+  return Number(row?.total ?? 0);
+}
 import { channels, channelMembers } from "../channels/schema";
 import { messages } from "../messages/schema";
 import { workspaceMembers } from "../workspaces/schema";

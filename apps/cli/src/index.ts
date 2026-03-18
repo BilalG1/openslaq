@@ -1,4 +1,12 @@
 #!/usr/bin/env bun
+import * as Sentry from "@sentry/node";
+
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  sendDefaultPii: true,
+  tracesSampleRate: 0,
+});
+
 import { run } from "./framework";
 import { loginCommand } from "./commands/login";
 import { logoutCommand } from "./commands/logout";
@@ -14,6 +22,7 @@ import { apiKeysCommand } from "./commands/api-keys";
 import { emojiCommand } from "./commands/emoji";
 import { filesCommand } from "./commands/files";
 import { presenceCommand } from "./commands/presence";
+import { usersCommand } from "./commands/users";
 import { printHelp } from "./output";
 import { checkForUpdate } from "./update-check";
 
@@ -32,6 +41,7 @@ function rootHelp() {
     { name: "messages", desc: "Read and send messages" },
     { name: "status", desc: "Manage your status" },
     { name: "unread", desc: "Manage unread messages" },
+    { name: "users", desc: "Search and list users" },
     { name: "files", desc: "Browse workspace files" },
     { name: "presence", desc: "Show who's online" },
     { name: "workspaces", desc: "Manage workspaces" },
@@ -56,6 +66,7 @@ run(rootHelp, {
   messages: messagesCommand,
   status: statusCommand,
   unread: unreadCommand,
+  users: usersCommand,
   files: filesCommand,
   presence: presenceCommand,
   workspaces: workspacesCommand,

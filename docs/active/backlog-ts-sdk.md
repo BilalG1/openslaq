@@ -26,8 +26,8 @@ Current state: the SDK (`packages/ts-sdk`) only covers **Messages** (send, list,
 - [ ] **Presence** — get online users in workspace
 - [ ] **Custom emoji** — list, upload, delete
 - [ ] **Channel bookmarks** — list, add, remove
-- [ ] **Saved messages** — save/unsave, list saved items
-- [ ] **Scheduled messages** — create, list, cancel
+- [x] **Saved messages** — save/unsave, list saved items, list saved IDs, share message, get messages around
+- [x] **Scheduled messages** — create, list, get, update, delete, count by channel
 - [ ] **Workspaces** — list, create, delete, member management
 - [ ] **API keys** — CRUD for API keys
 - [ ] **Marketplace** — browse listings, install/uninstall bots

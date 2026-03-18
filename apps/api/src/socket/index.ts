@@ -2,6 +2,7 @@ import type { Server } from "socket.io";
 import * as jose from "jose";
 import { z } from "zod";
 import { eq, inArray } from "drizzle-orm";
+import postgres from "postgres";
 import type {
   ClientToServerEvents,
   ServerToClientEvents,
@@ -9,6 +10,7 @@ import type {
 } from "@openslaq/shared";
 import { asUserId, asChannelId } from "@openslaq/shared";
 import { jwks, jwtVerifyOptions, e2eTestSecret } from "../auth/jwt";
+import { env } from "../env";
 import { db } from "../db";
 import { channelMembers } from "../channels/schema";
 import { isChannelMember } from "../channels/service";
@@ -20,6 +22,10 @@ import {
   getOnlineUserIds,
   persistLastSeen,
   getUserWorkspaceIds,
+  startHeartbeat,
+  stopHeartbeat,
+  getSocketCountForUser,
+  MAX_SOCKETS_PER_USER,
 } from "../presence/service";
 import { isStatusExpired } from "../users/service";
 import {
@@ -42,6 +48,11 @@ setInterval(() => {
   }
 }, 30_000);
 
+// Dedicated connection for NOTIFY (typing broadcasts)
+const notifySql = postgres(env.DATABASE_URL, { max: 3 });
+// Dedicated connection for LISTEN (must be max: 1 for postgres.js LISTEN)
+const listenSql = postgres(env.DATABASE_URL, { max: 1 });
+
 export async function getPresenceSnapshotForWorkspaces(workspaceIds: string[]) {
   if (workspaceIds.length === 0) return [];
 
@@ -55,7 +66,8 @@ export async function getPresenceSnapshotForWorkspaces(workspaceIds: string[]) {
     })
     .from(workspaceMembers)
     .innerJoin(users, eq(workspaceMembers.userId, users.id))
-    .where(inArray(workspaceMembers.workspaceId, workspaceIds));
+    .where(inArray(workspaceMembers.workspaceId, workspaceIds))
+    .limit(5000);
 
   // A user can appear in multiple workspaces; presence sync payload should include each user once.
   const byUserId = new Map<string, {
@@ -79,6 +91,16 @@ export function setupSocketHandlers(
     SocketData
   >,
 ) {
+  // Set up LISTEN for cross-process typing broadcasts
+  listenSql.listen("typing", (payload) => {
+    try {
+      const { userId, channelId } = JSON.parse(payload);
+      io.to(`channel:${channelId}`).emit("user:typing", { userId, channelId });
+    } catch {
+      // Ignore malformed payloads
+    }
+  });
+
   // Authenticate on connection
   io.use(async (socket, next) => {
     const token = socket.handshake.auth.token as string | undefined;
@@ -109,76 +131,22 @@ export function setupSocketHandlers(
 
   io.on("connection", async (socket) => {
     const userId = socket.data.userId;
-    console.log(`Socket connected: ${userId}`);
 
-    let workspaceIds: string[] = [];
-
-    try {
-      // Auto-join all channels the user is a member of
-      const memberships = await db
-        .select({ channelId: channelMembers.channelId })
-        .from(channelMembers)
-        .where(eq(channelMembers.userId, userId));
-      for (const { channelId } of memberships) {
-        socket.join(`channel:${channelId}`);
-      }
-
-      // Join workspace rooms for presence broadcasts
-      workspaceIds = await getUserWorkspaceIds(userId);
-      for (const wsId of workspaceIds) {
-        socket.join(`workspace:${wsId}`);
-      }
-
-      // Join user-private room for scheduled message events etc.
-      socket.join(`user:${userId}`);
-
-      // Track presence
-      const cameOnline = addSocket(userId, socket.id);
-      if (cameOnline) {
-        for (const wsId of workspaceIds) {
-          io.to(`workspace:${wsId}`).emit("presence:updated", {
-            userId,
-            status: "online",
-            lastSeenAt: null,
-          });
-          webhookDispatcher.dispatch({
-            type: "presence:updated",
-            workspaceId: wsId,
-            data: { userId, status: "online", lastSeenAt: null },
-          });
-        }
-      }
-
-      // Send presence snapshot to connecting client
-      const workspaceMemberRows = await getPresenceSnapshotForWorkspaces(workspaceIds);
-
-      const onlineIds = getOnlineUserIds();
-      socket.emit("presence:sync", {
-        users: workspaceMemberRows.map((m) => {
-          const expired = isStatusExpired(m.statusExpiresAt);
-          return {
-            userId: asUserId(m.userId),
-            status: (onlineIds.has(m.userId) ? "online" : "offline") as "online" | "offline",
-            lastSeenAt: m.lastSeenAt?.toISOString() ?? null,
-            statusEmoji: expired ? null : (m.statusEmoji ?? null),
-            statusText: expired ? null : (m.statusText ?? null),
-            statusExpiresAt: expired ? null : (m.statusExpiresAt?.toISOString() ?? null),
-          };
-        }),
-      });
-
-      // Send active huddles for user's channels
-      const channelIds = memberships.map((m) => m.channelId);
-      const activeHuddles = getActiveHuddlesForChannels(channelIds);
-      if (activeHuddles.length > 0) {
-        socket.emit("huddle:sync", { huddles: activeHuddles });
-      }
-    } catch (err) {
-      console.error(`Socket connection init failed for ${userId}:`, err);
+    // Cap concurrent socket connections per user
+    const socketCount = await getSocketCountForUser(userId);
+    if (socketCount >= MAX_SOCKETS_PER_USER) {
+      console.log(`Socket rejected for ${userId}: too many connections (${socketCount})`);
       socket.disconnect(true);
       return;
     }
 
+    console.log(`Socket connected: ${userId}`);
+
+    let workspaceIds: string[] = [];
+    let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+
+    // Register event handlers synchronously so they're available immediately,
+    // even if the client disconnects before the async init below completes.
     socket.on("channel:join", async ({ channelId }) => {
       const isMember = await isChannelMember(asChannelId(channelId), userId);
       if (!isMember) return;
@@ -199,19 +167,17 @@ export function setupSocketHandlers(
       if (last && now - last < 3000) return;
       typingTimestamps.set(throttleKey, now);
 
-      socket.to(`channel:${channelId}`).emit("user:typing", {
-        userId,
-        channelId,
-      });
+      await notifySql.notify("typing", JSON.stringify({ userId, channelId }));
     });
 
     socket.on("disconnect", async () => {
       console.log(`Socket disconnected: ${userId}`);
-      const wentOffline = removeSocket(userId, socket.id);
+      if (heartbeatInterval) stopHeartbeat(heartbeatInterval);
+      const wentOffline = await removeSocket(userId, socket.id);
 
       // Only clean up huddle when user goes fully offline (no remaining sockets)
       if (wentOffline) {
-        const huddleResult = removeUserFromAllHuddles(userId);
+        const huddleResult = await removeUserFromAllHuddles(userId);
         if (huddleResult.channelId) {
           if (huddleResult.ended) {
             // Update the huddle system message with end metadata
@@ -260,6 +226,73 @@ export function setupSocketHandlers(
         }
       }
     });
+
+    try {
+      // Auto-join all channels the user is a member of
+      const memberships = await db
+        .select({ channelId: channelMembers.channelId })
+        .from(channelMembers)
+        .where(eq(channelMembers.userId, userId));
+      for (const { channelId } of memberships) {
+        socket.join(`channel:${channelId}`);
+      }
+
+      // Join workspace rooms for presence broadcasts
+      workspaceIds = await getUserWorkspaceIds(userId);
+      for (const wsId of workspaceIds) {
+        socket.join(`workspace:${wsId}`);
+      }
+
+      // Join user-private room for scheduled message events etc.
+      socket.join(`user:${userId}`);
+
+      // Track presence
+      const cameOnline = await addSocket(userId, socket.id);
+      heartbeatInterval = startHeartbeat(userId, socket.id);
+      if (cameOnline) {
+        for (const wsId of workspaceIds) {
+          io.to(`workspace:${wsId}`).emit("presence:updated", {
+            userId,
+            status: "online",
+            lastSeenAt: null,
+          });
+          webhookDispatcher.dispatch({
+            type: "presence:updated",
+            workspaceId: wsId,
+            data: { userId, status: "online", lastSeenAt: null },
+          });
+        }
+      }
+
+      // Send presence snapshot to connecting client
+      const workspaceMemberRows = await getPresenceSnapshotForWorkspaces(workspaceIds);
+
+      const onlineIds = await getOnlineUserIds();
+      socket.emit("presence:sync", {
+        users: workspaceMemberRows.map((m) => {
+          const expired = isStatusExpired(m.statusExpiresAt);
+          return {
+            userId: asUserId(m.userId),
+            status: (onlineIds.has(m.userId) ? "online" : "offline") as "online" | "offline",
+            lastSeenAt: m.lastSeenAt?.toISOString() ?? null,
+            statusEmoji: expired ? null : (m.statusEmoji ?? null),
+            statusText: expired ? null : (m.statusText ?? null),
+            statusExpiresAt: expired ? null : (m.statusExpiresAt?.toISOString() ?? null),
+          };
+        }),
+      });
+
+      // Send active huddles for user's channels
+      const channelIds = memberships.map((m) => m.channelId);
+      const activeHuddles = await getActiveHuddlesForChannels(channelIds);
+      if (activeHuddles.length > 0) {
+        socket.emit("huddle:sync", { huddles: activeHuddles });
+      }
+    } catch (err) {
+      console.error(`Socket connection init failed for ${userId}:`, err);
+      socket.disconnect(true);
+      return;
+    }
   });
 
   return io;

@@ -107,7 +107,9 @@ mock.module("../../hooks/api/useWorkspaceMembersApi", () => ({
   }),
 }));
 
+const _realApiClient = require("../../lib/api-client");
 mock.module("../../lib/api-client", () => ({
+  ..._realApiClient,
   useAuthProvider: () => ({}),
 }));
 
@@ -120,16 +122,17 @@ mock.module("../../lib/auth", () => ({
   redirectToAuth: mockRedirectToAuth,
 }));
 
-// Create a real AuthError class we can use in tests
-class MockAuthError extends Error {
-  constructor(msg?: string) { super(msg); this.name = "AuthError"; }
-}
+// Use the real AuthError so instanceof checks work across mock boundaries
+const { AuthError: RealAuthError } = require("@openslaq/client-core");
+const _realErrors = require("../../lib/errors");
 mock.module("../../lib/errors", () => ({
-  AuthError: MockAuthError,
+  ..._realErrors,
 }));
 
 const mockCreateScheduledMessageOp = jest.fn(async () => {});
+const _realClientCore = require("@openslaq/client-core");
 mock.module("@openslaq/client-core", () => ({
+  ..._realClientCore,
   createScheduledMessageOp: mockCreateScheduledMessageOp,
 }));
 
@@ -227,24 +230,26 @@ describe("MessageInput", () => {
 
   test("file upload error with AuthError calls redirectToAuth", async () => {
     uploadState.hasFiles = true;
-    mockUploadAll.mockRejectedValue(new MockAuthError("expired"));
+    mockUploadAll.mockRejectedValue(new RealAuthError("expired"));
 
     render(<MessageInput channelId="ch-1" />);
 
     await act(async () => {
       fireEvent.click(screen.getByTestId("mock-send"));
+      await new Promise((r) => setTimeout(r, 10));
     });
 
     expect(mockRedirectToAuth).toHaveBeenCalled();
   });
 
   test("send error with AuthError calls redirectToAuth", async () => {
-    mockSendMessage.mockRejectedValue(new MockAuthError("expired"));
+    mockSendMessage.mockRejectedValue(new RealAuthError("expired"));
 
     render(<MessageInput channelId="ch-1" />);
 
     await act(async () => {
       fireEvent.click(screen.getByTestId("mock-send"));
+      await new Promise((r) => setTimeout(r, 10));
     });
 
     expect(mockRedirectToAuth).toHaveBeenCalled();

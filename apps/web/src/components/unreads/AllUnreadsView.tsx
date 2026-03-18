@@ -1,6 +1,8 @@
 import { useCallback, useMemo } from "react";
+import { CircleCheck } from "lucide-react";
 import { MessageItem } from "../message/MessageItem";
 import { MessageActionsProvider } from "../message/MessageActionsContext";
+import { EmptyState, LoadingState, ErrorState } from "../ui";
 import { useAllUnreads } from "../../hooks/chat/useAllUnreads";
 import type { UnreadChannelGroup } from "@openslaq/shared";
 
@@ -58,25 +60,20 @@ export function AllUnreadsView({
 
         <div className="flex-1 overflow-y-auto">
           {loading && !data && (
-            <div className="flex items-center justify-center py-12 text-faint">
-              Loading unreads...
-            </div>
+            <LoadingState label="Loading unreads..." />
           )}
 
           {error && (
-            <div className="flex items-center justify-center py-12 text-danger-text">
-              {error}
-            </div>
+            <ErrorState message={error} />
           )}
 
           {data && !hasUnreads && (
-            <div className="flex flex-col items-center justify-center py-16 text-faint" data-testid="unreads-empty-state">
-              <svg className="w-12 h-12 mb-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-              </svg>
-              <span className="text-lg font-medium">You're all caught up!</span>
-              <span className="text-sm mt-1">No unread messages</span>
-            </div>
+            <EmptyState
+              icon={<CircleCheck className="w-full h-full" strokeWidth={1.5} />}
+              title="You're all caught up!"
+              subtitle="No unread messages"
+              data-testid="unreads-empty-state"
+            />
           )}
 
           {data?.channels.map((group) => (

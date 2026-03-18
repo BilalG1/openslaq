@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { Message } from "@openslaq/shared";
-import { Button } from "../ui";
+import { Button, EmptyState, LoadingState } from "../ui";
 
 interface PinnedMessagesPopoverProps {
   open: boolean;
@@ -49,11 +49,9 @@ export function PinnedMessagesPopover({
         <h3 className="font-semibold text-sm text-primary m-0">Pinned Messages</h3>
       </div>
       {loading ? (
-        <div className="px-4 py-6 text-center text-faint text-sm">Loading...</div>
+        <LoadingState size="sm" />
       ) : messages.length === 0 ? (
-        <div className="px-4 py-6 text-center text-faint text-sm" data-testid="pinned-empty">
-          No pinned messages
-        </div>
+        <EmptyState title="No pinned messages" size="sm" data-testid="pinned-empty" />
       ) : (
         <div className="divide-y divide-border-default">
           {messages.map((msg) => (

@@ -9,11 +9,13 @@
   "scripts": {
     "prebuild": "bun run scripts/generate-version.ts",
     "build": "bun run prebuild && bun build src/index.ts --outdir dist --target bun --minify && bun run scripts/prepend-shebang.ts",
+    "build:compile": "bun run prebuild && bun build --compile src/index.ts --outfile dist/openslaq-darwin-arm64 --target=bun-darwin-arm64 --minify && bun build --compile src/index.ts --outfile dist/openslaq-darwin-x64 --target=bun-darwin-x64 --minify && bun build --compile src/index.ts --outfile dist/openslaq-linux-x64 --target=bun-linux-x64 --minify && bun build --compile src/index.ts --outfile dist/openslaq-linux-arm64 --target=bun-linux-arm64 --minify",
     "prepublishOnly": "bun run build",
     "test": "bun --env-file=../../.env test",
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
+    "@sentry/node": "^10.43.0",
     "hono": "^4.7.4"
   },
   "devDependencies": {

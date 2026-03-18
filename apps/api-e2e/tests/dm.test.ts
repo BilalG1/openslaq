@@ -26,12 +26,13 @@ describe("direct messages", () => {
     slug = workspace.slug;
   });
 
-  test("create self-DM → 201", async () => {
+  test("create self-DM → 200 (auto-created during workspace setup)", async () => {
+    // Self-DM is auto-created when workspace is created, so this returns 200
     const res = await client.api.workspaces[":slug"].dm.$post({
       param: { slug },
       json: { userId: user1Id },
     });
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(200);
     const body = (await res.json()) as {
       channel: { id: string; type: string; name: string };
       otherUser: { id: string };
@@ -71,7 +72,7 @@ describe("direct messages", () => {
     expect(selfDm!.channel.type).toBe("dm");
   });
 
-  test("list DMs when empty → empty array", async () => {
+  test("list DMs on fresh workspace → includes auto-created self-DM", async () => {
     const { client: freshClient } = await createTestClient({
       id: `dm-fresh-${testId()}`,
       displayName: "Fresh User",
@@ -82,8 +83,10 @@ describe("direct messages", () => {
       param: { slug: freshWs.slug },
     });
     expect(res.status).toBe(200);
-    const dms = (await res.json()) as unknown[];
-    expect(dms.length).toBe(0);
+    const dms = (await res.json()) as { channel: { type: string }; otherUser: { id: string } }[];
+    // Workspace creation auto-creates a self-DM
+    expect(dms.length).toBe(1);
+    expect(dms[0]!.channel.type).toBe("dm");
   });
 
   test("send message in DM channel → 201 (reuses message routes)", async () => {

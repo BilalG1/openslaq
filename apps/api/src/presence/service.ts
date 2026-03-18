@@ -1,39 +1,101 @@
-import { eq } from "drizzle-orm";
+import { eq, and, sql, count as drizzleCount } from "drizzle-orm";
 import { db } from "../db";
 import { users } from "../users/schema";
 import { workspaceMembers } from "../workspaces/schema";
+import { presenceConnections } from "./schema";
 import { isStatusExpired } from "../users/service";
 
-// In-memory tracking: userId → Set of socket IDs
-const connectedSockets = new Map<string, Set<string>>();
+export const MAX_SOCKETS_PER_USER = 5;
 
-export function addSocket(userId: string, socketId: string): boolean {
-  const existing = connectedSockets.get(userId);
-  if (existing) {
-    existing.add(socketId);
-    return false; // already online
-  }
-  connectedSockets.set(userId, new Set([socketId]));
-  return true; // transitioned offline → online
+export async function addSocket(userId: string, socketId: string): Promise<boolean> {
+  // Check if user already has connections
+  const existing = await db.query.presenceConnections.findFirst({
+    where: eq(presenceConnections.userId, userId),
+  });
+
+  await db.insert(presenceConnections).values({
+    userId,
+    socketId,
+    lastHeartbeat: new Date(),
+  }).onConflictDoUpdate({
+    target: [presenceConnections.userId, presenceConnections.socketId],
+    set: { lastHeartbeat: new Date() },
+  });
+
+  return !existing; // true if first connection (came online)
 }
 
-export function removeSocket(userId: string, socketId: string): boolean {
-  const existing = connectedSockets.get(userId);
-  if (!existing) return false;
-  existing.delete(socketId);
-  if (existing.size === 0) {
-    connectedSockets.delete(userId);
-    return true; // transitioned online → offline
-  }
-  return false; // still has other sockets
+export async function removeSocket(userId: string, socketId: string): Promise<boolean> {
+  const deleted = await db
+    .delete(presenceConnections)
+    .where(
+      and(
+        eq(presenceConnections.userId, userId),
+        eq(presenceConnections.socketId, socketId),
+      ),
+    )
+    .returning();
+
+  if (deleted.length === 0) return false;
+
+  // Check if any sockets remain
+  const remaining = await db.query.presenceConnections.findFirst({
+    where: eq(presenceConnections.userId, userId),
+  });
+
+  return !remaining; // true if went offline
 }
 
-export function getOnlineUserIds(): Set<string> {
-  return new Set(connectedSockets.keys());
+export async function getOnlineUserIds(): Promise<Set<string>> {
+  const rows = await db
+    .selectDistinct({ userId: presenceConnections.userId })
+    .from(presenceConnections)
+    .where(sql`${presenceConnections.lastHeartbeat} > now() - interval '60 seconds'`);
+  return new Set(rows.map((r) => r.userId));
 }
 
-export function getSocketIdsForUser(userId: string): Set<string> {
-  return connectedSockets.get(userId) ?? new Set();
+export async function removeAllSocketsForUser(userId: string): Promise<void> {
+  await db.delete(presenceConnections).where(eq(presenceConnections.userId, userId));
+}
+
+export async function getSocketCountForUser(userId: string): Promise<number> {
+  const [row] = await db
+    .select({ count: drizzleCount() })
+    .from(presenceConnections)
+    .where(eq(presenceConnections.userId, userId));
+  return row?.count ?? 0;
+}
+
+export async function getSocketIdsForUser(userId: string): Promise<Set<string>> {
+  const rows = await db
+    .select({ socketId: presenceConnections.socketId })
+    .from(presenceConnections)
+    .where(eq(presenceConnections.userId, userId));
+  return new Set(rows.map((r) => r.socketId));
+}
+
+export function startHeartbeat(userId: string, socketId: string): ReturnType<typeof setInterval> {
+  return setInterval(() => {
+    db.update(presenceConnections)
+      .set({ lastHeartbeat: new Date() })
+      .where(
+        and(
+          eq(presenceConnections.userId, userId),
+          eq(presenceConnections.socketId, socketId),
+        ),
+      )
+      .catch(console.error);
+  }, 30_000);
+}
+
+export function stopHeartbeat(interval: ReturnType<typeof setInterval>): void {
+  clearInterval(interval);
+}
+
+export async function cleanupStalePresence(): Promise<void> {
+  await db
+    .delete(presenceConnections)
+    .where(sql`${presenceConnections.lastHeartbeat} < now() - interval '90 seconds'`);
 }
 
 export async function persistLastSeen(userId: string): Promise<void> {
@@ -73,7 +135,7 @@ export async function getWorkspacePresence(
     .innerJoin(users, eq(workspaceMembers.userId, users.id))
     .where(eq(workspaceMembers.workspaceId, workspaceId));
 
-  const onlineIds = getOnlineUserIds();
+  const onlineIds = await getOnlineUserIds();
   return members.map((m) => {
     const expired = isStatusExpired(m.statusExpiresAt);
     return {

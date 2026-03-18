@@ -90,7 +90,7 @@ describe("VideoTile", () => {
   test("shows speaking ring when isSpeaking", () => {
     render(<VideoTile participant={makeParticipant({ isSpeaking: true })} />);
     const tile = screen.getByTestId("video-tile-user-abc");
-    expect(tile.className).toContain("ring-green-400");
+    expect(tile.className).toContain("ring-blue-400/70");
   });
 
   test("cleans up MediaStream on unmount", () => {

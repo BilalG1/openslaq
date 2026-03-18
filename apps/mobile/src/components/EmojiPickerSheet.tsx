@@ -1,11 +1,12 @@
 import { useCallback, useMemo, useState } from "react";
-import { View, Text, Pressable, Image, ScrollView, Modal } from "react-native";
+import { View, Text, Pressable, Image } from "react-native";
 import EmojiPicker from "rn-emoji-keyboard";
 import type { EmojiType } from "rn-emoji-keyboard";
 import type { CustomEmoji } from "@openslaq/shared";
 import { buildCustomEmojiShortcode } from "@openslaq/client-core";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { haptics } from "@/utils/haptics";
+import { BottomSheet } from "@/components/ui/BottomSheet";
 
 interface Props {
   visible: boolean;
@@ -67,66 +68,49 @@ export function EmojiPickerSheet({ visible, onSelect, onClose, customEmojis = []
     onClose();
   }, [onClose]);
 
-  // Custom emoji grid shown as a separate modal view
+  // Custom emoji grid shown as a separate bottom sheet
   if (showCustom && visible && customEmojis.length > 0) {
     return (
-      <Modal visible transparent animationType="slide" onRequestClose={handleClose}>
-        <Pressable
-          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.33)" }}
-          onPress={handleClose}
-        />
-        <View
-          testID="custom-emoji-section"
-          style={{
-            backgroundColor: theme.colors.surfaceSecondary,
-            borderTopLeftRadius: 16,
-            borderTopRightRadius: 16,
-            padding: 16,
-            maxHeight: 320,
-          }}
-        >
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <Text
+      <BottomSheet visible onClose={handleClose} scrollable maxHeight={320} testID="custom-emoji-section">
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12, paddingHorizontal: 16 }}>
+          <Text
+            style={{
+              color: theme.colors.textMuted,
+              fontSize: 12,
+              fontWeight: "600",
+              textTransform: "uppercase",
+            }}
+          >
+            Custom
+          </Text>
+          <Pressable testID="custom-emoji-back" onPress={() => setShowCustom(false)}>
+            <Text style={{ color: theme.brand.primary, fontSize: 14 }}>Standard</Text>
+          </Pressable>
+        </View>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 16 }}>
+          {customEmojis.map((emoji) => (
+            <Pressable
+              key={emoji.id}
+              testID={`custom-emoji-${emoji.name}`}
+              onPress={() => handleCustomPick(emoji)}
+              accessibilityLabel={emoji.name}
               style={{
-                color: theme.colors.textMuted,
-                fontSize: 12,
-                fontWeight: "600",
-                textTransform: "uppercase",
+                width: 36,
+                height: 36,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 6,
               }}
             >
-              Custom
-            </Text>
-            <Pressable testID="custom-emoji-back" onPress={() => setShowCustom(false)}>
-              <Text style={{ color: theme.brand.primary, fontSize: 14 }}>Standard</Text>
+              <Image
+                source={{ uri: emoji.url }}
+                style={{ width: 36, height: 36 }}
+                accessibilityLabel={emoji.name}
+              />
             </Pressable>
-          </View>
-          <ScrollView>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-              {customEmojis.map((emoji) => (
-                <Pressable
-                  key={emoji.id}
-                  testID={`custom-emoji-${emoji.name}`}
-                  onPress={() => handleCustomPick(emoji)}
-                  accessibilityLabel={emoji.name}
-                  style={{
-                    width: 36,
-                    height: 36,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    borderRadius: 6,
-                  }}
-                >
-                  <Image
-                    source={{ uri: emoji.url }}
-                    style={{ width: 36, height: 36 }}
-                    accessibilityLabel={emoji.name}
-                  />
-                </Pressable>
-              ))}
-            </View>
-          </ScrollView>
+          ))}
         </View>
-      </Modal>
+      </BottomSheet>
     );
   }
 

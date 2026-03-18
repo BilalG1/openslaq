@@ -1,75 +1,134 @@
-import type { HuddleState, HuddleParticipant, ChannelId } from "@openslaq/shared";
+import { eq, and, inArray, sql } from "drizzle-orm";
+import type { HuddleState, ChannelId } from "@openslaq/shared";
 import { asChannelId, asUserId } from "@openslaq/shared";
 import { RoomManager } from "@openslaq/huddle/server";
+import { db } from "../db";
+import { activeHuddles, huddleParticipants } from "./schema";
 
-// channelId → HuddleState
-const activeHuddles = new Map<string, HuddleState>();
+export async function isUserInAnyHuddle(userId: string): Promise<{ inHuddle: boolean; channelId: string | null }> {
+  const participation = await db.query.huddleParticipants.findFirst({
+    where: eq(huddleParticipants.userId, userId),
+  });
+  return {
+    inHuddle: !!participation,
+    channelId: participation?.channelId ?? null,
+  };
+}
 
-// userId → channelId (each user can only be in one huddle)
-const userHuddle = new Map<string, string>();
+function toHuddleState(
+  row: typeof activeHuddles.$inferSelect,
+  participants: Array<typeof huddleParticipants.$inferSelect>,
+): HuddleState {
+  return {
+    channelId: asChannelId(row.channelId),
+    participants: participants.map((p) => ({
+      userId: asUserId(p.userId),
+      isMuted: p.isMuted,
+      isCameraOn: p.isCameraOn,
+      isScreenSharing: p.isScreenSharing,
+      joinedAt: p.joinedAt.toISOString(),
+    })),
+    startedAt: row.startedAt.toISOString(),
+    livekitRoom: row.livekitRoom,
+    screenShareUserId: row.screenShareUserId ? asUserId(row.screenShareUserId) : null,
+    messageId: row.messageId,
+  };
+}
 
-// channelId → Set of all userIds who ever joined (for finalParticipants)
-const huddleParticipantHistory = new Map<string, Set<string>>();
-
-export function startHuddle(channelId: string, userId: string, livekitRoom?: string): HuddleState {
-  const existing = activeHuddles.get(channelId);
+export async function startHuddle(channelId: string, userId: string, livekitRoom?: string): Promise<HuddleState> {
+  const existing = await db.query.activeHuddles.findFirst({
+    where: eq(activeHuddles.channelId, channelId),
+  });
   if (existing) {
     return joinHuddle(channelId, userId);
   }
 
   // User must leave any existing huddle first
-  leaveHuddle(userId);
+  await leaveHuddle(userId);
 
-  const participant: HuddleParticipant = {
-    userId: asUserId(userId),
-    isMuted: false,
-    isCameraOn: false,
-    isScreenSharing: false,
-    joinedAt: new Date().toISOString(),
-  };
+  const now = new Date();
+  const room = livekitRoom ?? RoomManager.roomNameForChannel(channelId);
 
-  const huddle: HuddleState = {
+  await db.insert(activeHuddles).values({
+    channelId,
+    startedAt: now,
+    livekitRoom: room,
+    participantHistory: [userId],
+  });
+
+  await db.insert(huddleParticipants).values({
+    channelId,
+    userId,
+    joinedAt: now,
+  });
+
+  return {
     channelId: asChannelId(channelId),
-    participants: [participant],
-    startedAt: new Date().toISOString(),
-    livekitRoom: livekitRoom ?? RoomManager.roomNameForChannel(channelId),
+    participants: [{
+      userId: asUserId(userId),
+      isMuted: false,
+      isCameraOn: false,
+      isScreenSharing: false,
+      joinedAt: now.toISOString(),
+    }],
+    startedAt: now.toISOString(),
+    livekitRoom: room,
     screenShareUserId: null,
     messageId: null,
   };
-
-  activeHuddles.set(channelId, huddle);
-  userHuddle.set(userId, channelId);
-  huddleParticipantHistory.set(channelId, new Set([userId]));
-  return huddle;
 }
 
-export function joinHuddle(channelId: string, userId: string): HuddleState {
-  const huddle = activeHuddles.get(channelId);
+export async function joinHuddle(channelId: string, userId: string): Promise<HuddleState> {
+  const huddle = await db.query.activeHuddles.findFirst({
+    where: eq(activeHuddles.channelId, channelId),
+  });
   if (!huddle) {
     return startHuddle(channelId, userId);
   }
 
-  // Already in this huddle
-  if (huddle.participants.some((p) => p.userId === userId)) {
-    return huddle;
+  // Check if already in this huddle
+  const existingParticipant = await db.query.huddleParticipants.findFirst({
+    where: and(
+      eq(huddleParticipants.channelId, channelId),
+      eq(huddleParticipants.userId, userId),
+    ),
+  });
+
+  if (existingParticipant) {
+    const participants = await db.query.huddleParticipants.findMany({
+      where: eq(huddleParticipants.channelId, channelId),
+    });
+    return toHuddleState(huddle, participants);
   }
 
   // Leave any existing huddle
-  leaveHuddle(userId);
+  await leaveHuddle(userId);
 
-  const participant: HuddleParticipant = {
-    userId: asUserId(userId),
-    isMuted: false,
-    isCameraOn: false,
-    isScreenSharing: false,
-    joinedAt: new Date().toISOString(),
-  };
+  const now = new Date();
+  await db.insert(huddleParticipants).values({
+    channelId,
+    userId,
+    joinedAt: now,
+  });
 
-  huddle.participants.push(participant);
-  userHuddle.set(userId, channelId);
-  const history = huddleParticipantHistory.get(channelId);
-  if (history) history.add(userId);
-  return huddle;
+  // Add to participant history
+  await db
+    .update(activeHuddles)
+    .set({
+      participantHistory: sql`array_append(${activeHuddles.participantHistory}, ${userId})`,
+    })
+    .where(eq(activeHuddles.channelId, channelId));
+
+  const participants = await db.query.huddleParticipants.findMany({
+    where: eq(huddleParticipants.channelId, channelId),
+  });
+
+  // Re-fetch to get updated participantHistory
+  const updatedHuddle = await db.query.activeHuddles.findFirst({
+    where: eq(activeHuddles.channelId, channelId),
+  });
+
+  return toHuddleState(updatedHuddle ?? huddle, participants);
 }
 
 export interface LeaveResult {
@@ -81,86 +140,158 @@ export interface LeaveResult {
   participantHistory: string[];
 }
 
-export function leaveHuddle(userId: string): LeaveResult {
-  const channelId = userHuddle.get(userId);
-  if (!channelId) {
+export async function leaveHuddle(userId: string): Promise<LeaveResult> {
+  // Find which huddle this user is in
+  const participation = await db.query.huddleParticipants.findFirst({
+    where: eq(huddleParticipants.userId, userId),
+  });
+
+  if (!participation) {
     return { huddle: null, ended: false, channelId: null, messageId: null, startedAt: null, participantHistory: [] };
   }
 
-  userHuddle.delete(userId);
-  const huddle = activeHuddles.get(channelId);
-  if (!huddle) {
+  const channelId = participation.channelId;
+
+  // Remove the participant
+  await db.delete(huddleParticipants).where(
+    and(
+      eq(huddleParticipants.channelId, channelId),
+      eq(huddleParticipants.userId, userId),
+    ),
+  );
+
+  // Clear screen share if the leaving user was sharing
+  await db
+    .update(activeHuddles)
+    .set({ screenShareUserId: null })
+    .where(
+      and(
+        eq(activeHuddles.channelId, channelId),
+        eq(activeHuddles.screenShareUserId, userId),
+      ),
+    );
+
+  // Check remaining participants
+  const remaining = await db.query.huddleParticipants.findMany({
+    where: eq(huddleParticipants.channelId, channelId),
+  });
+
+  if (remaining.length === 0) {
+    // Huddle ended — read the huddle row before deleting
+    const huddleRow = await db.query.activeHuddles.findFirst({
+      where: eq(activeHuddles.channelId, channelId),
+    });
+
+    if (huddleRow) {
+      await db.delete(activeHuddles).where(eq(activeHuddles.channelId, channelId));
+      return {
+        huddle: null,
+        ended: true,
+        channelId: asChannelId(channelId),
+        messageId: huddleRow.messageId,
+        startedAt: huddleRow.startedAt.toISOString(),
+        participantHistory: huddleRow.participantHistory ?? [],
+      };
+    }
+
+    return { huddle: null, ended: true, channelId: asChannelId(channelId), messageId: null, startedAt: null, participantHistory: [] };
+  }
+
+  const huddleRow = await db.query.activeHuddles.findFirst({
+    where: eq(activeHuddles.channelId, channelId),
+  });
+
+  if (!huddleRow) {
     return { huddle: null, ended: false, channelId: asChannelId(channelId), messageId: null, startedAt: null, participantHistory: [] };
   }
 
-  huddle.participants = huddle.participants.filter((p) => p.userId !== userId);
-
-  // Clear screen share if the leaving user was sharing
-  if (huddle.screenShareUserId === userId) {
-    huddle.screenShareUserId = null;
-  }
-
-  if (huddle.participants.length === 0) {
-    const messageId = huddle.messageId;
-    const startedAt = huddle.startedAt;
-    const history = huddleParticipantHistory.get(channelId);
-    const participantHistory = history ? [...history] : [];
-    activeHuddles.delete(channelId);
-    huddleParticipantHistory.delete(channelId);
-    return { huddle: null, ended: true, channelId: asChannelId(channelId), messageId, startedAt, participantHistory };
-  }
-
-  return { huddle, ended: false, channelId: asChannelId(channelId), messageId: huddle.messageId, startedAt: huddle.startedAt, participantHistory: [] };
+  const huddle = toHuddleState(huddleRow, remaining);
+  return {
+    huddle,
+    ended: false,
+    channelId: asChannelId(channelId),
+    messageId: huddleRow.messageId,
+    startedAt: huddleRow.startedAt.toISOString(),
+    participantHistory: [],
+  };
 }
 
-export function setHuddleMessageId(channelId: string, messageId: string): void {
-  const huddle = activeHuddles.get(channelId);
-  if (huddle) {
-    huddle.messageId = messageId;
-  }
+export async function setHuddleMessageId(channelId: string, messageId: string): Promise<void> {
+  await db
+    .update(activeHuddles)
+    .set({ messageId })
+    .where(eq(activeHuddles.channelId, channelId));
 }
 
-export function setMuted(userId: string, isMuted: boolean): HuddleState | null {
-  const channelId = userHuddle.get(userId);
-  if (!channelId) return null;
+export async function setMuted(userId: string, isMuted: boolean): Promise<HuddleState | null> {
+  const participation = await db.query.huddleParticipants.findFirst({
+    where: eq(huddleParticipants.userId, userId),
+  });
+  if (!participation) return null;
 
-  const huddle = activeHuddles.get(channelId);
+  await db
+    .update(huddleParticipants)
+    .set({ isMuted })
+    .where(
+      and(
+        eq(huddleParticipants.channelId, participation.channelId),
+        eq(huddleParticipants.userId, userId),
+      ),
+    );
+
+  return getHuddleForChannel(participation.channelId);
+}
+
+export async function getHuddleForChannel(channelId: string): Promise<HuddleState | null> {
+  const huddle = await db.query.activeHuddles.findFirst({
+    where: eq(activeHuddles.channelId, channelId),
+  });
   if (!huddle) return null;
 
-  const participant = huddle.participants.find((p) => p.userId === userId);
-  if (participant) {
-    participant.isMuted = isMuted;
+  const participants = await db.query.huddleParticipants.findMany({
+    where: eq(huddleParticipants.channelId, channelId),
+  });
+
+  return toHuddleState(huddle, participants);
+}
+
+export async function getUserHuddleChannel(userId: string): Promise<string | null> {
+  const participation = await db.query.huddleParticipants.findFirst({
+    where: eq(huddleParticipants.userId, userId),
+  });
+  return participation?.channelId ?? null;
+}
+
+export async function getActiveHuddlesForChannels(channelIds: string[]): Promise<HuddleState[]> {
+  if (channelIds.length === 0) return [];
+
+  const huddles = await db.query.activeHuddles.findMany({
+    where: inArray(activeHuddles.channelId, channelIds),
+  });
+
+  if (huddles.length === 0) return [];
+
+  const huddleChannelIds = huddles.map((h) => h.channelId);
+  const allParticipants = await db.query.huddleParticipants.findMany({
+    where: inArray(huddleParticipants.channelId, huddleChannelIds),
+  });
+
+  const participantsByChannel = new Map<string, Array<typeof huddleParticipants.$inferSelect>>();
+  for (const p of allParticipants) {
+    const list = participantsByChannel.get(p.channelId) ?? [];
+    list.push(p);
+    participantsByChannel.set(p.channelId, list);
   }
 
-  return huddle;
+  return huddles.map((h) => toHuddleState(h, participantsByChannel.get(h.channelId) ?? []));
 }
 
-export function getHuddleForChannel(channelId: string): HuddleState | null {
-  return activeHuddles.get(channelId) ?? null;
-}
-
-export function getUserHuddleChannel(userId: string): string | null {
-  return userHuddle.get(userId) ?? null;
-}
-
-export function getActiveHuddlesForChannels(channelIds: string[]): HuddleState[] {
-  const huddles: HuddleState[] = [];
-  for (const channelId of channelIds) {
-    const huddle = activeHuddles.get(channelId);
-    if (huddle) {
-      huddles.push(huddle);
-    }
-  }
-  return huddles;
-}
-
-export function removeUserFromAllHuddles(userId: string): LeaveResult {
+export async function removeUserFromAllHuddles(userId: string): Promise<LeaveResult> {
   return leaveHuddle(userId);
 }
 
 /** Reset all state — for testing only */
-export function _resetForTests(): void {
-  activeHuddles.clear();
-  userHuddle.clear();
-  huddleParticipantHistory.clear();
+export async function _resetForTests(): Promise<void> {
+  await db.delete(huddleParticipants);
+  await db.delete(activeHuddles);
 }

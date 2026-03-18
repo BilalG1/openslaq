@@ -4,7 +4,8 @@ import { db } from "../db";
 import { workspaceInvites } from "./invite-schema";
 import { workspaceMembers, workspaces } from "./schema";
 import { channels, channelMembers } from "../channels/schema";
-import { DEFAULT_CHANNELS } from "@openslaq/shared";
+import { DEFAULT_CHANNELS, CHANNEL_TYPES } from "@openslaq/shared";
+import { dmChannelName } from "../dm/service";
 
 export async function createInvite(
   workspaceId: string,
@@ -122,6 +123,21 @@ export async function acceptInvite(code: string, userId: string) {
         .insert(channelMembers)
         .values({ channelId: generalChannel.id, userId })
         .onConflictDoNothing();
+    }
+
+    // Auto-create self-DM
+    const selfDmName = dmChannelName(userId, userId);
+    const [selfDm] = await tx
+      .insert(channels)
+      .values({
+        workspaceId: invite.workspaceId,
+        name: selfDmName,
+        type: CHANNEL_TYPES.DM,
+        createdBy: userId,
+      })
+      .returning();
+    if (selfDm) {
+      await tx.insert(channelMembers).values({ channelId: selfDm.id, userId });
     }
 
     const workspace = await tx.query.workspaces.findFirst({

@@ -101,6 +101,12 @@ export function InviteAcceptPage() {
             >
               {accepting ? "Joining..." : "Accept Invite"}
             </Button>
+            <a
+              href={`openslaq://invite/${code}`}
+              className="mt-4 inline-block text-sm text-muted hover:text-primary transition-colors"
+            >
+              Open in App
+            </a>
           </>
         )}
       </div>

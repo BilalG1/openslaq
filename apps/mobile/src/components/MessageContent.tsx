@@ -69,7 +69,7 @@ function MessageContentInner({ content, mentions = [], onPressMention, customEmo
         textDecorationLine: "line-through" as const,
       },
       code_inline: {
-        backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+        backgroundColor: theme.colors.codeInlineBg,
         color: isDark ? "#e06c75" : "#c7254e",
         paddingHorizontal: 4,
         paddingVertical: 1,
@@ -163,7 +163,8 @@ function MessageContentInner({ content, mentions = [], onPressMention, customEmo
             key={node.key}
             source={{ uri: src }}
             accessibilityLabel={alt}
-            style={{ width: 100, height: 100 }}
+            resizeMode="contain"
+            style={{ width: 200, height: 200 }}
           />
         );
       },

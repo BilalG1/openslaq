@@ -1,8 +1,38 @@
+import { useEffect, useState } from "react";
 import { Button } from "../components/ui";
 
-const RELEASE_URL = "https://github.com/openslaq/openslaq/releases/latest";
+const REPO = "bilalg1/openslaq";
+
+function useLatestDesktopRelease() {
+  const [dmgUrl, setDmgUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(`https://api.github.com/repos/${REPO}/releases/tags/desktop-latest`)
+      .then((r) => r.json())
+      .then((release) => {
+        const latestJson = release.assets?.find(
+          (a: { name: string }) => a.name === "latest.json",
+        );
+        if (!latestJson) return;
+        return fetch(latestJson.browser_download_url);
+      })
+      .then((r) => r?.json())
+      .then((latest) => {
+        if (!latest?.version) return;
+        const version = latest.version;
+        setDmgUrl(
+          `https://github.com/${REPO}/releases/download/desktop-v${version}/OpenSlaq_${version}_aarch64.dmg`,
+        );
+      })
+      .catch(() => {});
+  }, []);
+
+  return dmgUrl;
+}
 
 export function DesktopPage() {
+  const dmgUrl = useLatestDesktopRelease();
+
   return (
     <div className="min-h-screen bg-surface-secondary">
       <main className="max-w-3xl mx-auto px-6 py-16">
@@ -14,9 +44,9 @@ export function DesktopPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="rounded-xl border border-border-default bg-surface p-5">
             <h2 className="text-lg font-semibold text-primary mb-4">macOS</h2>
-            <Button asChild className="w-full" data-testid="desktop-download-macos">
-              <a href={RELEASE_URL} target="_blank" rel="noopener noreferrer">
-                Install for macOS
+            <Button asChild className="w-full" disabled={!dmgUrl} data-testid="desktop-download-macos">
+              <a href={dmgUrl ?? "#"} rel="noopener noreferrer">
+                {dmgUrl ? "Download for macOS" : "Loading..."}
               </a>
             </Button>
           </div>
@@ -27,7 +57,7 @@ export function DesktopPage() {
               <span className="text-xs text-muted">Coming soon</span>
             </div>
             <Button className="w-full" disabled data-testid="desktop-download-windows">
-              Install for Windows
+              Download for Windows
             </Button>
           </div>
 
@@ -37,7 +67,7 @@ export function DesktopPage() {
               <span className="text-xs text-muted">Coming soon</span>
             </div>
             <Button className="w-full" disabled data-testid="desktop-download-linux">
-              Install for Linux
+              Download for Linux
             </Button>
           </div>
         </div>

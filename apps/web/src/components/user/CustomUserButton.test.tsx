@@ -18,11 +18,6 @@ mock.module("../../lib/auth", () => ({
   redirectToAuth: mockRedirectToAuth,
 }));
 
-const mockCycle = jest.fn();
-mock.module("../../theme/ThemeProvider", () => ({
-  useTheme: () => ({ mode: "light", resolved: "light", setMode: () => {}, cycle: mockCycle }),
-}));
-
 mock.module("../../state/chat-store", () => ({
   useChatStore: () => ({ state: { presence: {} } }),
 }));
@@ -72,15 +67,7 @@ describe("CustomUserButton", () => {
 
     expect(screen.getByText("Set a status")).toBeDefined();
     expect(screen.getByText("Settings")).toBeDefined();
-    expect(screen.getByText("Theme: Light")).toBeDefined();
     expect(screen.getByText("Sign out")).toBeDefined();
-  });
-
-  test("calls cycle when theme item is clicked", async () => {
-    render(<CustomUserButton />);
-    await act(() => openDropdown(screen.getByRole("button")));
-    fireEvent.click(screen.getByText("Theme: Light"));
-    expect(mockCycle).toHaveBeenCalled();
   });
 
   test("calls redirectToAuth when sign out is clicked", async () => {

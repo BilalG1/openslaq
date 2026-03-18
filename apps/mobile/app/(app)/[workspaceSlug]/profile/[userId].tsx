@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { View, Text, Image, ScrollView, Pressable, ActivityIndicator, Alert } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { listWorkspaceMembers, createDm, type WorkspaceMember, type PresenceEntry } from "@openslaq/client-core";
@@ -7,7 +7,8 @@ import { useChatStore } from "@/contexts/ChatStoreProvider";
 import { useHuddle } from "@/contexts/HuddleProvider";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { SetStatusModal } from "@/components/SetStatusModal";
-import { api } from "@/lib/api";
+import { useOperationDeps, useApiDeps } from "@/hooks/useOperationDeps";
+import { routes } from "@/lib/routes";
 
 function getInitials(name?: string | null): string {
   if (!name) return "?";
@@ -18,14 +19,14 @@ function getInitials(name?: string | null): string {
   return name[0].toUpperCase();
 }
 
-function roleBadgeColor(role: string): string {
+function roleBadgeColor(role: string, theme: ReturnType<typeof useMobileTheme>["theme"]): string {
   switch (role) {
     case "owner":
       return "#d97706";
     case "admin":
-      return "#2563eb";
+      return theme.brand.primary;
     default:
-      return "#6b7280";
+      return theme.colors.textMuted;
   }
 }
 
@@ -47,8 +48,10 @@ export default function ProfileScreen() {
     workspaceSlug: string;
     userId: string;
   }>();
-  const { authProvider, user: currentUser } = useAuth();
+  const { user: currentUser } = useAuth();
   const { state, dispatch } = useChatStore();
+  const deps = useOperationDeps();
+  const apiDeps = useApiDeps();
   const { joinHuddle } = useHuddle();
   const router = useRouter();
   const { theme } = useMobileTheme();
@@ -65,8 +68,6 @@ export default function ProfileScreen() {
     ? new Date(presence.statusExpiresAt).getTime() <= Date.now()
     : false;
   const hasStatus = Boolean(presence && !statusExpired && (presence.statusEmoji || presence.statusText));
-
-  const apiDeps = useMemo(() => ({ api, auth: authProvider }), [authProvider]);
 
   useEffect(() => {
     if (!workspaceSlug || !userId) return;
@@ -85,27 +86,25 @@ export default function ProfileScreen() {
   const handleSendMessage = useCallback(async () => {
     if (!workspaceSlug || !userId) return;
     try {
-      const deps = { api, auth: authProvider, dispatch, getState: () => state };
       const result = await createDm(deps, { workspaceSlug, targetUserId: userId });
       if (!result) throw new Error("DM not created");
-      router.push(`/(app)/${workspaceSlug}/(tabs)/(channels)/dm/${result.channel.id}`);
+      router.push(routes.dm(workspaceSlug, result.channel.id));
     } catch {
       Alert.alert("Error", "Failed to create direct message");
     }
-  }, [workspaceSlug, userId, authProvider, dispatch, state, router]);
+  }, [workspaceSlug, userId, deps, router]);
 
   const handleHuddle = useCallback(async () => {
     if (!workspaceSlug || !userId) return;
     try {
-      const deps = { api, auth: authProvider, dispatch, getState: () => state };
       const result = await createDm(deps, { workspaceSlug, targetUserId: userId });
       if (!result) throw new Error("DM not created");
       joinHuddle(result.channel.id);
-      router.push(`/(app)/${workspaceSlug}/huddle`);
+      router.push(routes.huddle(workspaceSlug));
     } catch {
       Alert.alert("Error", "Failed to start huddle");
     }
-  }, [workspaceSlug, userId, authProvider, dispatch, state, router, joinHuddle]);
+  }, [workspaceSlug, userId, deps, router, joinHuddle]);
 
   if (loading) {
     return (
@@ -190,11 +189,11 @@ export default function ProfileScreen() {
               paddingHorizontal: 10,
               paddingVertical: 4,
               borderRadius: 12,
-              backgroundColor: roleBadgeColor(member.role) + "22",
+              backgroundColor: theme.colors.surfaceTertiary,
               marginRight: 8,
             }}
           >
-            <Text style={{ color: roleBadgeColor(member.role), fontSize: 12, fontWeight: "600", textTransform: "capitalize" }}>
+            <Text style={{ color: roleBadgeColor(member.role, theme), fontSize: 12, fontWeight: "600", textTransform: "capitalize" }}>
               {member.role}
             </Text>
           </View>
@@ -246,7 +245,7 @@ export default function ProfileScreen() {
             </Pressable>
             <Pressable
               testID="profile-edit-profile"
-              onPress={() => router.push(`/(app)/${workspaceSlug}/settings`)}
+              onPress={() => router.push(routes.settings(workspaceSlug))}
               style={({ pressed }) => ({
                 paddingHorizontal: 20,
                 paddingVertical: 10,

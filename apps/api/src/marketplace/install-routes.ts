@@ -117,6 +117,15 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
       return c.json({ error: "Listing not found" }, 404);
     }
 
+    // Check feature flag for gated integrations
+    const { PLUGIN_SLUG_TO_FLAG, isIntegrationEnabled } = await import("../workspaces/feature-flags");
+    if (listing.slug in PLUGIN_SLUG_TO_FLAG) {
+      const enabled = await isIntegrationEnabled(workspace.id, listing.slug);
+      if (!enabled) {
+        return c.json({ error: "This integration is not enabled for this workspace" }, 403);
+      }
+    }
+
     // Check not already installed
     const alreadyInstalled = await isInstalledInWorkspace(listingId, workspace.id);
     if (alreadyInstalled) {

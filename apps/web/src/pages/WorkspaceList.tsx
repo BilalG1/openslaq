@@ -3,19 +3,21 @@ import { useNavigate, Link } from "react-router-dom";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useWorkspacesApi, type WorkspaceInfo } from "../hooks/api/useWorkspacesApi";
 import { getErrorMessage } from "../lib/errors";
-import { redirectToAuth } from "../lib/auth";
-import { Button } from "../components/ui";
+import { Button, Avatar, Badge } from "../components/ui";
 import { CustomUserButton } from "../components/user/CustomUserButton";
+import { ChevronRight } from "lucide-react";
 import { useGalleryMode, useGalleryMockData } from "../gallery/gallery-context";
 
-function roleBadgeClass(role: string): string {
+const DOCS_URL = import.meta.env.DEV ? "http://localhost:3008" : "https://docs.openslaq.com";
+
+function roleBadgeVariant(role: string): "amber" | "blue" | "gray" {
   switch (role) {
     case "owner":
-      return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300";
+      return "amber";
     case "admin":
-      return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
+      return "blue";
     default:
-      return "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300";
+      return "gray";
   }
 }
 
@@ -30,14 +32,6 @@ export function WorkspaceListPage() {
 
   const { listWorkspaces } = useWorkspacesApi();
 
-  // Redirect unauthenticated users in real mode
-  useEffect(() => {
-    if (!isGallery && !user) {
-      void redirectToAuth();
-    }
-  }, [isGallery, user]);
-
-  // Load gallery mock data immediately
   useEffect(() => {
     if (isGallery && galleryMockData?.workspaceList) {
       setWorkspaces(galleryMockData.workspaceList);
@@ -74,8 +68,7 @@ export function WorkspaceListPage() {
     };
   }, [listWorkspaces, user, isGallery]);
 
-  if (!isGallery && !user) return null;
-
+  const isSignedOut = !isGallery && !user;
   const hasWorkspaces = !loading && workspaces.length > 0;
   const isEmpty = !loading && workspaces.length === 0 && !error;
 
@@ -83,14 +76,26 @@ export function WorkspaceListPage() {
     <div className="min-h-screen bg-surface-secondary">
       {/* Navbar */}
       <nav className="sticky top-0 z-10 bg-surface border-b border-border-default">
-        <div className="max-w-4xl mx-auto px-6 h-14 flex items-center justify-between">
+        <div className="max-w-3xl mx-auto px-6 h-14 flex items-center justify-between">
           <span className="text-lg font-bold text-primary">OpenSlaq</span>
-          {!isGallery && <CustomUserButton />}
+          <div className="flex items-center gap-4">
+            {!isGallery && !user && (
+              <>
+                <a href={DOCS_URL} className="text-sm text-muted hover:text-primary transition-colors" data-testid="nav-docs">Docs</a>
+                <Link to="/install" className="text-sm text-muted hover:text-primary transition-colors" data-testid="nav-install">Install</Link>
+              </>
+            )}
+            {!isGallery && (user ? <CustomUserButton /> : (
+              <Button asChild size="sm" data-testid="sign-in-button">
+                <Link to="/handler/sign-in">Sign in</Link>
+              </Button>
+            ))}
+          </div>
         </div>
       </nav>
 
-      <main className="max-w-4xl mx-auto px-6 py-10">
-        {loading && (
+      <main className="max-w-3xl mx-auto px-6 py-10">
+        {!isSignedOut && loading && (
           <div className="flex items-center justify-center py-20">
             <div className="animate-spin rounded-full h-8 w-8 border-2 border-border-default border-t-slaq-blue" />
           </div>
@@ -102,7 +107,17 @@ export function WorkspaceListPage() {
           </div>
         )}
 
-        {isEmpty && (
+        {isSignedOut && (
+          <div className="text-center py-20">
+            <h1 className="text-3xl font-bold text-primary mb-2">Welcome to OpenSlaq</h1>
+            <p className="text-muted text-lg mb-8">Sign in to get started</p>
+            <Button asChild data-testid="sign-in-cta">
+              <Link to="/handler/sign-in">Sign in</Link>
+            </Button>
+          </div>
+        )}
+
+        {!isSignedOut && isEmpty && (
           <div className="text-center py-20">
             <h1 className="text-3xl font-bold text-primary mb-2">Welcome to OpenSlaq</h1>
             <p className="text-muted text-lg mb-8">Get started by creating a workspace</p>
@@ -118,8 +133,8 @@ export function WorkspaceListPage() {
 
         {hasWorkspaces && (
           <>
-            <div className="flex items-center justify-between mb-6">
-              <h1 className="text-2xl font-bold text-primary">Your Workspaces</h1>
+            <div className="flex items-center justify-between mb-4">
+              <h1 className="text-2xl font-bold text-primary">Workspaces</h1>
               <Link
                 to="/create-workspace"
                 data-testid="create-workspace-link"
@@ -129,25 +144,29 @@ export function WorkspaceListPage() {
               </Link>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {workspaces.map((ws) => (
+            <div className="bg-surface rounded-xl border border-border-default overflow-hidden">
+              {workspaces.map((ws, i) => (
                 <button
                   key={ws.id}
                   type="button"
                   onClick={() => navigate(`/w/${ws.slug}`)}
                   data-testid={`workspace-card-${ws.slug}`}
-                  className="text-left p-5 bg-surface rounded-xl border border-border-default hover:border-slaq-blue hover:shadow-md transition-all cursor-pointer"
+                  className={`w-full flex items-center gap-3 text-left px-4 py-3 hover:bg-surface-secondary transition-colors cursor-pointer ${
+                    i < workspaces.length - 1 ? "border-b border-border-default" : ""
+                  }`}
                 >
-                  <div className="flex items-start justify-between mb-1">
-                    <h2 className="font-semibold text-primary text-lg">{ws.name}</h2>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ml-2 ${roleBadgeClass(ws.role)}`}>
-                      {ws.role}
-                    </span>
+                  <Avatar
+                    fallback={ws.name}
+                    size="sm"
+                    shape="circle"
+                  />
+                  <span className="font-medium text-primary truncate">{ws.name}</span>
+                  <span className="text-sm text-faint font-mono">/{ws.slug}</span>
+                  <div className="flex items-center gap-2 ml-auto shrink-0">
+                    <Badge variant={roleBadgeVariant(ws.role)} size="sm">{ws.role}</Badge>
+                    <span className="text-xs text-faint">{ws.memberCount}</span>
+                    <ChevronRight className="w-4 h-4 text-faint" />
                   </div>
-                  <p className="text-sm text-muted mb-2">/{ws.slug}</p>
-                  <p className="text-xs text-faint">
-                    {ws.memberCount} {ws.memberCount === 1 ? "member" : "members"}
-                  </p>
                 </button>
               ))}
             </div>

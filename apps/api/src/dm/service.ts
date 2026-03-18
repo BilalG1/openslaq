@@ -25,7 +25,7 @@ export interface DmListItem {
   otherUser: DmUser;
 }
 
-function dmChannelName(userId1: string, userId2: string): string {
+export function dmChannelName(userId1: string, userId2: string): string {
   const sorted = [userId1, userId2].sort();
   return `dm:${sorted[0]}:${sorted[1]}`;
 }

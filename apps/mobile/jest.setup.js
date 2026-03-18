@@ -233,6 +233,93 @@ jest.mock("expo-media-library", () => ({
   saveToLibraryAsync: jest.fn(() => Promise.resolve()),
 }));
 
+// Mock @openslaq/editor/mobile-html
+jest.mock("@openslaq/editor/mobile-html", () => ({
+  MOBILE_EDITOR_HTML: "<html><body><div id='editor'></div></body></html>",
+}));
+
+// Mock WebViewEditor — renders a View and exposes ref with mock methods
+jest.mock("@/components/WebViewEditor", () => {
+  const React = require("react");
+  const { View } = require("react-native");
+
+  // Shared mock ref that tests can access
+  const mockRef = {
+    setContent: jest.fn(),
+    clearContent: jest.fn(),
+    focus: jest.fn(),
+    getMarkdown: jest.fn(() => Promise.resolve("")),
+    toggleBold: jest.fn(),
+    toggleItalic: jest.fn(),
+    toggleStrike: jest.fn(),
+    toggleCode: jest.fn(),
+    toggleBlockquote: jest.fn(),
+    toggleBulletList: jest.fn(),
+    toggleOrderedList: jest.fn(),
+    setLink: jest.fn(),
+    unsetLink: jest.fn(),
+    insertMention: jest.fn(),
+    insertSlashCommand: jest.fn(),
+  };
+
+  // Stored callbacks from props for test simulation
+  let storedProps = {};
+
+  const WebViewEditor = React.forwardRef(function MockWebViewEditor(props, ref) {
+    storedProps = props;
+    React.useImperativeHandle(ref, () => mockRef);
+
+    // Auto-fire onReady on mount
+    React.useEffect(() => {
+      props.onReady?.();
+    }, []);
+
+    return React.createElement(View, { testID: "webview-editor" });
+  });
+
+  return {
+    __esModule: true,
+    WebViewEditor,
+    __mockRef: mockRef,
+    // Test helper: simulate content change (as if user typed)
+    _simulateContentChange: (markdown, text, isEmpty) => {
+      storedProps.onContentChange?.({ markdown: markdown ?? text, text, isEmpty: isEmpty ?? !text });
+    },
+    // Test helper: simulate height change
+    _simulateHeightChange: (height) => {
+      storedProps.onHeightChange?.(height);
+    },
+    // Test helper: simulate mention query
+    _simulateMentionQuery: (query) => {
+      storedProps.onMentionQuery?.(query);
+    },
+    // Test helper: simulate slash query
+    _simulateSlashQuery: (query) => {
+      storedProps.onSlashQuery?.(query);
+    },
+    // Test helper: simulate formatting state
+    _simulateFormattingState: (state) => {
+      storedProps.onFormattingState?.(state);
+    },
+  };
+});
+
+// Mock react-native-webview
+jest.mock("react-native-webview", () => {
+  const React = require("react");
+  const { View } = require("react-native");
+  const MockWebView = React.forwardRef(function MockWebView(props, ref) {
+    React.useImperativeHandle(ref, () => ({
+      injectJavaScript: jest.fn(),
+    }));
+    return React.createElement(View, { testID: props.testID ?? "mock-webview", ...props });
+  });
+  return {
+    __esModule: true,
+    default: MockWebView,
+  };
+});
+
 // Mock @react-navigation/native (useFocusEffect runs callback immediately in tests)
 jest.mock("@react-navigation/native", () => {
   const React = require("react");

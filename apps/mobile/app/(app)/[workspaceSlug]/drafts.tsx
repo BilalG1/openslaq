@@ -1,10 +1,14 @@
-import { useCallback, useEffect, useState } from "react";
-import { View, Text, FlatList, ActivityIndicator, Pressable } from "react-native";
+import { useCallback } from "react";
+import { View, Text, FlatList, Pressable } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useChatStore } from "@/contexts/ChatStoreProvider";
+import { X, FileText } from "lucide-react-native";
 import { useMobileTheme } from "@/theme/ThemeProvider";
+import { useFetchData } from "@/hooks/useFetchData";
+import { LoadingScreen } from "@/components/ui/LoadingScreen";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { routes } from "@/lib/routes";
 import { getAllDrafts, removeDraft } from "@/lib/draft-storage";
-import Svg, { Path } from "react-native-svg";
 
 interface DraftItem {
   draftKey: string;
@@ -13,41 +17,16 @@ interface DraftItem {
   isThread: boolean;
 }
 
-function DraftIcon({ color, size = 32 }: { color: string; size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z"
-        stroke={color}
-        strokeWidth={1.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M14 2v6h6M16 13H8M16 17H8M10 9H8"
-        stroke={color}
-        strokeWidth={1.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
 export default function DraftsScreen() {
   const { workspaceSlug } = useLocalSearchParams<{ workspaceSlug: string }>();
   const { state } = useChatStore();
   const { theme } = useMobileTheme();
   const router = useRouter();
 
-  const [drafts, setDrafts] = useState<DraftItem[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    void getAllDrafts().then((raw) => {
-      if (cancelled) return;
-      const items: DraftItem[] = raw.map(({ draftKey, text }) => {
+  const { data: drafts, setData: setDrafts, loading, error } = useFetchData<DraftItem[]>({
+    fetchFn: async () => {
+      const raw = await getAllDrafts();
+      return raw.map(({ draftKey, text }) => {
         const isThread = draftKey.startsWith("thread-");
         let channelName = draftKey;
 
@@ -72,28 +51,24 @@ export default function DraftsScreen() {
 
         return { draftKey, text, channelName, isThread };
       });
-      setDrafts(items);
-      setLoading(false);
-    });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    },
+    deps: [],
+    initialValue: [],
+  });
 
   const handlePress = useCallback(
     (item: DraftItem) => {
       if (item.isThread) {
         const parentMessageId = item.draftKey.replace("thread-", "");
-        router.push(`/(app)/${workspaceSlug}/thread/${parentMessageId}`);
+        router.push(routes.thread(workspaceSlug, parentMessageId));
       } else {
         // Check if it's a DM/group DM or channel
         const isDm = state.dms.some((d) => d.channel.id === item.draftKey);
         const isGroupDm = state.groupDms.some((g) => g.channel.id === item.draftKey);
         if (isDm || isGroupDm) {
-          router.push(`/(app)/${workspaceSlug}/(tabs)/(channels)/dm/${item.draftKey}`);
+          router.push(routes.dm(workspaceSlug, item.draftKey));
         } else {
-          router.push(`/(app)/${workspaceSlug}/(tabs)/(channels)/${item.draftKey}`);
+          router.push(routes.channel(workspaceSlug, item.draftKey));
         }
       }
     },
@@ -105,15 +80,19 @@ export default function DraftsScreen() {
     setDrafts((prev) => prev.filter((d) => d.draftKey !== draftKey));
   }, []);
 
-  if (loading) {
+  if (error) {
     return (
       <View
-        testID="drafts-loading"
+        testID="drafts-error"
         style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.surface }}
       >
-        <ActivityIndicator size="large" color={theme.brand.primary} />
+        <Text style={{ color: theme.colors.dangerText }}>{error}</Text>
       </View>
     );
+  }
+
+  if (loading) {
+    return <LoadingScreen testID="drafts-loading" />;
   }
 
   return (
@@ -152,15 +131,16 @@ export default function DraftsScreen() {
               hitSlop={8}
               style={{ marginLeft: 12, padding: 4 }}
             >
-              <Text style={{ fontSize: 18, color: theme.colors.textMuted }}>×</Text>
+              <X size={18} color={theme.colors.textMuted} />
             </Pressable>
           </Pressable>
         )}
         ListEmptyComponent={
-          <View testID="drafts-empty" style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 48 }}>
-            <DraftIcon color={theme.colors.textFaint} />
-            <Text style={{ fontSize: 16, color: theme.colors.textFaint, marginTop: 12 }}>No drafts</Text>
-          </View>
+          <EmptyState
+            testID="drafts-empty"
+            icon={<FileText size={32} color={theme.colors.textFaint} />}
+            message="No drafts"
+          />
         }
       />
     </View>

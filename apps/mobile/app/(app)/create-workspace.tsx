@@ -13,6 +13,7 @@ import { createWorkspace } from "@openslaq/client-core";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { api } from "@/lib/api";
+import { routes } from "@/lib/routes";
 
 export default function CreateWorkspaceScreen() {
   const { authProvider } = useAuth();
@@ -33,7 +34,7 @@ export default function CreateWorkspaceScreen() {
     const result = await createWorkspace({ api, auth: authProvider }, trimmed);
 
     if (result.ok) {
-      router.replace(`/(app)/${result.slug}/(channels)`);
+      router.replace(routes.channels(result.slug));
     } else {
       setError(result.error);
       setLoading(false);

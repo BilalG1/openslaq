@@ -18,6 +18,8 @@ import allUnreadsRoutes from "../channels/unreads-routes";
 import groupDmRoutes from "../group-dm/routes";
 import savedMessageRoutes from "../messages/saved-routes";
 import scheduledMessageRoutes from "../messages/scheduled-routes";
+import draftRoutes from "../messages/draft-routes";
+import threadRoutes from "../messages/thread-routes";
 import fileBrowserRoutes from "../uploads/file-browser-routes";
 import customEmojiRoutes from "../emoji/routes";
 import bookmarkRoutes from "../channels/bookmark-routes";
@@ -25,6 +27,8 @@ import commandRoutes from "../commands/routes";
 import marketplaceInstallRoutes from "../marketplace/install-routes";
 import { INTEGRATION_PLUGINS } from "../integrations/registry";
 import { okSchema, errorSchema } from "../openapi/schemas";
+import featureFlagRoutes from "./feature-flag-routes";
+import { PLUGIN_SLUG_TO_FLAG, isIntegrationEnabled } from "./feature-flags";
 
 const resolveWorkspace = createMiddleware<WorkspaceEnv>(async (c, next) => {
   const slug = c.req.param("slug");
@@ -79,16 +83,30 @@ const routes = app
   .route("/group-dm", groupDmRoutes)
   .route("/saved-messages", savedMessageRoutes)
   .route("/scheduled-messages", scheduledMessageRoutes)
+  .route("/drafts", draftRoutes)
+  .route("/threads", threadRoutes)
   .route("/files", fileBrowserRoutes)
   .route("/emoji", customEmojiRoutes)
   .route("/commands", commandRoutes)
   .route("/marketplace", marketplaceInstallRoutes)
+  .route("/feature-flags", featureFlagRoutes)
   .route("/", botAdminRoutes);
 
-// Mount integration plugin setup routes
+// Mount integration plugin setup routes (gated by feature flags)
 for (const plugin of INTEGRATION_PLUGINS) {
   if (plugin.setupRoutes) {
-    routes.route(`/integrations/${plugin.slug}`, plugin.setupRoutes);
+    if (plugin.slug in PLUGIN_SLUG_TO_FLAG) {
+      const gated = new OpenAPIHono<WorkspaceMemberEnv>();
+      gated.use(async (c, next) => {
+        const enabled = await isIntegrationEnabled(c.get("workspace").id, plugin.slug);
+        if (!enabled) return c.json({ error: "Integration not enabled" }, 403);
+        await next();
+      });
+      gated.route("/", plugin.setupRoutes);
+      routes.route(`/integrations/${plugin.slug}`, gated);
+    } else {
+      routes.route(`/integrations/${plugin.slug}`, plugin.setupRoutes);
+    }
   }
 }
 

@@ -20,22 +20,24 @@ import {
   shareMessageOp,
   markChannelAsUnread,
 } from "@openslaq/client-core";
-import type { MentionSuggestionItem } from "@/hooks/useMentionAutocomplete";
+import type { MentionSuggestionItem } from "@/components/MentionSuggestionList";
 import { useAuth } from "@/contexts/AuthContext";
 import { useChatStore } from "@/contexts/ChatStoreProvider";
 import { useSocketEvent } from "@/hooks/useSocketEvent";
 import { useMessageActions } from "@/hooks/useMessageActions";
+import { useOperationDeps } from "@/hooks/useOperationDeps";
 import { useTypingEmitter } from "@/hooks/useTypingEmitter";
 import { useTypingTracking } from "@/hooks/useTypingTracking";
 import { useFileUpload, type PendingFile } from "@/hooks/useFileUpload";
-import { api } from "@/lib/api";
 import { MessageBubble } from "@/components/MessageBubble";
 import { MessageInput } from "@/components/MessageInput";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { MessageActionSheet } from "@/components/MessageActionSheet";
 import { EmojiPickerSheet } from "@/components/EmojiPickerSheet";
 import { ShareMessageModal } from "@/components/ShareMessageModal";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMobileTheme } from "@/theme/ThemeProvider";
+import { routes } from "@/lib/routes";
 
 export default function ThreadScreen() {
   const { workspaceSlug, parentMessageId } = useLocalSearchParams<{
@@ -44,14 +46,11 @@ export default function ThreadScreen() {
   }>();
   const { authProvider, user } = useAuth();
   const { state, dispatch } = useChatStore();
+  const deps = useOperationDeps();
   const { theme } = useMobileTheme();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { handleEditMessage, handleDeleteMessage, handleToggleReaction } = useMessageActions({
-    authProvider,
-    state,
-    dispatch,
-    userId: user?.id,
-  });
+  const { handleEditMessage, handleDeleteMessage, handleToggleReaction } = useMessageActions(user?.id);
 
   const [editingMessage, setEditingMessage] = useState<{
     id: string;
@@ -76,7 +75,6 @@ export default function ThreadScreen() {
   // Load thread messages on mount
   useEffect(() => {
     if (!workspaceSlug || !parentMessageId || !channelId) return;
-    const deps = { api, auth: authProvider, dispatch, getState: () => state };
     void loadThreadMessages(deps, { workspaceSlug, channelId, parentMessageId });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parentMessageId, channelId, dispatch, authProvider, workspaceSlug]);
@@ -85,7 +83,6 @@ export default function ThreadScreen() {
   useEffect(() => {
     if (!workspaceSlug) return;
     let cancelled = false;
-    const deps = { api, auth: authProvider, dispatch, getState: () => state };
     void listWorkspaceMembers(deps, workspaceSlug).then((result) => {
       if (cancelled) return;
       setMembers(result.map((m) => ({ id: m.id, displayName: m.displayName })));
@@ -166,7 +163,7 @@ export default function ThreadScreen() {
 
   const handlePressSender = useCallback(
     (userId: string) => {
-      router.push(`/(app)/${workspaceSlug}/profile/${userId}`);
+      router.push(routes.profile(workspaceSlug, userId));
     },
     [router, workspaceSlug],
   );
@@ -183,8 +180,7 @@ export default function ThreadScreen() {
       };
       fileUpload.addFile(file);
       const attachmentIds = await fileUpload.uploadAll(() => authProvider.requireAccessToken());
-      const deps = { api, auth: authProvider, dispatch, getState: () => state };
-      await coreSendMessage(deps, { channelId, workspaceSlug, content: "", attachmentIds, parentMessageId });
+        await coreSendMessage(deps, { channelId, workspaceSlug, content: "", attachmentIds, parentMessageId });
       fileUpload.reset();
     },
     [authProvider, channelId, dispatch, fileUpload, parentMessageId, state, workspaceSlug],
@@ -206,8 +202,7 @@ export default function ThreadScreen() {
       if (fileUpload.hasFiles) {
         attachmentIds = await fileUpload.uploadAll(() => authProvider.requireAccessToken());
       }
-      const deps = { api, auth: authProvider, dispatch, getState: () => state };
-      await coreSendMessage(deps, {
+        await coreSendMessage(deps, {
         channelId,
         workspaceSlug,
         content,
@@ -229,7 +224,6 @@ export default function ThreadScreen() {
       !pagination.olderCursor
     )
       return;
-    const deps = { api, auth: authProvider, dispatch, getState: () => state };
     void loadOlderReplies(deps, {
       workspaceSlug,
       channelId,
@@ -287,8 +281,7 @@ export default function ThreadScreen() {
   const handleMarkAsUnread = useCallback(
     async (messageId: string) => {
       if (!workspaceSlug || !channelId) return;
-      const deps = { api, auth: authProvider, dispatch, getState: () => state };
-      await markChannelAsUnread(deps, { workspaceSlug, channelId, messageId });
+        await markChannelAsUnread(deps, { workspaceSlug, channelId, messageId });
     },
     [authProvider, channelId, dispatch, state, workspaceSlug],
   );
@@ -301,8 +294,7 @@ export default function ThreadScreen() {
     async (destinationChannelId: string, destinationName: string, comment: string) => {
       if (!shareMessage || !workspaceSlug) return;
       try {
-        const deps = { api, auth: authProvider, dispatch, getState: () => state };
-        await shareMessageOp(deps, {
+            await shareMessageOp(deps, {
           workspaceSlug,
           destinationChannelId,
           sharedMessageId: shareMessage.id,
@@ -339,11 +331,19 @@ export default function ThreadScreen() {
     [handleLoadOlder],
   );
 
+  if (!parentMessage) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.surface }}>
+        <ActivityIndicator size="large" color={theme.brand.primary} />
+      </View>
+    );
+  }
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={{ flex: 1, backgroundColor: theme.colors.surface }}
-      keyboardVerticalOffset={90}
+      keyboardVerticalOffset={insets.top + 56}
     >
       {isLoading && data.length === 0 ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -359,14 +359,24 @@ export default function ThreadScreen() {
           testID="thread-message-list"
           data={data}
           keyExtractor={(item) => item.id}
-          renderItem={({ item, index }) => (
+          renderItem={({ item, index }) => {
+            const prev = index > 0 ? data[index - 1] : undefined;
+            const isGrouped =
+              index > 0 &&
+              prev != null &&
+              prev.userId === item.userId &&
+              new Date(item.createdAt).getTime() - new Date(prev.createdAt).getTime() < 5 * 60 * 1000 &&
+              new Date(item.createdAt).toDateString() === new Date(prev.createdAt).toDateString();
+            return (
             <View>
               <MessageBubble
                 message={item}
+                isGrouped={isGrouped}
                 currentUserId={user?.id}
                 onToggleReaction={handleToggleReaction}
                 onLongPress={handleLongPress}
                 onPressSender={handlePressSender}
+                onPressMention={handlePressSender}
                 customEmojis={customEmojis}
               />
               {index === 0 && replies.length > 0 && (
@@ -382,7 +392,8 @@ export default function ThreadScreen() {
                 </>
               )}
             </View>
-          )}
+            );
+          }}
           ListEmptyComponent={
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 48 }}>
               <Text style={{ color: theme.colors.textFaint }}>

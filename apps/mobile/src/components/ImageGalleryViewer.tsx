@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { View, Text, Pressable, Alert } from "react-native";
+import { X } from "lucide-react-native";
 import ImageViewing from "react-native-image-viewing";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Paths, File as ExpoFile } from "expo-file-system";
@@ -54,7 +55,7 @@ function GalleryHeader({
           )}
         </View>
         <Pressable onPress={onClose} hitSlop={12} testID="gallery-close">
-          <Text style={{ color: "#fff", fontSize: 28, lineHeight: 28 }}>✕</Text>
+          <X size={28} color="#fff" />
         </Pressable>
       </View>
     </View>
@@ -79,9 +80,13 @@ function GalleryFooter({
   }, [image]);
 
   const handleShare = useCallback(async () => {
-    const uri = await downloadToCache();
-    if (!uri) return;
-    await Sharing.shareAsync(uri);
+    try {
+      const uri = await downloadToCache();
+      if (!uri) return;
+      await Sharing.shareAsync(uri);
+    } catch {
+      Alert.alert("Error", "Failed to download file for sharing.");
+    }
   }, [downloadToCache]);
 
   const handleSave = useCallback(async () => {
@@ -90,10 +95,14 @@ function GalleryFooter({
       Alert.alert("Permission required", "Please allow photo library access to save images.");
       return;
     }
-    const uri = await downloadToCache();
-    if (!uri) return;
-    await MediaLibrary.saveToLibraryAsync(uri);
-    Alert.alert("Saved", "Image saved to your photo library.");
+    try {
+      const uri = await downloadToCache();
+      if (!uri) return;
+      await MediaLibrary.saveToLibraryAsync(uri);
+      Alert.alert("Saved", "Image saved to your photo library.");
+    } catch {
+      Alert.alert("Error", "Failed to save image.");
+    }
   }, [downloadToCache]);
 
   return (

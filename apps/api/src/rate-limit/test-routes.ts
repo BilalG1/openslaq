@@ -40,13 +40,13 @@ const app = new Hono()
   })
   // Protected test endpoints
   .use(requireTestSecret)
-  .post("/reset-rate-limits", (c) => {
-    resetStore();
+  .post("/reset-rate-limits", async (c) => {
+    await resetStore();
     setEnabled(true);
     return c.json({ ok: true });
   })
-  .post("/disable-rate-limits", (c) => {
-    resetStore();
+  .post("/disable-rate-limits", async (c) => {
+    await resetStore();
     setEnabled(false);
     return c.json({ ok: true });
   })

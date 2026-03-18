@@ -1,80 +1,58 @@
-import { useEffect, useState, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
   DialogTitle,
 } from "../ui/dialog";
-import { Avatar } from "../ui/avatar";
-import { Tooltip } from "../ui/tooltip";
-import { useChannelMembersApi, type ChannelMember } from "../../hooks/api/useChannelMembersApi";
 import type { ChannelType, ChannelNotifyLevel } from "@openslaq/shared";
-import type { PresenceEntry } from "../../state/chat-store";
 
 interface ChannelInfoDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  channelId: string;
   channelName: string;
   channelType: ChannelType;
   description: string | null;
   createdAt: string;
-  createdBy: string | null;
   memberCount: number;
   isArchived: boolean;
   isStarred: boolean;
   notificationLevel?: ChannelNotifyLevel;
-  workspaceSlug: string;
-  presence: Record<string, PresenceEntry>;
-  onOpenProfile: (userId: string) => void;
   onToggleStar?: () => void;
   onSetNotificationLevel?: (level: ChannelNotifyLevel) => void;
+  onUpdateDescription?: (description: string | null) => void;
 }
 
 export function ChannelInfoDialog({
   open,
   onOpenChange,
-  channelId,
   channelName,
   channelType,
   description,
   createdAt,
-  createdBy,
   memberCount,
   isArchived,
   isStarred,
-  workspaceSlug,
-  presence,
-  onOpenProfile,
   onToggleStar,
   onSetNotificationLevel,
   notificationLevel,
+  onUpdateDescription,
 }: ChannelInfoDialogProps) {
-  const { listChannelMembers } = useChannelMembersApi();
-  const [members, setMembers] = useState<ChannelMember[]>([]);
-
   const isPrivate = channelType === "private";
-
-  const loadMembers = useCallback(async () => {
-    const result = await listChannelMembers(workspaceSlug, channelId);
-    setMembers(result);
-  }, [workspaceSlug, channelId, listChannelMembers]);
+  const [editingTopic, setEditingTopic] = useState(false);
+  const [topicDraft, setTopicDraft] = useState("");
+  const topicInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!open) {
-      setMembers([]);
-      return;
+    if (editingTopic && topicInputRef.current) {
+      topicInputRef.current.focus();
     }
-    loadMembers();
-  }, [open, loadMembers]);
+  }, [editingTopic]);
 
   const formattedDate = new Date(createdAt).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
   });
-
-  const creatorMember = members.find((m) => m.id === createdBy);
-  const onlineCount = members.filter((m) => presence[m.id]?.online).length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -116,38 +94,15 @@ export function ChannelInfoDialog({
             )}
           </div>
 
-          {/* Description */}
-          {description && (
-            <p className="text-sm text-secondary mb-5 m-0 leading-relaxed">{description}</p>
-          )}
-
           {/* Stats cards row */}
           <div className="grid grid-cols-3 gap-3 mb-6">
             <div className="rounded-lg border border-border-default p-3 text-center">
               <div className="text-2xl font-bold text-primary">{memberCount}</div>
               <div className="text-xs text-faint mt-0.5">Members</div>
-              {onlineCount > 0 && (
-                <div className="flex items-center justify-center gap-1 mt-1">
-                  <span className="w-2 h-2 rounded-full bg-green-500" />
-                  <span className="text-xs text-green-600 dark:text-green-400">{onlineCount} online</span>
-                </div>
-              )}
             </div>
             <div className="rounded-lg border border-border-default p-3 text-center">
               <div className="text-sm font-semibold text-primary">{formattedDate}</div>
               <div className="text-xs text-faint mt-0.5">Created</div>
-              {creatorMember && (
-                <button
-                  type="button"
-                  className="text-xs text-link hover:underline bg-transparent border-none cursor-pointer p-0 mt-1"
-                  onClick={() => {
-                    onOpenChange(false);
-                    onOpenProfile(creatorMember.id);
-                  }}
-                >
-                  {creatorMember.displayName}
-                </button>
-              )}
             </div>
             <div className="rounded-lg border border-border-default p-3 text-center">
               <div className="text-sm font-semibold text-primary flex items-center justify-center gap-1.5">
@@ -190,32 +145,72 @@ export function ChannelInfoDialog({
             </div>
           )}
 
-          {/* Members as avatar grid */}
-          <div>
-            <div className="text-xs font-semibold text-faint uppercase tracking-wider mb-3">
-              Members ({memberCount})
+          {/* Topic */}
+          {onUpdateDescription && (
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs font-semibold text-faint uppercase tracking-wider">Topic</div>
+                {!editingTopic && (
+                  <button
+                    type="button"
+                    onClick={() => { setTopicDraft(description ?? ""); setEditingTopic(true); }}
+                    className="text-xs text-link hover:underline bg-transparent border-none cursor-pointer p-0"
+                  >
+                    Edit
+                  </button>
+                )}
+              </div>
+              {editingTopic ? (
+                <div className="flex gap-2">
+                  <input
+                    ref={topicInputRef}
+                    type="text"
+                    value={topicDraft}
+                    onChange={(e) => setTopicDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        setEditingTopic(false);
+                        const trimmed = topicDraft.trim();
+                        const newDesc = trimmed.length > 0 ? trimmed : null;
+                        if (newDesc !== (description ?? null)) {
+                          onUpdateDescription(newDesc);
+                        }
+                      }
+                      if (e.key === "Escape") setEditingTopic(false);
+                    }}
+                    maxLength={500}
+                    placeholder="Add a topic"
+                    className="flex-1 bg-transparent border border-border-default rounded-md px-3 py-1.5 outline-none text-sm text-primary placeholder:text-faint focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingTopic(false);
+                      const trimmed = topicDraft.trim();
+                      const newDesc = trimmed.length > 0 ? trimmed : null;
+                      if (newDesc !== (description ?? null)) {
+                        onUpdateDescription(newDesc);
+                      }
+                    }}
+                    className="px-3 py-1.5 text-xs font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-md border-none cursor-pointer transition-colors"
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingTopic(false)}
+                    className="px-3 py-1.5 text-xs font-medium text-secondary bg-transparent hover:bg-hover rounded-md border border-border-default cursor-pointer transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <p className="text-sm text-secondary m-0 leading-relaxed">
+                  {description || <span className="text-faint italic">No topic set</span>}
+                </p>
+              )}
             </div>
-            <div className="flex flex-wrap gap-2">
-              {members.map((member) => {
-                const isOnline = presence[member.id]?.online ?? false;
-                return (
-                  <Tooltip key={member.id} content={member.displayName}>
-                    <button
-                      type="button"
-                      className="relative bg-transparent border-none cursor-pointer p-0 hover:scale-110 transition-transform"
-                      onClick={() => {
-                        onOpenChange(false);
-                        onOpenProfile(member.id);
-                      }}
-                    >
-                      <Avatar src={member.avatarUrl} alt={member.displayName} fallback={member.displayName} size="lg" shape="circle" />
-                      <span className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-surface ${isOnline ? "bg-green-500" : "bg-gray-400"}`} />
-                    </button>
-                  </Tooltip>
-                );
-              })}
-            </div>
-          </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

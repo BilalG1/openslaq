@@ -66,7 +66,7 @@ export async function expandGroupMentions(
     }
 
     if (hasHere) {
-      const onlineIds = getOnlineUserIds();
+      const onlineIds = await getOnlineUserIds();
       for (const id of memberIds) {
         if (id === senderId) continue;
         if (!onlineIds.has(id)) continue;

@@ -38,7 +38,7 @@ jest.mock("@/theme/ThemeProvider", () => ({
         textFaint: "#666",
         borderSecondary: "#333",
       },
-      brand: { primary: "#4A154B", success: "#2EB67D", danger: "#E01E5A" },
+      brand: { primary: "#1264a3", success: "#007a5a", danger: "#dc2626" },
     },
   }),
 }));

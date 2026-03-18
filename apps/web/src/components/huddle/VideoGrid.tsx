@@ -34,7 +34,7 @@ export function VideoGrid({ localParticipant, remoteParticipants }: VideoGridPro
     );
 
     return (
-      <div className="flex h-full gap-2 p-2" data-testid="video-grid">
+      <div className="flex h-full gap-3 p-3" data-testid="video-grid">
         {/* Main screen share area */}
         <div className="flex-1 min-w-0">
           <VideoTile
@@ -49,7 +49,7 @@ export function VideoGrid({ localParticipant, remoteParticipants }: VideoGridPro
         </div>
         {/* Thumbnail strip */}
         {thumbnails.length > 0 && (
-          <div className="w-48 flex flex-col gap-2 overflow-y-auto">
+          <div className="w-48 flex flex-col gap-3 overflow-y-auto">
             {thumbnails.map((p) => (
               <div key={p.info.userId} className="aspect-video">
                 <VideoTile participant={p.info} isLocal={p.isLocal} />
@@ -66,7 +66,7 @@ export function VideoGrid({ localParticipant, remoteParticipants }: VideoGridPro
   const gridClass = getGridClass(totalCount);
 
   return (
-    <div className={`grid gap-2 p-2 h-full ${gridClass}`} data-testid="video-grid">
+    <div className={`grid gap-3 p-3 h-full ${gridClass}`} data-testid="video-grid">
       {allParticipants.map((p) => (
         <VideoTile key={p.info.userId} participant={p.info} isLocal={p.isLocal} />
       ))}

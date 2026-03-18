@@ -7,6 +7,11 @@ export default defineConfig({
   integrations: [
     starlight({
       title: "OpenSlaq Docs",
+      logo: {
+        src: "./src/assets/logo.svg",
+        alt: "OpenSlaq",
+      },
+      customCss: ["./src/styles/custom.css"],
       social: {
         github: "https://github.com/openslaq/openslaq",
       },

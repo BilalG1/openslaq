@@ -21,6 +21,7 @@ interface ChannelListProps {
   activeHuddles?: Record<string, HuddleState>;
   channelNotificationPrefs?: Record<string, ChannelNotifyLevel>;
   onSetNotificationLevel?: (channelId: string, level: ChannelNotifyLevel) => void;
+  onBrowseChannels?: () => void;
 }
 
 export function ChannelList({
@@ -34,6 +35,7 @@ export function ChannelList({
   activeHuddles,
   channelNotificationPrefs,
   onSetNotificationLevel,
+  onBrowseChannels,
 }: ChannelListProps) {
   const [contextMenuChannelId, setContextMenuChannelId] = useState<string | null>(null);
   const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null);
@@ -61,7 +63,7 @@ export function ChannelList({
         <span className="flex items-center gap-1">
           {/* Hash icon (default) */}
           <svg
-            className="w-3 h-3 group-hover:hidden"
+            className="w-3 h-3 group-hover:hidden border border-border-default/60 rounded"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -138,6 +140,18 @@ export function ChannelList({
             </button>
           );
         })}
+
+      {!collapsed && onBrowseChannels && (
+        <button
+          type="button"
+          data-testid="browse-channels-button"
+          onClick={onBrowseChannels}
+          className="flex w-full items-center gap-1.5 py-1 pl-6 pr-4 border-none bg-transparent text-gray-400 hover:bg-white/10 hover:text-white cursor-pointer text-sm text-left"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          Add channels
+        </button>
+      )}
 
       {/* Context menu for notification preferences */}
       {onSetNotificationLevel && (

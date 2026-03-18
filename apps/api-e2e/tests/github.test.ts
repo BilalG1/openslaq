@@ -8,7 +8,9 @@ function signPayload(body: string, secret: string): string {
 
 describe("GitHub Bot", () => {
   let adminClient: Awaited<ReturnType<typeof createTestClient>>["client"];
+  let superAdminClient: Awaited<ReturnType<typeof createTestClient>>["client"];
   let workspaceSlug: string;
+  let workspaceId: string;
   let channelId: string;
   let githubListingId: string;
 
@@ -22,6 +24,16 @@ describe("GitHub Bot", () => {
     adminClient = admin.client;
     const ws = await createTestWorkspace(adminClient);
     workspaceSlug = ws.slug;
+    workspaceId = ws.id;
+
+    // Create super-admin client using the configured admin user ID
+    const superAdmin = await createTestClient({
+      id: process.env.ADMIN_USER_IDS?.split(",")[0] || "admin-user",
+      displayName: "Super Admin",
+      email: `super-admin-${testId()}@openslaq.dev`,
+      emailVerified: true,
+    });
+    superAdminClient = superAdmin.client;
 
     // Get general channel
     const chRes = await adminClient.api.workspaces[":slug"].channels.$get({
@@ -37,6 +49,12 @@ describe("GitHub Bot", () => {
     const ghListing = listings.find((l) => l.slug === "github-bot");
     expect(ghListing).toBeDefined();
     githubListingId = ghListing!.id;
+
+    // Enable GitHub integration feature flag
+    await superAdminClient.api.admin.workspaces[":workspaceId"]["feature-flags"].$patch({
+      param: { workspaceId },
+      json: { integrationGithub: true },
+    });
   });
 
   test("install github-bot from marketplace", async () => {
@@ -216,15 +234,15 @@ describe("GitHub Bot", () => {
     expect(installed.installedListingIds).not.toContain(githubListingId);
   });
 
-  test("/github command without bot installed returns error", async () => {
+  test("/github command without bot installed returns unknown command", async () => {
     const res = await adminClient.api.workspaces[":slug"].commands.execute.$post({
       param: { slug: workspaceSlug },
       json: { command: "github", args: "subscribe test/repo", channelId },
     });
     expect(res.status).toBe(200);
     const result = (await res.json()) as any;
-    expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("not installed");
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("Unknown command");
   });
 
   describe("webhook HMAC signature verification", () => {
@@ -295,7 +313,11 @@ describe("GitHub Bot", () => {
       const ws2 = await createTestWorkspace(admin2.client);
       wsSlug2 = ws2.slug;
 
-      // Install github-bot
+      // Enable feature flag and install github-bot
+      await superAdminClient.api.admin.workspaces[":workspaceId"]["feature-flags"].$patch({
+        param: { workspaceId: ws2.id },
+        json: { integrationGithub: true },
+      });
       const listRes = await admin2.client.api.marketplace.$get({});
       const listings = (await listRes.json()) as Array<{ id: string; slug: string }>;
       const ghListing = listings.find((l) => l.slug === "github-bot");
@@ -361,7 +383,11 @@ describe("GitHub Bot", () => {
       const ws = await createTestWorkspace(admin.client);
       installWsSlug = ws.slug;
 
-      // Install github-bot from marketplace first
+      // Enable feature flag and install github-bot from marketplace
+      await superAdminClient.api.admin.workspaces[":workspaceId"]["feature-flags"].$patch({
+        param: { workspaceId: ws.id },
+        json: { integrationGithub: true },
+      });
       const listRes = await admin.client.api.marketplace.$get({});
       const listings = (await listRes.json()) as Array<{ id: string; slug: string }>;
       const ghListing = listings.find((l) => l.slug === "github-bot");

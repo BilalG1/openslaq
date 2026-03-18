@@ -14,9 +14,11 @@ interface GridParticipant {
 
 interface VideoGridProps {
   participants: GridParticipant[];
+  safeAreaTop?: number;
+  safeAreaBottom?: number;
 }
 
-export function VideoGrid({ participants }: VideoGridProps) {
+export function VideoGrid({ participants, safeAreaTop = 0, safeAreaBottom = 0 }: VideoGridProps) {
   const { width, height } = useWindowDimensions();
   const count = participants.length;
 
@@ -25,9 +27,9 @@ export function VideoGrid({ participants }: VideoGridProps) {
   // Presentation layout: screen share takes main area, others in bottom strip
   const screenSharer = participants.find((p) => p.screenShareTrackRef);
   if (screenSharer) {
-    const availableHeight = height - 200;
-    const availableWidth = width - 24;
-    const stripTileSize = 80;
+    const availableHeight = height - safeAreaTop - safeAreaBottom - 120;
+    const availableWidth = width - 20;
+    const stripTileSize = 72;
 
     return (
       <View style={styles.fixedContainer}>
@@ -38,7 +40,7 @@ export function VideoGrid({ participants }: VideoGridProps) {
           isLocal={screenSharer.isLocal}
           videoTrackRef={screenSharer.screenShareTrackRef}
           isScreenShare
-          style={{ width: availableWidth, height: availableHeight - stripTileSize - 16 }}
+          style={{ width: availableWidth, height: availableHeight - stripTileSize - 12 }}
         />
         <ScrollView
           horizontal
@@ -57,9 +59,9 @@ export function VideoGrid({ participants }: VideoGridProps) {
     );
   }
 
-  // For 5+ participants, use a scrollable 2-column grid
+  // 5+ participants: scrollable 2-column grid
   if (count > 4) {
-    const tileWidth = (width - 36) / 2;
+    const tileWidth = (width - 30) / 2;
     const tileHeight = tileWidth * 0.75;
     return (
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
@@ -76,9 +78,8 @@ export function VideoGrid({ participants }: VideoGridProps) {
     );
   }
 
-  // Calculate tile dimensions for fixed grids
-  const availableHeight = height - 200; // account for header + controls
-  const availableWidth = width - 24;
+  const availableHeight = height - safeAreaTop - safeAreaBottom - 120;
+  const availableWidth = width - 20;
 
   if (count === 1) {
     return (
@@ -91,24 +92,27 @@ export function VideoGrid({ participants }: VideoGridProps) {
     );
   }
 
+  // 2 participants: side-by-side (landscape split)
   if (count === 2) {
-    const tileHeight = (availableHeight - 8) / 2;
+    const tileWidth2 = (availableWidth - 6) / 2;
     return (
       <View style={styles.fixedContainer}>
-        {participants.map((p) => (
-          <VideoTile
-            key={p.userId}
-            {...p}
-            style={{ width: availableWidth, height: tileHeight }}
-          />
-        ))}
+        <View style={styles.sideBySide}>
+          {participants.map((p) => (
+            <VideoTile
+              key={p.userId}
+              {...p}
+              style={{ width: tileWidth2, height: availableHeight }}
+            />
+          ))}
+        </View>
       </View>
     );
   }
 
   // 3-4: 2x2 grid
-  const tileWidth = (availableWidth - 8) / 2;
-  const tileHeight = (availableHeight - 8) / 2;
+  const tileWidth = (availableWidth - 6) / 2;
+  const tileHeight = (availableHeight - 6) / 2;
   return (
     <View style={styles.fixedContainer}>
       <View style={styles.grid}>
@@ -127,25 +131,30 @@ export function VideoGrid({ participants }: VideoGridProps) {
 const styles = StyleSheet.create({
   fixedContainer: {
     flex: 1,
-    padding: 12,
-    gap: 8,
+    padding: 10,
+    gap: 6,
     justifyContent: "center",
   },
   scrollContainer: {
     flex: 1,
   },
   scrollContent: {
-    padding: 12,
+    padding: 10,
   },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: 6,
+  },
+  sideBySide: {
+    flexDirection: "row",
+    gap: 6,
+    flex: 1,
   },
   stripContainer: {
     flexGrow: 0,
   },
   stripContent: {
-    gap: 8,
+    gap: 6,
   },
 });

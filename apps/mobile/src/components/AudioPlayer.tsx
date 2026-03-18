@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { View, Text, Pressable } from "react-native";
+import { Play, Pause } from "lucide-react-native";
 import { Audio } from "expo-av";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 
@@ -58,8 +59,11 @@ export function AudioPlayer({ uri, filename }: Props) {
         void soundRef.current.unloadAsync();
         soundRef.current = null;
       }
+      setIsPlaying(false);
+      setPositionMs(0);
+      setDurationMs(0);
     };
-  }, []);
+  }, [uri]);
 
   const progress = durationMs > 0 ? (positionMs / durationMs) * 100 : 0;
 
@@ -73,9 +77,7 @@ export function AudioPlayer({ uri, filename }: Props) {
         onPress={() => void togglePlayPause()}
         style={{ width: 32, height: 32, borderRadius: 9999, alignItems: 'center', justifyContent: 'center', marginRight: 8, backgroundColor: theme.brand.primary }}
       >
-        <Text style={{ color: 'white', fontSize: 14, fontWeight: 'bold' }}>
-          {isPlaying ? "⏸" : "▶"}
-        </Text>
+        {isPlaying ? <Pause size={14} color="#fff" /> : <Play size={14} color="#fff" />}
       </Pressable>
       <View style={{ flex: 1, marginRight: 8 }}>
         <Text

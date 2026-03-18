@@ -30,8 +30,9 @@ export async function listChannels(workspaceId: WorkspaceId, userId: UserId): Pr
         eq(channels.isArchived, false),
         or(
           eq(channels.type, CHANNEL_TYPES.PUBLIC),
-          and(eq(channels.type, CHANNEL_TYPES.PRIVATE), exists(memberSubquery)),
+          eq(channels.type, CHANNEL_TYPES.PRIVATE),
         ),
+        exists(memberSubquery),
       ),
     )
     .groupBy(channels.id)
@@ -152,7 +153,10 @@ export async function browsePublicChannels(workspaceId: WorkspaceId, userId: Use
 
   const conditions = [
     eq(channels.workspaceId, workspaceId),
-    eq(channels.type, CHANNEL_TYPES.PUBLIC),
+    or(
+      eq(channels.type, CHANNEL_TYPES.PUBLIC),
+      and(eq(channels.type, CHANNEL_TYPES.PRIVATE), exists(membershipSubquery)),
+    ),
   ];
   if (!includeArchived) {
     conditions.push(eq(channels.isArchived, false));
@@ -207,7 +211,8 @@ export async function listChannelMembers(channelId: ChannelId) {
     })
     .from(channelMembers)
     .innerJoin(users, eq(channelMembers.userId, users.id))
-    .where(eq(channelMembers.channelId, channelId));
+    .where(eq(channelMembers.channelId, channelId))
+    .limit(1000);
 
   return rows.map((r) => ({
     id: r.id,

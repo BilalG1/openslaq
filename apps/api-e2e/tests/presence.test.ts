@@ -97,57 +97,57 @@ describe("presence", () => {
   });
 
   describe("presence service (in-process)", () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       for (const socketId of ["sock-a", "sock-b", "sock-c", "sock-d", "sock-e", "sock-f"]) {
-        removeSocket(user1Id, socketId);
+        await removeSocket(user1Id, socketId);
       }
     });
 
-    test("addSocket marks user as online, returns true on first connection", () => {
-      const came = addSocket(user1Id, "sock-a");
+    test("addSocket marks user as online, returns true on first connection", async () => {
+      const came = await addSocket(user1Id, "sock-a");
       expect(came).toBe(true);
-      expect(getOnlineUserIds().has(user1Id)).toBe(true);
+      expect((await getOnlineUserIds()).has(user1Id)).toBe(true);
     });
 
-    test("addSocket returns false on second connection (already online)", () => {
-      const first = addSocket(user1Id, "sock-a");
+    test("addSocket returns false on second connection (already online)", async () => {
+      const first = await addSocket(user1Id, "sock-a");
       expect(first).toBe(true);
-      const came = addSocket(user1Id, "sock-b");
+      const came = await addSocket(user1Id, "sock-b");
       expect(came).toBe(false);
-      expect(getOnlineUserIds().has(user1Id)).toBe(true);
+      expect((await getOnlineUserIds()).has(user1Id)).toBe(true);
     });
 
-    test("removeSocket returns false when other sockets remain", () => {
-      addSocket(user1Id, "sock-a");
-      addSocket(user1Id, "sock-b");
-      const went = removeSocket(user1Id, "sock-a");
+    test("removeSocket returns false when other sockets remain", async () => {
+      await addSocket(user1Id, "sock-a");
+      await addSocket(user1Id, "sock-b");
+      const went = await removeSocket(user1Id, "sock-a");
       expect(went).toBe(false);
-      expect(getOnlineUserIds().has(user1Id)).toBe(true);
+      expect((await getOnlineUserIds()).has(user1Id)).toBe(true);
     });
 
-    test("removeSocket returns true when last socket disconnects", () => {
-      addSocket(user1Id, "sock-a");
-      const went = removeSocket(user1Id, "sock-b");
+    test("removeSocket returns true when last socket disconnects", async () => {
+      await addSocket(user1Id, "sock-a");
+      const went = await removeSocket(user1Id, "sock-b");
       expect(went).toBe(false);
-      const finalWent = removeSocket(user1Id, "sock-a");
+      const finalWent = await removeSocket(user1Id, "sock-a");
       expect(finalWent).toBe(true);
-      expect(getOnlineUserIds().has(user1Id)).toBe(false);
+      expect((await getOnlineUserIds()).has(user1Id)).toBe(false);
     });
 
-    test("removeSocket returns true when last tracked socket disconnects", () => {
-      addSocket(user1Id, "sock-c");
-      const went = removeSocket(user1Id, "sock-c");
+    test("removeSocket returns true when last tracked socket disconnects", async () => {
+      await addSocket(user1Id, "sock-c");
+      const went = await removeSocket(user1Id, "sock-c");
       expect(went).toBe(true);
-      expect(getOnlineUserIds().has(user1Id)).toBe(false);
+      expect((await getOnlineUserIds()).has(user1Id)).toBe(false);
     });
 
-    test("removeSocket returns false for unknown user", () => {
-      const went = removeSocket("nonexistent-user", "sock-x");
+    test("removeSocket returns false for unknown user", async () => {
+      const went = await removeSocket("nonexistent-user", "sock-x");
       expect(went).toBe(false);
     });
 
     test("addSocket makes user visible in GET /presence", async () => {
-      addSocket(user1Id, "sock-d");
+      await addSocket(user1Id, "sock-d");
 
       const res = await client1.api.workspaces[":slug"].presence.$get({
         param: { slug },
@@ -166,11 +166,11 @@ describe("presence", () => {
     });
 
     test("persistLastSeen writes timestamp to DB", async () => {
-      addSocket(user1Id, "sock-e");
+      await addSocket(user1Id, "sock-e");
       await persistLastSeen(user1Id);
 
       // Clean up socket so user appears offline
-      removeSocket(user1Id, "sock-e");
+      await removeSocket(user1Id, "sock-e");
 
       const res = await client1.api.workspaces[":slug"].presence.$get({
         param: { slug },

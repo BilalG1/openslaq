@@ -1,3 +1,5 @@
+import { VERSION } from "./version.js";
+
 // ── Flag schema types ──────────────────────────────────────────────
 
 export type FlagDef =
@@ -115,6 +117,11 @@ export function run(
     return;
   }
 
+  if (name === "--version" || name === "-V") {
+    console.log(VERSION);
+    return;
+  }
+
   const cmd = commands[name];
   if (!cmd) {
     console.error(`Unknown command: ${name}`);
@@ -122,7 +129,10 @@ export function run(
     process.exit(1);
   }
 
-  dispatch(cmd, argv.slice(1)).catch((err: Error) => {
+  dispatch(cmd, argv.slice(1)).catch(async (err: Error) => {
+    const Sentry = await import("@sentry/node");
+    Sentry.captureException(err);
+    await Sentry.flush(2000);
     console.error(err.message);
     process.exit(1);
   });

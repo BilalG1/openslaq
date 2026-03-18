@@ -71,24 +71,33 @@ class WebhookDispatcher {
         where: inArray(botApps.id, botIds),
       });
 
-      for (const bot of bots) {
-        // Skip the bot that triggered the event
-        if (event.excludeBotUserId && bot.userId === event.excludeBotUserId) continue;
+      // First pass: filter by excludeBotUserId and scope
+      const requiredScope = SCOPE_REQUIREMENTS[event.type];
+      const eligibleBots = bots.filter((bot) => {
+        if (event.excludeBotUserId && bot.userId === event.excludeBotUserId) return false;
+        if (requiredScope && !(bot.scopes as BotScope[]).includes(requiredScope)) return false;
+        return true;
+      });
 
-        // Check required scope
-        const requiredScope = SCOPE_REQUIREMENTS[event.type];
-        if (requiredScope && !(bot.scopes as BotScope[]).includes(requiredScope)) continue;
-
-        // Check channel membership if event is channel-scoped
-        if (event.channelId) {
-          const membership = await db.query.channelMembers.findFirst({
-            where: and(
+      // Batch channel membership check
+      let memberUserIds: Set<string> | null = null;
+      if (event.channelId && eligibleBots.length > 0) {
+        const botUserIds = eligibleBots.map((b) => b.userId);
+        const memberRows = await db
+          .select({ userId: channelMembers.userId })
+          .from(channelMembers)
+          .where(
+            and(
               eq(channelMembers.channelId, event.channelId),
-              eq(channelMembers.userId, bot.userId),
+              inArray(channelMembers.userId, botUserIds),
             ),
-          });
-          if (!membership) continue;
-        }
+          );
+        memberUserIds = new Set(memberRows.map((r) => r.userId));
+      }
+
+      for (const bot of eligibleBots) {
+        // Check channel membership using batched result
+        if (event.channelId && memberUserIds && !memberUserIds.has(bot.userId)) continue;
 
         const payload: WebhookEventPayload = {
           type: "event",

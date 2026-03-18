@@ -164,7 +164,7 @@ describe("MessageActionSheet", () => {
       />,
     );
 
-    fireEvent.press(screen.getByTestId("action-sheet-backdrop"));
+    fireEvent.press(screen.getByTestId("action-sheet-content-backdrop"));
 
     expect(onClose).toHaveBeenCalled();
   });

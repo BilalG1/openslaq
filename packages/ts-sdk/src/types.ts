@@ -146,3 +146,79 @@ export interface PinnedMessagesResponse {
 export interface PinCountResponse {
   count: number;
 }
+
+// Saved messages
+export interface SavedMessage {
+  message: Message;
+  channelName: string;
+  savedAt: string;
+}
+
+export interface SavedMessagesResponse {
+  messages: SavedMessage[];
+}
+
+export interface SavedMessageIdsResponse {
+  messageIds: string[];
+}
+
+// Scheduled messages
+export interface ScheduledMessage {
+  id: string;
+  channelId: string;
+  userId: string;
+  content: string;
+  attachmentIds: string[];
+  scheduledFor: string;
+  status: "pending" | "sent" | "failed";
+  failureReason: string | null;
+  sentMessageId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ScheduledMessageWithChannel extends ScheduledMessage {
+  channelName: string;
+}
+
+// Messages around
+export interface MessagesAroundResponse {
+  messages: Message[];
+  targetFound: boolean;
+  olderCursor: string | null;
+  newerCursor: string | null;
+  hasOlder: boolean;
+  hasNewer: boolean;
+}
+
+// Share options
+export interface ShareMessageOptions {
+  sharedMessageId: string;
+  comment?: string;
+}
+
+// Group DMs
+export interface GroupDmMember {
+  id: string;
+  displayName: string;
+  avatarUrl: string | null;
+}
+
+export interface GroupDmChannel {
+  channel: Channel;
+  members: GroupDmMember[];
+}
+
+export interface GroupDmAddMemberResponse {
+  members: GroupDmMember[];
+}
+
+// Presence
+export interface PresenceEntry {
+  userId: string;
+  online: boolean;
+  lastSeenAt: string | null;
+  statusEmoji: string | null;
+  statusText: string | null;
+  statusExpiresAt: string | null;
+}

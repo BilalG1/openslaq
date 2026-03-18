@@ -21,7 +21,7 @@ export function HuddleSystemMessage({ message, activeHuddle, onJoinHuddle }: Hud
   const senderName = message.senderDisplayName ?? message.userId;
 
   return (
-    <div className="flex items-center gap-3 py-2 px-3 my-1 rounded-lg bg-surface-raised" data-testid="huddle-system-message">
+    <div className="flex items-center gap-3 py-2 px-4 -mx-4 my-1 rounded-lg bg-surface-raised" data-testid="huddle-system-message">
       {/* Headphone icon */}
       <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${isActive ? "bg-green-500/20" : "bg-gray-500/20"}`}>
         <svg className={`w-4 h-4 ${isActive ? "text-green-400" : "text-faint"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">

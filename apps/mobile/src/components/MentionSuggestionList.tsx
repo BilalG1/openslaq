@@ -1,7 +1,12 @@
 import { memo } from "react";
 import { View, Text, FlatList, Pressable } from "react-native";
 import { useMobileTheme } from "@/theme/ThemeProvider";
-import type { MentionSuggestionItem } from "@/hooks/useMentionAutocomplete";
+
+export interface MentionSuggestionItem {
+  id: string;
+  displayName: string;
+  isGroup?: boolean;
+}
 
 interface Props {
   suggestions: MentionSuggestionItem[];
@@ -31,12 +36,14 @@ function MentionSuggestionListInner({ suggestions, onSelect }: Props) {
         shadowOpacity: isDark ? 0.3 : 0.1,
         shadowRadius: 4,
         elevation: 4,
+        zIndex: 50,
       }}
     >
       <FlatList
         data={suggestions}
         keyExtractor={(item) => item.id}
         keyboardShouldPersistTaps="always"
+        nestedScrollEnabled={true}
         renderItem={({ item }) => (
           <Pressable
             testID={`mention-suggestion-${item.id}`}
@@ -79,7 +86,7 @@ function MentionSuggestionListInner({ suggestions, onSelect }: Props) {
               }}
               numberOfLines={1}
             >
-              {item.isGroup ? item.displayName : item.displayName}
+              {item.displayName}
             </Text>
           </Pressable>
         )}

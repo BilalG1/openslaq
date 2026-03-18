@@ -328,4 +328,56 @@ describe("threads", () => {
     });
     expect(res.status).toBe(404);
   });
+
+  describe("GET /threads (user threads list)", () => {
+    test("returns threads the user is participating in", async () => {
+      // The beforeAll already created a parent + reply, so this user has at least one thread
+      const res = await client.api.workspaces[":slug"].threads.$get({
+        param: { slug },
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { threads: Array<{ message: { id: string; replyCount: number }; channelName: string }> };
+      expect(Array.isArray(body.threads)).toBe(true);
+      expect(body.threads.length).toBeGreaterThanOrEqual(1);
+
+      // Each thread should have a message with replyCount > 0 and a channelName
+      for (const thread of body.threads) {
+        expect(thread.message.replyCount).toBeGreaterThanOrEqual(1);
+        expect(typeof thread.channelName).toBe("string");
+        expect(thread.channelName.length).toBeGreaterThan(0);
+      }
+    });
+
+    test("includes thread where user authored the parent", async () => {
+      // Create a fresh parent + reply from same user
+      const parentRes = await client.api.workspaces[":slug"].channels[":id"].messages.$post({
+        param: { slug, id: channelId },
+        json: { content: `user-thread-parent-${testId()}` },
+      });
+      const parent = (await parentRes.json()) as { id: string };
+
+      await client.api.workspaces[":slug"].channels[":id"].messages[":messageId"].replies.$post({
+        param: { slug, id: channelId, messageId: parent.id },
+        json: { content: `user-thread-reply-${testId()}` },
+      });
+
+      const res = await client.api.workspaces[":slug"].threads.$get({
+        param: { slug },
+      });
+      const body = (await res.json()) as { threads: Array<{ message: { id: string } }> };
+      const found = body.threads.find((t) => t.message.id === parent.id);
+      expect(found).toBeDefined();
+    });
+
+    test("returns empty array when user has no threads", async () => {
+      // Create a new workspace with no messages
+      const emptyWs = await createTestWorkspace(client);
+      const res = await client.api.workspaces[":slug"].threads.$get({
+        param: { slug: emptyWs.slug },
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { threads: unknown[] };
+      expect(body.threads).toHaveLength(0);
+    });
+  });
 });

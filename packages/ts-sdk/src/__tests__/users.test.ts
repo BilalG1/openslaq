@@ -24,6 +24,7 @@ describe("Users resource", () => {
 
     const result = await client.users.me();
     expect(capturedUrl).toContain("/api/users/me");
+    expect(capturedUrl).not.toContain("/workspaces/");
     expect(result.displayName).toBe("Alice");
   });
 
@@ -40,6 +41,7 @@ describe("Users resource", () => {
 
     const result = await client.users.updateMe({ displayName: "Bob" });
     expect(capturedUrl).toContain("/api/users/me");
+    expect(capturedUrl).not.toContain("/workspaces/");
     expect(capturedMethod).toBe("PATCH");
     expect(JSON.parse(capturedBody)).toEqual({ displayName: "Bob" });
     expect(result.displayName).toBe("Bob");
@@ -58,6 +60,7 @@ describe("Users resource", () => {
 
     await client.users.setStatus({ emoji: "🏖️", text: "On vacation" });
     expect(capturedUrl).toContain("/api/users/me/status");
+    expect(capturedUrl).not.toContain("/workspaces/");
     expect(capturedMethod).toBe("PUT");
     expect(JSON.parse(capturedBody)).toEqual({ emoji: "🏖️", text: "On vacation" });
   });
@@ -73,6 +76,7 @@ describe("Users resource", () => {
 
     await client.users.clearStatus();
     expect(capturedUrl).toContain("/api/users/me/status");
+    expect(capturedUrl).not.toContain("/workspaces/");
     expect(capturedMethod).toBe("DELETE");
   });
 });

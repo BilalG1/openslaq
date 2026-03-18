@@ -4,7 +4,23 @@ import { db } from "../db";
 import { workspaces, workspaceMembers } from "./schema";
 import { channels, channelMembers } from "../channels/schema";
 import type { Workspace, WorkspaceId, UserId, Role } from "@openslaq/shared";
-import { asWorkspaceId, ROLES, DEFAULT_CHANNELS } from "@openslaq/shared";
+import { asWorkspaceId, ROLES, DEFAULT_CHANNELS, CHANNEL_TYPES } from "@openslaq/shared";
+import { dmChannelName } from "../dm/service";
+
+export const quotas = { maxWorkspacesPerUser: 10 };
+
+export async function getOwnedWorkspaceCount(userId: UserId): Promise<number> {
+  const [row] = await db
+    .select({ count: count(workspaceMembers.userId) })
+    .from(workspaceMembers)
+    .where(
+      and(
+        eq(workspaceMembers.userId, userId),
+        eq(workspaceMembers.role, ROLES.OWNER),
+      ),
+    );
+  return row?.count ?? 0;
+}
 
 function toWorkspace(row: typeof workspaces.$inferSelect): Workspace {
   return {
@@ -121,7 +137,6 @@ async function tryCreateWorkspace(
         .values({
           workspaceId: workspace.id,
           name: DEFAULT_CHANNELS.GENERAL,
-          description: "Company-wide announcements and general conversation",
           createdBy: userId,
         })
         .returning();
@@ -131,6 +146,21 @@ async function tryCreateWorkspace(
           channelId: generalChannel.id,
           userId,
         });
+      }
+
+      // Auto-create self-DM
+      const selfDmName = dmChannelName(userId, userId);
+      const [selfDm] = await tx
+        .insert(channels)
+        .values({
+          workspaceId: workspace.id,
+          name: selfDmName,
+          type: CHANNEL_TYPES.DM,
+          createdBy: userId,
+        })
+        .returning();
+      if (selfDm) {
+        await tx.insert(channelMembers).values({ channelId: selfDm.id, userId });
       }
 
       return toWorkspace(workspace);

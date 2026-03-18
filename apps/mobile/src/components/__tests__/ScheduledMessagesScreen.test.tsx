@@ -36,6 +36,17 @@ jest.mock("@/lib/api", () => ({
   api: {},
 }));
 
+const mockDeps = { api: {}, auth: { requireAccessToken: jest.fn() }, dispatch: jest.fn(), getState: jest.fn() };
+jest.mock("@/hooks/useOperationDeps", () => ({
+  useOperationDeps: () => mockDeps,
+}));
+
+jest.mock("@/lib/routes", () => ({
+  routes: {
+    channel: (ws: string, id: string) => `/(app)/${ws}/(tabs)/(channels)/${id}`,
+  },
+}));
+
 // Inline a minimal ScheduleMessageSheet mock
 jest.mock("@/components/ScheduleMessageSheet", () => ({
   ScheduleMessageSheet: ({ visible, onSchedule }: { visible: boolean; onSchedule: (d: Date) => void; onClose: () => void }) => {

@@ -13,7 +13,7 @@ jest.mock("@/theme/ThemeProvider", () => ({
         textSecondary: "#666",
         borderDefault: "#ddd",
       },
-      brand: { primary: "#4A154B" },
+      brand: { primary: "#1264a3" },
     },
   }),
 }));

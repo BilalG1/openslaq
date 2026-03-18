@@ -12,7 +12,7 @@ export function rateLimit(config: RateLimitConfig) {
   return createMiddleware<AuthEnv>(async (c, next) => {
     const userId = c.get("user").id;
     const key = `${config.bucket}:${userId}`;
-    const result = checkRateLimit(key, config.max, config.windowSec);
+    const result = await checkRateLimit(key, config.max, config.windowSec);
 
     if (!result.allowed) {
       const retryAfter = Math.ceil((result.resetAt - Date.now()) / 1000);
@@ -49,7 +49,7 @@ export function rateLimitByIp(config: RateLimitConfig) {
   return createMiddleware(async (c, next) => {
     const ip = getClientIp(c);
     const key = `${config.bucket}:${ip}`;
-    const result = checkRateLimit(key, config.max, config.windowSec);
+    const result = await checkRateLimit(key, config.max, config.windowSec);
 
     if (!result.allowed) {
       const retryAfter = Math.ceil((result.resetAt - Date.now()) / 1000);

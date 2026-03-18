@@ -7,6 +7,7 @@ import { CreateChannelModal } from "@/components/CreateChannelModal";
 import { NewDmModal } from "@/components/NewDmModal";
 import { HomeActionsProvider } from "@/contexts/HomeActionsContext";
 import { api } from "@/lib/api";
+import { routes } from "@/lib/routes";
 
 export default function ChannelsLayout() {
   const { workspaceSlug: urlSlug } = useLocalSearchParams<{ workspaceSlug: string }>();
@@ -17,18 +18,19 @@ export default function ChannelsLayout() {
   const [showNewDm, setShowNewDm] = useState(false);
 
   const workspaceSlug = state.workspaceSlug ?? urlSlug;
+  if (!workspaceSlug) return null;
   const currentWorkspace = state.workspaces.find((ws) => ws.slug === workspaceSlug);
   const isAdmin = currentWorkspace?.role === "admin" || currentWorkspace?.role === "owner";
   const deps = { api, auth: authProvider, dispatch, getState: () => state };
 
   const handleChannelCreated = (channel: Channel) => {
     setShowCreate(false);
-    router.push(`/(app)/${workspaceSlug}/(channels)/${channel.id}`);
+    router.push(routes.channel(workspaceSlug, channel.id));
   };
 
   const handleDmCreated = (channelId: string) => {
     setShowNewDm(false);
-    router.push(`/(app)/${workspaceSlug}/(tabs)/(channels)/dm/${channelId}`);
+    router.push(routes.dm(workspaceSlug, channelId));
   };
 
   const homeActions = useMemo(

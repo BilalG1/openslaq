@@ -31,6 +31,17 @@ export type {
   UploadResponse,
   PinnedMessagesResponse,
   PinCountResponse,
+  SavedMessage,
+  SavedMessagesResponse,
+  SavedMessageIdsResponse,
+  ScheduledMessage,
+  ScheduledMessageWithChannel,
+  MessagesAroundResponse,
+  ShareMessageOptions,
+  GroupDmMember,
+  GroupDmChannel,
+  GroupDmAddMemberResponse,
+  PresenceEntry,
 } from "./types";
 export type {
   SendMessageOptions,
@@ -38,11 +49,16 @@ export type {
   EditMessageOptions,
 } from "./resources/messages";
 export type {
+  CreateScheduledMessageOptions,
+  UpdateScheduledMessageOptions,
+} from "./resources/scheduled-messages";
+export type {
   CreateChannelOptions,
   UpdateChannelOptions,
   BrowseChannelsOptions,
   MarkUnreadOptions,
   SetNotificationPrefOptions,
+  GetNotificationPrefResponse,
 } from "./resources/channels";
 export type {
   UpdateMeOptions,
@@ -50,3 +66,4 @@ export type {
 } from "./resources/users";
 export type { SearchOptions } from "./resources/search";
 export type { UploadFilesOptions, BrowseFilesOptions } from "./resources/files";
+export type { CreateGroupDmOptions } from "./resources/group-dms";

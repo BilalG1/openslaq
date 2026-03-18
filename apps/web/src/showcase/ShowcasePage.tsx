@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ChevronRight } from "lucide-react";
 import { useTheme } from "../theme/ThemeProvider";
 import { categories, type ComponentStory } from "./showcase-registry";
 
@@ -90,13 +91,9 @@ export function ShowcasePage() {
                   onClick={() => toggleCategory(cat.id)}
                   className="flex items-center gap-1 w-full text-left text-[11px] font-semibold uppercase text-tertiary mb-1.5 px-2 bg-transparent border-none cursor-pointer hover:text-secondary"
                 >
-                  <svg
+                  <ChevronRight
                     className={`w-3 h-3 transition-transform ${isCollapsed ? "" : "rotate-90"}`}
-                    viewBox="0 0 16 16"
-                    fill="currentColor"
-                  >
-                    <path d="M6 3l5 5-5 5V3z" />
-                  </svg>
+                  />
                   {cat.label}
                 </button>
                 {!isCollapsed &&

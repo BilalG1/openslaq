@@ -1,19 +1,22 @@
 import { useState, useRef, useEffect } from "react";
 import {
   FlatList,
-  Modal,
   Pressable,
   Text,
-  TextInput,
   View,
 } from "react-native";
+import type { TextInput } from "react-native";
 import type React from "react";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Lock, Users } from "lucide-react-native";
 import { useChatStore } from "@/contexts/ChatStoreProvider";
 import { useMobileTheme } from "@/theme/ThemeProvider";
+import { BottomSheet } from "@/components/ui/BottomSheet";
+import { Input } from "@/components/ui/Input";
+import { UnreadBadge } from "@/components/ui/UnreadBadge";
 import type { Channel } from "@openslaq/shared";
 import type { DmConversation, GroupDmConversation } from "@openslaq/client-core";
+import { routes } from "@/lib/routes";
 
 interface Props {
   visible: boolean;
@@ -127,161 +130,92 @@ export function QuickSwitcherModal({ visible, onClose }: Props) {
 
   const handleSelect = (item: SwitcherItem) => {
     if (item.type === "channel") {
-      router.push(`/(app)/${workspaceSlug}/(channels)/${item.id}`);
+      router.push(routes.channel(workspaceSlug!, item.id));
     } else {
-      router.push(`/(app)/${workspaceSlug}/(tabs)/(channels)/dm/${item.id}`);
+      router.push(routes.dm(workspaceSlug!, item.id));
     }
     onClose();
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <Pressable
-        testID="quick-switcher-backdrop"
+    <BottomSheet visible={visible} onClose={onClose} title="Jump to..." maxHeight="70%" testID="quick-switcher-modal">
+      <Input
+        ref={inputRef}
+        testID="quick-switcher-input"
+        placeholder="Search channels, people..."
+        placeholderTextColor={theme.colors.textFaint}
+        value={filterText}
+        onChangeText={setFilterText}
+        autoCapitalize="none"
+        autoCorrect={false}
         style={{
-          flex: 1,
-          backgroundColor: "rgba(0,0,0,0.4)",
-          justifyContent: "flex-end",
+          marginHorizontal: 16,
+          marginBottom: 8,
         }}
-        onPress={onClose}
-      >
-        <Pressable
-          testID="quick-switcher-modal"
-          style={{
-            backgroundColor: theme.colors.surface,
-            borderTopLeftRadius: 16,
-            borderTopRightRadius: 16,
-            paddingTop: 16,
-            paddingBottom: 34,
-            maxHeight: "70%",
-          }}
-          onPress={(e) => e.stopPropagation()}
-        >
-          <Text
-            style={{
-              fontSize: 18,
-              fontWeight: "600",
-              color: theme.colors.textPrimary,
+      />
+      <FlatList
+        testID="quick-switcher-list"
+        data={filtered}
+        keyExtractor={(item) => item.id}
+        keyboardShouldPersistTaps="handled"
+        renderItem={({ item }) => (
+          <Pressable
+            testID={`quick-switcher-item-${item.id}`}
+            onPress={() => handleSelect(item)}
+            style={({ pressed }) => ({
+              opacity: pressed ? 0.7 : 1,
               paddingHorizontal: 16,
-              marginBottom: 12,
-            }}
+              paddingVertical: 12,
+              flexDirection: "row",
+              alignItems: "center",
+            })}
           >
-            Jump to...
-          </Text>
-          <TextInput
-            ref={inputRef}
-            testID="quick-switcher-input"
-            placeholder="Search channels, people..."
-            placeholderTextColor={theme.colors.textFaint}
-            value={filterText}
-            onChangeText={setFilterText}
-            autoCapitalize="none"
-            autoCorrect={false}
-            style={{
-              borderWidth: 1,
-              borderColor: theme.colors.borderDefault,
-              borderRadius: 8,
-              paddingHorizontal: 12,
-              paddingVertical: 10,
-              fontSize: 16,
-              color: theme.colors.textPrimary,
-              backgroundColor: theme.colors.surfaceSecondary,
-              marginHorizontal: 16,
-              marginBottom: 8,
-            }}
-          />
-          <FlatList
-            testID="quick-switcher-list"
-            data={filtered}
-            keyExtractor={(item) => item.id}
-            keyboardShouldPersistTaps="handled"
-            renderItem={({ item }) => (
-              <Pressable
-                testID={`quick-switcher-item-${item.id}`}
-                onPress={() => handleSelect(item)}
-                style={({ pressed }) => ({
-                  opacity: pressed ? 0.7 : 1,
-                  paddingHorizontal: 16,
-                  paddingVertical: 12,
-                  flexDirection: "row",
-                  alignItems: "center",
-                })}
-              >
-                <View style={{ width: 28, alignItems: "center", justifyContent: "center" }}>
-                  {typeof item.prefix === "string" ? (
-                    <Text style={{ color: theme.colors.textMuted, fontSize: 18, fontWeight: "400" }}>
-                      {item.prefix}
-                    </Text>
-                  ) : (
-                    item.prefix
-                  )}
-                </View>
-                <Text
-                  style={{
-                    flex: 1,
-                    fontSize: 16,
-                    fontWeight: item.unreadCount > 0 ? "700" : "400",
-                    color:
-                      item.unreadCount > 0
-                        ? theme.colors.textPrimary
-                        : theme.colors.textSecondary,
-                  }}
-                  numberOfLines={1}
-                >
-                  {item.label}
+            <View style={{ width: 28, alignItems: "center", justifyContent: "center" }}>
+              {typeof item.prefix === "string" ? (
+                <Text style={{ color: theme.colors.textMuted, fontSize: 18, fontWeight: "400" }}>
+                  {item.prefix}
                 </Text>
-                {item.type === "dm" && item.isOnline && (
-                  <View
-                    testID={`online-dot-${item.id}`}
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: 4,
-                      backgroundColor: theme.brand.success,
-                      marginRight: 8,
-                    }}
-                  />
-                )}
-                {item.unreadCount > 0 && (
-                  <View
-                    style={{
-                      backgroundColor: theme.interaction.badgeUnreadBg,
-                      borderRadius: 10,
-                      minWidth: 20,
-                      height: 20,
-                      paddingHorizontal: 6,
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Text
-                      style={{
-                        color: theme.interaction.badgeUnreadText,
-                        fontSize: 12,
-                        fontWeight: "700",
-                      }}
-                    >
-                      {item.unreadCount > 99 ? "99+" : item.unreadCount}
-                    </Text>
-                  </View>
-                )}
-              </Pressable>
+              ) : (
+                item.prefix
+              )}
+            </View>
+            <Text
+              style={{
+                flex: 1,
+                fontSize: 16,
+                fontWeight: item.unreadCount > 0 ? "700" : "400",
+                color:
+                  item.unreadCount > 0
+                    ? theme.colors.textPrimary
+                    : theme.colors.textSecondary,
+              }}
+              numberOfLines={1}
+            >
+              {item.label}
+            </Text>
+            {item.type === "dm" && item.isOnline && (
+              <View
+                testID={`online-dot-${item.id}`}
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: theme.brand.success,
+                  marginRight: 8,
+                }}
+              />
             )}
-            ListEmptyComponent={
-              <View style={{ alignItems: "center", paddingVertical: 20 }}>
-                <Text style={{ color: theme.colors.textFaint, fontSize: 14 }}>
-                  No results found
-                </Text>
-              </View>
-            }
-          />
-        </Pressable>
-      </Pressable>
-    </Modal>
+            <UnreadBadge count={item.unreadCount} />
+          </Pressable>
+        )}
+        ListEmptyComponent={
+          <View style={{ alignItems: "center", paddingVertical: 20 }}>
+            <Text style={{ color: theme.colors.textFaint, fontSize: 14 }}>
+              No results found
+            </Text>
+          </View>
+        }
+      />
+    </BottomSheet>
   );
 }

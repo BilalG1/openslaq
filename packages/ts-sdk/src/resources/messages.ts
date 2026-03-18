@@ -1,5 +1,5 @@
 import type { HttpClient } from "../http";
-import type { Message, MessageListResponse, PinCountResponse, PinnedMessagesResponse, ToggleReactionResponse } from "../types";
+import type { Message, MessageListResponse, MessagesAroundResponse, PinCountResponse, PinnedMessagesResponse, SavedMessageIdsResponse, SavedMessagesResponse, ShareMessageOptions, ToggleReactionResponse } from "../types";
 
 export interface SendMessageOptions {
   content: string;
@@ -85,5 +85,35 @@ export class Messages {
   async getPinCount(channelId: string): Promise<PinCountResponse> {
     const path = this.http.workspacePath(`/channels/${channelId}/pin-count`);
     return this.http.get<PinCountResponse>(path);
+  }
+
+  async save(channelId: string, messageId: string): Promise<void> {
+    const path = this.http.workspacePath(`/channels/${channelId}/messages/${messageId}/save`);
+    await this.http.postVoid(path);
+  }
+
+  async unsave(channelId: string, messageId: string): Promise<void> {
+    const path = this.http.workspacePath(`/channels/${channelId}/messages/${messageId}/save`);
+    await this.http.del(path);
+  }
+
+  async listSaved(): Promise<SavedMessagesResponse> {
+    const path = this.http.workspacePath("/saved-messages");
+    return this.http.get<SavedMessagesResponse>(path);
+  }
+
+  async listSavedIds(): Promise<SavedMessageIdsResponse> {
+    const path = this.http.workspacePath("/saved-messages/ids");
+    return this.http.get<SavedMessageIdsResponse>(path);
+  }
+
+  async share(channelId: string, options: ShareMessageOptions): Promise<Message> {
+    const path = this.http.workspacePath(`/channels/${channelId}/messages/share`);
+    return this.http.post<Message>(path, options);
+  }
+
+  async getAround(channelId: string, messageId: string): Promise<MessagesAroundResponse> {
+    const path = this.http.workspacePath(`/channels/${channelId}/messages/around/${messageId}`);
+    return this.http.get<MessagesAroundResponse>(path);
   }
 }

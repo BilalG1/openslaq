@@ -104,3 +104,28 @@ export async function loadOlderReplies(
 
 // Keep loadMoreReplies as an alias for backwards compatibility during transition
 export const loadMoreReplies = loadOlderReplies;
+
+export interface UserThreadItem {
+  message: import("@openslaq/shared").Message;
+  channelName: string;
+}
+
+export async function fetchUserThreads(
+  deps: OperationDeps,
+  params: { workspaceSlug: string },
+): Promise<UserThreadItem[]> {
+  const { api, auth } = deps;
+  const { workspaceSlug } = params;
+
+  const res = await authorizedRequest(auth, (headers) =>
+    api.api.workspaces[":slug"].threads.$get(
+      { param: { slug: workspaceSlug } },
+      { headers },
+    ),
+  );
+  const data = (await res.json()) as { threads: Array<{ message: unknown; channelName: string }> };
+  return data.threads.map((item) => ({
+    message: normalizeMessage(item.message as Parameters<typeof normalizeMessage>[0]),
+    channelName: item.channelName,
+  }));
+}

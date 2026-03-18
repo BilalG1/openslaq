@@ -3,7 +3,9 @@ import { createTestClient, testId, createTestWorkspace, addToWorkspace, getBaseU
 
 describe("Slash Commands", () => {
   let ownerClient: TestApiClient;
+  let superAdminClient: TestApiClient;
   let ownerSlug: string;
+  let ownerWorkspaceId: string;
   let channelId: string;
 
   beforeAll(async () => {
@@ -15,6 +17,16 @@ describe("Slash Commands", () => {
     ownerClient = client;
     const ws = await createTestWorkspace(ownerClient);
     ownerSlug = ws.slug;
+    ownerWorkspaceId = ws.id;
+
+    // Create super-admin client using the configured admin user ID
+    const superAdmin = await createTestClient({
+      id: process.env.ADMIN_USER_IDS?.split(",")[0] || "admin-user",
+      displayName: "Super Admin",
+      email: `super-admin-${testId()}@openslaq.dev`,
+      emailVerified: true,
+    });
+    superAdminClient = superAdmin.client;
 
     // Get general channel
     const chRes = await ownerClient.api.workspaces[":slug"].channels.$get({
@@ -31,7 +43,7 @@ describe("Slash Commands", () => {
     });
     expect(res.status).toBe(200);
     const commands = (await res.json()) as any[];
-    expect(commands.length).toBeGreaterThanOrEqual(6);
+    expect(commands.length).toBeGreaterThanOrEqual(5);
 
     const names = commands.map((c: any) => c.name);
     expect(names).toContain("status");
@@ -39,11 +51,66 @@ describe("Slash Commands", () => {
     expect(names).toContain("invite");
     expect(names).toContain("mute");
     expect(names).toContain("unmute");
-    expect(names).toContain("github");
 
     // All built-in commands should have source "builtin"
     const builtins = commands.filter((c: any) => c.source === "builtin");
-    expect(builtins.length).toBe(6);
+    expect(builtins.length).toBe(5);
+  });
+
+  test("GET /commands excludes integration commands when not installed", async () => {
+    const res = await ownerClient.api.workspaces[":slug"].commands.$get({
+      param: { slug: ownerSlug },
+    });
+    expect(res.status).toBe(200);
+    const commands = (await res.json()) as any[];
+    const names = commands.map((c: any) => c.name);
+    expect(names).not.toContain("github");
+  });
+
+  test("GET /commands includes integration commands when installed", async () => {
+    // Get github-bot listing ID
+    const listRes = await ownerClient.api.marketplace.$get({});
+    const listings = (await listRes.json()) as Array<{ id: string; slug: string }>;
+    const ghListing = listings.find((l) => l.slug === "github-bot");
+    expect(ghListing).toBeDefined();
+
+    // Enable feature flag and install github-bot
+    await superAdminClient.api.admin.workspaces[":workspaceId"]["feature-flags"].$patch({
+      param: { workspaceId: ownerWorkspaceId },
+      json: { integrationGithub: true },
+    });
+    const installRes = await ownerClient.api.workspaces[":slug"].marketplace.install.$post({
+      param: { slug: ownerSlug },
+      json: { listingId: ghListing!.id },
+    });
+    expect(installRes.status).toBe(200);
+
+    // Now /github should appear
+    const res = await ownerClient.api.workspaces[":slug"].commands.$get({
+      param: { slug: ownerSlug },
+    });
+    expect(res.status).toBe(200);
+    const commands = (await res.json()) as any[];
+    const githubCmd = commands.find((c: any) => c.name === "github");
+    expect(githubCmd).toBeTruthy();
+    // Integration commands installed via marketplace appear as bot commands
+    expect(githubCmd.source).toBe("bot");
+
+    // Uninstall for test isolation
+    await ownerClient.api.workspaces[":slug"].marketplace[":listingId"].uninstall.$delete({
+      param: { slug: ownerSlug, listingId: ghListing!.id },
+    });
+  });
+
+  test("executing integration command when not installed returns unknown command", async () => {
+    const res = await ownerClient.api.workspaces[":slug"].commands.execute.$post({
+      param: { slug: ownerSlug },
+      json: { command: "github", args: "subscribe test/repo", channelId },
+    });
+    expect(res.status).toBe(200);
+    const result = (await res.json()) as any;
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("Unknown command");
   });
 
   test("POST /commands/execute with /status sets user status", async () => {

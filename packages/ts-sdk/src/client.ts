@@ -3,7 +3,10 @@ import { HttpClient } from "./http";
 import { Channels } from "./resources/channels";
 import { Dms } from "./resources/dms";
 import { Files } from "./resources/files";
+import { GroupDms } from "./resources/group-dms";
 import { Messages } from "./resources/messages";
+import { Presence } from "./resources/presence";
+import { ScheduledMessages } from "./resources/scheduled-messages";
 import { Search } from "./resources/search";
 import { Users } from "./resources/users";
 
@@ -18,7 +21,10 @@ export class OpenSlaq {
   readonly channels: Channels;
   readonly dms: Dms;
   readonly files: Files;
+  readonly groupDms: GroupDms;
   readonly messages: Messages;
+  readonly presence: Presence;
+  readonly scheduledMessages: ScheduledMessages;
   readonly search: Search;
   readonly users: Users;
 
@@ -37,7 +43,10 @@ export class OpenSlaq {
     this.channels = new Channels(http);
     this.dms = new Dms(http);
     this.files = new Files(http);
+    this.groupDms = new GroupDms(http);
     this.messages = new Messages(http);
+    this.presence = new Presence(http);
+    this.scheduledMessages = new ScheduledMessages(http);
     this.search = new Search(http);
     this.users = new Users(http);
   }

@@ -4,11 +4,13 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./mobile-html": "./src/generated/mobile-editor-html.ts"
   },
   "scripts": {
     "test": "bun test --preload ./test/happy-dom.ts",
-    "typecheck": "tsgo --noEmit"
+    "typecheck": "tsgo --noEmit",
+    "build:mobile": "bun run scripts/build-mobile-editor.ts"
   },
   "dependencies": {
     "@emoji-mart/data": "^1.2.1",
@@ -16,10 +18,12 @@
     "@tiptap/extension-link": "^3.20.0",
     "@tiptap/extension-mention": "^3.20.0",
     "@tiptap/extension-placeholder": "^3.20.0",
+    "@tiptap/core": "^3.20.0",
     "@tiptap/react": "^3.20.0",
     "@tiptap/starter-kit": "^3.20.0",
     "@tiptap/suggestion": "^3.20.0",
     "clsx": "^2.1.1",
+    "lucide-react": "^0.577.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tiptap-extension-code-block-shiki": "^1.0.0",

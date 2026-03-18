@@ -14,7 +14,7 @@ const DropdownMenuContent = forwardRef<
     sideOffset={sideOffset}
     className={clsx(
       "z-50 min-w-[180px] rounded-lg border shadow-lg overflow-hidden",
-      "bg-surface border-border-default",
+      "bg-surface border-border-default text-text-primary",
       className,
     )}
     {...props}

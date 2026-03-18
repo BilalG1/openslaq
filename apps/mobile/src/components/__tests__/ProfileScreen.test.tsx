@@ -49,7 +49,7 @@ jest.mock("@/contexts/HuddleProvider", () => ({
 jest.mock("@/theme/ThemeProvider", () => ({
   useMobileTheme: () => ({
     theme: {
-      brand: { primary: "#4A154B" },
+      brand: { primary: "#1264a3" },
       colors: {
         surface: "#fff",
         surfaceSecondary: "#f5f5f5",

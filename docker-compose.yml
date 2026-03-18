@@ -24,8 +24,19 @@ services:
       - "${PORT_PREFIX:-30}04:7880"
       - "${PORT_PREFIX:-30}05:7881"
       - "${PORT_PREFIX:-30}06:7882"
+      - "3478:3478/udp"
+      - "5349:5349/tcp"
     volumes:
       - ./livekit.yaml:/etc/livekit.yaml
+
+  bugsink:
+    image: bugsink/bugsink:latest
+    ports:
+      - "${PORT_PREFIX:-30}12:8000"
+    environment:
+      SECRET_KEY: openslaq-dev-bugsink-secret-key-for-local-development-only-not-production
+      CREATE_SUPERUSER: admin:admin
+      PORT: 8000
 
 volumes:
   pgdata:

@@ -11,7 +11,7 @@ jest.mock("@/theme/ThemeProvider", () => ({
         textPrimary: "#000",
         textSecondary: "#666",
       },
-      brand: { primary: "#4A154B" },
+      brand: { primary: "#1264a3" },
     },
   }),
 }));

@@ -22,6 +22,7 @@ export const channels = pgTable(
   (t) => [
     unique().on(t.workspaceId, t.name, t.type),
     index("idx_channels_workspace_type_archived").on(t.workspaceId, t.type, t.isArchived),
+    index("idx_channels_workspace_id").on(t.workspaceId),
   ],
 );
 

@@ -6,14 +6,14 @@ test.describe("Scheduled messages", () => {
   test("sidebar shows Scheduled link", async ({ page, testWorkspace }) => {
     await openWorkspaceChannel(page, testWorkspace.slug);
 
-    await expect(page.getByTestId("scheduled-view-link")).toBeVisible();
-    await expect(page.getByTestId("scheduled-view-link")).toContainText("Scheduled");
+    await expect(page.getByTestId("outbox-view-link")).toBeVisible();
+    await expect(page.getByTestId("outbox-view-link")).toBeVisible();
   });
 
   test("navigate to scheduled view → shows empty state", async ({ page, testWorkspace }) => {
     await openWorkspaceChannel(page, testWorkspace.slug);
 
-    await page.getByTestId("scheduled-view-link").click();
+    await page.getByTestId("outbox-view-link").click();
 
     await expect(page.getByTestId("scheduled-messages-view")).toBeVisible();
     await expect(page.getByTestId("scheduled-empty-state")).toBeVisible();
@@ -74,7 +74,7 @@ test.describe("Scheduled messages", () => {
     await expect(page.locator(".tiptap")).toBeVisible();
 
     // Navigate to scheduled view to confirm it appears
-    await page.getByTestId("scheduled-view-link").click();
+    await page.getByTestId("outbox-view-link").click();
     await expect(page.getByTestId("scheduled-messages-view")).toBeVisible();
     await expect(page.getByText("my scheduled msg")).toBeVisible();
   });
@@ -97,7 +97,7 @@ test.describe("Scheduled messages", () => {
     await createResponse;
 
     // Go to scheduled view
-    await page.getByTestId("scheduled-view-link").click();
+    await page.getByTestId("outbox-view-link").click();
     await expect(page.getByTestId("scheduled-messages-view")).toBeVisible();
     await expect(page.getByText("to be deleted")).toBeVisible();
 
@@ -130,7 +130,7 @@ test.describe("Scheduled messages", () => {
     await createResponse;
 
     // Go to scheduled view
-    await page.getByTestId("scheduled-view-link").click();
+    await page.getByTestId("outbox-view-link").click();
     await expect(page.getByTestId("scheduled-messages-view")).toBeVisible();
     await expect(page.getByText("original content")).toBeVisible();
 

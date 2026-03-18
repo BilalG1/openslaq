@@ -55,6 +55,14 @@ export function usePinnedMessages(workspaceSlug: string | undefined) {
     setPinsOpen(false);
   }, []);
 
+  const togglePins = useCallback(() => {
+    if (pinsOpen) {
+      closePins();
+    } else {
+      void openPins();
+    }
+  }, [pinsOpen, closePins, openPins]);
+
   const jumpToPinnedMessage = useCallback(
     (messageId: string) => {
       dispatch({
@@ -85,5 +93,5 @@ export function usePinnedMessages(workspaceSlug: string | undefined) {
     [deps, isGallery, workspaceSlug, activeChannel?.id],
   );
 
-  return { pinsOpen, pinnedMessages, pinnedLoading, pinnedCount, openPins, closePins, pinMessage, unpinMessage, jumpToPinnedMessage };
+  return { pinsOpen, pinnedMessages, pinnedLoading, pinnedCount, openPins, closePins, togglePins, pinMessage, unpinMessage, jumpToPinnedMessage };
 }

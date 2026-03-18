@@ -2,6 +2,11 @@ import { defineCommand, type FlagSchema } from "../framework";
 import { printHelp, formatFileTable } from "../output";
 import { getAuthenticatedClient } from "../client";
 
+const downloadUrlFlags = {
+  id: { type: "string", required: true },
+  json: { type: "boolean" },
+} as const satisfies FlagSchema;
+
 const listFlags = {
   workspace: { type: "string", default: "default" },
   channel: { type: "string" },
@@ -14,7 +19,8 @@ export const filesCommand = defineCommand({
   help() {
     printHelp("openslaq files <subcommand>", "Browse workspace files.");
     console.log("Subcommands:");
-    console.log("  list        List files shared in workspace channels");
+    console.log("  list            List files shared in workspace channels");
+    console.log("  download-url   Get download URL for a file");
     console.log("\nRun `openslaq files <subcommand> --help` for more information.\n");
   },
   subcommands: {
@@ -55,6 +61,33 @@ export const filesCommand = defineCommand({
           console.log(JSON.stringify(data, null, 2));
         } else {
           console.log(formatFileTable(data.files));
+        }
+      },
+    }),
+    "download-url": defineCommand({
+      help() {
+        printHelp("openslaq files download-url [flags]", "Get download URL for a file.", [
+          { name: "--id ID", desc: "Attachment ID (required)" },
+          { name: "--json", desc: "Output raw JSON" },
+        ]);
+      },
+      flags: downloadUrlFlags,
+      async action(f) {
+        const client = await getAuthenticatedClient();
+        const res = await client.api.uploads[":id"].download.$get({
+          param: { id: f.id },
+        });
+        if (!res.ok) {
+          console.error(`Failed to get download URL: ${res.status}`);
+          process.exit(1);
+        }
+        // The endpoint returns a 302 redirect — the redirected URL is the download URL
+        const url = res.url;
+
+        if (f.json) {
+          console.log(JSON.stringify({ url }, null, 2));
+        } else {
+          console.log(url);
         }
       },
     }),

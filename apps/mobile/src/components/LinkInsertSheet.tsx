@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { Modal, Pressable, Text, TextInput } from "react-native";
+import { Pressable, Text } from "react-native";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { isSafeUrl } from "@/utils/url-validation";
+import { BottomSheet } from "@/components/ui/BottomSheet";
+import { Input } from "@/components/ui/Input";
 
 interface Props {
   visible: boolean;
@@ -30,89 +32,54 @@ export function LinkInsertSheet({ visible, initialText, onInsert, onClose }: Pro
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
+    <BottomSheet visible={visible} onClose={handleClose} title="Insert link" avoidKeyboard testID="link-sheet-content">
+      <Text style={{ fontSize: 13, color: theme.colors.textSecondary, marginBottom: 4 }}>
+        Display text
+      </Text>
+      <Input
+        testID="link-text-input"
+        value={displayText}
+        onChangeText={setDisplayText}
+        placeholder="Link text"
+        style={{
+          paddingVertical: 8,
+          fontSize: 14,
+          backgroundColor: theme.colors.surfaceTertiary,
+          marginBottom: 12,
+        }}
+      />
+
+      <Text style={{ fontSize: 13, color: theme.colors.textSecondary, marginBottom: 4 }}>
+        URL
+      </Text>
+      <Input
+        testID="link-url-input"
+        value={url}
+        onChangeText={setUrl}
+        placeholder="https://"
+        autoCapitalize="none"
+        keyboardType="url"
+        style={{
+          paddingVertical: 8,
+          fontSize: 14,
+          backgroundColor: theme.colors.surfaceTertiary,
+          marginBottom: 16,
+        }}
+      />
+
       <Pressable
-        testID="link-sheet-backdrop"
-        style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" }}
-        onPress={handleClose}
+        testID="link-insert-button"
+        onPress={handleInsert}
+        disabled={!url.trim() || !isSafeUrl(url.trim())}
+        style={{
+          backgroundColor: url.trim() && isSafeUrl(url.trim()) ? theme.brand.primary : theme.colors.borderStrong,
+          borderRadius: 8,
+          paddingVertical: 12,
+          alignItems: "center",
+        }}
       >
-        <Pressable
-          testID="link-sheet-content"
-          style={{
-            backgroundColor: theme.colors.surface,
-            borderTopLeftRadius: 16,
-            borderTopRightRadius: 16,
-            paddingBottom: 34,
-            paddingTop: 12,
-            paddingHorizontal: 16,
-          }}
-          onPress={(e) => e.stopPropagation()}
-        >
-          <Text style={{ fontSize: 17, fontWeight: "600", color: theme.colors.textPrimary, marginBottom: 12 }}>
-            Insert link
-          </Text>
-
-          <Text style={{ fontSize: 13, color: theme.colors.textSecondary, marginBottom: 4 }}>
-            Display text
-          </Text>
-          <TextInput
-            testID="link-text-input"
-            value={displayText}
-            onChangeText={setDisplayText}
-            placeholder="Link text"
-            placeholderTextColor={theme.colors.textMuted}
-            style={{
-              borderWidth: 1,
-              borderColor: theme.colors.borderDefault,
-              borderRadius: 8,
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-              fontSize: 14,
-              color: theme.colors.textPrimary,
-              backgroundColor: theme.colors.surfaceTertiary,
-              marginBottom: 12,
-            }}
-          />
-
-          <Text style={{ fontSize: 13, color: theme.colors.textSecondary, marginBottom: 4 }}>
-            URL
-          </Text>
-          <TextInput
-            testID="link-url-input"
-            value={url}
-            onChangeText={setUrl}
-            placeholder="https://"
-            placeholderTextColor={theme.colors.textMuted}
-            autoCapitalize="none"
-            keyboardType="url"
-            style={{
-              borderWidth: 1,
-              borderColor: theme.colors.borderDefault,
-              borderRadius: 8,
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-              fontSize: 14,
-              color: theme.colors.textPrimary,
-              backgroundColor: theme.colors.surfaceTertiary,
-              marginBottom: 16,
-            }}
-          />
-
-          <Pressable
-            testID="link-insert-button"
-            onPress={handleInsert}
-            disabled={!url.trim() || !isSafeUrl(url.trim())}
-            style={{
-              backgroundColor: url.trim() && isSafeUrl(url.trim()) ? theme.brand.primary : theme.colors.borderStrong,
-              borderRadius: 8,
-              paddingVertical: 12,
-              alignItems: "center",
-            }}
-          >
-            <Text style={{ color: "#fff", fontWeight: "600", fontSize: 16 }}>Insert</Text>
-          </Pressable>
-        </Pressable>
+        <Text style={{ color: "#fff", fontWeight: "600", fontSize: 16 }}>Insert</Text>
       </Pressable>
-    </Modal>
+    </BottomSheet>
   );
 }

@@ -6,7 +6,11 @@ import {
   getUsers as coreGetUsers,
   getAdminWorkspaces,
   impersonate as coreImpersonate,
+  getAdminFeatureFlags as coreGetAdminFeatureFlags,
+  updateAdminFeatureFlags as coreUpdateAdminFeatureFlags,
+  bulkUpdateFeatureFlag as coreBulkUpdateFeatureFlag,
 } from "@openslaq/client-core";
+import type { WorkspaceFeatureFlags } from "@openslaq/shared";
 import { api } from "../../api";
 import { useAuthProvider } from "../../lib/api-client";
 
@@ -26,5 +30,30 @@ export function useAdminApi() {
   );
   const impersonate = useCallback((userId: string) => coreImpersonate({ api, auth }, userId), [auth]);
 
-  return { checkAdmin, getStats, getActivity, getUsers, getWorkspaces, impersonate };
+  const getAdminFeatureFlags = useCallback(
+    (workspaceId: string) => coreGetAdminFeatureFlags({ api, auth }, workspaceId),
+    [auth],
+  );
+  const updateAdminFeatureFlags = useCallback(
+    (workspaceId: string, flags: Partial<WorkspaceFeatureFlags>) =>
+      coreUpdateAdminFeatureFlags({ api, auth }, workspaceId, flags),
+    [auth],
+  );
+  const bulkUpdateFeatureFlag = useCallback(
+    (flag: keyof WorkspaceFeatureFlags, enabled: boolean) =>
+      coreBulkUpdateFeatureFlag({ api, auth }, flag, enabled),
+    [auth],
+  );
+
+  return {
+    checkAdmin,
+    getStats,
+    getActivity,
+    getUsers,
+    getWorkspaces,
+    impersonate,
+    getAdminFeatureFlags,
+    updateAdminFeatureFlags,
+    bulkUpdateFeatureFlag,
+  };
 }

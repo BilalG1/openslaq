@@ -88,4 +88,17 @@ export type HuddleMessage = BaseMessage & {
   metadata: HuddleMessageMetadata;
 };
 
-export type Message = RegularMessage | BotMessage | HuddleMessage;
+export interface ChannelEventMetadata {
+  action: "joined" | "left";
+}
+
+/** A system message for channel join/leave events. */
+export type ChannelEventMessage = BaseMessage & {
+  isBot?: false;
+  botAppId?: undefined;
+  actions?: undefined;
+  type: "channel_event";
+  metadata: ChannelEventMetadata;
+};
+
+export type Message = RegularMessage | BotMessage | HuddleMessage | ChannelEventMessage;

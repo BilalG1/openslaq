@@ -15,6 +15,7 @@ import {
 import { env } from "../lib/env";
 import { getTokens, storeTokens, clearTokens } from "../lib/token-store";
 import { createMobileAuthProvider, setAuthToken } from "../lib/auth-provider";
+import { performDevQuickSignIn } from "../lib/dev-auth";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -31,6 +32,7 @@ interface AuthContextValue {
   verifyOtp: (code: string, nonce: string) => Promise<void>;
   signInWithApple: () => Promise<void>;
   signInWithOAuth: (provider: string) => Promise<void>;
+  devQuickSignIn: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -189,6 +191,12 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
     [handleTokens],
   );
 
+  const devQuickSignIn = useCallback(async () => {
+    const result = await performDevQuickSignIn();
+    setUser({ id: result.userId });
+    setIsLoading(false);
+  }, []);
+
   const signOut = useCallback(async () => {
     await clearTokens();
     setAuthToken(null);
@@ -205,9 +213,10 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
       verifyOtp,
       signInWithApple,
       signInWithOAuth,
+      devQuickSignIn,
       signOut,
     }),
-    [isLoading, user, authProvider, sendOtp, verifyOtp, signInWithApple, signInWithOAuth, signOut],
+    [isLoading, user, authProvider, sendOtp, verifyOtp, signInWithApple, signInWithOAuth, devQuickSignIn, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

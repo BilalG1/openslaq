@@ -7,6 +7,7 @@ import { getChannelNotificationPrefs, getChannelNotificationPref, setChannelNoti
 import { resolveChannel, requireChannelMember, requirePrivateChannelAdmin } from "./middleware";
 import type { WorkspaceMemberEnv } from "../workspaces/role-middleware";
 import { rlChannelCreate, rlChannelJoinLeave, rlMarkAsRead, rlRead, rlMemberManage } from "../rate-limit";
+import { createChannelEventMessage } from "../messages/service";
 import { hasMinimumRole } from "../auth/permissions";
 import { ROLES, CHANNEL_TYPES, asUserId, asMessageId, zChannelId, zUserId } from "@openslaq/shared";
 import type { ChannelNotifyLevel } from "@openslaq/shared";
@@ -434,11 +435,21 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     }
 
     await joinChannel(channel.id, user.id);
+
+    const joinMsg = await createChannelEventMessage(channel.id, user.id, { action: "joined" });
+    const io = getIO();
+    io.to(`channel:${channel.id}`).emit("message:new", joinMsg);
+
     return c.json({ ok: true as const }, 200);
   })
   .openapi(leaveChannelRoute, async (c) => {
     const user = c.get("user");
     const channel = c.get("channel");
+
+    const leaveMsg = await createChannelEventMessage(channel.id, user.id, { action: "left" });
+    const io = getIO();
+    io.to(`channel:${channel.id}`).emit("message:new", leaveMsg);
+
     await leaveChannel(channel.id, user.id);
     return c.json({ ok: true as const }, 200);
   })
@@ -470,7 +481,7 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     });
 
     // Join the target user's sockets to the channel room
-    const socketIds = getSocketIdsForUser(targetUserId);
+    const socketIds = await getSocketIdsForUser(targetUserId);
     for (const sid of socketIds) {
       const socket = io.sockets.sockets.get(sid);
       if (socket) {
@@ -503,7 +514,7 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     });
 
     // Remove the target user's sockets from the channel room
-    const socketIds = getSocketIdsForUser(targetUserId);
+    const socketIds = await getSocketIdsForUser(targetUserId);
     for (const sid of socketIds) {
       const socket = io.sockets.sockets.get(sid);
       if (socket) {

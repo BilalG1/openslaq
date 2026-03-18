@@ -1,6 +1,6 @@
 {
   "productName": "OpenSlaq",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "identifier": "com.openslaq.app",
   "build": {
     "beforeDevCommand": "cd ../web && bun run dev",
@@ -44,9 +44,9 @@
       }
     },
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDEyMTA5QzJFMDY3NzdEOUIKUldTYmZYY0dMcHdRRXFKTTRSbTQ0RzAwRjZOY2J1bHlRR3p2NEsrdFRmSzk4akZUVEZGU2doWmgK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDg5MzEyRTU5MDYyRUY5QUYKUldTditTNEdXUzR4aVpza1RaQVVVb2ZDRS9WTUNRQktidFpLdGFZMnJWZjR3Zm15bTRsOE11RUYK",
       "endpoints": [
-        "https://github.com/openslaq/openslaq/releases/latest/download/latest.json"
+        "https://github.com/bilalg1/openslaq/releases/download/desktop-latest/latest.json"
       ]
     }
   }

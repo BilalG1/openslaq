@@ -1,8 +1,7 @@
 import { View, Text, StyleSheet } from "react-native";
 import { VideoTrack } from "@livekit/react-native";
 import type { TrackReference } from "@livekit/react-native";
-import { ScreenShare, MicOff } from "lucide-react-native";
-import { useMobileTheme } from "@/theme/ThemeProvider";
+import { MicOff, ScreenShare } from "lucide-react-native";
 
 interface VideoTileProps {
   userId: string;
@@ -14,6 +13,23 @@ interface VideoTileProps {
   style?: object;
 }
 
+const GRADIENT_COLORS = [
+  ["#667eea", "#764ba2"],
+  ["#f093fb", "#f5576c"],
+  ["#4facfe", "#00f2fe"],
+  ["#43e97b", "#38f9d7"],
+  ["#fa709a", "#fee140"],
+  ["#a18cd1", "#fbc2eb"],
+];
+
+function getGradientIndex(name: string): number {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return Math.abs(hash) % GRADIENT_COLORS.length;
+}
+
 export function VideoTile({
   userId,
   displayName,
@@ -23,13 +39,11 @@ export function VideoTile({
   isScreenShare,
   style,
 }: VideoTileProps) {
-  const { theme } = useMobileTheme();
+  const gradientIdx = getGradientIndex(displayName);
+  const gradientColor = GRADIENT_COLORS[gradientIdx][0];
 
   return (
-    <View
-      testID={`video-tile-${userId}`}
-      style={[styles.container, { backgroundColor: theme.colors.surfaceTertiary }, style]}
-    >
+    <View testID={`video-tile-${userId}`} style={[styles.container, style]}>
       {videoTrackRef ? (
         <VideoTrack
           trackRef={videoTrackRef}
@@ -38,20 +52,23 @@ export function VideoTile({
           mirror={!isScreenShare && isLocal}
         />
       ) : (
-        <View style={[styles.avatarFallback, { backgroundColor: theme.colors.avatarFallbackBg }]}>
-          <Text style={[styles.avatarText, { color: theme.colors.avatarFallbackText }]}>
-            {displayName.charAt(0).toUpperCase()}
-          </Text>
+        <View style={[styles.avatarFallback, { backgroundColor: gradientColor }]}>
+          <View style={styles.avatarCircle}>
+            <Text style={styles.avatarText}>
+              {displayName.charAt(0).toUpperCase()}
+            </Text>
+          </View>
         </View>
       )}
 
-      <View style={styles.nameOverlay}>
+      {/* Floating name pill - bottom center */}
+      <View style={styles.namePill}>
         <Text style={styles.nameText} numberOfLines={1}>
           {displayName}
           {isLocal ? " (You)" : ""}
         </Text>
-        {isScreenShare && <ScreenShare size={12} color="#fff" />}
-        {isMuted && !isScreenShare && <MicOff size={12} color="#fff" />}
+        {isScreenShare && <ScreenShare size={10} color="#fff" />}
+        {isMuted && !isScreenShare && <MicOff size={10} color="#fff" />}
       </View>
     </View>
   );
@@ -59,7 +76,7 @@ export function VideoTile({
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 8,
+    borderRadius: 20,
     overflow: "hidden",
     position: "relative",
   },
@@ -72,26 +89,34 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarText: {
-    fontSize: 32,
-    fontWeight: "700",
+  avatarCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.25)",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  nameOverlay: {
+  avatarText: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#fff",
+  },
+  namePill: {
     position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
+    bottom: 8,
+    alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    borderRadius: 12,
+    backgroundColor: "rgba(0,0,0,0.3)",
   },
   nameText: {
     color: "#fff",
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "500",
-    flex: 1,
   },
 });

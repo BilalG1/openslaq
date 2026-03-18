@@ -10,8 +10,8 @@ import {
   DialogContent,
   DialogTitle,
   Button,
-  Input,
 } from "../ui";
+import { UserPlus, Copy, Check, RefreshCw } from "lucide-react";
 
 interface Invite {
   code: string;
@@ -49,7 +49,6 @@ export function InviteDialog({ open, onOpenChange, workspaceSlug }: InviteDialog
     setLoading(true);
     setError(null);
     try {
-      // Try to fetch existing invites
       const res = await authorizedRequest(user, (headers) =>
         api.api.workspaces[":slug"].invites.$get(
           { param: { slug: workspaceSlug } },
@@ -58,11 +57,9 @@ export function InviteDialog({ open, onOpenChange, workspaceSlug }: InviteDialog
       );
       const invites = (await res.json()) as Invite[];
       if (invites.length > 0) {
-        // Use the most recent one (last in the list)
         setInvite(invites[invites.length - 1]!);
         setInviteCopied(false);
       } else {
-        // No active invite — create one
         await createInvite();
       }
     } catch (err) {
@@ -117,43 +114,54 @@ export function InviteDialog({ open, onOpenChange, workspaceSlug }: InviteDialog
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="sm" className="p-6">
-        <DialogTitle>Invite People</DialogTitle>
+      <DialogContent size="md" className="p-6">
+        <div className="flex flex-col items-center text-center gap-4">
+          <div className="w-14 h-14 rounded-full bg-blue-500/10 flex items-center justify-center">
+            <UserPlus className="w-7 h-7 text-blue-500" />
+          </div>
 
-        <div className="flex flex-col gap-4 mt-4">
-          <p className="text-[13px] text-muted m-0">
-            Share this link to invite new members to this workspace.
-          </p>
+          <div>
+            <DialogTitle className="text-lg">Invite People</DialogTitle>
+            <p className="text-[13px] text-muted mt-1 m-0">
+              Share this link to invite new members to this workspace.
+            </p>
+          </div>
 
           {error && <div className="text-danger-text text-sm">{error}</div>}
 
           {loading && !invite ? (
             <p className="text-sm text-muted">Loading invite link...</p>
           ) : inviteLink ? (
-            <div className="flex flex-col gap-3">
-              <div className="flex gap-2 items-center bg-surface-secondary rounded-md p-3">
-                <Input
-                  variant="compact"
-                  readOnly
-                  value={inviteLink}
-                  className="flex-1 text-sm min-w-0"
-                  onClick={(e) => (e.target as HTMLInputElement).select()}
-                />
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={handleCopyInvite}
-                  className={clsx(
-                    "whitespace-nowrap",
-                    inviteCopied && "bg-emerald-600 hover:bg-emerald-600/90",
-                  )}
-                >
-                  {inviteCopied ? "Copied!" : "Copy Link"}
-                </Button>
-              </div>
+            <div className="flex flex-col gap-3 w-full">
+              <code className="block w-full text-sm bg-surface-secondary rounded-lg p-3 text-left break-all select-all">
+                {inviteLink}
+              </code>
+
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={handleCopyInvite}
+                className={clsx(
+                  "w-full gap-2",
+                  inviteCopied && "bg-emerald-600 hover:bg-emerald-600/90",
+                )}
+              >
+                {inviteCopied ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4" />
+                    Copy Invite Link
+                  </>
+                )}
+              </Button>
+
               {invite?.expiresAt && (
                 <p className="text-xs text-muted m-0">
-                  This link expires on{" "}
+                  Expires{" "}
                   {new Date(invite.expiresAt).toLocaleDateString(undefined, {
                     month: "long",
                     day: "numeric",
@@ -161,15 +169,16 @@ export function InviteDialog({ open, onOpenChange, workspaceSlug }: InviteDialog
                   })}
                 </p>
               )}
-              <Button
-                variant="secondary"
-                size="sm"
+
+              <button
+                type="button"
                 onClick={() => void handleGenerateNew()}
                 disabled={loading}
-                className="self-start"
+                className="inline-flex items-center justify-center gap-1.5 text-xs text-muted hover:text-primary transition-colors disabled:opacity-50 bg-transparent border-0 cursor-pointer p-0"
               >
-                Generate New Link
-              </Button>
+                <RefreshCw className={clsx("w-3 h-3", loading && "animate-spin")} />
+                Generate new link
+              </button>
             </div>
           ) : null}
         </div>

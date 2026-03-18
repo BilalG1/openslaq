@@ -21,7 +21,9 @@ mock.module("../hooks/useCurrentUser", () => ({
   }),
 }));
 
+const _realApiClient = require("../lib/api-client");
 mock.module("../lib/api-client", () => ({
+  ..._realApiClient,
   authorizedHeaders: async () => ({ Authorization: "Bearer tok" }),
 }));
 

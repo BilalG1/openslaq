@@ -1,0 +1,2 @@
+DROP INDEX "idx_messages_channel_toplevel_created_at";--> statement-breakpoint
+CREATE INDEX "idx_messages_channel_toplevel_user_created" ON "messages" USING btree ("channel_id","created_at" DESC,"user_id") WHERE "messages"."parent_message_id" IS NULL;

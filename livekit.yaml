@@ -1,13 +1,17 @@
 port: 7880
 rtc:
   port_range_start: 50000
-  port_range_end: 50200
+  port_range_end: 60000
   use_external_ip: false
 keys:
   devkey: devsecret
 room:
   max_participants: 10
   empty_timeout: 300
+turn:
+  enabled: true
+  udp_port: 3478
+  tls_port: 5349
 webhook:
   urls: ["http://host.docker.internal:3001/api/huddle/webhook"]
   api_key: devkey

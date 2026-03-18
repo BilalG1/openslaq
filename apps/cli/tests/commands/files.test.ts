@@ -4,6 +4,7 @@ import {
   createTestWorkspace,
   cleanupTestWorkspaces,
   testId,
+  getBaseUrl,
 } from "../helpers/api-client";
 import { hc } from "hono/client";
 import type { AppType } from "@openslaq/api/app";
@@ -12,6 +13,7 @@ type Client = ReturnType<typeof hc<AppType>>;
 
 describe("files command (integration)", () => {
   let client: Client;
+  let headers: Record<string, string>;
   let slug: string;
   let channelId: string;
   const userId = `cli-files-${testId()}`;
@@ -23,6 +25,7 @@ describe("files command (integration)", () => {
       email: `${userId}@openslaq.dev`,
     });
     client = ctx.client;
+    headers = ctx.headers;
     const workspace = await createTestWorkspace(client);
     slug = workspace.slug;
 
@@ -90,5 +93,34 @@ describe("files command (integration)", () => {
     for (const file of data.files) {
       expect(file.category).toBe("images");
     }
+  });
+
+  test("download-url returns redirect for uploaded file", async () => {
+    // Upload a small file directly via fetch
+    const formData = new FormData();
+    const blob = new Blob(["download url test"], { type: "text/plain" });
+    formData.append("files", blob, "download-test.txt");
+
+    const uploadRes = await fetch(`${getBaseUrl()}/api/uploads`, {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+
+    if (uploadRes.status !== 201) {
+      // Skip if upload isn't available (e.g. no S3 in test env)
+      return;
+    }
+
+    const attachments = (await uploadRes.json()) as { attachments: { id: string }[] };
+    const attachmentId = attachments.attachments[0]?.id;
+    if (!attachmentId) return;
+
+    const downloadRes = await fetch(
+      `${getBaseUrl()}/api/uploads/${attachmentId}/download`,
+      { headers, redirect: "manual" },
+    );
+    // Should be 302 redirect to pre-signed URL
+    expect([200, 302]).toContain(downloadRes.status);
   });
 });

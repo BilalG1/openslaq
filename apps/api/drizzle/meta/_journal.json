@@ -246,6 +246,55 @@
       "when": 1773253006852,
       "tag": "0034_ambiguous_flatman",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1773345127982,
+      "tag": "0035_cloudy_tiger_shark",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1773509574055,
+      "tag": "0036_unknown_aqueduct",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1773682523449,
+      "tag": "0037_violet_leech",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1773693094688,
+      "tag": "0038_red_glorian",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1773697811437,
+      "tag": "0039_next_whizzer",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1773714251705,
+      "tag": "0040_big_mastermind",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1773788007442,
+      "tag": "0041_dear_flatman",
+      "breakpoints": true
     }
   ]
 }

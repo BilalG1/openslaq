@@ -20,7 +20,7 @@ describe("AudioPlayer", () => {
   it("shows play icon initially", () => {
     render(<AudioPlayer uri="https://example.com/audio.m4a" filename="test.m4a" />);
 
-    expect(screen.getByText("▶")).toBeTruthy();
+    expect(screen.getByTestId("audio-play-button")).toBeTruthy();
   });
 
   it("calls createAsync on button press", async () => {

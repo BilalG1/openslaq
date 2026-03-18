@@ -94,15 +94,15 @@ describe("ChannelHeader", () => {
     expect(screen.getByTestId("channel-topic-text").textContent).toBe("Our main channel");
   });
 
-  test("shows placeholder when no description", () => {
+  test("hides topic section when no description", () => {
     renderHeader({ channelName: "general", onUpdateDescription: jest.fn() });
-    expect(screen.getByTestId("channel-topic-placeholder")).toBeTruthy();
-    expect(screen.getByTestId("channel-topic-placeholder").textContent).toBe("Add a topic");
+    expect(screen.queryByTestId("channel-topic-button")).toBeNull();
+    expect(screen.queryByTestId("channel-topic-placeholder")).toBeNull();
   });
 
   test("saves topic on blur instead of discarding", () => {
     const onUpdateDescription = jest.fn();
-    renderHeader({ channelName: "general", onUpdateDescription });
+    renderHeader({ channelName: "general", onUpdateDescription, description: "Old topic" });
 
     fireEvent.click(screen.getByTestId("channel-topic-button"));
     const input = screen.getByTestId("channel-topic-input");
@@ -114,7 +114,7 @@ describe("ChannelHeader", () => {
 
   test("pressing Enter saves topic", () => {
     const onUpdateDescription = jest.fn();
-    renderHeader({ channelName: "general", onUpdateDescription });
+    renderHeader({ channelName: "general", onUpdateDescription, description: "Old topic" });
 
     fireEvent.click(screen.getByTestId("channel-topic-button"));
     const input = screen.getByTestId("channel-topic-input");
@@ -174,25 +174,29 @@ describe("ChannelHeader", () => {
 
   // ── Pinned messages ──────────────────────────────────────────────
 
-  test("renders pin button when onOpenPins provided", () => {
+  test("renders pin item in overflow menu when onOpenPins provided", () => {
     renderHeader({ channelName: "general", onOpenPins: jest.fn() });
+    openOverflowMenu();
     expect(screen.getByTestId("pinned-messages-button")).toBeTruthy();
   });
 
   test("shows pinned count when pinnedCount > 0", () => {
     renderHeader({ channelName: "general", onOpenPins: jest.fn(), pinnedCount: 5 });
+    openOverflowMenu();
     expect(screen.getByTestId("pinned-count")).toBeTruthy();
     expect(screen.getByTestId("pinned-count").textContent).toBe("5");
   });
 
   test("does NOT show pinned count when pinnedCount=0", () => {
     renderHeader({ channelName: "general", onOpenPins: jest.fn(), pinnedCount: 0 });
+    openOverflowMenu();
     expect(screen.queryByTestId("pinned-count")).toBeNull();
   });
 
-  test("calls onOpenPins on click", () => {
+  test("calls onOpenPins from overflow menu", () => {
     const onOpenPins = jest.fn();
     renderHeader({ channelName: "general", onOpenPins });
+    openOverflowMenu();
     fireEvent.click(screen.getByTestId("pinned-messages-button"));
     expect(onOpenPins).toHaveBeenCalledTimes(1);
   });

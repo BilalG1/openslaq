@@ -48,11 +48,11 @@ jest.mock("@/theme/ThemeProvider", () => ({
         borderSecondary: "#eee",
         avatarFallbackBg: "#ddd",
         avatarFallbackText: "#333",
-        headerBg: "#3F0E40",
+        headerBg: "#111827",
         headerText: "#FFFFFF",
         headerSearchBg: "rgba(255,255,255,0.2)",
       },
-      brand: { primary: "#4A154B", success: "#22c55e" },
+      brand: { primary: "#1264a3", success: "#22c55e" },
       interaction: { badgeUnreadBg: "#f00", badgeUnreadText: "#fff" },
     },
   }),
@@ -108,10 +108,30 @@ const makeGroupDm = (channelId: string, memberNames: string[], displayName?: str
   })),
 });
 
+jest.mock("@/contexts/AuthContext", () => ({
+  useAuth: () => ({ authProvider: { getToken: jest.fn() } }),
+}));
+
+jest.mock("@/lib/api", () => ({
+  api: {},
+}));
+
+jest.mock("@/utils/haptics", () => ({
+  haptics: { selection: jest.fn(), heavy: jest.fn(), light: jest.fn() },
+}));
+
+jest.mock("@openslaq/client-core", () => ({
+  starChannelOp: jest.fn(),
+  unstarChannelOp: jest.fn(),
+  setChannelNotificationPrefOp: jest.fn(),
+  archiveChannel: jest.fn(),
+}));
+
 let mockState: Record<string, unknown>;
+const mockDispatch = jest.fn();
 
 jest.mock("@/contexts/ChatStoreProvider", () => ({
-  useChatStore: () => ({ state: mockState }),
+  useChatStore: () => ({ state: mockState, dispatch: mockDispatch }),
 }));
 
 // Must import after mocks
@@ -135,6 +155,7 @@ beforeEach(() => {
     groupDms: [],
     starredChannelIds: [],
     savedMessageIds: [],
+    activeHuddles: {},
     unreadCounts: {},
     channelNotificationPrefs: {},
     presence: {},
@@ -188,7 +209,7 @@ describe("HomeScreen", () => {
   it("navigates to channel on press", () => {
     render(<HomeScreen />);
     fireEvent.press(screen.getByTestId("channel-row-ch-1"));
-    expect(mockPush).toHaveBeenCalledWith("/(app)/acme/(channels)/ch-1");
+    expect(mockPush).toHaveBeenCalledWith("/(app)/acme/(tabs)/(channels)/ch-1");
   });
 
   it("navigates to DM on press", () => {
@@ -202,10 +223,20 @@ describe("HomeScreen", () => {
     expect(screen.getByTestId("add-channel-link")).toBeTruthy();
   });
 
-  it("calls openCreateChannel when Add channel is pressed", () => {
+  it("shows ActionSheet when Add channel is pressed", () => {
+    const alertSpy = jest.spyOn(require("react-native").Alert, "alert");
     render(<HomeScreen />);
     fireEvent.press(screen.getByTestId("add-channel-link"));
-    expect(mockOpenCreateChannel).toHaveBeenCalledTimes(1);
+    expect(alertSpy).toHaveBeenCalledWith(
+      "Add Channel",
+      undefined,
+      expect.arrayContaining([
+        expect.objectContaining({ text: "Create a Channel" }),
+        expect.objectContaining({ text: "Browse Channels" }),
+        expect.objectContaining({ text: "Cancel" }),
+      ]),
+    );
+    alertSpy.mockRestore();
   });
 
   it("renders new DM link in DMs section footer", () => {
@@ -216,17 +247,6 @@ describe("HomeScreen", () => {
   it("calls openNewDm when Start a new message is pressed", () => {
     render(<HomeScreen />);
     fireEvent.press(screen.getByTestId("new-dm-link"));
-    expect(mockOpenNewDm).toHaveBeenCalledTimes(1);
-  });
-
-  it("renders FAB compose button", () => {
-    render(<HomeScreen />);
-    expect(screen.getByTestId("fab-compose")).toBeTruthy();
-  });
-
-  it("calls openNewDm when FAB is pressed", () => {
-    render(<HomeScreen />);
-    fireEvent.press(screen.getByTestId("fab-compose"));
     expect(mockOpenNewDm).toHaveBeenCalledTimes(1);
   });
 

@@ -255,6 +255,18 @@ describe("Channels resource", () => {
     expect(result["ch-2"]).toBe("muted");
   });
 
+  test("getNotificationPref() GETs single channel notification pref", async () => {
+    let capturedUrl = "";
+    const client = createClient((url) => {
+      capturedUrl = url;
+      return { status: 200, body: { level: "mentions" } };
+    });
+
+    const result = await client.channels.getNotificationPref("ch-1");
+    expect(capturedUrl).toContain("/api/workspaces/test-ws/channels/ch-1/notification-pref");
+    expect(result.level).toBe("mentions");
+  });
+
   test("setNotificationPref() PUTs level", async () => {
     let capturedUrl = "";
     let capturedMethod = "";

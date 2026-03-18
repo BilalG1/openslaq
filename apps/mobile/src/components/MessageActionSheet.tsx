@@ -1,7 +1,8 @@
-import { Alert, Modal, Pressable, Text, View } from "react-native";
+import { Alert, Pressable, Text, View } from "react-native";
 import type { Message } from "@openslaq/shared";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { haptics } from "@/utils/haptics";
+import { BottomSheet } from "@/components/ui/BottomSheet";
 
 const QUICK_REACTIONS = ["✅", "👀", "🙌"];
 
@@ -134,217 +135,193 @@ export function MessageActionSheet({
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <Pressable
-        testID="action-sheet-backdrop"
-        style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" }}
-        onPress={onClose}
-      >
+    <BottomSheet visible={visible} onClose={onClose} testID="action-sheet-content">
+      {/* Quick reactions row */}
+      <View style={{ flexDirection: "row", justifyContent: "center", gap: 12, marginBottom: 16 }}>
+        {QUICK_REACTIONS.map((emoji) => (
+          <Pressable
+            key={emoji}
+            testID={`quick-reaction-${emoji}`}
+            onPress={() => handleReaction(emoji)}
+            style={({ pressed }) => ({
+              width: 48,
+              height: 48,
+              borderRadius: 24,
+              backgroundColor: pressed ? theme.colors.surfaceTertiary : theme.colors.surfaceSecondary,
+              alignItems: "center",
+              justifyContent: "center",
+            })}
+          >
+            <Text style={{ fontSize: 24 }}>{emoji}</Text>
+          </Pressable>
+        ))}
         <Pressable
-          testID="action-sheet-content"
-          style={{
-            backgroundColor: theme.colors.surface,
-            borderTopLeftRadius: 16,
-            borderTopRightRadius: 16,
-            paddingBottom: 34,
-            paddingTop: 12,
-            paddingHorizontal: 16,
-          }}
-          onPress={(e) => e.stopPropagation()}
+          testID="quick-reaction-picker"
+          onPress={handleOpenPicker}
+          style={({ pressed }) => ({
+            width: 48,
+            height: 48,
+            borderRadius: 24,
+            backgroundColor: pressed ? theme.colors.surfaceTertiary : theme.colors.surfaceSecondary,
+            alignItems: "center",
+            justifyContent: "center",
+          })}
         >
-          {/* Quick reactions row */}
-          <View style={{ flexDirection: "row", justifyContent: "center", gap: 12, marginBottom: 16 }}>
-            {QUICK_REACTIONS.map((emoji) => (
-              <Pressable
-                key={emoji}
-                testID={`quick-reaction-${emoji}`}
-                onPress={() => handleReaction(emoji)}
-                style={({ pressed }) => ({
-                  width: 48,
-                  height: 48,
-                  borderRadius: 24,
-                  backgroundColor: pressed ? theme.colors.surfaceTertiary : theme.colors.surfaceSecondary,
-                  alignItems: "center",
-                  justifyContent: "center",
-                })}
-              >
-                <Text style={{ fontSize: 24 }}>{emoji}</Text>
-              </Pressable>
-            ))}
-            <Pressable
-              testID="quick-reaction-picker"
-              onPress={handleOpenPicker}
-              style={({ pressed }) => ({
-                width: 48,
-                height: 48,
-                borderRadius: 24,
-                backgroundColor: pressed ? theme.colors.surfaceTertiary : theme.colors.surfaceSecondary,
-                alignItems: "center",
-                justifyContent: "center",
-              })}
-            >
-              <Text style={{ fontSize: 20, color: theme.colors.textMuted }}>+</Text>
-            </Pressable>
-          </View>
-
-          {/* Divider */}
-          <View style={{ height: 1, backgroundColor: theme.colors.borderDefault, marginBottom: 8 }} />
-
-          {/* Pin/Unpin — available to all users */}
-          {message.isPinned ? (
-            <Pressable
-              testID="action-unpin-message"
-              onPress={handleUnpin}
-              style={({ pressed }) => ({
-                paddingVertical: 14,
-                paddingHorizontal: 8,
-                borderRadius: 8,
-                backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
-              })}
-            >
-              <Text style={{ fontSize: 16, color: theme.colors.textPrimary }}>Unpin Message</Text>
-            </Pressable>
-          ) : (
-            <Pressable
-              testID="action-pin-message"
-              onPress={handlePin}
-              style={({ pressed }) => ({
-                paddingVertical: 14,
-                paddingHorizontal: 8,
-                borderRadius: 8,
-                backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
-              })}
-            >
-              <Text style={{ fontSize: 16, color: theme.colors.textPrimary }}>Pin Message</Text>
-            </Pressable>
-          )}
-
-          {/* Save / Unsave */}
-          {isSaved ? (
-            <Pressable
-              testID="action-unsave-message"
-              onPress={handleUnsave}
-              style={({ pressed }) => ({
-                paddingVertical: 14,
-                paddingHorizontal: 8,
-                borderRadius: 8,
-                backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
-              })}
-            >
-              <Text style={{ fontSize: 16, color: theme.colors.textPrimary }}>Remove from Saved</Text>
-            </Pressable>
-          ) : (
-            <Pressable
-              testID="action-save-message"
-              onPress={handleSave}
-              style={({ pressed }) => ({
-                paddingVertical: 14,
-                paddingHorizontal: 8,
-                borderRadius: 8,
-                backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
-              })}
-            >
-              <Text style={{ fontSize: 16, color: theme.colors.textPrimary }}>Save for Later</Text>
-            </Pressable>
-          )}
-
-          {/* Copy Text */}
-          <Pressable
-            testID="action-copy-text"
-            onPress={handleCopyText}
-            style={({ pressed }) => ({
-              paddingVertical: 14,
-              paddingHorizontal: 8,
-              borderRadius: 8,
-              backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
-            })}
-          >
-            <Text style={{ fontSize: 16, color: theme.colors.textPrimary }}>Copy Text</Text>
-          </Pressable>
-
-          {/* Copy Link */}
-          <Pressable
-            testID="action-copy-link"
-            onPress={handleCopyLink}
-            style={({ pressed }) => ({
-              paddingVertical: 14,
-              paddingHorizontal: 8,
-              borderRadius: 8,
-              backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
-            })}
-          >
-            <Text style={{ fontSize: 16, color: theme.colors.textPrimary }}>Copy Link</Text>
-          </Pressable>
-
-          {/* Mark as Unread */}
-          {onMarkAsUnread && (
-            <Pressable
-              testID="action-mark-as-unread"
-              onPress={handleMarkAsUnread}
-              style={({ pressed }) => ({
-                paddingVertical: 14,
-                paddingHorizontal: 8,
-                borderRadius: 8,
-                backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
-              })}
-            >
-              <Text style={{ fontSize: 16, color: theme.colors.textPrimary }}>Mark as Unread</Text>
-            </Pressable>
-          )}
-
-          {/* Share Message */}
-          {onShareMessage && (
-            <Pressable
-              testID="action-share-message"
-              onPress={handleShareMessage}
-              style={({ pressed }) => ({
-                paddingVertical: 14,
-                paddingHorizontal: 8,
-                borderRadius: 8,
-                backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
-              })}
-            >
-              <Text style={{ fontSize: 16, color: theme.colors.textPrimary }}>Share Message</Text>
-            </Pressable>
-          )}
-
-          {/* Owner-only actions */}
-          {isOwnMessage && (
-            <>
-              <View style={{ height: 1, backgroundColor: theme.colors.borderDefault, marginVertical: 8 }} />
-              <Pressable
-                testID="action-edit-message"
-                onPress={handleEdit}
-                style={({ pressed }) => ({
-                  paddingVertical: 14,
-                  paddingHorizontal: 8,
-                  borderRadius: 8,
-                  backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
-                })}
-              >
-                <Text style={{ fontSize: 16, color: theme.colors.textPrimary }}>Edit Message</Text>
-              </Pressable>
-              <Pressable
-                testID="action-delete-message"
-                onPress={handleDelete}
-                style={({ pressed }) => ({
-                  paddingVertical: 14,
-                  paddingHorizontal: 8,
-                  borderRadius: 8,
-                  backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
-                })}
-              >
-                <Text style={{ fontSize: 16, color: theme.brand.danger }}>Delete Message</Text>
-              </Pressable>
-            </>
-          )}
+          <Text style={{ fontSize: 20, color: theme.colors.textMuted }}>+</Text>
         </Pressable>
+      </View>
+
+      {/* Divider */}
+      <View style={{ height: 1, backgroundColor: theme.colors.borderDefault, marginBottom: 8 }} />
+
+      {/* Pin/Unpin — available to all users */}
+      {message.isPinned ? (
+        <Pressable
+          testID="action-unpin-message"
+          onPress={handleUnpin}
+          style={({ pressed }) => ({
+            paddingVertical: 14,
+            paddingHorizontal: 8,
+            borderRadius: 8,
+            backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
+          })}
+        >
+          <Text style={{ fontSize: 16, color: theme.colors.textPrimary }}>Unpin Message</Text>
+        </Pressable>
+      ) : (
+        <Pressable
+          testID="action-pin-message"
+          onPress={handlePin}
+          style={({ pressed }) => ({
+            paddingVertical: 14,
+            paddingHorizontal: 8,
+            borderRadius: 8,
+            backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
+          })}
+        >
+          <Text style={{ fontSize: 16, color: theme.colors.textPrimary }}>Pin Message</Text>
+        </Pressable>
+      )}
+
+      {/* Save / Unsave */}
+      {isSaved ? (
+        <Pressable
+          testID="action-unsave-message"
+          onPress={handleUnsave}
+          style={({ pressed }) => ({
+            paddingVertical: 14,
+            paddingHorizontal: 8,
+            borderRadius: 8,
+            backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
+          })}
+        >
+          <Text style={{ fontSize: 16, color: theme.colors.textPrimary }}>Remove from Saved</Text>
+        </Pressable>
+      ) : (
+        <Pressable
+          testID="action-save-message"
+          onPress={handleSave}
+          style={({ pressed }) => ({
+            paddingVertical: 14,
+            paddingHorizontal: 8,
+            borderRadius: 8,
+            backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
+          })}
+        >
+          <Text style={{ fontSize: 16, color: theme.colors.textPrimary }}>Save for Later</Text>
+        </Pressable>
+      )}
+
+      {/* Copy Text */}
+      <Pressable
+        testID="action-copy-text"
+        onPress={handleCopyText}
+        style={({ pressed }) => ({
+          paddingVertical: 14,
+          paddingHorizontal: 8,
+          borderRadius: 8,
+          backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
+        })}
+      >
+        <Text style={{ fontSize: 16, color: theme.colors.textPrimary }}>Copy Text</Text>
       </Pressable>
-    </Modal>
+
+      {/* Copy Link */}
+      <Pressable
+        testID="action-copy-link"
+        onPress={handleCopyLink}
+        style={({ pressed }) => ({
+          paddingVertical: 14,
+          paddingHorizontal: 8,
+          borderRadius: 8,
+          backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
+        })}
+      >
+        <Text style={{ fontSize: 16, color: theme.colors.textPrimary }}>Copy Link</Text>
+      </Pressable>
+
+      {/* Mark as Unread */}
+      {onMarkAsUnread && (
+        <Pressable
+          testID="action-mark-as-unread"
+          onPress={handleMarkAsUnread}
+          style={({ pressed }) => ({
+            paddingVertical: 14,
+            paddingHorizontal: 8,
+            borderRadius: 8,
+            backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
+          })}
+        >
+          <Text style={{ fontSize: 16, color: theme.colors.textPrimary }}>Mark as Unread</Text>
+        </Pressable>
+      )}
+
+      {/* Share Message */}
+      {onShareMessage && (
+        <Pressable
+          testID="action-share-message"
+          onPress={handleShareMessage}
+          style={({ pressed }) => ({
+            paddingVertical: 14,
+            paddingHorizontal: 8,
+            borderRadius: 8,
+            backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
+          })}
+        >
+          <Text style={{ fontSize: 16, color: theme.colors.textPrimary }}>Share Message</Text>
+        </Pressable>
+      )}
+
+      {/* Owner-only actions */}
+      {isOwnMessage && (
+        <>
+          <View style={{ height: 1, backgroundColor: theme.colors.borderDefault, marginVertical: 8 }} />
+          <Pressable
+            testID="action-edit-message"
+            onPress={handleEdit}
+            style={({ pressed }) => ({
+              paddingVertical: 14,
+              paddingHorizontal: 8,
+              borderRadius: 8,
+              backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
+            })}
+          >
+            <Text style={{ fontSize: 16, color: theme.colors.textPrimary }}>Edit Message</Text>
+          </Pressable>
+          <Pressable
+            testID="action-delete-message"
+            onPress={handleDelete}
+            style={({ pressed }) => ({
+              paddingVertical: 14,
+              paddingHorizontal: 8,
+              borderRadius: 8,
+              backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
+            })}
+          >
+            <Text style={{ fontSize: 16, color: theme.brand.danger }}>Delete Message</Text>
+          </Pressable>
+        </>
+      )}
+    </BottomSheet>
   );
 }

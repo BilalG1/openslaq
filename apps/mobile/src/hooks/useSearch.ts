@@ -96,18 +96,21 @@ export function useSearch(workspaceSlug: string | undefined) {
     [authProvider, workspaceSlug],
   );
 
+  const executeSearchRef = useRef(executeSearch);
+  executeSearchRef.current = executeSearch;
+
   const updateFilters = useCallback(
     (newFilters: Partial<SearchFilters>) => {
       setFilters((prev) => {
         const next = { ...prev, ...newFilters };
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(() => {
-          void executeSearch(next, 0, false);
+          void executeSearchRef.current(next, 0, false);
         }, 300);
         return next;
       });
     },
-    [executeSearch],
+    [],
   );
 
   const loadMore = useCallback(() => {

@@ -1,5 +1,6 @@
-import { View } from "react-native";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { Pressable, View } from "react-native";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { ChevronLeft } from "lucide-react-native";
 import { WorkspaceBootstrapProvider } from "@/contexts/WorkspaceBootstrapProvider";
 import { WorkspaceDrawerProvider } from "@/contexts/WorkspaceDrawerContext";
 import { WorkspaceDrawer } from "@/components/workspace/WorkspaceDrawer";
@@ -9,6 +10,13 @@ import { useMobileTheme } from "@/theme/ThemeProvider";
 export default function WorkspaceLayout() {
   const { workspaceSlug } = useLocalSearchParams<{ workspaceSlug: string }>();
   const { theme } = useMobileTheme();
+  const router = useRouter();
+
+  const backButton = () => (
+    <Pressable onPress={() => router.back()} hitSlop={8}>
+      <ChevronLeft size={28} color={theme.brand.primary} />
+    </Pressable>
+  );
 
   return (
     <WorkspaceBootstrapProvider workspaceSlug={workspaceSlug}>
@@ -35,8 +43,9 @@ export default function WorkspaceLayout() {
                   headerShown: true,
                   title: "Thread",
                   headerBackTitle: "",
+                  headerLeft: backButton,
                   headerStyle: { backgroundColor: theme.colors.surface },
-                  headerTintColor: theme.colors.textPrimary,
+                  headerTintColor: theme.brand.primary,
                 }}
               />
               <Stack.Screen
@@ -45,8 +54,9 @@ export default function WorkspaceLayout() {
                   headerShown: true,
                   title: "Profile",
                   headerBackTitle: "",
+                  headerLeft: backButton,
                   headerStyle: { backgroundColor: theme.colors.surface },
-                  headerTintColor: theme.colors.textPrimary,
+                  headerTintColor: theme.brand.primary,
                 }}
               />
               <Stack.Screen
@@ -55,8 +65,9 @@ export default function WorkspaceLayout() {
                   headerShown: true,
                   title: "Settings",
                   headerBackTitle: "",
+                  headerLeft: backButton,
                   headerStyle: { backgroundColor: theme.colors.surface },
-                  headerTintColor: theme.colors.textPrimary,
+                  headerTintColor: theme.brand.primary,
                 }}
               />
               <Stack.Screen
@@ -65,8 +76,9 @@ export default function WorkspaceLayout() {
                   headerShown: true,
                   title: "Workspace Settings",
                   headerBackTitle: "",
+                  headerLeft: backButton,
                   headerStyle: { backgroundColor: theme.colors.surface },
-                  headerTintColor: theme.colors.textPrimary,
+                  headerTintColor: theme.brand.primary,
                 }}
               />
               <Stack.Screen
@@ -75,8 +87,9 @@ export default function WorkspaceLayout() {
                   headerShown: true,
                   title: "Notifications",
                   headerBackTitle: "",
+                  headerLeft: backButton,
                   headerStyle: { backgroundColor: theme.colors.surface },
-                  headerTintColor: theme.colors.textPrimary,
+                  headerTintColor: theme.brand.primary,
                 }}
               />
               <Stack.Screen
@@ -85,8 +98,9 @@ export default function WorkspaceLayout() {
                   headerShown: true,
                   title: "Preferences",
                   headerBackTitle: "",
+                  headerLeft: backButton,
                   headerStyle: { backgroundColor: theme.colors.surface },
-                  headerTintColor: theme.colors.textPrimary,
+                  headerTintColor: theme.brand.primary,
                 }}
               />
               <Stack.Screen
@@ -95,8 +109,9 @@ export default function WorkspaceLayout() {
                   headerShown: true,
                   title: "Scheduled Messages",
                   headerBackTitle: "",
+                  headerLeft: backButton,
                   headerStyle: { backgroundColor: theme.colors.surface },
-                  headerTintColor: theme.colors.textPrimary,
+                  headerTintColor: theme.brand.primary,
                 }}
               />
               <Stack.Screen
@@ -105,8 +120,20 @@ export default function WorkspaceLayout() {
                   headerShown: true,
                   title: "Saved Items",
                   headerBackTitle: "",
+                  headerLeft: backButton,
                   headerStyle: { backgroundColor: theme.colors.surface },
-                  headerTintColor: theme.colors.textPrimary,
+                  headerTintColor: theme.brand.primary,
+                }}
+              />
+              <Stack.Screen
+                name="threads"
+                options={{
+                  headerShown: true,
+                  title: "Threads",
+                  headerBackTitle: "",
+                  headerLeft: backButton,
+                  headerStyle: { backgroundColor: theme.colors.surface },
+                  headerTintColor: theme.brand.primary,
                 }}
               />
               <Stack.Screen
@@ -115,8 +142,31 @@ export default function WorkspaceLayout() {
                   headerShown: true,
                   title: "Files",
                   headerBackTitle: "",
+                  headerLeft: backButton,
                   headerStyle: { backgroundColor: theme.colors.surface },
-                  headerTintColor: theme.colors.textPrimary,
+                  headerTintColor: theme.brand.primary,
+                }}
+              />
+              <Stack.Screen
+                name="outbox"
+                options={{
+                  headerShown: true,
+                  title: "Outbox",
+                  headerBackTitle: "",
+                  headerLeft: backButton,
+                  headerStyle: { backgroundColor: theme.colors.surface },
+                  headerTintColor: theme.brand.primary,
+                }}
+              />
+              <Stack.Screen
+                name="huddles"
+                options={{
+                  headerShown: true,
+                  title: "Huddles",
+                  headerBackTitle: "",
+                  headerLeft: backButton,
+                  headerStyle: { backgroundColor: theme.colors.surface },
+                  headerTintColor: theme.brand.primary,
                 }}
               />
               <Stack.Screen

@@ -3,15 +3,13 @@ title: Quickstart
 description: Create your first OpenSlaq bot in under 5 minutes.
 ---
 
-import { Steps, Tabs, TabItem } from "@astrojs/starlight/components";
+import { Steps } from "@astrojs/starlight/components";
 
 This guide walks you through creating a simple bot that responds to messages.
 
-## Prerequisites
-
+:::note[Prerequisites]
 - An OpenSlaq workspace (self-hosted or cloud)
-- Node.js 18+ or Bun installed
-- An API key ([create one here](/guides/api-keys/))
+:::
 
 ## Create a bot
 
@@ -19,18 +17,9 @@ This guide walks you through creating a simple bot that responds to messages.
 
 1. **Install the CLI**
 
-   <Tabs>
-     <TabItem label="npm">
-     ```bash
-     npm install -g openslaq
-     ```
-     </TabItem>
-     <TabItem label="bun">
-     ```bash
-     bun install -g openslaq
-     ```
-     </TabItem>
-   </Tabs>
+   ```bash
+   curl -fsSL https://openslaq.com/install.sh | sh
+   ```
 
 2. **Authenticate**
 
@@ -86,7 +75,9 @@ This guide walks you through creating a simple bot that responds to messages.
    OPENSLAQ_BOT_TOKEN=your-token-here npx tsx index.ts
    ```
 
+   :::tip
    Mention your bot in any channel — it will reply!
+   :::
 
 </Steps>
 

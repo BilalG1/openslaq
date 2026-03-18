@@ -6,6 +6,7 @@ import type { ChannelId } from "@openslaq/shared";
 import { isValidSlug, isValidId } from "@/utils/deep-link-validation";
 import { registerPushToken, unregisterPushToken } from "@openslaq/client-core";
 import type { ApiDeps } from "@openslaq/client-core";
+import { routes } from "@/lib/routes";
 
 interface UsePushNotificationsOptions {
   deps: ApiDeps;
@@ -102,9 +103,9 @@ export function usePushNotifications({
 
         if (data.parentMessageId) {
           if (!isValidId(data.parentMessageId)) return;
-          router.push(`/(app)/${ws}/thread/${data.parentMessageId}` as any);
+          router.push(routes.thread(ws, data.parentMessageId) as any);
         } else {
-          router.push(`/(app)/${ws}/(tabs)/(channels)/${channelId}` as any);
+          router.push(routes.channel(ws, channelId) as any);
         }
       });
 

@@ -12,11 +12,12 @@ import { useMobileTheme } from "@/theme/ThemeProvider";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { GoogleIcon, GitHubIcon, AppleIcon } from "@/components/ui/BrandIcons";
+import { env } from "@/lib/env";
 
 type AuthStep = "email" | "otp";
 
 export default function SignInScreen() {
-  const { sendOtp, verifyOtp, signInWithApple, signInWithOAuth } = useAuth();
+  const { sendOtp, verifyOtp, signInWithApple, signInWithOAuth, devQuickSignIn } = useAuth();
   const { theme } = useMobileTheme();
   const [step, setStep] = useState<AuthStep>("email");
   const [email, setEmail] = useState("");
@@ -77,6 +78,18 @@ export default function SignInScreen() {
     }
   };
 
+  const handleDevQuickSignIn = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await devQuickSignIn();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Dev sign-in failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleBack = () => {
     setStep("email");
     setOtpCode("");
@@ -90,6 +103,25 @@ export default function SignInScreen() {
       style={{ flex: 1, backgroundColor: theme.colors.surface }}
     >
       <View testID="sign-in-screen" style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 32 }}>
+        {__DEV__ && env.EXPO_PUBLIC_E2E_TEST_SECRET && (
+          <Pressable
+            testID="dev-quick-sign-in"
+            onPress={handleDevQuickSignIn}
+            disabled={loading}
+            style={{
+              backgroundColor: "#f59e0b",
+              borderRadius: 8,
+              padding: 12,
+              marginBottom: 16,
+              opacity: loading ? 0.7 : 1,
+            }}
+          >
+            <Text style={{ color: "#000", fontWeight: "600", textAlign: "center", fontSize: 14 }}>
+              Dev Quick Sign In
+            </Text>
+          </Pressable>
+        )}
+
         <Text style={{ color: theme.colors.textPrimary, fontSize: 30, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 }}>
           OpenSlaq
         </Text>

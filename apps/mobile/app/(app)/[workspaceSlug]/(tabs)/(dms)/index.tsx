@@ -4,7 +4,9 @@ import { useChatStore } from "@/contexts/ChatStoreProvider";
 import { Users } from "lucide-react-native";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { ListRow } from "@/components/ui/ListRow";
+import { UnreadBadge } from "@/components/ui/UnreadBadge";
 import type { DmConversation, GroupDmConversation } from "@openslaq/client-core";
+import { routes } from "@/lib/routes";
 
 type DmItem =
   | { kind: "dm"; dm: DmConversation }
@@ -58,7 +60,7 @@ export default function DmsScreen() {
               <ListRow
                 testID={`group-dm-row-${groupDm.channel.id}`}
                 onPress={() =>
-                  router.push(`/(app)/${workspaceSlug}/(tabs)/(channels)/dm/${groupDm.channel.id}`)
+                  router.push(routes.dm(workspaceSlug, groupDm.channel.id))
                 }
               >
                 <View style={{ marginRight: 12 }}>
@@ -86,28 +88,35 @@ export default function DmsScreen() {
                 >
                   {getGroupDmLabel(groupDm)}
                 </Text>
-                {unread > 0 && (
-                  <View
-                    style={{
-                      borderRadius: 10,
-                      minWidth: 20,
-                      height: 20,
-                      paddingHorizontal: 6,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor: theme.interaction.badgeUnreadBg,
-                    }}
-                  >
-                    <Text style={{ fontSize: 12, fontWeight: "700", color: theme.interaction.badgeUnreadText }}>
-                      {unread > 99 ? "99+" : unread}
-                    </Text>
-                  </View>
-                )}
+                <UnreadBadge count={unread} />
               </ListRow>
             );
           }
 
           const { dm } = item;
+          if (!dm.otherUser) {
+            return (
+              <ListRow testID={`dm-row-unknown-${dm.channel.id}`}>
+                <View style={{ marginRight: 12 }}>
+                  <View
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 16,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: theme.colors.avatarFallbackBg,
+                    }}
+                  >
+                    <Text style={{ fontWeight: "500", color: theme.colors.avatarFallbackText }}>?</Text>
+                  </View>
+                </View>
+                <Text style={{ flex: 1, fontSize: 16, color: theme.colors.textFaint }}>
+                  Unknown user
+                </Text>
+              </ListRow>
+            );
+          }
           const unread = state.unreadCounts[dm.channel.id] ?? 0;
           const presence = state.presence[dm.otherUser.id];
           const isOnline = presence?.online === true;
@@ -116,7 +125,7 @@ export default function DmsScreen() {
             <ListRow
               testID={`dm-row-${dm.channel.id}`}
               onPress={() =>
-                router.push(`/(app)/${workspaceSlug}/(tabs)/(channels)/dm/${dm.channel.id}`)
+                router.push(routes.dm(workspaceSlug, dm.channel.id))
               }
             >
               <View style={{ position: "relative", marginRight: 12 }}>
@@ -160,23 +169,7 @@ export default function DmsScreen() {
               >
                 {dm.otherUser.displayName ?? "Unknown"}
               </Text>
-              {unread > 0 && (
-                <View
-                  style={{
-                    borderRadius: 10,
-                    minWidth: 20,
-                    height: 20,
-                    paddingHorizontal: 6,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    backgroundColor: theme.interaction.badgeUnreadBg,
-                  }}
-                >
-                  <Text style={{ fontSize: 12, fontWeight: "700", color: theme.interaction.badgeUnreadText }}>
-                    {unread > 99 ? "99+" : unread}
-                  </Text>
-                </View>
-              )}
+              <UnreadBadge count={unread} />
             </ListRow>
           );
         }}

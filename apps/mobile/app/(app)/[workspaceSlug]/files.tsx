@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -12,12 +12,12 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { fetchFiles } from "@openslaq/client-core";
 import type { FileBrowserItem, FileCategory } from "@openslaq/shared";
-import { useAuth } from "@/contexts/AuthContext";
-import { useChatStore } from "@/contexts/ChatStoreProvider";
+import { Camera, Film, FileText, Music, Paperclip, ChevronRight, Folder } from "lucide-react-native";
 import { useMobileTheme } from "@/theme/ThemeProvider";
-import { api } from "@/lib/api";
+import { useOperationDeps } from "@/hooks/useOperationDeps";
 import { env } from "@/lib/env";
 import { openSafeUrl } from "@/utils/url-validation";
+import { routes } from "@/lib/routes";
 
 const CATEGORIES: { label: string; value: FileCategory | undefined }[] = [
   { label: "All", value: undefined },
@@ -38,18 +38,18 @@ function getDownloadUrl(id: string): string {
   return `${env.EXPO_PUBLIC_API_URL}/api/uploads/${id}/download`;
 }
 
-function getCategoryIcon(category: FileCategory): string {
+function getCategoryIcon(category: FileCategory, color: string): React.ReactNode {
   switch (category) {
     case "images":
-      return "📷";
+      return <Camera size={22} color={color} />;
     case "videos":
-      return "🎬";
+      return <Film size={22} color={color} />;
     case "documents":
-      return "📄";
+      return <FileText size={22} color={color} />;
     case "audio":
-      return "🎵";
+      return <Music size={22} color={color} />;
     case "other":
-      return "📎";
+      return <Paperclip size={22} color={color} />;
   }
 }
 
@@ -60,8 +60,7 @@ function formatDate(iso: string): string {
 
 export default function FilesBrowserScreen() {
   const { workspaceSlug } = useLocalSearchParams<{ workspaceSlug: string }>();
-  const { authProvider } = useAuth();
-  const { state, dispatch } = useChatStore();
+  const deps = useOperationDeps();
   const { theme } = useMobileTheme();
   const router = useRouter();
 
@@ -75,7 +74,6 @@ export default function FilesBrowserScreen() {
   useEffect(() => {
     if (!workspaceSlug) return;
     let cancelled = false;
-    const deps = { api, auth: authProvider, dispatch, getState: () => state };
     void fetchFiles(deps, { workspaceSlug, category })
       .then((result) => {
         if (cancelled) return;
@@ -91,12 +89,11 @@ export default function FilesBrowserScreen() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workspaceSlug, authProvider, dispatch, category]);
+  }, [workspaceSlug, deps, category]);
 
   const handleLoadMore = useCallback(() => {
     if (!nextCursor || loadingMore || !workspaceSlug) return;
     setLoadingMore(true);
-    const deps = { api, auth: authProvider, dispatch, getState: () => state };
     void fetchFiles(deps, { workspaceSlug, category, cursor: nextCursor })
       .then((result) => {
         setFiles((prev) => [...prev, ...result.files]);
@@ -106,7 +103,7 @@ export default function FilesBrowserScreen() {
       .catch(() => {
         setLoadingMore(false);
       });
-  }, [nextCursor, loadingMore, workspaceSlug, authProvider, dispatch, state, category]);
+  }, [nextCursor, loadingMore, workspaceSlug, deps, category]);
 
   const handleFilePress = useCallback((file: FileBrowserItem) => {
     if (file.category === "images") {
@@ -118,7 +115,7 @@ export default function FilesBrowserScreen() {
 
   const handleJumpToChannel = useCallback(
     (channelId: string) => {
-      router.push(`/(app)/${workspaceSlug}/(tabs)/(channels)/${channelId}`);
+      router.push(routes.channel(workspaceSlug, channelId));
     },
     [router, workspaceSlug],
   );
@@ -140,6 +137,7 @@ export default function FilesBrowserScreen() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={{ flexGrow: 0 }}
         contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12, gap: 8 }}
       >
         {CATEGORIES.map((cat) => {
@@ -167,6 +165,7 @@ export default function FilesBrowserScreen() {
       {/* File list */}
       <FlatList
         testID="files-list"
+        style={{ flex: 1 }}
         data={files}
         keyExtractor={(item) => String(item.id)}
         onEndReached={handleLoadMore}
@@ -203,7 +202,7 @@ export default function FilesBrowserScreen() {
                   justifyContent: "center",
                 }}
               >
-                <Text style={{ fontSize: 22 }}>{getCategoryIcon(item.category)}</Text>
+                {getCategoryIcon(item.category, theme.colors.textMuted)}
               </View>
             )}
 
@@ -229,7 +228,7 @@ export default function FilesBrowserScreen() {
               onPress={() => handleJumpToChannel(String(item.channelId))}
               hitSlop={8}
             >
-              <Text style={{ fontSize: 18, color: theme.colors.textMuted }}>→</Text>
+              <ChevronRight size={18} color={theme.colors.textMuted} />
             </Pressable>
           </Pressable>
         )}
@@ -242,7 +241,7 @@ export default function FilesBrowserScreen() {
         }
         ListEmptyComponent={
           <View testID="files-empty" style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 48 }}>
-            <Text style={{ fontSize: 32, marginBottom: 12 }}>📁</Text>
+            <Folder size={32} color={theme.colors.textFaint} style={{ marginBottom: 12 }} />
             <Text style={{ fontSize: 16, color: theme.colors.textFaint }}>No files found</Text>
           </View>
         }

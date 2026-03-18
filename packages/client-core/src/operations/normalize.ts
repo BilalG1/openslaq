@@ -47,6 +47,22 @@ interface RawMessage {
   parentMessageId: string | null;
   replyCount: number;
   latestReplyAt: string | null;
+  type?: string;
+  metadata?: Record<string, unknown>;
+  isBot?: boolean;
+  botAppId?: string;
+  actions?: Array<{ label: string; value: string; style?: string }>;
+  isPinned?: boolean;
+  pinnedBy?: string | null;
+  pinnedAt?: string | null;
+  linkPreviews?: Array<{
+    url: string;
+    title: string | null;
+    description: string | null;
+    imageUrl: string | null;
+    siteName: string | null;
+    faviconUrl: string | null;
+  }>;
   attachments?: Array<{
     id: string;
     messageId: string | null;
@@ -90,6 +106,7 @@ export function normalizeWorkspaceInfo(workspace: RawWorkspaceInfo): WorkspaceIn
     name: workspace.name,
     slug: workspace.slug,
     createdAt: workspace.createdAt,
+    memberCount: workspace.memberCount,
     role: workspace.role as Role,
   };
 }
@@ -128,8 +145,10 @@ export function normalizeGroupDmConversation(gdm: RawGroupDmConversation): Group
   };
 }
 
-export function normalizeMessage(message: RawMessage): Message {
-  return {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function normalizeMessage(raw: RawMessage | Record<string, any>): Message {
+  const message = raw as RawMessage;
+  const base = {
     id: asMessageId(message.id),
     channelId: asChannelId(message.channelId),
     userId: asUserId(message.userId),
@@ -159,6 +178,12 @@ export function normalizeMessage(message: RawMessage): Message {
     })),
     senderDisplayName: message.senderDisplayName,
     senderAvatarUrl: message.senderAvatarUrl,
+    ...(message.isPinned ? {
+      isPinned: true,
+      pinnedBy: message.pinnedBy ? asUserId(message.pinnedBy) : null,
+      pinnedAt: message.pinnedAt,
+    } : {}),
+    ...(message.linkPreviews?.length ? { linkPreviews: message.linkPreviews } : {}),
     ...(message.sharedMessage ? {
       sharedMessage: {
         id: asMessageId(message.sharedMessage.id),
@@ -175,6 +200,33 @@ export function normalizeMessage(message: RawMessage): Message {
     createdAt: message.createdAt,
     updatedAt: message.updatedAt,
   };
+
+  if (message.isBot && message.botAppId) {
+    return {
+      ...base,
+      isBot: true,
+      botAppId: message.botAppId,
+      actions: message.actions ?? [],
+    } as Message;
+  }
+
+  if (message.type === "huddle" && message.metadata) {
+    return {
+      ...base,
+      type: "huddle",
+      metadata: message.metadata,
+    } as unknown as Message;
+  }
+
+  if (message.type === "channel_event" && message.metadata) {
+    return {
+      ...base,
+      type: "channel_event",
+      metadata: message.metadata,
+    } as unknown as Message;
+  }
+
+  return base as Message;
 }
 
 export function normalizeCursor(cursor: string | null | undefined): string | null {

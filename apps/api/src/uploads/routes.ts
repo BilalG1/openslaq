@@ -1,6 +1,6 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { auth } from "../auth/middleware";
-import { createAttachment } from "./service";
+import { createAttachment, getUserStorageUsage, MAX_STORAGE_PER_USER_BYTES } from "./service";
 import { getPresignedDownloadUrl } from "./s3";
 import { MAX_FILE_SIZE, MAX_FILES_PER_REQUEST, isAllowedMimeType } from "./validation";
 import { rlFileUpload } from "../rate-limit";
@@ -59,6 +59,13 @@ const app = new OpenAPIHono().openapi(uploadRoute, async (c) => {
     return c.json({ error: `Maximum ${MAX_FILES_PER_REQUEST} files per request` }, 400);
   }
 
+  // Check per-user storage quota
+  const totalUploadSize = fileObjects.reduce((sum, f) => sum + f.size, 0);
+  const currentUsage = await getUserStorageUsage(user.id);
+  if (currentUsage + totalUploadSize > MAX_STORAGE_PER_USER_BYTES) {
+    return c.json({ error: "Storage quota exceeded (1 GB limit)" }, 400);
+  }
+
   // Validate all files first
   for (const file of fileObjects) {
     if (file.size > MAX_FILE_SIZE) {
@@ -69,15 +76,12 @@ const app = new OpenAPIHono().openapi(uploadRoute, async (c) => {
     }
   }
 
-  const results = [];
-  for (const file of fileObjects) {
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    const attachment = await createAttachment(
-      { name: file.name, type: file.type, bytes },
-      user.id,
-    );
-    results.push(attachment);
-  }
+  const results = await Promise.all(
+    fileObjects.map(async (file) => {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      return createAttachment({ name: file.name, type: file.type, bytes }, user.id);
+    }),
+  );
 
   return jsonResponse(c, {
     attachments: results.map((attachment) => ({

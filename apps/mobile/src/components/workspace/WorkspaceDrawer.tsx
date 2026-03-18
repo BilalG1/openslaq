@@ -1,7 +1,6 @@
 import { useRef, useEffect, type ReactNode } from "react";
 import {
   Animated,
-  PanResponder,
   Pressable,
   StyleSheet,
   View,
@@ -10,46 +9,24 @@ import {
 import { useWorkspaceDrawer } from "@/contexts/WorkspaceDrawerContext";
 import { WorkspaceSidebar } from "./WorkspaceSidebar";
 
-const DRAWER_WIDTH = 72;
-const EDGE_ZONE = 20;
-const SWIPE_THRESHOLD = 30;
+const DRAWER_WIDTH_RATIO = 0.8;
 
 export function WorkspaceDrawer({ children }: { children: ReactNode }) {
-  const { isOpen, open, close } = useWorkspaceDrawer();
-  const { height } = useWindowDimensions();
-  const translateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
+  const { isOpen, close } = useWorkspaceDrawer();
+  const { width: screenWidth, height } = useWindowDimensions();
+  const drawerWidth = Math.round(screenWidth * DRAWER_WIDTH_RATIO);
+  const translateX = useRef(new Animated.Value(-drawerWidth)).current;
 
   useEffect(() => {
     Animated.timing(translateX, {
-      toValue: isOpen ? 0 : -DRAWER_WIDTH,
+      toValue: isOpen ? 0 : -drawerWidth,
       duration: 200,
       useNativeDriver: true,
     }).start();
-  }, [isOpen, translateX]);
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: (_evt, gestureState) => {
-        // Only respond to touches in the left edge zone
-        return gestureState.x0 < EDGE_ZONE;
-      },
-      onMoveShouldSetPanResponder: (_evt, gestureState) => {
-        // Only respond to horizontal swipes from left edge
-        return (
-          gestureState.x0 < EDGE_ZONE &&
-          Math.abs(gestureState.dx) > Math.abs(gestureState.dy)
-        );
-      },
-      onPanResponderRelease: (_evt, gestureState) => {
-        if (gestureState.dx > SWIPE_THRESHOLD) {
-          open();
-        }
-      },
-    }),
-  ).current;
+  }, [isOpen, translateX, drawerWidth]);
 
   return (
-    <View style={styles.container} {...panResponder.panHandlers}>
+    <View style={styles.container}>
       {children}
 
       {/* Backdrop */}
@@ -66,7 +43,7 @@ export function WorkspaceDrawer({ children }: { children: ReactNode }) {
         testID="workspace-drawer"
         style={[
           styles.drawer,
-          { height, transform: [{ translateX }] },
+          { height, width: drawerWidth, transform: [{ translateX }] },
         ]}
       >
         <WorkspaceSidebar />
@@ -90,6 +67,5 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 0,
     left: 0,
-    width: DRAWER_WIDTH,
   },
 });

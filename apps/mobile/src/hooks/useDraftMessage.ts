@@ -9,6 +9,7 @@ export function useDraftMessage(draftKey: string | undefined) {
   const [isLoaded, setIsLoaded] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingValueRef = useRef<string | null>(null);
+  const pendingKeyRef = useRef<string | undefined>(undefined);
   const keyRef = useRef(draftKey);
   keyRef.current = draftKey;
 
@@ -36,35 +37,43 @@ export function useDraftMessage(draftKey: string | undefined) {
         clearTimeout(timerRef.current);
         timerRef.current = null;
       }
-      if (pendingValueRef.current !== null && keyRef.current) {
+      const unmountKey = pendingKeyRef.current ?? keyRef.current;
+      if (pendingValueRef.current !== null && unmountKey) {
         const trimmed = pendingValueRef.current.trim();
         if (trimmed) {
-          void AsyncStorage.setItem(PREFIX + keyRef.current, trimmed);
+          void AsyncStorage.setItem(PREFIX + unmountKey, trimmed);
         } else {
-          void AsyncStorage.removeItem(PREFIX + keyRef.current);
+          void AsyncStorage.removeItem(PREFIX + unmountKey);
         }
         pendingValueRef.current = null;
+        pendingKeyRef.current = undefined;
       }
     };
   }, []);
 
   const saveDraft = useCallback(
     (text: string) => {
-      if (!draftKey) return;
+      const key = keyRef.current;  // capture at call time
+      if (!key) return;
       pendingValueRef.current = text;
+      pendingKeyRef.current = key;
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
         timerRef.current = null;
+        const k = pendingKeyRef.current;
+        const value = pendingValueRef.current;
         pendingValueRef.current = null;
-        const trimmed = text.trim();
+        pendingKeyRef.current = undefined;
+        if (!k) return;
+        const trimmed = (value ?? "").trim();
         if (trimmed) {
-          void AsyncStorage.setItem(PREFIX + draftKey, trimmed);
+          void AsyncStorage.setItem(PREFIX + k, trimmed);
         } else {
-          void AsyncStorage.removeItem(PREFIX + draftKey);
+          void AsyncStorage.removeItem(PREFIX + k);
         }
       }, DEBOUNCE_MS);
     },
-    [draftKey],
+    [],
   );
 
   const clearDraft = useCallback(() => {

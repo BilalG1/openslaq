@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { LayoutGrid, Sun, Moon } from "lucide-react";
 import type { Scenario } from "./scenarios";
 import { useTheme } from "../theme/ThemeProvider";
 
@@ -160,12 +161,7 @@ export function GalleryOverlay({ scenarios, activeId, onSelect }: GalleryOverlay
           className="w-12 h-12 rounded-full bg-gray-900/70 hover:bg-gray-900/90 text-white flex items-center justify-center shadow-lg backdrop-blur-sm cursor-grab active:cursor-grabbing transition-colors border border-white/30"
           title={activeScenario?.label ?? "Gallery"}
         >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="2" y="2" width="6" height="6" rx="1" fill="currentColor" opacity="0.8" />
-            <rect x="12" y="2" width="6" height="6" rx="1" fill="currentColor" opacity="0.6" />
-            <rect x="2" y="12" width="6" height="6" rx="1" fill="currentColor" opacity="0.6" />
-            <rect x="12" y="12" width="6" height="6" rx="1" fill="currentColor" opacity="0.4" />
-          </svg>
+          <LayoutGrid className="w-5 h-5" />
         </button>
       </div>
 
@@ -191,21 +187,9 @@ export function GalleryOverlay({ scenarios, activeId, onSelect }: GalleryOverlay
               title={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
             >
               {mode === "dark" ? (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="5" />
-                  <line x1="12" y1="1" x2="12" y2="3" />
-                  <line x1="12" y1="21" x2="12" y2="23" />
-                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-                  <line x1="1" y1="12" x2="3" y2="12" />
-                  <line x1="21" y1="12" x2="23" y2="12" />
-                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-                </svg>
+                <Sun size={14} />
               ) : (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-                </svg>
+                <Moon size={14} />
               )}
             </button>
           </div>

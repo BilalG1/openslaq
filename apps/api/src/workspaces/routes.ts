@@ -1,9 +1,9 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { auth } from "../auth/middleware";
 import { createWorkspaceSchema } from "./validation";
-import { createWorkspace, getWorkspacesForUser } from "./service";
+import { createWorkspace, getWorkspacesForUser, getOwnedWorkspaceCount, quotas } from "./service";
 import { rlWorkspaceCreate, rlRead } from "../rate-limit";
-import { workspaceWithRoleSchema, workspaceSchema } from "../openapi/schemas";
+import { workspaceWithRoleSchema, workspaceSchema, errorSchema } from "../openapi/schemas";
 import { jsonResponse } from "../openapi/responses";
 
 const listWorkspacesRoute = createRoute({
@@ -38,6 +38,10 @@ const createWorkspaceRoute = createRoute({
       content: { "application/json": { schema: workspaceSchema } },
       description: "Created workspace",
     },
+    400: {
+      content: { "application/json": { schema: errorSchema } },
+      description: "Quota exceeded",
+    },
   },
 });
 
@@ -50,6 +54,11 @@ const app = new OpenAPIHono()
   .openapi(createWorkspaceRoute, async (c) => {
     const user = c.get("user");
     const { name } = c.req.valid("json");
+
+    const ownedCount = await getOwnedWorkspaceCount(user.id);
+    if (ownedCount >= quotas.maxWorkspacesPerUser) {
+      return c.json({ error: `Maximum ${quotas.maxWorkspacesPerUser} workspaces per user` }, 400);
+    }
 
     const result = await createWorkspace(name, user.id);
     if (!result) {

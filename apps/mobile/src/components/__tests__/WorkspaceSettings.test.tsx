@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react-native";
+import { render, screen, fireEvent } from "@testing-library/react-native";
 import WorkspaceSettingsScreen from "../../../app/(app)/[workspaceSlug]/workspace-settings";
 import * as clientCore from "@openslaq/client-core";
 
@@ -24,14 +24,17 @@ const mockListMembers = clientCore.listWorkspaceMembers as jest.MockedFunction<t
 const mockListInvites = clientCore.listInvites as jest.MockedFunction<typeof clientCore.listInvites>;
 const mockListWorkspaces = clientCore.listWorkspaces as jest.MockedFunction<typeof clientCore.listWorkspaces>;
 
+const mockAuthProvider = {
+  getAccessToken: async () => "token",
+  requireAccessToken: async () => "token",
+  onAuthRequired: jest.fn(),
+};
+const mockUser = { id: "u-1" };
+
 jest.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({
-    authProvider: {
-      getAccessToken: async () => "token",
-      requireAccessToken: async () => "token",
-      onAuthRequired: jest.fn(),
-    },
-    user: { id: "u-1" },
+    authProvider: mockAuthProvider,
+    user: mockUser,
   }),
 }));
 
@@ -50,9 +53,9 @@ jest.mock("@/theme/ThemeProvider", () => ({
         textSecondary: "#666",
         textFaint: "#999",
         borderDefault: "#ddd",
-        dangerText: "#e01e5a",
+        dangerText: "#dc2626",
       },
-      brand: { primary: "#4A154B" },
+      brand: { primary: "#1264a3" },
     },
   }),
 }));
@@ -85,18 +88,21 @@ describe("WorkspaceSettingsScreen", () => {
     // Flush all microtasks (resolved promises) and timers
     await jest.runAllTimersAsync();
 
-    // Members section
-    expect(screen.getByText("Members (2)")).toBeTruthy();
+    // Members tab (default active)
+    expect(screen.getByText(/2\s*member/i)).toBeTruthy();
     expect(screen.getByTestId("member-row-u-1")).toBeTruthy();
     expect(screen.getByTestId("member-row-u-2")).toBeTruthy();
 
-    // Invites section (owner can see)
-    expect(screen.getByText("Invites (1)")).toBeTruthy();
+    // Switch to Invites tab
+    fireEvent.press(screen.getByTestId("tab-invites"));
+
     expect(screen.getByTestId("invite-row-inv-1")).toBeTruthy();
-    expect(screen.getByText("abc123")).toBeTruthy();
+    expect(screen.getByText(/abc123/)).toBeTruthy();
     expect(screen.getByTestId("create-invite-button")).toBeTruthy();
 
-    // Delete section (owner only)
+    // Switch to Danger tab
+    fireEvent.press(screen.getByTestId("tab-danger"));
+
     expect(screen.getByTestId("delete-workspace-input")).toBeTruthy();
     expect(screen.getByTestId("delete-workspace-button")).toBeTruthy();
 

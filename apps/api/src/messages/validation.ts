@@ -52,6 +52,12 @@ export const updateScheduledMessageSchema = z
     { message: "Scheduled time must be at least 1 minute from now" },
   );
 
+export const upsertDraftSchema = z.object({
+  channelId: z.string().uuid(),
+  content: z.string().max(10000),
+  parentMessageId: z.string().uuid().optional(),
+});
+
 export type CreateMessage = z.infer<typeof createMessageSchema>;
 export type EditMessage = z.infer<typeof editMessageSchema>;
 export type MessagesPagination = z.infer<typeof messagesPaginationSchema>;

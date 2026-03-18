@@ -59,7 +59,7 @@ describe("LinkInsertSheet", () => {
       />,
     );
 
-    fireEvent.press(screen.getByTestId("link-sheet-backdrop"));
+    fireEvent.press(screen.getByTestId("link-sheet-content-backdrop"));
     expect(onClose).toHaveBeenCalled();
   });
 

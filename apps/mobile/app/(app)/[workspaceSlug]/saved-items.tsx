@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import {
   View,
   Text,
   FlatList,
-  ActivityIndicator,
   Pressable,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -12,41 +11,29 @@ import {
   unsaveMessageOp,
   type SavedMessageItem,
 } from "@openslaq/client-core";
-import { useAuth } from "@/contexts/AuthContext";
-import { useChatStore } from "@/contexts/ChatStoreProvider";
 import { useMobileTheme } from "@/theme/ThemeProvider";
-import { api } from "@/lib/api";
+import { useOperationDeps } from "@/hooks/useOperationDeps";
+import { useFetchData } from "@/hooks/useFetchData";
+import { LoadingScreen } from "@/components/ui/LoadingScreen";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { routes } from "@/lib/routes";
 
 export default function SavedItemsScreen() {
   const { workspaceSlug } = useLocalSearchParams<{ workspaceSlug: string }>();
-  const { authProvider } = useAuth();
-  const { state, dispatch } = useChatStore();
+  const deps = useOperationDeps();
   const { theme } = useMobileTheme();
   const router = useRouter();
 
-  const [items, setItems] = useState<SavedMessageItem[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!workspaceSlug) return;
-    let cancelled = false;
-    const deps = { api, auth: authProvider, dispatch, getState: () => state };
-    void fetchSavedMessages(deps, { workspaceSlug }).then((result) => {
-      if (cancelled) return;
-      setItems(result);
-      setLoading(false);
-    }).catch(() => {
-      if (cancelled) return;
-      setLoading(false);
-    });
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workspaceSlug, authProvider, dispatch]);
+  const { data: items, setData: setItems, loading } = useFetchData<SavedMessageItem[]>({
+    fetchFn: () => fetchSavedMessages(deps, { workspaceSlug }),
+    deps: [workspaceSlug, deps],
+    enabled: !!workspaceSlug,
+    initialValue: [],
+  });
 
   const handleRemove = useCallback(
     async (item: SavedMessageItem) => {
       if (!workspaceSlug) return;
-      const deps = { api, auth: authProvider, dispatch, getState: () => state };
       await unsaveMessageOp(deps, {
         workspaceSlug,
         channelId: item.message.channelId,
@@ -54,25 +41,18 @@ export default function SavedItemsScreen() {
       });
       setItems((prev) => prev.filter((i) => i.message.id !== item.message.id));
     },
-    [authProvider, dispatch, state, workspaceSlug],
+    [deps, workspaceSlug],
   );
 
   const handleNavigate = useCallback(
     (item: SavedMessageItem) => {
-      router.push(`/(app)/${workspaceSlug}/(channels)/${item.message.channelId}`);
+      router.push(routes.channel(workspaceSlug, item.message.channelId));
     },
     [router, workspaceSlug],
   );
 
   if (loading) {
-    return (
-      <View
-        testID="saved-items-loading"
-        style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.surface }}
-      >
-        <ActivityIndicator size="large" color={theme.brand.primary} />
-      </View>
-    );
+    return <LoadingScreen testID="saved-items-loading" />;
   }
 
   return (
@@ -126,9 +106,7 @@ export default function SavedItemsScreen() {
           </Pressable>
         )}
         ListEmptyComponent={
-          <View testID="saved-items-empty" style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 48 }}>
-            <Text style={{ fontSize: 16, color: theme.colors.textFaint }}>No saved messages</Text>
-          </View>
+          <EmptyState testID="saved-items-empty" message="No saved messages" />
         }
       />
     </View>

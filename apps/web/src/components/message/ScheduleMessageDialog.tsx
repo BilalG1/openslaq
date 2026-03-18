@@ -4,6 +4,8 @@ import {
   DialogContent,
   DialogTitle,
 } from "../ui/dialog";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 
 interface ScheduleMessageDialogProps {
   open: boolean;
@@ -27,7 +29,10 @@ function formatPresetTime(date: Date): string {
   });
 }
 
+type Tab = "quick" | "custom";
+
 export function ScheduleMessageDialog({ open, onOpenChange, onSchedule }: ScheduleMessageDialogProps) {
+  const [activeTab, setActiveTab] = useState<Tab>("quick");
   const [customDate, setCustomDate] = useState("");
   const [customTime, setCustomTime] = useState("09:00");
 
@@ -50,8 +55,8 @@ export function ScheduleMessageDialog({ open, onOpenChange, onSchedule }: Schedu
       { label: "In 20 minutes", time: in20 },
       { label: "In 1 hour", time: in1h },
       { label: "In 3 hours", time: in3h },
-      { label: "Tomorrow at 9:00 AM", time: tomorrow },
-      { label: "Next Monday at 9:00 AM", time: nextMonday },
+      { label: "Tomorrow 9 AM", time: tomorrow },
+      { label: "Next Monday 9 AM", time: nextMonday },
     ];
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -71,7 +76,7 @@ export function ScheduleMessageDialog({ open, onOpenChange, onSchedule }: Schedu
     onOpenChange(false);
   }, [customDate, customTime, onSchedule, onOpenChange]);
 
-  const minDate = new Date().toISOString().split("T")[0];
+  const minDate = useMemo(() => new Date().toISOString().split("T")[0]!, [open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -79,54 +84,83 @@ export function ScheduleMessageDialog({ open, onOpenChange, onSchedule }: Schedu
         <div className="p-4">
           <DialogTitle className="mb-4">Schedule message</DialogTitle>
 
-          <div className="space-y-1 mb-4">
-            {presets.map((preset) => (
-              <button
-                key={preset.label}
-                type="button"
-                onClick={() => handlePreset(preset.time)}
-                className="w-full text-left px-3 py-2 text-sm rounded hover:bg-surface-raised cursor-pointer bg-transparent border-none text-primary"
-                data-testid={`schedule-preset-${preset.label.toLowerCase().replace(/\s+/g, "-")}`}
-              >
-                <span className="font-medium">{preset.label}</span>
-                <span className="text-secondary ml-2">{formatPresetTime(preset.time)}</span>
-              </button>
-            ))}
+          <div className="flex border-b border-border-default mb-4">
+            <button
+              type="button"
+              onClick={() => setActiveTab("quick")}
+              className={`px-4 py-2 text-sm font-medium cursor-pointer bg-transparent border-none transition-colors ${
+                activeTab === "quick"
+                  ? "text-slaq-blue border-b-2 border-b-slaq-blue -mb-px"
+                  : "text-secondary hover:text-primary"
+              }`}
+            >
+              Quick pick
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("custom")}
+              className={`px-4 py-2 text-sm font-medium cursor-pointer bg-transparent border-none transition-colors ${
+                activeTab === "custom"
+                  ? "text-slaq-blue border-b-2 border-b-slaq-blue -mb-px"
+                  : "text-secondary hover:text-primary"
+              }`}
+            >
+              Custom
+            </button>
           </div>
 
-          <div className="border-t border-border-default pt-4">
-            <div className="text-sm font-medium text-primary mb-2">Custom time</div>
-            <div className="flex gap-2 items-end">
-              <div className="flex-1">
-                <input
+          {activeTab === "quick" && (
+            <div className="flex flex-wrap gap-2">
+              {presets.map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => handlePreset(preset.time)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-full bg-surface-raised border border-border-default hover:bg-slaq-blue hover:text-white hover:border-slaq-blue transition-colors cursor-pointer text-primary"
+                  data-testid={`schedule-preset-${preset.label.toLowerCase().replace(/\s+/g, "-")}`}
+                >
+                  <span className="font-medium">{preset.label}</span>
+                  <span className="text-xs opacity-70">{formatPresetTime(preset.time)}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {activeTab === "custom" && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-primary mb-1.5">Date</label>
+                <Input
                   type="date"
                   value={customDate}
                   min={minDate}
                   onChange={(e) => setCustomDate(e.target.value)}
-                  className="w-full px-2 py-1.5 text-sm border border-border-default rounded bg-surface text-primary"
+                  className="w-full"
                   data-testid="schedule-custom-date"
                 />
               </div>
-              <div className="w-24">
-                <input
+              <div>
+                <label className="block text-sm font-medium text-primary mb-1.5">Time</label>
+                <Input
                   type="time"
                   value={customTime}
                   onChange={(e) => setCustomTime(e.target.value)}
-                  className="w-full px-2 py-1.5 text-sm border border-border-default rounded bg-surface text-primary"
+                  className="w-full"
                   data-testid="schedule-custom-time"
                 />
               </div>
-              <button
-                type="button"
+              <Button
+                variant="primary"
+                size="md"
                 onClick={handleCustomSubmit}
                 disabled={!customDate || !customTime}
-                className="px-3 py-1.5 text-sm rounded bg-slaq-blue text-white disabled:opacity-50 border-none cursor-pointer"
+                className="w-full"
                 data-testid="schedule-custom-submit"
               >
                 Schedule
-              </button>
+              </Button>
             </div>
-          </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

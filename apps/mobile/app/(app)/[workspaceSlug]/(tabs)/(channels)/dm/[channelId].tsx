@@ -24,16 +24,16 @@ import {
 } from "@openslaq/client-core";
 import * as Clipboard from "expo-clipboard";
 import type { ChannelNotifyLevel } from "@openslaq/shared";
-import type { MentionSuggestionItem } from "@/hooks/useMentionAutocomplete";
+import type { MentionSuggestionItem } from "@/components/MentionSuggestionList";
 import { useAuth } from "@/contexts/AuthContext";
 import { useChatStore } from "@/contexts/ChatStoreProvider";
 import { useSocket } from "@/contexts/SocketProvider";
 import { useSocketEvent } from "@/hooks/useSocketEvent";
 import { useMessageActions } from "@/hooks/useMessageActions";
+import { useOperationDeps } from "@/hooks/useOperationDeps";
 import { useTypingEmitter } from "@/hooks/useTypingEmitter";
 import { useTypingTracking } from "@/hooks/useTypingTracking";
 import { useFileUpload, type PendingFile } from "@/hooks/useFileUpload";
-import { api } from "@/lib/api";
 import { MessageBubble } from "@/components/MessageBubble";
 import { MessageInput } from "@/components/MessageInput";
 import { TypingIndicator } from "@/components/TypingIndicator";
@@ -41,7 +41,10 @@ import { MessageActionSheet } from "@/components/MessageActionSheet";
 import { EmojiPickerSheet } from "@/components/EmojiPickerSheet";
 import { ShareMessageModal } from "@/components/ShareMessageModal";
 import { HuddleHeaderButton } from "@/components/huddle/HuddleHeaderButton";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMobileTheme } from "@/theme/ThemeProvider";
+import { ChevronLeft } from "lucide-react-native";
+import { routes } from "@/lib/routes";
 
 export default function DmScreen() {
   const { workspaceSlug: urlSlug, channelId: dmChannelId } = useLocalSearchParams<{
@@ -50,17 +53,14 @@ export default function DmScreen() {
   }>();
   const { authProvider, user } = useAuth();
   const { state, dispatch } = useChatStore();
+  const deps = useOperationDeps();
   const workspaceSlug = state.workspaceSlug ?? urlSlug;
   const { joinChannel, leaveChannel } = useSocket();
   const navigation = useNavigation();
   const router = useRouter();
   const { theme } = useMobileTheme();
-  const { handleEditMessage, handleDeleteMessage, handleToggleReaction } = useMessageActions({
-    authProvider,
-    state,
-    dispatch,
-    userId: user?.id,
-  });
+  const insets = useSafeAreaInsets();
+  const { handleEditMessage, handleDeleteMessage, handleToggleReaction } = useMessageActions(user?.id);
 
   const [editingMessage, setEditingMessage] = useState<{
     id: string;
@@ -101,8 +101,7 @@ export default function DmScreen() {
           text: l.value === currentLevel ? `${l.label} \u2713` : l.label,
           onPress: () => {
             if (l.value !== currentLevel) {
-              const deps = { api, auth: authProvider, dispatch, getState: () => state };
-              void setChannelNotificationPref(deps, {
+                void setChannelNotificationPref(deps, {
                 slug: workspaceSlug,
                 channelId: dmChannelId,
                 level: l.value,
@@ -128,6 +127,11 @@ export default function DmScreen() {
     if (!channelId) return;
     navigation.setOptions({
       title: displayName,
+      headerLeft: () => (
+        <Pressable testID="dm-back-button" onPress={() => router.back()} hitSlop={8} style={{ marginRight: 4 }}>
+          <ChevronLeft size={28} color={theme.brand.primary} />
+        </Pressable>
+      ),
       ...(groupDm
         ? {
             headerTitle: () => (
@@ -151,7 +155,7 @@ export default function DmScreen() {
         </View>
       ),
     });
-  }, [dm, groupDm, displayName, handleShowOptions, navigation, theme.brand.primary, theme.colors.textPrimary, theme.colors.textFaint]);
+  }, [dm, groupDm, displayName, handleShowOptions, navigation, router, theme.brand.primary, theme.colors.textPrimary, theme.colors.textFaint]);
 
   // Select the DM or group DM in state
   useEffect(() => {
@@ -167,7 +171,6 @@ export default function DmScreen() {
   useEffect(() => {
     if (!workspaceSlug || !dmChannelId) return;
     let cancelled = false;
-    const deps = { api, auth: authProvider, dispatch, getState: () => state };
     void loadChannelMessages(deps, {
       workspaceSlug,
       channelId: dmChannelId,
@@ -184,7 +187,6 @@ export default function DmScreen() {
   useEffect(() => {
     if (!workspaceSlug) return;
     let cancelled = false;
-    const deps = { api, auth: authProvider, dispatch, getState: () => state };
     void listWorkspaceMembers(deps, workspaceSlug).then((result) => {
       if (cancelled) return;
       setMembers(result.map((m) => ({ id: m.id, displayName: m.displayName })));
@@ -260,14 +262,14 @@ export default function DmScreen() {
 
   const handlePressThread = useCallback(
     (messageId: string) => {
-      router.push(`/${workspaceSlug}/thread/${messageId}`);
+      router.push(routes.thread(workspaceSlug, messageId));
     },
     [router, workspaceSlug],
   );
 
   const handlePressSender = useCallback(
     (userId: string) => {
-      router.push(`/(app)/${workspaceSlug}/profile/${userId}`);
+      router.push(routes.profile(workspaceSlug, userId));
     },
     [router, workspaceSlug],
   );
@@ -284,7 +286,6 @@ export default function DmScreen() {
       };
       fileUpload.addFile(file);
       const attachmentIds = await fileUpload.uploadAll(() => authProvider.requireAccessToken());
-      const deps = { api, auth: authProvider, dispatch, getState: () => state };
       await coreSendMessage(deps, { channelId: dmChannelId, workspaceSlug, content: "", attachmentIds });
       fileUpload.reset();
     },
@@ -307,7 +308,6 @@ export default function DmScreen() {
       if (fileUpload.hasFiles) {
         attachmentIds = await fileUpload.uploadAll(() => authProvider.requireAccessToken());
       }
-      const deps = { api, auth: authProvider, dispatch, getState: () => state };
       await coreSendMessage(deps, {
         channelId: dmChannelId,
         workspaceSlug,
@@ -360,7 +360,6 @@ export default function DmScreen() {
   const handleSaveMessage = useCallback(
     async (messageId: string) => {
       if (!workspaceSlug || !dmChannelId) return;
-      const deps = { api, auth: authProvider, dispatch, getState: () => state };
       await saveMessageOp(deps, { workspaceSlug, channelId: dmChannelId, messageId });
     },
     [authProvider, dmChannelId, dispatch, state, workspaceSlug],
@@ -369,7 +368,6 @@ export default function DmScreen() {
   const handleUnsaveMessage = useCallback(
     async (messageId: string) => {
       if (!workspaceSlug || !dmChannelId) return;
-      const deps = { api, auth: authProvider, dispatch, getState: () => state };
       await unsaveMessageOp(deps, { workspaceSlug, channelId: dmChannelId, messageId });
     },
     [authProvider, dmChannelId, dispatch, state, workspaceSlug],
@@ -395,7 +393,6 @@ export default function DmScreen() {
   const handleMarkAsUnread = useCallback(
     async (messageId: string) => {
       if (!workspaceSlug || !dmChannelId) return;
-      const deps = { api, auth: authProvider, dispatch, getState: () => state };
       await markChannelAsUnread(deps, { workspaceSlug, channelId: dmChannelId, messageId });
     },
     [authProvider, dmChannelId, dispatch, state, workspaceSlug],
@@ -409,8 +406,7 @@ export default function DmScreen() {
     async (content: string, scheduledFor: Date) => {
       if (!workspaceSlug || !dmChannelId) return;
       try {
-        const deps = { api, auth: authProvider, dispatch, getState: () => state };
-        let attachmentIds: string[] = [];
+          let attachmentIds: string[] = [];
         if (fileUpload.hasFiles) {
           attachmentIds = await fileUpload.uploadAll(() => authProvider.requireAccessToken());
         }
@@ -434,8 +430,7 @@ export default function DmScreen() {
     async (destinationChannelId: string, destinationName: string, comment: string) => {
       if (!shareMessage || !workspaceSlug) return;
       try {
-        const deps = { api, auth: authProvider, dispatch, getState: () => state };
-        await shareMessageOp(deps, {
+          await shareMessageOp(deps, {
           workspaceSlug,
           destinationChannelId,
           sharedMessageId: shareMessage.id,
@@ -454,7 +449,7 @@ export default function DmScreen() {
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={{ flex: 1, backgroundColor: theme.colors.surface }}
-      keyboardVerticalOffset={90}
+      keyboardVerticalOffset={insets.top + 56}
     >
       {isLoading && messages.length === 0 ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -465,17 +460,27 @@ export default function DmScreen() {
           testID="message-list"
           data={messages}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <MessageBubble
-              message={item}
-              onPressThread={handlePressThread}
-              currentUserId={user?.id}
-              onToggleReaction={handleToggleReaction}
-              onLongPress={handleLongPress}
-              onPressSender={handlePressSender}
-              customEmojis={customEmojis}
-            />
-          )}
+          renderItem={({ item, index }) => {
+            const prev = index > 0 ? messages[index - 1] : undefined;
+            const isGrouped =
+              prev != null &&
+              prev.userId === item.userId &&
+              new Date(item.createdAt).getTime() - new Date(prev.createdAt).getTime() < 5 * 60 * 1000 &&
+              new Date(item.createdAt).toDateString() === new Date(prev.createdAt).toDateString();
+            return (
+              <MessageBubble
+                message={item}
+                isGrouped={isGrouped}
+                onPressThread={handlePressThread}
+                currentUserId={user?.id}
+                onToggleReaction={handleToggleReaction}
+                onLongPress={handleLongPress}
+                onPressSender={handlePressSender}
+                onPressMention={handlePressSender}
+                customEmojis={customEmojis}
+              />
+            );
+          }}
           inverted={false}
           ListEmptyComponent={
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 48 }}>

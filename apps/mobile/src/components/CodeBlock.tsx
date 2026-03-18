@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { View, Text } from "react-native";
+import { View, Text, ScrollView } from "react-native";
 import SyntaxHighlighter from "react-native-syntax-highlighter";
 import { atomOneDark, atomOneLight } from "react-syntax-highlighter/styles/hljs";
 import { useMobileTheme } from "@/theme/ThemeProvider";
@@ -47,6 +47,7 @@ function CodeBlockInner({ language, children }: Props) {
           margin: 0,
           backgroundColor: isDark ? "#282c34" : "#fafafa",
         }}
+        {...({ PreTag: ScrollView, CodeTag: ScrollView } as Record<string, unknown>)}
       >
         {children}
       </SyntaxHighlighter>

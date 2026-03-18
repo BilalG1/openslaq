@@ -51,7 +51,7 @@ describe("NotificationLevelSheet", () => {
       <NotificationLevelSheet {...defaultProps} onClose={onClose} />,
     );
 
-    fireEvent.press(getByTestId("notification-sheet-backdrop"));
+    fireEvent.press(getByTestId("notification-sheet-content-backdrop"));
     expect(onClose).toHaveBeenCalled();
   });
 

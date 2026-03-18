@@ -33,7 +33,7 @@ export type {
 } from "./socket";
 
 export type { OperationDeps, ApiDeps } from "./operations";
-export type { WorkspaceMember, ChannelMember, WorkspaceListItem, BrowseChannel, UserProfile, SavedMessageItem, ScheduledMessageItem, FetchFilesParams, FetchFilesResult } from "./operations";
+export type { WorkspaceMember, ChannelMember, WorkspaceListItem, BrowseChannel, UserProfile, SavedMessageItem, ScheduledMessageItem, DraftItem, FetchFilesParams, FetchFilesResult, UserThreadItem } from "./operations";
 export { normalizeChannel } from "./operations/normalize";
 export {
   bootstrapWorkspace,
@@ -43,6 +43,7 @@ export {
   loadThreadMessages,
   loadOlderReplies,
   loadMoreReplies,
+  fetchUserThreads,
   toggleReaction,
   sendMessage,
   editMessage,
@@ -121,6 +122,11 @@ export {
   fetchScheduledCountForChannel,
   updateScheduledMessageOp,
   deleteScheduledMessageOp,
+  fetchDrafts,
+  upsertDraftOp,
+  deleteDraftOp,
+  deleteDraftByKeyOp,
+  fetchDraftForChannel,
   fetchFiles,
   fetchCustomEmojis,
   uploadCustomEmoji,
@@ -142,6 +148,10 @@ export {
   installMarketplaceListing,
   uninstallMarketplaceListing,
   getInstalledListings,
+  getFeatureFlags,
+  getAdminFeatureFlags,
+  updateAdminFeatureFlags,
+  bulkUpdateFeatureFlag,
 } from "./operations";
 
 export {

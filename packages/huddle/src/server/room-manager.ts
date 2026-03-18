@@ -45,6 +45,19 @@ export class RoomManager {
     }
   }
 
+  async listRooms() {
+    try {
+      return await this.client.listRooms();
+    } catch {
+      return [];
+    }
+  }
+
+  async getTotalParticipantCount(): Promise<number> {
+    const rooms = await this.listRooms();
+    return rooms.reduce((sum, room) => sum + room.numParticipants, 0);
+  }
+
   async removeParticipant(channelId: string, userId: string): Promise<void> {
     const roomName = RoomManager.roomNameForChannel(channelId);
     try {

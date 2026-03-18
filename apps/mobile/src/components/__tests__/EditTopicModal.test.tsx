@@ -15,7 +15,7 @@ jest.mock("@/theme/ThemeProvider", () => ({
         borderDefault: "#ddd",
         dangerText: "#d00",
       },
-      brand: { primary: "#4A154B" },
+      brand: { primary: "#1264a3" },
     },
   }),
 }));
@@ -107,7 +107,7 @@ describe("EditTopicModal", () => {
   it("backdrop press calls onClose", () => {
     const { props } = renderModal();
 
-    fireEvent.press(screen.getByTestId("edit-topic-backdrop"));
+    fireEvent.press(screen.getByTestId("edit-topic-modal-backdrop"));
 
     expect(props.onClose).toHaveBeenCalled();
   });

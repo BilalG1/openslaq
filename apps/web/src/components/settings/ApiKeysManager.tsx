@@ -2,45 +2,30 @@ import { useState, useEffect } from "react";
 import type { ApiKey, BotScope } from "@openslaq/shared";
 import { useApiKeysApi } from "../../hooks/api/useApiKeysApi";
 import { getErrorMessage } from "../../lib/errors";
-import { Button, Input, Badge } from "../ui";
+import { Button, Input, Badge, Switch } from "../ui";
+import clsx from "clsx";
 
-const SCOPE_GROUPS: { label: string; scopes: { value: BotScope; label: string }[] }[] = [
-  {
-    label: "Messages",
-    scopes: [
-      { value: "chat:read", label: "Read messages" },
-      { value: "chat:write", label: "Send messages" },
-    ],
-  },
-  {
-    label: "Channels",
-    scopes: [
-      { value: "channels:read", label: "List channels" },
-      { value: "channels:write", label: "Manage channels" },
-    ],
-  },
-  {
-    label: "Members",
-    scopes: [
-      { value: "channels:members:read", label: "View members" },
-      { value: "channels:members:write", label: "Manage members" },
-    ],
-  },
-  {
-    label: "Reactions",
-    scopes: [
-      { value: "reactions:read", label: "Read reactions" },
-      { value: "reactions:write", label: "Add reactions" },
-    ],
-  },
-  {
-    label: "Users & Presence",
-    scopes: [
-      { value: "users:read", label: "View users" },
-      { value: "presence:read", label: "View presence" },
-    ],
-  },
+type ScopeCategory = {
+  label: string;
+  readScope: BotScope;
+  readLabel: string;
+  writeScope?: BotScope;
+  writeLabel?: string;
+};
+
+const CATEGORIES: ScopeCategory[] = [
+  { label: "Messages", readScope: "chat:read", readLabel: "Read", writeScope: "chat:write", writeLabel: "Write" },
+  { label: "Channels", readScope: "channels:read", readLabel: "Read", writeScope: "channels:write", writeLabel: "Write" },
+  { label: "Members", readScope: "channels:members:read", readLabel: "Read", writeScope: "channels:members:write", writeLabel: "Write" },
+  { label: "Reactions", readScope: "reactions:read", readLabel: "Read", writeScope: "reactions:write", writeLabel: "Write" },
+  { label: "Users & Presence", readScope: "users:read", readLabel: "Users" },
 ];
+
+// Also include presence:read in Users & Presence
+const EXTRA_READ_SCOPES: BotScope[] = ["presence:read"];
+
+const ALL_READ_SCOPES: BotScope[] = [...CATEGORIES.map((c) => c.readScope), ...EXTRA_READ_SCOPES];
+const ALL_WRITE_SCOPES: BotScope[] = CATEGORIES.filter((c) => c.writeScope).map((c) => c.writeScope!);
 
 export function ApiKeysManager() {
   const { listApiKeys, createApiKey, deleteApiKey } = useApiKeysApi();
@@ -51,7 +36,7 @@ export function ApiKeysManager() {
   // Create form state
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState("");
-  const [selectedScopes, setSelectedScopes] = useState<string[]>([]);
+  const [selectedScopes, setSelectedScopes] = useState<Set<string>>(new Set());
   const [creating, setCreating] = useState(false);
 
   // Newly created token (shown once)
@@ -74,22 +59,53 @@ export function ApiKeysManager() {
     }
   }
 
-  const toggleScope = (scope: string) => {
-    setSelectedScopes((prev) =>
-      prev.includes(scope) ? prev.filter((s) => s !== scope) : [...prev, scope],
-    );
+  const toggleScope = (scope: string, enabled: boolean) => {
+    setSelectedScopes((prev) => {
+      const next = new Set(prev);
+      if (enabled) {
+        next.add(scope);
+        // For Users & Presence category, also add presence:read when users:read is enabled
+        if (scope === "users:read") next.add("presence:read");
+      } else {
+        next.delete(scope);
+        if (scope === "users:read") next.delete("presence:read");
+      }
+      return next;
+    });
+  };
+
+  const selectAllRead = () => {
+    setSelectedScopes((prev) => {
+      const next = new Set(prev);
+      for (const s of ALL_READ_SCOPES) next.add(s);
+      return next;
+    });
+  };
+
+  const selectAllWrite = () => {
+    setSelectedScopes((prev) => {
+      const next = new Set(prev);
+      for (const s of ALL_WRITE_SCOPES) next.add(s);
+      // Also enable all read scopes
+      for (const s of ALL_READ_SCOPES) next.add(s);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    setSelectedScopes(new Set([...ALL_READ_SCOPES, ...ALL_WRITE_SCOPES]));
   };
 
   const handleCreate = async () => {
-    if (!name.trim() || selectedScopes.length === 0) return;
+    if (!name.trim() || selectedScopes.size === 0) return;
     setCreating(true);
     setError(null);
     try {
-      const result = await createApiKey({ name: name.trim(), scopes: selectedScopes });
+      const result = await createApiKey({ name: name.trim(), scopes: Array.from(selectedScopes) });
       setNewToken(result.token);
       setKeys((prev) => [result, ...prev]);
       setName("");
-      setSelectedScopes([]);
+      setSelectedScopes(new Set());
       setShowCreate(false);
     } catch (err) {
       setError(getErrorMessage(err, "Failed to create API key"));
@@ -113,6 +129,9 @@ export function ApiKeysManager() {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const hasAnyScope = (cat: ScopeCategory) =>
+    selectedScopes.has(cat.readScope) || (cat.writeScope ? selectedScopes.has(cat.writeScope) : false);
 
   return (
     <div>
@@ -190,26 +209,71 @@ export function ApiKeysManager() {
           </div>
 
           <div className="mb-3">
-            <label className="block text-xs font-medium text-muted mb-2">Permissions</label>
-            <div className="flex flex-col gap-3">
-              {SCOPE_GROUPS.map((group) => (
-                <div key={group.label}>
-                  <div className="text-xs font-medium text-secondary mb-1">{group.label}</div>
-                  <div className="flex flex-col gap-1">
-                    {group.scopes.map((scope) => (
-                      <label key={scope.value} className="flex items-center gap-2 cursor-pointer py-0.5">
-                        <input
-                          type="checkbox"
-                          checked={selectedScopes.includes(scope.value)}
-                          onChange={() => toggleScope(scope.value)}
-                          data-testid={`scope-${scope.value}`}
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-medium text-muted">Permissions</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={selectAllRead}
+                  className="text-[10px] text-slaq-blue hover:underline cursor-pointer bg-transparent border-none p-0"
+                >
+                  All read
+                </button>
+                <button
+                  type="button"
+                  onClick={selectAllWrite}
+                  className="text-[10px] text-slaq-blue hover:underline cursor-pointer bg-transparent border-none p-0"
+                >
+                  All write
+                </button>
+                <button
+                  type="button"
+                  onClick={selectAll}
+                  className="text-[10px] text-slaq-blue hover:underline cursor-pointer bg-transparent border-none p-0"
+                >
+                  Select all
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              {CATEGORIES.map((cat) => (
+                <div
+                  key={cat.label}
+                  className={clsx(
+                    "rounded-lg border-2 p-3 transition-colors bg-surface",
+                    hasAnyScope(cat)
+                      ? "border-slaq-blue/40"
+                      : "border-border-default",
+                  )}
+                >
+                  <div className="text-xs font-medium text-primary mb-2">{cat.label}</div>
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-muted">{cat.readLabel}</span>
+                      <Switch
+                        checked={selectedScopes.has(cat.readScope)}
+                        onCheckedChange={(checked) => toggleScope(cat.readScope, checked)}
+                        data-testid={`scope-${cat.readScope}`}
+                      />
+                    </div>
+                    {cat.writeScope && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] text-muted">{cat.writeLabel}</span>
+                        <Switch
+                          checked={selectedScopes.has(cat.writeScope)}
+                          onCheckedChange={(checked) => toggleScope(cat.writeScope!, checked)}
+                          data-testid={`scope-${cat.writeScope}`}
                         />
-                        <span className="text-sm text-primary">{scope.label}</span>
-                      </label>
-                    ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
+            </div>
+
+            <div className="text-[11px] text-muted mt-2">
+              {selectedScopes.size} scope{selectedScopes.size !== 1 ? "s" : ""} selected
             </div>
           </div>
 
@@ -217,7 +281,7 @@ export function ApiKeysManager() {
             <Button
               size="sm"
               data-testid="submit-api-key-btn"
-              disabled={!name.trim() || selectedScopes.length === 0 || creating}
+              disabled={!name.trim() || selectedScopes.size === 0 || creating}
               onClick={() => void handleCreate()}
             >
               {creating ? "Creating..." : "Create"}
@@ -228,7 +292,7 @@ export function ApiKeysManager() {
               onClick={() => {
                 setShowCreate(false);
                 setName("");
-                setSelectedScopes([]);
+                setSelectedScopes(new Set());
               }}
             >
               Cancel

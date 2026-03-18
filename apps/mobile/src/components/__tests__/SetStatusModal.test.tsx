@@ -30,7 +30,7 @@ jest.mock("../EmojiPickerSheet", () => ({
 jest.mock("@/theme/ThemeProvider", () => ({
   useMobileTheme: () => ({
     theme: {
-      brand: { primary: "#4A154B" },
+      brand: { primary: "#1264a3" },
       colors: {
         surface: "#fff",
         surfaceSecondary: "#f5f5f5",
@@ -144,7 +144,7 @@ describe("SetStatusModal", () => {
 
   it("calls onClose on backdrop tap", () => {
     const { props } = renderModal();
-    fireEvent.press(screen.getByTestId("set-status-backdrop"));
+    fireEvent.press(screen.getByTestId("set-status-modal-backdrop"));
     expect(props.onClose).toHaveBeenCalled();
   });
 

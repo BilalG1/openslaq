@@ -1,21 +1,7 @@
 import { Pressable, Text, View } from "react-native";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { haptics } from "@/utils/haptics";
-import Svg, { Path } from "react-native-svg";
-
-function ChevronDown({ color, size = 14 }: { color: string; size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M6 9l6 6 6-6"
-        stroke={color}
-        strokeWidth={2.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
+import { ChevronDown } from "lucide-react-native";
 
 interface CollapsibleSectionHeaderProps {
   sectionKey: string;
@@ -43,8 +29,7 @@ export function CollapsibleSectionHeader({
         flexDirection: "row",
         alignItems: "center",
         paddingHorizontal: 24,
-        paddingTop: 20,
-        paddingBottom: 10,
+        paddingVertical: 14,
         backgroundColor: theme.colors.surface,
         borderTopWidth: 0.5,
         borderTopColor: theme.colors.borderDefault,
@@ -73,7 +58,7 @@ export function CollapsibleSectionHeader({
           transform: [{ rotate: collapsed ? "-90deg" : "0deg" }],
         }}
       >
-        <ChevronDown color={theme.colors.textFaint} />
+        <ChevronDown size={14} color={theme.colors.textFaint} strokeWidth={2.5} />
       </View>
     </Pressable>
   );

@@ -1,3 +1,5 @@
+import "@/sentry";
+import * as Sentry from "@sentry/react-native";
 import { registerGlobals } from "@livekit/react-native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -17,7 +19,7 @@ function ThemedAppShell() {
   );
 }
 
-export default function RootLayout() {
+function RootLayout() {
   return (
     <MobileThemeProvider>
       <AuthContextProvider>
@@ -26,3 +28,5 @@ export default function RootLayout() {
     </MobileThemeProvider>
   );
 }
+
+export default Sentry.wrap(RootLayout);

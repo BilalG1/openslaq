@@ -11,6 +11,9 @@ mock.module("./BotConfigDialog", () => ({
 mock.module("./CustomEmojiManager", () => ({
   CustomEmojiManager: () => null,
 }));
+mock.module("./IntegrationsTab", () => ({
+  IntegrationsTab: () => null,
+}));
 
 // Must be a stable reference so effect deps don't loop
 const mockUser = { id: "user-1" };
@@ -58,6 +61,31 @@ mock.module("../../hooks/api/useBotsApi", () => ({
   useBotsApi: () => ({
     listBotApps: mockListBotApps,
     toggleBotEnabled: mockToggleBotEnabled,
+  }),
+}));
+
+const mockListListings = jest.fn(async () => []);
+const mockInstallListing = jest.fn(async () => {});
+const mockUninstallListing = jest.fn(async () => {});
+const mockGetInstalled = jest.fn(async () => []);
+mock.module("../../hooks/api/useMarketplaceApi", () => ({
+  useMarketplaceApi: () => ({
+    listListings: mockListListings,
+    install: mockInstallListing,
+    uninstall: mockUninstallListing,
+    getInstalled: mockGetInstalled,
+  }),
+}));
+
+const mockGetFeatureFlags = jest.fn(async () => ({
+  integrationGithub: false,
+  integrationLinear: false,
+  integrationSentry: false,
+  integrationVercel: false,
+}));
+mock.module("../../hooks/api/useFeatureFlagsApi", () => ({
+  useFeatureFlagsApi: () => ({
+    getFeatureFlags: mockGetFeatureFlags,
   }),
 }));
 

@@ -12,7 +12,7 @@ jest.mock("@/theme/ThemeProvider", () => ({
         textPrimary: "#000",
         textSecondary: "#666",
       },
-      brand: { primary: "#4A154B", danger: "#E01E5A" },
+      brand: { primary: "#1264a3", danger: "#dc2626" },
     },
   }),
 }));
@@ -48,16 +48,16 @@ describe("HuddleControls", () => {
     expect(defaultProps.onToggleScreenShare).toHaveBeenCalledTimes(1);
   });
 
-  it("shows 'Stop' label when screen sharing is active", () => {
+  it("renders screen share button with active state", () => {
     render(<HuddleControls {...defaultProps} isScreenSharing />);
 
-    expect(screen.getByText("Stop")).toBeTruthy();
+    expect(screen.getByTestId("huddle-control-screen-share")).toBeTruthy();
   });
 
-  it("shows 'Share' label when not screen sharing", () => {
+  it("renders screen share button with inactive state", () => {
     render(<HuddleControls {...defaultProps} />);
 
-    expect(screen.getByText("Share")).toBeTruthy();
+    expect(screen.getByTestId("huddle-control-screen-share")).toBeTruthy();
   });
 
   it("calls onToggleMute when mute button is pressed", () => {

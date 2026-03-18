@@ -87,6 +87,10 @@
   --avatar-fallback-text: #9ca3af;
 }
 
+*:focus-visible {
+  outline-color: var(--border-strong);
+}
+
 body {
   font-family: "Inter Variable", sans-serif;
   -webkit-font-smoothing: antialiased;

@@ -4,12 +4,6 @@ import {
   DialogContent,
   DialogTitle,
   Button,
-  Input,
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
 } from "../ui";
 import {
   STATUS_PRESETS,
@@ -108,80 +102,116 @@ export function SetStatusDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpen}>
-      <DialogContent data-testid="set-status-dialog" className="max-w-md">
-        <DialogTitle>Set a status</DialogTitle>
+      <DialogContent data-testid="set-status-dialog" className="max-w-sm p-0">
+        <div className="px-4 pt-4 pb-3">
+          <DialogTitle className="text-base">Set a status</DialogTitle>
+        </div>
 
-        <div className="flex flex-col gap-4 mt-2">
-          <div className="flex gap-2">
-            <Input
+        {/* Combined emoji + text input (Slack-style) */}
+        <div className="px-4 pb-3">
+          <div className="flex items-center border border-border-default rounded-md overflow-hidden bg-surface focus-within:border-accent">
+            <button
+              type="button"
+              className="px-3 py-2 text-lg hover:bg-surface-secondary cursor-pointer border-r border-border-default shrink-0"
+              onClick={() => {/* emoji picker placeholder */}}
+            >
+              {emoji || "😀"}
+            </button>
+            <input
               data-testid="status-emoji-input"
               value={emoji}
               onChange={(e) => setEmoji(e.target.value)}
-              placeholder="\u{1F600}"
-              className="w-16 text-center text-lg"
+              className="sr-only"
               maxLength={8}
             />
-            <Input
+            <input
               data-testid="status-text-input"
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="What's your status?"
-              className="flex-1"
+              className="flex-1 px-3 py-2 text-sm bg-transparent outline-none text-primary placeholder:text-muted"
               maxLength={100}
             />
           </div>
+        </div>
 
-          <div className="flex flex-wrap gap-2">
-            {STATUS_PRESETS.map((preset) => (
+        {/* Divider */}
+        <div className="border-t border-border-default" />
+
+        {/* Presets as vertical list */}
+        <div className="py-1">
+          {STATUS_PRESETS.map((preset) => {
+            const isSelected = emoji === preset.emoji && text === preset.text;
+            return (
               <button
                 key={preset.text}
                 type="button"
                 data-testid={`status-preset-${preset.text.toLowerCase().replace(/\s+/g, "-")}`}
                 onClick={() => handlePreset(preset)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm rounded-md border border-border-default bg-surface hover:bg-surface-secondary cursor-pointer text-primary"
+                className={`flex items-center gap-3 w-full px-4 py-2 text-left cursor-pointer hover:bg-surface-secondary transition-colors ${
+                  isSelected ? "bg-surface-secondary" : ""
+                }`}
               >
-                <span>{preset.emoji}</span>
-                <span>{preset.text}</span>
+                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                  isSelected ? "border-accent" : "border-border-default"
+                }`}>
+                  {isSelected && <div className="w-2 h-2 rounded-full bg-accent" />}
+                </div>
+                <span className="text-base shrink-0">{preset.emoji}</span>
+                <span className="text-sm text-primary flex-1">{preset.text}</span>
+                <span className="text-xs text-muted">{DURATION_LABELS[preset.duration]}</span>
               </button>
-            ))}
-          </div>
+            );
+          })}
+        </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted">Clear after:</span>
-            <Select value={duration} onValueChange={(v) => setDuration(v as DurationOption)}>
-              <SelectTrigger data-testid="status-duration-select" className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {DURATION_OPTIONS.map((opt) => (
-                  <SelectItem key={opt} value={opt}>
-                    {DURATION_LABELS[opt]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        {/* Divider */}
+        <div className="border-t border-border-default" />
 
-          <div className="flex gap-2 justify-end">
-            {hasStatus && (
-              <Button
-                data-testid="clear-status-button"
-                variant="ghost"
-                onClick={handleClear}
-                disabled={saving}
-              >
-                Clear Status
-              </Button>
-            )}
-            <Button
-              data-testid="save-status-button"
-              variant="primary"
-              onClick={handleSave}
-              disabled={saving || (!emoji && !text)}
+        {/* Duration as inline text toggles */}
+        <div className="px-4 py-3 flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-muted">Clear after:</span>
+          {DURATION_OPTIONS.map((opt) => (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => setDuration(opt)}
+              className={`text-xs cursor-pointer transition-colors ${
+                duration === opt
+                  ? "text-accent font-medium underline underline-offset-2"
+                  : "text-muted hover:text-primary"
+              }`}
             >
-              {saving ? "Saving..." : "Save"}
+              {DURATION_LABELS[opt]}
+            </button>
+          ))}
+        </div>
+
+        {/* Divider */}
+        <div className="border-t border-border-default" />
+
+        {/* Actions */}
+        <div className="flex gap-2 justify-end px-4 py-3">
+          {hasStatus && (
+            <Button
+              data-testid="clear-status-button"
+              variant="ghost"
+              size="sm"
+              onClick={handleClear}
+              disabled={saving}
+            >
+              Clear Status
             </Button>
-          </div>
+          )}
+          <Button
+            data-testid="save-status-button"
+            variant="primary"
+            size="sm"
+            onClick={handleSave}
+            disabled={saving || (!emoji && !text)}
+          >
+            {saving ? "Saving..." : "Save"}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

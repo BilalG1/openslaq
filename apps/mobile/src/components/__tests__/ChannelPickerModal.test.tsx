@@ -13,7 +13,7 @@ jest.mock("@/theme/ThemeProvider", () => ({
         textFaint: "#999",
         borderDefault: "#ddd",
       },
-      brand: { primary: "#4A154B" },
+      brand: { primary: "#1264a3" },
     },
   }),
 }));
@@ -87,7 +87,7 @@ describe("ChannelPickerModal", () => {
     const { props } = renderModal();
 
     fireEvent.changeText(screen.getByTestId("channel-picker-filter"), "test");
-    fireEvent.press(screen.getByTestId("channel-picker-backdrop"));
+    fireEvent.press(screen.getByTestId("channel-picker-modal-backdrop"));
 
     expect(props.onClose).toHaveBeenCalled();
   });

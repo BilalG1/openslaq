@@ -30,10 +30,6 @@ jest.mock("@/hooks/useSearch", () => ({
   }),
 }));
 
-// Mock sub-components: FilterChips and modals as null, but SearchResultItem as pressable stub
-jest.mock("../search/FilterChips", () => ({
-  FilterChips: () => null,
-}));
 jest.mock("../search/ChannelPickerModal", () => ({
   ChannelPickerModal: () => null,
 }));
@@ -43,18 +39,12 @@ jest.mock("../search/MemberPickerModal", () => ({
 jest.mock("../search/DatePickerModal", () => ({
   DatePickerModal: () => null,
 }));
-
-// SearchResultItem stub that fires onPress with the item
-jest.mock("../search/SearchResultItem", () => {
-  const { Pressable, Text } = require("react-native");
-  return {
-    SearchResultItem: ({ item, onPress }: any) => (
-      <Pressable testID={`search-result-${item.messageId}`} onPress={() => onPress(item)}>
-        <Text>{item.userDisplayName}</Text>
-      </Pressable>
-    ),
-  };
-});
+jest.mock("../search/HeadlineRenderer", () => ({
+  HeadlineRenderer: ({ headline }: any) => {
+    const { Text } = require("react-native");
+    return <Text>{headline}</Text>;
+  },
+}));
 
 jest.mock("@/theme/ThemeProvider", () => ({
   useMobileTheme: () => ({
@@ -62,11 +52,17 @@ jest.mock("@/theme/ThemeProvider", () => ({
       colors: {
         surface: "#fff",
         textPrimary: "#000",
+        textSecondary: "#666",
         textFaint: "#999",
         borderDefault: "#ddd",
         dangerText: "#d00",
+        headerBg: "#111827",
+        headerText: "#FFFFFF",
+        surfaceSecondary: "#f5f5f5",
+        avatarFallbackBg: "#ccc",
+        avatarFallbackText: "#333",
       },
-      brand: { primary: "#4A154B" },
+      brand: { primary: "#1264a3" },
     },
   }),
 }));
@@ -114,7 +110,8 @@ describe("SearchScreen", () => {
     render(<SearchScreen />);
 
     expect(screen.getByTestId("search-input")).toBeTruthy();
-    expect(screen.getByTestId("search-empty-state")).toBeTruthy();
+    expect(screen.getByText("Recent searches")).toBeTruthy();
+    expect(screen.getByText("Try searching for messages")).toBeTruthy();
   });
 
   it("clears search and returns to empty state", () => {
@@ -140,10 +137,10 @@ describe("SearchScreen", () => {
     expect(screen.getByTestId("search-no-results")).toBeTruthy();
   });
 
-  it("back button calls router.back()", () => {
+  it("cancel button calls router.back()", () => {
     render(<SearchScreen />);
 
-    fireEvent.press(screen.getByTestId("search-back-button"));
+    fireEvent.press(screen.getByText("Cancel"));
 
     expect(mockReset).toHaveBeenCalled();
     expect(mockBack).toHaveBeenCalled();
@@ -238,5 +235,29 @@ describe("SearchScreen", () => {
     fireEvent(flatList, "onEndReached");
 
     expect(mockLoadMore).toHaveBeenCalled();
+  });
+
+  it("browse cards are pressable and navigate to correct routes", () => {
+    render(<SearchScreen />);
+
+    fireEvent.press(screen.getByTestId("browse-card-channels"));
+    expect(mockPush).toHaveBeenCalledWith("/(app)/test-ws/(tabs)/(channels)/browse");
+
+    fireEvent.press(screen.getByTestId("browse-card-people"));
+    expect(mockPush).toHaveBeenCalledWith("/(app)/test-ws/(tabs)/(dms)");
+
+    fireEvent.press(screen.getByTestId("browse-card-files"));
+    expect(mockPush).toHaveBeenCalledWith("/(app)/test-ws/files");
+  });
+
+  it("shows retry button on error", () => {
+    mockFilters = { ...mockFilters, q: "test" };
+    mockError = "Something went wrong";
+
+    render(<SearchScreen />);
+
+    expect(screen.getByTestId("search-retry")).toBeTruthy();
+    fireEvent.press(screen.getByTestId("search-retry"));
+    expect(mockUpdateFilters).toHaveBeenCalledWith({ q: "test" });
   });
 });

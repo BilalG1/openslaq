@@ -14,6 +14,7 @@ import type {
   Message,
   BotMessage,
   HuddleMessage,
+  ChannelEventMessage,
   RegularMessage,
   Mention,
   LinkPreview,
@@ -22,6 +23,7 @@ import type {
   ReactionGroup,
   MessageActionButton,
   HuddleMessageMetadata,
+  ChannelEventMetadata,
   ChannelType,
   MessageId,
   ChannelId,
@@ -106,6 +108,14 @@ function toMessage(
       type: "huddle",
       metadata: m.metadata as HuddleMessageMetadata,
     } satisfies HuddleMessage;
+  }
+
+  if (m.type === "channel_event" && m.metadata) {
+    return {
+      ...base,
+      type: "channel_event",
+      metadata: m.metadata as ChannelEventMetadata,
+    } satisfies ChannelEventMessage;
   }
 
   return base satisfies RegularMessage;
@@ -297,6 +307,14 @@ export async function getMessages(
     messages: serialized,
     nextCursor: hasMore ? asMessageId(items[items.length - 1]!.id) : null,
   };
+}
+
+export async function getMessagesByIds(messageIds: MessageId[]): Promise<Message[]> {
+  if (messageIds.length === 0) return [];
+  const rows = await db.query.messages.findMany({
+    where: inArray(messages.id, messageIds),
+  });
+  return hydrateMessages(rows);
 }
 
 export async function getMessageById(messageId: MessageId): Promise<Message | null> {
@@ -595,6 +613,22 @@ export async function createHuddleMessage(
   return toMessage(msg, [], undefined, [], sendersByUser.get(msg.userId));
 }
 
+export async function createChannelEventMessage(
+  channelId: ChannelId,
+  userId: UserId,
+  metadata: ChannelEventMetadata,
+): Promise<Message> {
+  const [msg] = await db
+    .insert(messages)
+    .values({ channelId, userId, content: "", type: "channel_event", metadata })
+    .returning();
+
+  if (!msg) throw new Error("Failed to insert channel event message");
+
+  const sendersByUser = await batchSenders([msg]);
+  return toMessage(msg, [], undefined, [], sendersByUser.get(msg.userId));
+}
+
 export async function updateHuddleMessage(
   messageId: string,
   metadata: HuddleMessageMetadata,
@@ -626,6 +660,64 @@ export async function closeOrphanedHuddleMessages(): Promise<number> {
     )
     .returning({ id: messages.id });
   return result.length;
+}
+
+export async function getUserThreads(
+  userId: UserId,
+  workspaceId: string,
+): Promise<Array<{ message: Message; channelName: string }>> {
+  // Find all parent messages (with replies) where the user is involved:
+  // either authored the parent, or has a reply in the thread.
+  // Scoped to channels in the workspace where the user is a member.
+  const rows = await db.execute<{
+    parent_id: string;
+    channel_name: string;
+  }>(sql`
+    SELECT DISTINCT p.id AS parent_id, ch.name AS channel_name
+    FROM messages p
+    INNER JOIN channels ch ON ch.id = p.channel_id
+    INNER JOIN channel_members cm ON cm.channel_id = ch.id AND cm.user_id = ${userId}
+    WHERE ch.workspace_id = ${workspaceId}
+      AND p.parent_message_id IS NULL
+      AND EXISTS (
+        SELECT 1 FROM messages r WHERE r.parent_message_id = p.id
+      )
+      AND (
+        p.user_id = ${userId}
+        OR EXISTS (
+          SELECT 1 FROM messages r2
+          WHERE r2.parent_message_id = p.id AND r2.user_id = ${userId}
+        )
+      )
+    ORDER BY p.id
+  `);
+
+  if (rows.length === 0) return [];
+
+  const parentIds = rows.map((r) => r.parent_id);
+  const channelNameMap = new Map<string, string>();
+  for (const r of rows) {
+    channelNameMap.set(r.parent_id, r.channel_name);
+  }
+
+  const messageRows = await db.query.messages.findMany({
+    where: inArray(messages.id, parentIds),
+    orderBy: desc(messages.createdAt),
+  });
+
+  const hydrated = await hydrateMessages(messageRows);
+
+  // Sort by latestReplyAt desc (most recent thread activity first)
+  hydrated.sort((a, b) => {
+    const aTime = a.latestReplyAt ? new Date(a.latestReplyAt).getTime() : new Date(a.createdAt).getTime();
+    const bTime = b.latestReplyAt ? new Date(b.latestReplyAt).getTime() : new Date(b.createdAt).getTime();
+    return bTime - aTime;
+  });
+
+  return hydrated.map((msg) => ({
+    message: msg,
+    channelName: channelNameMap.get(msg.id) ?? "",
+  }));
 }
 
 export async function createSharedMessage(

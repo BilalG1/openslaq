@@ -20,10 +20,6 @@ jest.mock("react-native-svg", () => {
   };
 });
 
-jest.mock("@/lib/draft-storage", () => ({
-  getAllDraftKeys: jest.fn(() => Promise.resolve([])),
-}));
-
 jest.mock("@/theme/ThemeProvider", () => ({
   useMobileTheme: () => ({
     theme: {
@@ -36,7 +32,7 @@ jest.mock("@/theme/ThemeProvider", () => ({
         textMuted: "#888",
         borderDefault: "#ddd",
       },
-      brand: { primary: "#4A154B" },
+      brand: { primary: "#1264a3" },
     },
   }),
 }));
@@ -47,6 +43,7 @@ jest.mock("@/contexts/ChatStoreProvider", () => ({
   useChatStore: () => ({
     state: {
       savedMessageIds: mockSavedMessageIds,
+      activeHuddles: {},
     },
   }),
 }));
@@ -64,15 +61,15 @@ describe("QuickActionsRow", () => {
     expect(screen.getByTestId("quick-action-threads")).toBeTruthy();
     expect(screen.getByTestId("quick-action-huddles")).toBeTruthy();
     expect(screen.getByTestId("quick-action-later")).toBeTruthy();
-    expect(screen.getByTestId("quick-action-drafts")).toBeTruthy();
+    expect(screen.getByTestId("quick-action-outbox")).toBeTruthy();
     expect(screen.getByTestId("quick-action-files")).toBeTruthy();
   });
 
-  it("shows correct count units per card", () => {
+  it("hides count labels when count is 0", () => {
     render(<QuickActionsRow />);
-    expect(screen.getByText("0 new")).toBeTruthy();
-    expect(screen.getByText("0 live")).toBeTruthy();
-    expect(screen.getAllByText("0 items")).toHaveLength(3);
+    expect(screen.queryByText("0 new")).toBeNull();
+    expect(screen.queryByText("0 live")).toBeNull();
+    expect(screen.queryByText("0 items")).toBeNull();
   });
 
   it("shows saved count on Later card with correct unit", () => {
@@ -93,27 +90,15 @@ describe("QuickActionsRow", () => {
     expect(mockPush).toHaveBeenCalledWith("/(app)/acme/saved-items");
   });
 
-  it("navigates to drafts when Drafts is pressed", () => {
+  it("navigates to outbox when Outbox is pressed", () => {
     render(<QuickActionsRow />);
-    fireEvent.press(screen.getByTestId("quick-action-drafts"));
-    expect(mockPush).toHaveBeenCalledWith("/(app)/acme/drafts");
+    fireEvent.press(screen.getByTestId("quick-action-outbox"));
+    expect(mockPush).toHaveBeenCalledWith("/(app)/acme/outbox");
   });
 
   it("navigates to files when Files is pressed", () => {
     render(<QuickActionsRow />);
     fireEvent.press(screen.getByTestId("quick-action-files"));
     expect(mockPush).toHaveBeenCalledWith("/(app)/acme/files");
-  });
-
-  it("shows draft count from storage", async () => {
-    const { getAllDraftKeys } = require("@/lib/draft-storage");
-    (getAllDraftKeys as jest.Mock).mockResolvedValueOnce(["ch-1", "ch-2"]);
-
-    render(<QuickActionsRow />);
-
-    const { waitFor } = require("@testing-library/react-native");
-    await waitFor(() => {
-      expect(screen.getByText("2 items")).toBeTruthy();
-    });
   });
 });

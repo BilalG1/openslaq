@@ -80,7 +80,7 @@ export interface ChatStoreState {
   channels: Channel[];
   dms: DmConversation[];
   groupDms: GroupDmConversation[];
-  activeView: "channel" | "unreads" | "saved" | "scheduled" | "files";
+  activeView: "channel" | "unreads" | "saved" | "outbox" | "files";
   activeChannelId: string | null;
   activeDmId: string | null;
   activeGroupDmId: string | null;
@@ -157,7 +157,7 @@ export type ChatAction =
   | { type: "workspace/bootstrapError"; error: string }
   | { type: "workspace/selectUnreadsView" }
   | { type: "workspace/selectSavedView" }
-  | { type: "workspace/selectScheduledView" }
+  | { type: "workspace/selectOutboxView" }
   | { type: "workspace/selectFilesView" }
   | { type: "workspace/selectChannel"; channelId: string }
   | { type: "workspace/selectDefaultChannel"; channelId: string }
@@ -360,10 +360,10 @@ export function chatReducer(state: ChatStoreState, action: ChatAction): ChatStor
         activeProfileUserId: null,
       };
     }
-    case "workspace/selectScheduledView": {
+    case "workspace/selectOutboxView": {
       return {
         ...state,
-        activeView: "scheduled",
+        activeView: "outbox",
         activeChannelId: null,
         activeDmId: null,
         activeGroupDmId: null,
@@ -398,7 +398,7 @@ export function chatReducer(state: ChatStoreState, action: ChatAction): ChatStor
     }
     case "workspace/selectDefaultChannel": {
       // Used by bootstrap — only select if user hasn't explicitly chosen unreads view
-      if (state.activeView === "unreads" || state.activeView === "saved" || state.activeView === "scheduled" || state.activeView === "files" || state.activeChannelId || state.activeDmId || state.activeGroupDmId) {
+      if (state.activeView === "unreads" || state.activeView === "saved" || state.activeView === "outbox" || state.activeView === "files" || state.activeChannelId || state.activeDmId || state.activeGroupDmId) {
         return state;
       }
       return {

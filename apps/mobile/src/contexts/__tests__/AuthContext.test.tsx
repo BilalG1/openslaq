@@ -33,6 +33,10 @@ jest.mock("../../lib/auth-provider", () => ({
   setAuthToken: jest.fn(),
 }));
 
+jest.mock("../../lib/dev-auth", () => ({
+  performDevQuickSignIn: jest.fn(),
+}));
+
 const { getTokens, storeTokens, clearTokens } =
   require("../../lib/token-store") as {
     getTokens: jest.Mock;
@@ -66,8 +70,12 @@ const { setAuthToken } = require("../../lib/auth-provider") as {
   setAuthToken: jest.Mock;
 };
 
+const { performDevQuickSignIn } = require("../../lib/dev-auth") as {
+  performDevQuickSignIn: jest.Mock;
+};
+
 function TestConsumer() {
-  const { isLoading, isAuthenticated, user, sendOtp, verifyOtp, signInWithApple, signOut, signInWithOAuth } =
+  const { isLoading, isAuthenticated, user, sendOtp, verifyOtp, signInWithApple, signOut, signInWithOAuth, devQuickSignIn } =
     useAuth();
 
   const handleSendOtp = async () => {
@@ -98,6 +106,10 @@ function TestConsumer() {
       <TouchableOpacity
         testID="sign-in-oauth"
         onPress={() => signInWithOAuth("google").catch(() => undefined)}
+      />
+      <TouchableOpacity
+        testID="dev-sign-in"
+        onPress={() => devQuickSignIn().catch(() => undefined)}
       />
       <TouchableOpacity testID="sign-out" onPress={() => signOut()} />
     </>
@@ -348,5 +360,30 @@ describe("AuthContext", () => {
     });
     expect(getTestIdText("authenticated")).toBe("true");
     expect(getTestIdText("user-id")).toBe("apple-uid");
+  });
+
+  it("devQuickSignIn calls performDevQuickSignIn and sets user", async () => {
+    performDevQuickSignIn.mockResolvedValue({
+      userId: "dev-user-123",
+      accessToken: "dev-token",
+    });
+
+    render(
+      <AuthContextProvider>
+        <TestConsumer />
+      </AuthContextProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getTestIdText("loading")).toBe("false");
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId("dev-sign-in"));
+    });
+
+    expect(performDevQuickSignIn).toHaveBeenCalled();
+    expect(getTestIdText("authenticated")).toBe("true");
+    expect(getTestIdText("user-id")).toBe("dev-user-123");
   });
 });

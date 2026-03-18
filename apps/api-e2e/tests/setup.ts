@@ -17,6 +17,10 @@ const [{ default: app }, { setIO }, { setEnabled }] = await Promise.all([
 // Disable rate limiting by default so non-rate-limit tests aren't affected
 setEnabled(false);
 
+// Raise workspace quota for tests (many test files create workspaces for the same user)
+const { quotas } = await import("../../api/src/workspaces/service");
+quotas.maxWorkspacesPerUser = 10_000;
+
 setIO({
   to() {
     return {
@@ -62,6 +66,31 @@ const server = Bun.serve({
 });
 
 process.env.API_BASE_URL = `http://127.0.0.1:${server.port}`;
+
+// Clean up stale test data from prior runs that would otherwise hit resource quotas.
+// Workspaces cascade-delete all related data (channels, messages, members, etc.).
+{
+  const { db } = await import("../../api/src/db");
+  const { workspaces, workspaceMembers } = await import("../../api/src/workspaces/schema");
+  const { eq, and, inArray } = await import("drizzle-orm");
+  const { scheduledMessages } = await import("../../api/src/messages/scheduled-schema");
+
+  // Delete test workspaces owned by the default e2e user
+  const staleWs = await db
+    .select({ id: workspaces.id })
+    .from(workspaces)
+    .innerJoin(workspaceMembers, eq(workspaces.id, workspaceMembers.workspaceId))
+    .where(and(eq(workspaceMembers.userId, "api-e2e-user-001"), eq(workspaceMembers.role, "owner")))
+    .limit(1000);
+  if (staleWs.length > 0) {
+    await db.delete(workspaces).where(inArray(workspaces.id, staleWs.map((w) => w.id)));
+  }
+
+  // Delete pending scheduled messages for the default e2e user
+  await db.delete(scheduledMessages).where(
+    and(eq(scheduledMessages.userId, "api-e2e-user-001"), eq(scheduledMessages.status, "pending")),
+  );
+}
 
 afterAll(async () => {
   await cleanupTestWorkspaces();

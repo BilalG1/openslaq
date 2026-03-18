@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { Modal, Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
 import { useMobileTheme } from "@/theme/ThemeProvider";
+import { BottomSheet } from "@/components/ui/BottomSheet";
 
 interface Props {
   visible: boolean;
@@ -75,127 +76,105 @@ export function ScheduleMessageSheet({ visible, onSchedule, onClose }: Props) {
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
-      <Pressable
-        testID="schedule-sheet-backdrop"
-        style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" }}
-        onPress={handleClose}
-      >
+    <BottomSheet visible={visible} onClose={handleClose} title="Schedule message" testID="schedule-sheet-content">
+      <View style={{ height: 1, backgroundColor: theme.colors.borderDefault, marginBottom: 4 }} />
+
+      {presets.map((preset) => (
         <Pressable
-          testID="schedule-sheet-content"
-          style={{
-            backgroundColor: theme.colors.surface,
-            borderTopLeftRadius: 16,
-            borderTopRightRadius: 16,
-            paddingBottom: 34,
-            paddingTop: 12,
-            paddingHorizontal: 16,
-          }}
-          onPress={(e) => e.stopPropagation()}
+          key={preset.label}
+          testID={`schedule-preset-${preset.label.toLowerCase().replace(/\s+/g, "-")}`}
+          onPress={() => handlePreset(preset.time)}
+          style={({ pressed }) => ({
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            paddingVertical: 14,
+            paddingHorizontal: 8,
+            borderRadius: 8,
+            backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
+          })}
         >
-          <Text style={{ fontSize: 17, fontWeight: "600", color: theme.colors.textPrimary, marginBottom: 12 }}>
-            Schedule message
+          <Text style={{ fontSize: 16, color: theme.colors.textPrimary }}>{preset.label}</Text>
+          <Text style={{ fontSize: 13, color: theme.colors.textSecondary }}>
+            {formatPresetTime(preset.time)}
           </Text>
-          <View style={{ height: 1, backgroundColor: theme.colors.borderDefault, marginBottom: 4 }} />
-
-          {presets.map((preset) => (
-            <Pressable
-              key={preset.label}
-              testID={`schedule-preset-${preset.label.toLowerCase().replace(/\s+/g, "-")}`}
-              onPress={() => handlePreset(preset.time)}
-              style={({ pressed }) => ({
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                paddingVertical: 14,
-                paddingHorizontal: 8,
-                borderRadius: 8,
-                backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
-              })}
-            >
-              <Text style={{ fontSize: 16, color: theme.colors.textPrimary }}>{preset.label}</Text>
-              <Text style={{ fontSize: 13, color: theme.colors.textSecondary }}>
-                {formatPresetTime(preset.time)}
-              </Text>
-            </Pressable>
-          ))}
-
-          <View style={{ height: 1, backgroundColor: theme.colors.borderDefault, marginVertical: 4 }} />
-
-          {!showCustom ? (
-            <Pressable
-              testID="schedule-custom-toggle"
-              onPress={() => setShowCustom(true)}
-              style={({ pressed }) => ({
-                flexDirection: "row",
-                alignItems: "center",
-                paddingVertical: 14,
-                paddingHorizontal: 8,
-                borderRadius: 8,
-                backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
-              })}
-            >
-              <Text style={{ fontSize: 16, color: theme.brand.primary }}>Custom time</Text>
-            </Pressable>
-          ) : (
-            <View testID="schedule-custom-section" style={{ paddingHorizontal: 8, paddingTop: 8 }}>
-              <Text style={{ fontSize: 14, fontWeight: "500", color: theme.colors.textPrimary, marginBottom: 8 }}>
-                Custom time
-              </Text>
-              <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
-                <TextInput
-                  testID="schedule-custom-date"
-                  placeholder="YYYY-MM-DD"
-                  value={customDate}
-                  onChangeText={setCustomDate}
-                  style={{
-                    flex: 1,
-                    borderWidth: 1,
-                    borderColor: theme.colors.borderDefault,
-                    borderRadius: 8,
-                    paddingHorizontal: 12,
-                    paddingVertical: 8,
-                    fontSize: 14,
-                    color: theme.colors.textPrimary,
-                    backgroundColor: theme.colors.surfaceTertiary,
-                  }}
-                  placeholderTextColor={theme.colors.textMuted}
-                />
-                <TextInput
-                  testID="schedule-custom-time"
-                  placeholder="HH:MM"
-                  value={customTime}
-                  onChangeText={setCustomTime}
-                  style={{
-                    width: 80,
-                    borderWidth: 1,
-                    borderColor: theme.colors.borderDefault,
-                    borderRadius: 8,
-                    paddingHorizontal: 12,
-                    paddingVertical: 8,
-                    fontSize: 14,
-                    color: theme.colors.textPrimary,
-                    backgroundColor: theme.colors.surfaceTertiary,
-                  }}
-                  placeholderTextColor={theme.colors.textMuted}
-                />
-                <Pressable
-                  testID="schedule-custom-submit"
-                  onPress={handleCustomSubmit}
-                  style={{
-                    backgroundColor: customDate && customTime ? theme.brand.primary : theme.colors.borderStrong,
-                    borderRadius: 8,
-                    paddingHorizontal: 16,
-                    paddingVertical: 8,
-                  }}
-                >
-                  <Text style={{ color: "#fff", fontWeight: "600", fontSize: 14 }}>Schedule</Text>
-                </Pressable>
-              </View>
-            </View>
-          )}
         </Pressable>
-      </Pressable>
-    </Modal>
+      ))}
+
+      <View style={{ height: 1, backgroundColor: theme.colors.borderDefault, marginVertical: 4 }} />
+
+      {!showCustom ? (
+        <Pressable
+          testID="schedule-custom-toggle"
+          onPress={() => setShowCustom(true)}
+          style={({ pressed }) => ({
+            flexDirection: "row",
+            alignItems: "center",
+            paddingVertical: 14,
+            paddingHorizontal: 8,
+            borderRadius: 8,
+            backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
+          })}
+        >
+          <Text style={{ fontSize: 16, color: theme.brand.primary }}>Custom time</Text>
+        </Pressable>
+      ) : (
+        <View testID="schedule-custom-section" style={{ paddingHorizontal: 8, paddingTop: 8 }}>
+          <Text style={{ fontSize: 14, fontWeight: "500", color: theme.colors.textPrimary, marginBottom: 8 }}>
+            Custom time
+          </Text>
+          <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+            <TextInput
+              testID="schedule-custom-date"
+              placeholder="YYYY-MM-DD"
+              value={customDate}
+              onChangeText={setCustomDate}
+              style={{
+                flex: 1,
+                borderWidth: 1,
+                borderColor: theme.colors.borderDefault,
+                borderRadius: 8,
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                fontSize: 14,
+                color: theme.colors.textPrimary,
+                backgroundColor: theme.colors.surfaceTertiary,
+              }}
+              placeholderTextColor={theme.colors.textMuted}
+            />
+            <TextInput
+              testID="schedule-custom-time"
+              placeholder="HH:MM"
+              value={customTime}
+              onChangeText={setCustomTime}
+              style={{
+                width: 80,
+                borderWidth: 1,
+                borderColor: theme.colors.borderDefault,
+                borderRadius: 8,
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                fontSize: 14,
+                color: theme.colors.textPrimary,
+                backgroundColor: theme.colors.surfaceTertiary,
+              }}
+              placeholderTextColor={theme.colors.textMuted}
+            />
+            <Pressable
+              testID="schedule-custom-submit"
+              onPress={handleCustomSubmit}
+              style={{
+                backgroundColor: customDate && customTime ? theme.brand.primary : theme.colors.borderStrong,
+                borderRadius: 8,
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+              }}
+            >
+              <Text style={{ color: "#fff", fontWeight: "600", fontSize: 14 }}>Schedule</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+    </BottomSheet>
   );
 }

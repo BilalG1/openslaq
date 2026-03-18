@@ -4,7 +4,11 @@ import { zValidator } from "@hono/zod-validator";
 import { auth } from "../auth/middleware";
 import { isAdmin, requireAdmin } from "./middleware";
 import { paginationSchema, activityQuerySchema } from "./validation";
-import { getStats, getActivity, getUsers, getWorkspaces, createImpersonationSnippet } from "./service";
+import { getStats, getActivity, getUsers, getWorkspaces, createImpersonationSnippet, bulkUpdateFeatureFlag } from "./service";
+import { getFeatureFlags, updateFeatureFlags } from "../workspaces/feature-flags";
+import { db } from "../db";
+import { workspaces } from "../workspaces/schema";
+import { eq } from "drizzle-orm";
 import { env } from "../env";
 
 const app = new Hono()
@@ -33,6 +37,55 @@ const app = new Hono()
     const result = await getWorkspaces(params);
     return c.json(result);
   })
+  .get(
+    "/workspaces/:workspaceId/feature-flags",
+    zValidator("param", z.object({ workspaceId: z.string() })),
+    async (c) => {
+      const { workspaceId } = c.req.valid("param");
+      // Verify workspace exists
+      const [ws] = await db.select({ id: workspaces.id }).from(workspaces).where(eq(workspaces.id, workspaceId)).limit(1);
+      if (!ws) return c.json({ error: "Workspace not found" }, 404);
+      const flags = await getFeatureFlags(workspaceId);
+      return c.json(flags);
+    },
+  )
+  .patch(
+    "/workspaces/:workspaceId/feature-flags",
+    zValidator("param", z.object({ workspaceId: z.string() })),
+    zValidator(
+      "json",
+      z.object({
+        integrationGithub: z.boolean().optional(),
+        integrationLinear: z.boolean().optional(),
+        integrationSentry: z.boolean().optional(),
+        integrationVercel: z.boolean().optional(),
+      }),
+    ),
+    async (c) => {
+      const { workspaceId } = c.req.valid("param");
+      const body = c.req.valid("json");
+      // Verify workspace exists
+      const [ws] = await db.select({ id: workspaces.id }).from(workspaces).where(eq(workspaces.id, workspaceId)).limit(1);
+      if (!ws) return c.json({ error: "Workspace not found" }, 404);
+      const flags = await updateFeatureFlags(workspaceId, body);
+      return c.json(flags);
+    },
+  )
+  .post(
+    "/feature-flags/bulk",
+    zValidator(
+      "json",
+      z.object({
+        flag: z.enum(["integrationGithub", "integrationLinear", "integrationSentry", "integrationVercel"]),
+        enabled: z.boolean(),
+      }),
+    ),
+    async (c) => {
+      const { flag, enabled } = c.req.valid("json");
+      const count = await bulkUpdateFeatureFlag(flag, enabled);
+      return c.json({ updated: count });
+    },
+  )
   .post(
     "/impersonate/:userId",
     zValidator("param", z.object({ userId: z.string().regex(/^[a-zA-Z0-9_-]+$/) })),

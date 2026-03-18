@@ -1,0 +1,72 @@
+/* OpenSlaq docs — "Compact Developer" style: IDE-inspired density, GitHub/MDN feel */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* Light mode */
+:root {
+	--sl-font: 'Inter', system-ui, sans-serif;
+	--sl-color-accent-low: #dceaf5;
+	--sl-color-accent: #2a7ab5;
+	--sl-color-accent-high: #1a5a8a;
+	--sl-text-body: var(--sl-text-sm);
+	--sl-line-height: 1.5;
+	--sl-content-width: 55rem;
+	--sl-sidebar-width: 15rem;
+	--sl-nav-height: 3rem;
+}
+
+/* Dark mode */
+:root[data-theme="dark"] {
+	--sl-color-accent-low: #162435;
+	--sl-color-accent: #5ba8e0;
+	--sl-color-accent-high: #b0d8f5;
+	--sl-color-bg: #16181d;
+	--sl-color-bg-nav: #1c1e24;
+	--sl-color-bg-sidebar: #1c1e24;
+	--sl-color-hairline-light: #282a30;
+	--sl-color-hairline: #32343a;
+}
+
+/* Reduced heading sizes */
+.sl-markdown-content h1 { font-size: var(--sl-text-2xl); }
+.sl-markdown-content h2 { font-size: var(--sl-text-xl); margin-top: 1.5em; }
+.sl-markdown-content h3 { font-size: var(--sl-text-lg); margin-top: 1.2em; }
+.sl-markdown-content h4 { font-size: var(--sl-text-base); margin-top: 1em; }
+
+/* Code blocks: tight, no rounding */
+starlight-tabs pre,
+.expressive-code pre {
+	border-radius: 0 !important;
+	font-size: 13px !important;
+	padding: 0.6em 0.8em !important;
+}
+
+.expressive-code .frame {
+	border-radius: 0 !important;
+}
+
+/* Compact asides */
+.starlight-aside {
+	padding: 0.5rem 0.75rem;
+	font-size: var(--sl-text-sm);
+}
+
+/* Sidebar: active item left border */
+nav.sidebar a[aria-current="page"] {
+	border-left: 3px solid var(--sl-color-accent);
+	padding-left: calc(0.5rem - 3px);
+}
+
+/* Compact sidebar spacing */
+nav.sidebar a {
+	font-size: var(--sl-text-xs);
+	padding-block: 0.15rem;
+}
+
+nav.sidebar .top-level > li {
+	margin-block: 0.1rem;
+}
+
+/* Tight paragraph spacing */
+.sl-markdown-content p {
+	margin-block: 0.6em;
+}

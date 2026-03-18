@@ -28,7 +28,7 @@ export class HttpClient {
     return `/api${path}`;
   }
 
-  async get<T>(path: string, query?: Record<string, string | number | undefined>): Promise<T> {
+  async get<T>(path: string, query?: Record<string, string | number | boolean | undefined>): Promise<T> {
     const url = this.buildUrl(path, query);
     return this.request<T>(url, { method: "GET" });
   }
@@ -85,14 +85,7 @@ export class HttpClient {
     };
     const response = await this.fetch(url, { method: "POST", headers, body: formData });
     if (!response.ok) {
-      let errorMessage = `HTTP ${response.status}`;
-      try {
-        const body = (await response.json()) as { error?: string };
-        if (body.error) errorMessage = body.error;
-      } catch {
-        // Use default error message
-      }
-      throw new OpenSlaqApiError(response.status, errorMessage);
+      await this.handleErrorResponse(response);
     }
     const text = await response.text();
     if (!text) throw new OpenSlaqApiError(response.status, "Expected response body but received empty response");
@@ -112,37 +105,43 @@ export class HttpClient {
     return location;
   }
 
-  private buildUrl(path: string, query?: Record<string, string | number | undefined>): string {
+  private buildUrl(path: string, query?: Record<string, string | number | boolean | undefined>): string {
     const url = new URL(`${this.baseUrl}${path}`);
     if (query) {
       for (const [key, value] of Object.entries(query)) {
         if (value !== undefined) {
-          url.searchParams.set(key, String(value));
+          url.searchParams.set(key, typeof value === "boolean" ? (value ? "true" : "false") : String(value));
         }
       }
     }
     return url.toString();
   }
 
+  private async handleErrorResponse(response: Response): Promise<never> {
+    let errorMessage = `HTTP ${response.status}`;
+    try {
+      const body = (await response.json()) as { error?: string };
+      if (body.error) {
+        errorMessage = body.error;
+      }
+    } catch {
+      // Use default error message
+    }
+    throw new OpenSlaqApiError(response.status, errorMessage);
+  }
+
   private async request<T>(url: string, init: RequestInit): Promise<T> {
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.apiKey}`,
-      "Content-Type": "application/json",
     };
+    if (init.body) {
+      headers["Content-Type"] = "application/json";
+    }
 
     const response = await this.fetch(url, { ...init, headers });
 
     if (!response.ok) {
-      let errorMessage = `HTTP ${response.status}`;
-      try {
-        const body = await response.json() as { error?: string };
-        if (body.error) {
-          errorMessage = body.error;
-        }
-      } catch {
-        // Use default error message
-      }
-      throw new OpenSlaqApiError(response.status, errorMessage);
+      await this.handleErrorResponse(response);
     }
 
     const text = await response.text();
@@ -153,22 +152,15 @@ export class HttpClient {
   private async requestVoid(url: string, init: RequestInit): Promise<void> {
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.apiKey}`,
-      "Content-Type": "application/json",
     };
+    if (init.body) {
+      headers["Content-Type"] = "application/json";
+    }
 
     const response = await this.fetch(url, { ...init, headers });
 
     if (!response.ok) {
-      let errorMessage = `HTTP ${response.status}`;
-      try {
-        const body = await response.json() as { error?: string };
-        if (body.error) {
-          errorMessage = body.error;
-        }
-      } catch {
-        // Use default error message
-      }
-      throw new OpenSlaqApiError(response.status, errorMessage);
+      await this.handleErrorResponse(response);
     }
   }
 }

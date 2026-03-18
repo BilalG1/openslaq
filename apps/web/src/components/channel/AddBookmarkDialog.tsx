@@ -50,6 +50,7 @@ export function AddBookmarkDialog({ open, onClose, onAdd }: AddBookmarkDialogPro
               placeholder="https://example.com"
               required
               autoFocus
+              className="w-full"
             />
           </div>
           <div>
@@ -63,6 +64,7 @@ export function AddBookmarkDialog({ open, onClose, onAdd }: AddBookmarkDialogPro
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Display title (defaults to URL)"
               maxLength={200}
+              className="w-full"
             />
           </div>
           <div className="flex justify-end gap-2 mt-1">

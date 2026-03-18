@@ -1,4 +1,4 @@
-import { eq, and, lte, asc, count } from "drizzle-orm";
+import { eq, and, lte, asc, count, inArray } from "drizzle-orm";
 import { db } from "../db";
 import { scheduledMessages } from "./scheduled-schema";
 import { channels } from "../channels/schema";
@@ -9,6 +9,21 @@ import { unfurlMessageLinks } from "./link-preview-service";
 import { webhookDispatcher } from "../bots/webhook-dispatcher";
 import type { ScheduledMessage } from "@openslaq/shared";
 import { asChannelId, asUserId, asMessageId, asScheduledMessageId, asAttachmentId } from "@openslaq/shared";
+
+export const MAX_PENDING_SCHEDULED_PER_USER = 50;
+
+export async function getScheduledCountForUser(userId: string): Promise<number> {
+  const [row] = await db
+    .select({ count: count() })
+    .from(scheduledMessages)
+    .where(
+      and(
+        eq(scheduledMessages.userId, userId),
+        eq(scheduledMessages.status, "pending"),
+      ),
+    );
+  return row?.count ?? 0;
+}
 
 function toScheduledMessage(row: typeof scheduledMessages.$inferSelect): ScheduledMessage {
   return {
@@ -159,16 +174,37 @@ export async function processDueScheduledMessages(): Promise<void> {
           lte(scheduledMessages.scheduledFor, new Date()),
         ),
       )
-      .limit(20);
+      .limit(50);
+
+    if (dueMessages.length === 0) return;
 
     const io = getIO();
+
+    // Batch fetch all channels
+    const uniqueChannelIds = [...new Set(dueMessages.map((m) => m.channelId))];
+    const channelRows = await db
+      .select()
+      .from(channels)
+      .where(inArray(channels.id, uniqueChannelIds));
+    const channelMap = new Map(channelRows.map((c) => [c.id, c]));
+
+    // Batch fetch all memberships
+    const uniqueUserIds = [...new Set(dueMessages.map((m) => m.userId))];
+    const membershipRows = await db
+      .select({ channelId: channelMembers.channelId, userId: channelMembers.userId })
+      .from(channelMembers)
+      .where(
+        and(
+          inArray(channelMembers.channelId, uniqueChannelIds),
+          inArray(channelMembers.userId, uniqueUserIds),
+        ),
+      );
+    const membershipSet = new Set(membershipRows.map((r) => `${r.channelId}:${r.userId}`));
 
     for (const scheduled of dueMessages) {
       try {
         // Check channel exists and not archived
-        const channel = await db.query.channels.findFirst({
-          where: eq(channels.id, scheduled.channelId),
-        });
+        const channel = channelMap.get(scheduled.channelId);
 
         if (!channel || channel.isArchived) {
           await db
@@ -189,14 +225,9 @@ export async function processDueScheduledMessages(): Promise<void> {
         }
 
         // Check user is still a member
-        const membership = await db.query.channelMembers.findFirst({
-          where: and(
-            eq(channelMembers.channelId, scheduled.channelId),
-            eq(channelMembers.userId, scheduled.userId),
-          ),
-        });
+        const isMember = membershipSet.has(`${scheduled.channelId}:${scheduled.userId}`);
 
-        if (!membership) {
+        if (!isMember) {
           await db
             .update(scheduledMessages)
             .set({
@@ -283,6 +314,6 @@ export function startScheduledMessageProcessor(): void {
     processDueScheduledMessages().catch((err) =>
       console.error("Scheduled message processor error:", err),
     );
-  }, 30_000);
-  console.log("Scheduled message processor started (30s interval)");
+  }, 10_000);
+  console.log("Scheduled message processor started (10s interval)");
 }

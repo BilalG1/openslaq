@@ -23,7 +23,7 @@ jest.mock("@/theme/ThemeProvider", () => ({
         textFaint: "#999",
         borderSecondary: "#eee",
       },
-      brand: { primary: "#4A154B", danger: "#ef4444" },
+      brand: { primary: "#1264a3", danger: "#ef4444" },
     },
   }),
 }));
@@ -47,6 +47,17 @@ jest.mock("@/contexts/AuthContext", () => ({
 
 jest.mock("@/lib/api", () => ({
   api: {},
+}));
+
+const mockDeps = { api: {}, auth: { requireAccessToken: jest.fn(() => "token") }, dispatch: jest.fn(), getState: jest.fn() };
+jest.mock("@/hooks/useOperationDeps", () => ({
+  useOperationDeps: () => mockDeps,
+}));
+
+jest.mock("@/lib/routes", () => ({
+  routes: {
+    channel: (ws: string, id: string) => `/(app)/${ws}/(tabs)/(channels)/${id}`,
+  },
 }));
 
 const mockFetchSavedMessages = jest.fn();
@@ -158,6 +169,6 @@ describe("SavedItemsScreen", () => {
 
     fireEvent.press(screen.getByTestId("saved-item-msg-1"));
 
-    expect(mockPush).toHaveBeenCalledWith("/(app)/acme/(channels)/ch-1");
+    expect(mockPush).toHaveBeenCalledWith("/(app)/acme/(tabs)/(channels)/ch-1");
   });
 });

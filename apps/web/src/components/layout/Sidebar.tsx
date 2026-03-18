@@ -4,12 +4,13 @@ import { useGalleryMode } from "../../gallery/gallery-context";
 import { ChannelList } from "../channel/ChannelList";
 import { StarredList } from "../channel/StarredList";
 import { CreateChannelDialog } from "../channel/CreateChannelDialog";
+import { BrowseChannelsDialog } from "../channel/BrowseChannelsDialog";
 import { DmList } from "../dm/DmList";
 import { NewDmDialog } from "../dm/NewDmDialog";
 import { CustomUserButton } from "../user/CustomUserButton";
 import { WorkspaceSettingsDialog } from "../settings/WorkspaceSettingsDialog";
 import { InviteDialog } from "../settings/InviteDialog";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, LayoutGrid, UserPlus, Settings, Search, Mail, Bookmark, Clock, FileText } from "lucide-react";
 import { Tooltip } from "../ui/tooltip";
 import {
   DropdownMenu,
@@ -44,10 +45,10 @@ interface SidebarProps {
   starredChannelIds?: string[];
   channelNotificationPrefs?: Record<string, ChannelNotifyLevel>;
   onSetNotificationLevel?: (channelId: string, level: ChannelNotifyLevel) => void;
-  activeView?: "channel" | "unreads" | "saved" | "scheduled" | "files";
+  activeView?: "channel" | "unreads" | "saved" | "outbox" | "files";
   onSelectUnreadsView?: () => void;
   onSelectSavedView?: () => void;
-  onSelectScheduledView?: () => void;
+  onSelectOutboxView?: () => void;
   onSelectFilesView?: () => void;
   style?: React.CSSProperties;
 }
@@ -87,7 +88,7 @@ export function Sidebar({
   activeView,
   onSelectUnreadsView,
   onSelectSavedView,
-  onSelectScheduledView,
+  onSelectOutboxView,
   onSelectFilesView,
   onSetNotificationLevel,
   style,
@@ -96,6 +97,7 @@ export function Sidebar({
   const navigate = useNavigate();
   const [newDmOpen, setNewDmOpen] = useState(false);
   const [createChannelOpen, setCreateChannelOpen] = useState(false);
+  const [browseChannelsOpen, setBrowseChannelsOpen] = useState(false);
   const [workspaceSettingsOpen, setWorkspaceSettingsOpen] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [sidebarCollapse, setSidebarCollapse] = useState(loadCollapseState);
@@ -122,91 +124,93 @@ export function Sidebar({
 
   return (
     <div className="shrink-0 bg-gray-900 text-white flex flex-col" style={style}>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            className="w-full p-4 font-bold text-lg text-white bg-transparent border-none border-b border-gray-800 cursor-pointer flex items-center justify-between text-left focus:outline-none"
-          >
-            <span className="overflow-hidden text-ellipsis whitespace-nowrap">
-              {workspaceName}
-            </span>
-            <ChevronDown size={14} className="ml-2 shrink-0" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" sideOffset={0} className="min-w-[200px] max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto">
-          {workspaces
-            .filter((ws) => ws.slug !== workspaceSlug)
-            .map((ws) => (
+      <div className="flex items-center">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="flex-1 min-w-0 p-4 font-bold text-lg text-white bg-transparent border-none border-b border-gray-800 cursor-pointer flex items-center text-left focus:outline-none"
+            >
+              <span className="overflow-hidden text-ellipsis whitespace-nowrap">
+                {workspaceName}
+              </span>
+              <ChevronDown size={14} className="ml-2 shrink-0" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" sideOffset={0} className="min-w-[200px] max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto">
+            {workspaces
+              .filter((ws) => ws.slug !== workspaceSlug)
+              .map((ws) => (
+                <DropdownMenuItem
+                  key={ws.id}
+                  onSelect={() => navigate(`/w/${ws.slug}`)}
+                  className="flex items-center gap-2"
+                >
+                  <span className="w-5 h-5 rounded bg-indigo-500 text-white flex items-center justify-center text-xs font-bold shrink-0">{ws.name.charAt(0).toUpperCase()}</span>
+                  {ws.name}
+                </DropdownMenuItem>
+              ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={() => navigate("/")}
+              className="text-text-secondary text-[13px] flex items-center gap-2"
+            >
+              <LayoutGrid className="w-4 h-4" />
+              All workspaces
+            </DropdownMenuItem>
+            {canManage && (
               <DropdownMenuItem
-                key={ws.id}
-                onSelect={() => navigate(`/w/${ws.slug}`)}
+                onSelect={() => setInviteDialogOpen(true)}
+                className="text-text-secondary text-[13px] flex items-center gap-2"
               >
-                {ws.name}
+                <UserPlus className="w-4 h-4" />
+                Invite People
               </DropdownMenuItem>
-            ))}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onSelect={() => navigate("/")}
-            className="text-text-secondary text-[13px]"
-          >
-            All workspaces
-          </DropdownMenuItem>
-          {canManage && (
-            <DropdownMenuItem
-              onSelect={() => setInviteDialogOpen(true)}
-              className="text-text-secondary text-[13px]"
-            >
-              Invite People
-            </DropdownMenuItem>
-          )}
-          {canManage && (
-            <DropdownMenuItem
-              onSelect={() => setWorkspaceSettingsOpen(true)}
-              className="text-text-secondary text-[13px]"
-            >
-              Settings
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+            )}
+            {canManage && (
+              <DropdownMenuItem
+                onSelect={() => setWorkspaceSettingsOpen(true)}
+                className="text-text-secondary text-[13px] flex items-center gap-2"
+              >
+                <Settings className="w-4 h-4" />
+                Settings
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-      <div className="flex items-center justify-around px-2 py-2.5 gap-1">
         {onOpenSearch && (
           <Tooltip content={`Search (${navigator.platform.includes("Mac") ? "\u2318K" : "Ctrl+K"})`} side="bottom">
             <button
               type="button"
               onClick={onOpenSearch}
-              className="flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg border-none cursor-pointer bg-white/5 text-gray-400 hover:bg-white/15 hover:text-white transition-all flex-1 min-w-0"
+              className="mr-3 shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white transition-all border-none cursor-pointer"
               data-testid="search-trigger"
             >
-              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <span className="text-[9px] font-medium">Search</span>
+              <Search className="w-[15px] h-[15px]" />
             </button>
           </Tooltip>
         )}
+      </div>
+
+      <div className="flex items-center justify-around px-2 py-2.5 gap-1">
         {onSelectUnreadsView && (() => {
           const totalUnread = Object.entries(unreadCounts)
             .filter(([id]) => channelNotificationPrefs?.[id] !== "muted")
             .reduce((sum, [, count]) => sum + count, 0);
           return (
-            <Tooltip content="All Unreads" side="bottom">
+            <Tooltip content="Unreads" side="bottom">
               <button
                 type="button"
                 onClick={onSelectUnreadsView}
-                className={`relative flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg border-none cursor-pointer transition-all flex-1 min-w-0 ${
+                className={`relative flex items-center justify-center py-2 px-1 rounded-lg border-none cursor-pointer transition-all flex-1 min-w-0 ${
                   activeView === "unreads"
                     ? "bg-indigo-500/30 text-indigo-200 ring-1 ring-indigo-400/50"
                     : "bg-white/5 text-gray-400 hover:bg-white/15 hover:text-white"
                 }`}
                 data-testid="unreads-view-link"
               >
-                <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
-                </svg>
-                <span className="text-[9px] font-medium">Unreads</span>
+                <Mail className="w-[18px] h-[18px]" />
                 {totalUnread > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 text-[8px] font-bold bg-red-500 text-white rounded-full w-[14px] h-[14px] flex items-center justify-center">
                     {totalUnread > 9 ? "9+" : totalUnread}
@@ -217,40 +221,34 @@ export function Sidebar({
           );
         })()}
         {onSelectSavedView && (
-          <Tooltip content="Saved Items" side="bottom">
+          <Tooltip content="Saved" side="bottom">
             <button
               type="button"
               onClick={onSelectSavedView}
-              className={`flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg border-none cursor-pointer transition-all flex-1 min-w-0 ${
+              className={`flex items-center justify-center py-2 px-1 rounded-lg border-none cursor-pointer transition-all flex-1 min-w-0 ${
                 activeView === "saved"
                   ? "bg-amber-500/30 text-amber-200 ring-1 ring-amber-400/50"
                   : "bg-white/5 text-gray-400 hover:bg-white/15 hover:text-white"
               }`}
               data-testid="saved-view-link"
             >
-              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
-              </svg>
-              <span className="text-[9px] font-medium">Saved</span>
+              <Bookmark className="w-[18px] h-[18px]" />
             </button>
           </Tooltip>
         )}
-        {onSelectScheduledView && (
-          <Tooltip content="Scheduled" side="bottom">
+        {onSelectOutboxView && (
+          <Tooltip content="Outbox" side="bottom">
             <button
               type="button"
-              onClick={onSelectScheduledView}
-              className={`flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg border-none cursor-pointer transition-all flex-1 min-w-0 ${
-                activeView === "scheduled"
+              onClick={onSelectOutboxView}
+              className={`flex items-center justify-center py-2 px-1 rounded-lg border-none cursor-pointer transition-all flex-1 min-w-0 ${
+                activeView === "outbox"
                   ? "bg-cyan-500/30 text-cyan-200 ring-1 ring-cyan-400/50"
                   : "bg-white/5 text-gray-400 hover:bg-white/15 hover:text-white"
               }`}
-              data-testid="scheduled-view-link"
+              data-testid="outbox-view-link"
             >
-              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-              </svg>
-              <span className="text-[9px] font-medium">Later</span>
+              <Clock className="w-[18px] h-[18px]" />
             </button>
           </Tooltip>
         )}
@@ -259,17 +257,14 @@ export function Sidebar({
             <button
               type="button"
               onClick={onSelectFilesView}
-              className={`flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg border-none cursor-pointer transition-all flex-1 min-w-0 ${
+              className={`flex items-center justify-center py-2 px-1 rounded-lg border-none cursor-pointer transition-all flex-1 min-w-0 ${
                 activeView === "files"
                   ? "bg-emerald-500/30 text-emerald-200 ring-1 ring-emerald-400/50"
                   : "bg-white/5 text-gray-400 hover:bg-white/15 hover:text-white"
               }`}
               data-testid="files-view-link"
             >
-              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-              </svg>
-              <span className="text-[9px] font-medium">Files</span>
+              <FileText className="w-[18px] h-[18px]" />
             </button>
           </Tooltip>
         )}
@@ -300,11 +295,12 @@ export function Sidebar({
         <ChannelList
           activeChannelId={activeChannelId}
           onSelectChannel={onSelectChannel}
-          channels={channels.filter((ch) => !ch.isArchived)}
+          channels={channels.filter((ch) => !ch.isArchived).sort((a, b) => { if (a.type !== b.type) return a.type === "public" ? -1 : 1; return a.name.localeCompare(b.name); })}
           unreadCounts={unreadCounts}
           collapsed={sidebarCollapse.channels}
           onToggleCollapsed={toggleChannelsCollapsed}
           onCreateChannel={() => setCreateChannelOpen(true)}
+          onBrowseChannels={() => setBrowseChannelsOpen(true)}
           activeHuddles={activeHuddles}
           channelNotificationPrefs={channelNotificationPrefs}
           onSetNotificationLevel={onSetNotificationLevel}
@@ -350,6 +346,16 @@ export function Sidebar({
         }}
         workspaceSlug={workspaceSlug}
         canCreatePrivate={canManage}
+      />
+
+      <BrowseChannelsDialog
+        open={browseChannelsOpen}
+        onClose={() => setBrowseChannelsOpen(false)}
+        workspaceSlug={workspaceSlug}
+        isAdmin={canManage}
+        onChannelJoined={(channel) => {
+          onChannelCreated?.(channel);
+        }}
       />
 
       <WorkspaceSettingsDialog

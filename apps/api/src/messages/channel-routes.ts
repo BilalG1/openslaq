@@ -1,7 +1,7 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { asMessageId, zChannelId, zMessageId } from "@openslaq/shared";
 import { createMessageSchema, messagesPaginationSchema, shareMessageSchema } from "./validation";
-import { getMessages, createMessage, getMessageById, getThreadReplies, createThreadReply, getMessagesAround, createSharedMessage } from "./service";
+import { getMessages, createMessage, getMessageById, getMessagesByIds, getThreadReplies, createThreadReply, getMessagesAround, createSharedMessage } from "./service";
 import { isChannelMember } from "../channels/service";
 import { pinMessage, unpinMessage, getPinnedMessageIds, getPinnedCount } from "./pinned-service";
 import { saveMessage, unsaveMessage } from "./saved-service";
@@ -384,10 +384,6 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
       pinnedAt: result.pinnedAt.toISOString(),
     });
 
-    // Post system message
-    const senderName = user.displayName ?? "Someone";
-    await createMessage(channel.id, user.id, `${senderName} pinned a message to this channel.`);
-
     webhookDispatcher.dispatch({
       type: "message:pinned",
       channelId: channel.id,
@@ -398,7 +394,6 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     return c.json({ ok: true as const }, 200);
   })
   .openapi(unpinMessageRoute, async (c) => {
-    const user = c.get("user");
     const channel = c.get("channel");
     const messageId = c.req.valid("param").messageId;
 
@@ -409,10 +404,6 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
       messageId,
       channelId: channel.id,
     });
-
-    // Post system message
-    const senderName = user.displayName ?? "Someone";
-    await createMessage(channel.id, user.id, `${senderName} unpinned a message from this channel.`);
 
     return c.json({ ok: true as const }, 200);
   })
@@ -425,10 +416,10 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     const channel = c.get("channel");
     const pinnedIds = await getPinnedMessageIds(channel.id);
 
-    const msgs = await Promise.all(
-      pinnedIds.map((id) => getMessageById(id)),
-    );
-    const validMessages = msgs.filter((m): m is NonNullable<typeof m> => m !== null);
+    const msgs = await getMessagesByIds(pinnedIds);
+    // Reorder to match pin order (pinnedIds is already ordered by pinnedAt DESC)
+    const msgMap = new Map(msgs.map((m) => [m.id, m]));
+    const validMessages = pinnedIds.map((id) => msgMap.get(id)).filter((m): m is NonNullable<typeof m> => m != null);
 
     return jsonResponse(c, { messages: validMessages }, 200);
   })

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useState, useEffect } from "react";
 import type { Attachment } from "@openslaq/shared";
 
 interface PendingFile {
@@ -15,10 +15,13 @@ interface FilePreviewListProps {
 
 function PendingFileCard({ pending, onRemove }: { pending: PendingFile; onRemove: () => void }) {
   const isImage = pending.file.type.startsWith("image/");
-  const previewUrl = useMemo(
-    () => (isImage ? URL.createObjectURL(pending.file) : null),
-    [isImage, pending.file],
-  );
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isImage) { setPreviewUrl(null); return; }
+    const url = URL.createObjectURL(pending.file);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [isImage, pending.file]);
 
   return (
     <div className="relative flex items-center gap-1.5 px-2 py-1 bg-surface-tertiary rounded-md text-xs max-w-[200px]">

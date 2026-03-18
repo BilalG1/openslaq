@@ -151,4 +151,100 @@ describe("channels command (integration)", () => {
     const starredList = (await starredAfter.json()) as string[];
     expect(starredList).not.toContain(channel.id);
   });
+
+  test("list channel members", async () => {
+    const name = `cli-mem-${testId()}`;
+    const createRes = await client.api.workspaces[":slug"].channels.$post({
+      param: { slug },
+      json: { name, type: "public" },
+    });
+    const channel = (await createRes.json()) as { id: string };
+
+    const res = await client.api.workspaces[":slug"].channels[":id"].members.$get({
+      param: { slug, id: channel.id },
+    });
+    expect(res.status).toBe(200);
+    const members = (await res.json()) as { displayName: string; email: string }[];
+    expect(members.length).toBeGreaterThan(0);
+  });
+
+  test("add and remove member from private channel", async () => {
+    const name = `cli-priv-${testId()}`;
+    const createRes = await client.api.workspaces[":slug"].channels.$post({
+      param: { slug },
+      json: { name, type: "private" },
+    });
+    expect(createRes.status).toBe(201);
+    const channel = (await createRes.json()) as { id: string };
+
+    // Create a second user and add them to the workspace via invite
+    const secondId = `cli-mem2-${testId()}`;
+    const { client: client2 } = await createTestClient({
+      id: secondId,
+      displayName: "Second User",
+      email: `${secondId}@openslaq.dev`,
+    });
+    const inviteRes = await client.api.workspaces[":slug"].invites.$post({
+      param: { slug },
+      json: {},
+    });
+    expect(inviteRes.status).toBe(201);
+    const invite = (await inviteRes.json()) as { code: string };
+    const acceptRes = await client2.api.invites[":code"].accept.$post({
+      param: { code: invite.code },
+    });
+    expect(acceptRes.status).toBe(200);
+
+    // Add member
+    const addRes = await client.api.workspaces[":slug"].channels[":id"].members.$post({
+      param: { slug, id: channel.id },
+      json: { userId: secondId },
+    });
+    expect(addRes.status).toBe(201);
+
+    // Verify member appears in list
+    const listRes = await client.api.workspaces[":slug"].channels[":id"].members.$get({
+      param: { slug, id: channel.id },
+    });
+    const members = (await listRes.json()) as { displayName: string }[];
+    const found = members.find((m) => m.displayName === "Second User");
+    expect(found).toBeDefined();
+
+    // Remove member
+    const removeRes = await client.api.workspaces[":slug"].channels[":id"].members[":userId"].$delete({
+      param: { slug, id: channel.id, userId: secondId },
+    });
+    expect(removeRes.status).toBe(200);
+  });
+
+  test("get and set notification preference", async () => {
+    const name = `cli-notif-${testId()}`;
+    const createRes = await client.api.workspaces[":slug"].channels.$post({
+      param: { slug },
+      json: { name, type: "public" },
+    });
+    const channel = (await createRes.json()) as { id: string };
+
+    // Get default pref
+    const getRes = await client.api.workspaces[":slug"].channels[":id"]["notification-pref"].$get({
+      param: { slug, id: channel.id },
+    });
+    expect(getRes.status).toBe(200);
+    const pref = (await getRes.json()) as { level: string };
+    expect(pref.level).toBe("all");
+
+    // Set to muted
+    const setRes = await client.api.workspaces[":slug"].channels[":id"]["notification-pref"].$put({
+      param: { slug, id: channel.id },
+      json: { level: "muted" },
+    });
+    expect(setRes.status).toBe(200);
+
+    // Verify it changed
+    const getRes2 = await client.api.workspaces[":slug"].channels[":id"]["notification-pref"].$get({
+      param: { slug, id: channel.id },
+    });
+    const pref2 = (await getRes2.json()) as { level: string };
+    expect(pref2.level).toBe("muted");
+  });
 });

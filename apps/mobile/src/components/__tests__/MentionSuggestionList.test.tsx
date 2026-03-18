@@ -1,7 +1,7 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react-native";
 import { MentionSuggestionList } from "../MentionSuggestionList";
-import type { MentionSuggestionItem } from "@/hooks/useMentionAutocomplete";
+import type { MentionSuggestionItem } from "../MentionSuggestionList";
 
 const mockMembers: MentionSuggestionItem[] = [
   { id: "user-1", displayName: "Alice" },

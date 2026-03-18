@@ -1,9 +1,11 @@
 import { View, Text } from "react-native";
 import { Bell } from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 
 export default function ActivityScreen() {
   const { theme } = useMobileTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <View
@@ -12,6 +14,7 @@ export default function ActivityScreen() {
         flex: 1,
         alignItems: "center",
         justifyContent: "center",
+        paddingTop: insets.top,
         backgroundColor: theme.colors.surface,
       }}
     >

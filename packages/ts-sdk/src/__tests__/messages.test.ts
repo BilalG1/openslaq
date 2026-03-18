@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { OpenSlaqApiError } from "../index";
-import type { Message, MessageListResponse } from "../types";
+import type { Message, MessageListResponse, MessagesAroundResponse, SavedMessagesResponse } from "../types";
 import { createClient } from "./test-utils";
 
 const fakeMessage: Message = {
@@ -80,6 +80,7 @@ describe("Messages resource", () => {
 
     const result = await client.messages.get("msg-1");
     expect(capturedUrl).toContain("/api/messages/msg-1");
+    expect(capturedUrl).not.toContain("/workspaces/");
     expect(result.content).toBe("Hello world");
   });
 
@@ -96,6 +97,7 @@ describe("Messages resource", () => {
 
     const result = await client.messages.edit("msg-1", { content: "Updated" });
     expect(capturedUrl).toContain("/api/messages/msg-1");
+    expect(capturedUrl).not.toContain("/workspaces/");
     expect(capturedMethod).toBe("PUT");
     expect(JSON.parse(capturedBody)).toEqual({ content: "Updated" });
     expect(result.content).toBe("Updated");
@@ -112,6 +114,7 @@ describe("Messages resource", () => {
 
     await client.messages.delete("msg-1");
     expect(capturedUrl).toContain("/api/messages/msg-1");
+    expect(capturedUrl).not.toContain("/workspaces/");
     expect(capturedMethod).toBe("DELETE");
   });
 
@@ -174,6 +177,7 @@ describe("Messages resource", () => {
 
     const result = await client.messages.toggleReaction("msg-1", "👍");
     expect(capturedUrl).toContain("/api/messages/msg-1/reactions");
+    expect(capturedUrl).not.toContain("/workspaces/");
     expect(JSON.parse(capturedBody)).toEqual({ emoji: "👍" });
     expect(result.reactions).toHaveLength(1);
     expect(result.reactions[0]!.emoji).toBe("👍");
@@ -246,5 +250,97 @@ describe("Messages resource", () => {
       expect(e).toBeInstanceOf(OpenSlaqApiError);
       expect((e as OpenSlaqApiError).status).toBe(404);
     }
+  });
+
+  test("save() POSTs to save endpoint", async () => {
+    let capturedUrl = "";
+    let capturedMethod = "";
+    const client = createClient((url, init) => {
+      capturedUrl = url;
+      capturedMethod = init?.method ?? "";
+      return { status: 200, body: { ok: true } };
+    });
+
+    await client.messages.save("ch-1", "msg-1");
+    expect(capturedUrl).toContain("/api/workspaces/test-ws/channels/ch-1/messages/msg-1/save");
+    expect(capturedMethod).toBe("POST");
+  });
+
+  test("unsave() DELETEs save endpoint", async () => {
+    let capturedUrl = "";
+    let capturedMethod = "";
+    const client = createClient((url, init) => {
+      capturedUrl = url;
+      capturedMethod = init?.method ?? "";
+      return { status: 200, body: { ok: true } };
+    });
+
+    await client.messages.unsave("ch-1", "msg-1");
+    expect(capturedUrl).toContain("/api/workspaces/test-ws/channels/ch-1/messages/msg-1/save");
+    expect(capturedMethod).toBe("DELETE");
+  });
+
+  test("listSaved() GETs saved-messages endpoint", async () => {
+    let capturedUrl = "";
+    const fakeSaved: SavedMessagesResponse = {
+      messages: [{ message: fakeMessage, channelName: "general", savedAt: "2026-03-12T00:00:00Z" }],
+    };
+    const client = createClient((url) => {
+      capturedUrl = url;
+      return { status: 200, body: fakeSaved };
+    });
+
+    const result = await client.messages.listSaved();
+    expect(capturedUrl).toContain("/api/workspaces/test-ws/saved-messages");
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0]!.channelName).toBe("general");
+  });
+
+  test("listSavedIds() GETs saved-messages/ids endpoint", async () => {
+    let capturedUrl = "";
+    const client = createClient((url) => {
+      capturedUrl = url;
+      return { status: 200, body: { messageIds: ["msg-1", "msg-2"] } };
+    });
+
+    const result = await client.messages.listSavedIds();
+    expect(capturedUrl).toContain("/api/workspaces/test-ws/saved-messages/ids");
+    expect(result.messageIds).toEqual(["msg-1", "msg-2"]);
+  });
+
+  test("share() POSTs to share endpoint with body", async () => {
+    let capturedUrl = "";
+    let capturedBody = "";
+    const client = createClient((url, init) => {
+      capturedUrl = url;
+      capturedBody = init?.body as string;
+      return { status: 201, body: fakeMessage };
+    });
+
+    const result = await client.messages.share("ch-1", { sharedMessageId: "msg-99", comment: "Check this out" });
+    expect(capturedUrl).toContain("/api/workspaces/test-ws/channels/ch-1/messages/share");
+    expect(JSON.parse(capturedBody)).toEqual({ sharedMessageId: "msg-99", comment: "Check this out" });
+    expect(result.id).toBe("msg-1");
+  });
+
+  test("getAround() GETs messages around endpoint", async () => {
+    let capturedUrl = "";
+    const fakeAround: MessagesAroundResponse = {
+      messages: [fakeMessage],
+      targetFound: true,
+      olderCursor: null,
+      newerCursor: null,
+      hasOlder: false,
+      hasNewer: false,
+    };
+    const client = createClient((url) => {
+      capturedUrl = url;
+      return { status: 200, body: fakeAround };
+    });
+
+    const result = await client.messages.getAround("ch-1", "msg-1");
+    expect(capturedUrl).toContain("/api/workspaces/test-ws/channels/ch-1/messages/around/msg-1");
+    expect(result.targetFound).toBe(true);
+    expect(result.messages).toHaveLength(1);
   });
 });

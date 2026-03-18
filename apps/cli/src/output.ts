@@ -180,6 +180,20 @@ export function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+export function formatChannelMemberTable(
+  members: { displayName: string; email: string; joinedAt: string }[],
+): string {
+  if (members.length === 0) return "No members found.";
+  const header = "NAME                EMAIL                         JOINED";
+  const rows = members.map(
+    (m) => {
+      const joined = new Date(m.joinedAt).toLocaleDateString();
+      return `${m.displayName.padEnd(20)}${m.email.padEnd(30)}${joined}`;
+    },
+  );
+  return [header, ...rows].join("\n");
+}
+
 export function formatPresenceTable(
   entries: { userId: string; online: boolean; statusEmoji?: string | null; statusText?: string | null }[],
 ): string {

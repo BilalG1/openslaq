@@ -37,20 +37,39 @@ describe("browse channels", () => {
     }
   });
 
-  test("excludes private channels", async () => {
+  test("excludes private channels for non-members", async () => {
     const name = `priv-browse-${testId()}`;
     await ownerClient.api.workspaces[":slug"].channels.$post({
       param: { slug },
       json: { name, type: "private" },
     });
 
-    const res = await ownerClient.api.workspaces[":slug"].channels.browse.$get({
+    // Non-member should NOT see the private channel
+    const res = await memberClient.api.workspaces[":slug"].channels.browse.$get({
       param: { slug },
       query: {},
     });
     const channels = (await res.json()) as { name: string; type: string }[];
     const found = channels.find((c) => c.name === name);
     expect(found).toBeUndefined();
+  });
+
+  test("includes private channels for members", async () => {
+    const name = `priv-browse-member-${testId()}`;
+    await ownerClient.api.workspaces[":slug"].channels.$post({
+      param: { slug },
+      json: { name, type: "private" },
+    });
+
+    // Owner (who auto-joined) should see the private channel
+    const res = await ownerClient.api.workspaces[":slug"].channels.browse.$get({
+      param: { slug },
+      query: {},
+    });
+    const channels = (await res.json()) as { name: string; type: string }[];
+    const found = channels.find((c) => c.name === name);
+    expect(found).toBeDefined();
+    expect(found!.type).toBe("private");
   });
 
   test("isMember is true for channels user belongs to", async () => {

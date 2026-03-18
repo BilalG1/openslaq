@@ -7,16 +7,17 @@ import { MicOff, Mic, PhoneOff } from "lucide-react-native";
 import { useHuddle } from "@/contexts/HuddleProvider";
 import { useChatStore } from "@/contexts/ChatStoreProvider";
 import { useMobileTheme } from "@/theme/ThemeProvider";
+import { routes } from "@/lib/routes";
 
-const CARD_W = 120;
-const CARD_H = 160;
+const CARD_W = 100;
+const CARD_H = 140;
 
 export function HuddleFloatingBar() {
   const {
     channelId,
     connected,
     isMuted,
-    participants,
+    participants: _participants,
     room,
     leaveHuddle,
     toggleMute,
@@ -46,27 +47,20 @@ export function HuddleFloatingBar() {
 
   const channel = state.channels.find((c) => c.id === channelId);
   const dm = state.dms.find((d) => d.channel.id === channelId);
-  const label = channel ? `# ${channel.name}` : dm?.otherUser.displayName ?? "Huddle";
   const displayName = channel?.name ?? dm?.otherUser.displayName ?? "Huddle";
 
   const openModal = () => {
     if (workspaceSlug) {
-      router.push(`/(app)/${workspaceSlug}/huddle`);
+      router.push(routes.huddle(workspaceSlug!));
     }
   };
 
   return (
     <View
       testID="huddle-floating-bar"
-      style={[
-        styles.container,
-        {
-          top: top + 12,
-        },
-      ]}
+      style={[styles.container, { top: top + 12 }]}
     >
       <Pressable onPress={openModal} testID="huddle-bar-expand" style={styles.card}>
-        {/* Video / Avatar */}
         {trackRef ? (
           <VideoTrack
             trackRef={trackRef}
@@ -92,45 +86,29 @@ export function HuddleFloatingBar() {
           </View>
         )}
 
-        {/* Top overlay with channel name */}
-        <View style={styles.topGradient}>
-          <Text style={styles.channelName} numberOfLines={1}>
-            {label}
-          </Text>
-          {connected && (
-            <Text style={styles.participantCount}>{participants.length}</Text>
-          )}
-        </View>
+        {/* Green dot indicator instead of text */}
+        {connected && <View style={styles.greenDot} />}
 
-        {/* Bottom control bar */}
-        <View style={styles.bottomBar}>
+        {/* Tiny controls */}
+        <View style={styles.controlRow}>
           <Pressable
             testID="huddle-bar-mute"
             onPress={toggleMute}
+            hitSlop={8}
             style={[
               styles.controlButton,
-              {
-                backgroundColor: isMuted
-                  ? theme.brand.danger
-                  : "rgba(255,255,255,0.2)",
-              },
+              { backgroundColor: isMuted ? "#dc2626" : "rgba(255,255,255,0.2)" },
             ]}
           >
-            {isMuted ? (
-              <MicOff size={14} color="#fff" />
-            ) : (
-              <Mic size={14} color="#fff" />
-            )}
+            {isMuted ? <MicOff size={12} color="#fff" /> : <Mic size={12} color="#fff" />}
           </Pressable>
           <Pressable
             testID="huddle-bar-leave"
             onPress={leaveHuddle}
-            style={[
-              styles.controlButton,
-              { backgroundColor: theme.brand.danger },
-            ]}
+            hitSlop={8}
+            style={[styles.controlButton, { backgroundColor: "#dc2626" }]}
           >
-            <PhoneOff size={14} color="#fff" />
+            <PhoneOff size={12} color="#fff" />
           </Pressable>
         </View>
       </Pressable>
@@ -145,7 +123,7 @@ const styles = StyleSheet.create({
     zIndex: 999,
     width: CARD_W,
     height: CARD_H,
-    borderRadius: 16,
+    borderRadius: 24,
     overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
@@ -167,48 +145,33 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   avatarText: {
-    fontSize: 36,
+    fontSize: 32,
     fontWeight: "700",
   },
-  topGradient: {
+  greenDot: {
     position: "absolute",
-    top: 0,
+    top: 8,
+    right: 8,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#22c55e",
+    borderWidth: 1.5,
+    borderColor: "rgba(0,0,0,0.3)",
+  },
+  controlRow: {
+    position: "absolute",
+    bottom: 8,
     left: 0,
     right: 0,
-    paddingHorizontal: 8,
-    paddingTop: 8,
-    paddingBottom: 16,
     flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  channelName: {
-    color: "#fff",
-    fontSize: 11,
-    fontWeight: "600",
-    flex: 1,
-  },
-  participantCount: {
-    color: "rgba(255,255,255,0.8)",
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  bottomBar: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 36,
-    flexDirection: "row",
-    alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    gap: 6,
   },
   controlButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },

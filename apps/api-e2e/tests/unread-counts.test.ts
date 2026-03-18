@@ -40,13 +40,18 @@ describe("unread counts", () => {
     });
   });
 
-  test("fresh workspace has empty unread counts", async () => {
+  test("fresh workspace has unread from join event", async () => {
+    // Mark as read first to clear the channel_event from user2 joining
+    await client1.api.workspaces[":slug"].channels[":id"].read.$post({
+      param: { slug, id: channelId },
+    });
+
     const res = await client1.api.workspaces[":slug"]["unread-counts"].$get({
       param: { slug },
     });
     expect(res.status).toBe(200);
     const counts = (await res.json()) as Record<string, number>;
-    // Channel was just created by user1, no unread messages yet
+    // After marking as read, no unread messages
     expect(counts[channelId]).toBeUndefined();
   });
 

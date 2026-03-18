@@ -12,7 +12,7 @@ export const githubPlugin: IntegrationPlugin = {
       name: "github",
       description: "Manage GitHub repo subscriptions",
       usage: "/github subscribe owner/repo [events]",
-      source: "builtin",
+      source: "integration",
     },
     handler: handleGithub,
   },

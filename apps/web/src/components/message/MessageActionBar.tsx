@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { EmojiPicker, type CustomEmojiItem } from "./EmojiPicker";
 import { Button, Tooltip } from "../ui";
+import { Smile, MessageSquare, MoreVertical, Mail, Pin, Share2, Bookmark, Pencil, Trash2 } from "lucide-react";
 
 interface MessageActionBarProps {
   onAddReaction: (emoji: string) => void;
@@ -91,12 +92,7 @@ export function MessageActionBar({
           onClick={() => setShowPicker(!showPicker)}
           className="text-base leading-none"
         >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <circle cx="8" cy="8" r="7" stroke="#666" strokeWidth="1.5" />
-          <circle cx="5.5" cy="6.5" r="1" fill="#666" />
-          <circle cx="10.5" cy="6.5" r="1" fill="#666" />
-          <path d="M5 10c.5 1.5 2.5 2.5 3 2.5s2.5-1 3-2.5" stroke="#666" strokeWidth="1.2" strokeLinecap="round" />
-        </svg>
+        <Smile className="w-4 h-4 text-muted" />
       </Button>
       </Tooltip>
       {showPicker && (
@@ -119,14 +115,7 @@ export function MessageActionBar({
             onClick={onOpenThread}
             className="text-base leading-none"
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path
-                d="M2 3h12v7H5l-3 3V3z"
-                stroke="#666"
-                strokeWidth="1.5"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <MessageSquare className="w-4 h-4 text-muted" />
           </Button>
         </Tooltip>
       )}
@@ -141,11 +130,7 @@ export function MessageActionBar({
               onClick={() => setShowMenu(!showMenu)}
               className="text-base leading-none"
             >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <circle cx="8" cy="3" r="1.5" fill="#666" />
-                <circle cx="8" cy="8" r="1.5" fill="#666" />
-                <circle cx="8" cy="13" r="1.5" fill="#666" />
-              </svg>
+              <MoreVertical className="w-4 h-4 text-muted" />
             </Button>
           </Tooltip>
           {showMenu && (
@@ -162,8 +147,9 @@ export function MessageActionBar({
                     setShowMenu(false);
                     onMarkAsUnread();
                   }}
-                  className="w-full text-left px-3 py-1.5 text-sm text-primary hover:bg-surface-secondary cursor-pointer bg-transparent border-none"
+                  className="w-full text-left px-3 py-1.5 text-sm text-primary hover:bg-surface-secondary cursor-pointer bg-transparent border-none flex items-center gap-2"
                 >
+                  <Mail className="w-4 h-4 shrink-0" />
                   Mark as unread
                 </button>
               )}
@@ -175,8 +161,9 @@ export function MessageActionBar({
                     setShowMenu(false);
                     onUnpinMessage();
                   }}
-                  className="w-full text-left px-3 py-1.5 text-sm text-primary hover:bg-surface-secondary cursor-pointer bg-transparent border-none"
+                  className="w-full text-left px-3 py-1.5 text-sm text-primary hover:bg-surface-secondary cursor-pointer bg-transparent border-none flex items-center gap-2"
                 >
+                  <Pin className="w-4 h-4 shrink-0" />
                   Unpin message
                 </button>
               )}
@@ -188,8 +175,9 @@ export function MessageActionBar({
                     setShowMenu(false);
                     onPinMessage();
                   }}
-                  className="w-full text-left px-3 py-1.5 text-sm text-primary hover:bg-surface-secondary cursor-pointer bg-transparent border-none"
+                  className="w-full text-left px-3 py-1.5 text-sm text-primary hover:bg-surface-secondary cursor-pointer bg-transparent border-none flex items-center gap-2"
                 >
+                  <Pin className="w-4 h-4 shrink-0" />
                   Pin message
                 </button>
               )}
@@ -201,8 +189,9 @@ export function MessageActionBar({
                     setShowMenu(false);
                     onShareMessage();
                   }}
-                  className="w-full text-left px-3 py-1.5 text-sm text-primary hover:bg-surface-secondary cursor-pointer bg-transparent border-none"
+                  className="w-full text-left px-3 py-1.5 text-sm text-primary hover:bg-surface-secondary cursor-pointer bg-transparent border-none flex items-center gap-2"
                 >
+                  <Share2 className="w-4 h-4 shrink-0" />
                   Share message
                 </button>
               )}
@@ -214,8 +203,9 @@ export function MessageActionBar({
                     setShowMenu(false);
                     onUnsaveMessage();
                   }}
-                  className="w-full text-left px-3 py-1.5 text-sm text-primary hover:bg-surface-secondary cursor-pointer bg-transparent border-none"
+                  className="w-full text-left px-3 py-1.5 text-sm text-primary hover:bg-surface-secondary cursor-pointer bg-transparent border-none flex items-center gap-2"
                 >
+                  <Bookmark className="w-4 h-4 shrink-0" fill="currentColor" />
                   Remove from saved
                 </button>
               )}
@@ -227,8 +217,9 @@ export function MessageActionBar({
                     setShowMenu(false);
                     onSaveMessage();
                   }}
-                  className="w-full text-left px-3 py-1.5 text-sm text-primary hover:bg-surface-secondary cursor-pointer bg-transparent border-none"
+                  className="w-full text-left px-3 py-1.5 text-sm text-primary hover:bg-surface-secondary cursor-pointer bg-transparent border-none flex items-center gap-2"
                 >
+                  <Bookmark className="w-4 h-4 shrink-0" />
                   Save for later
                 </button>
               )}
@@ -240,8 +231,9 @@ export function MessageActionBar({
                     setShowMenu(false);
                     onEditMessage();
                   }}
-                  className="w-full text-left px-3 py-1.5 text-sm text-primary hover:bg-surface-secondary cursor-pointer bg-transparent border-none"
+                  className="w-full text-left px-3 py-1.5 text-sm text-primary hover:bg-surface-secondary cursor-pointer bg-transparent border-none flex items-center gap-2"
                 >
+                  <Pencil className="w-4 h-4 shrink-0" />
                   Edit message
                 </button>
               )}
@@ -253,8 +245,9 @@ export function MessageActionBar({
                     setShowMenu(false);
                     onDeleteMessage();
                   }}
-                  className="w-full text-left px-3 py-1.5 text-sm text-danger-text hover:bg-surface-secondary cursor-pointer bg-transparent border-none"
+                  className="w-full text-left px-3 py-1.5 text-sm text-danger-text hover:bg-surface-secondary cursor-pointer bg-transparent border-none flex items-center gap-2"
                 >
+                  <Trash2 className="w-4 h-4 shrink-0" />
                   Delete message
                 </button>
               )}

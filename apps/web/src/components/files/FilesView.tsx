@@ -1,8 +1,9 @@
 import { useCallback } from "react";
+import { FileText } from "lucide-react";
 import type { FileBrowserItem, FileCategory, Channel } from "@openslaq/shared";
 import { useFilesBrowser } from "../../hooks/chat/useFilesBrowser";
 import { FileTypeIcon, formatFileSize } from "./file-icons";
-import { Button } from "../ui";
+import { Button, EmptyState, LoadingState, ErrorState } from "../ui";
 
 const CATEGORY_TABS: { label: string; value: FileCategory | undefined }[] = [
   { label: "All", value: undefined },
@@ -85,25 +86,20 @@ export function FilesView({
 
       <div className="flex-1 overflow-y-auto">
         {loading && files.length === 0 && (
-          <div className="flex items-center justify-center py-12 text-faint">
-            Loading files...
-          </div>
+          <LoadingState label="Loading files..." />
         )}
 
         {error && (
-          <div className="flex items-center justify-center py-12 text-danger-text">
-            {error}
-          </div>
+          <ErrorState message={error} />
         )}
 
         {!loading && !error && files.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 text-faint" data-testid="files-empty-state">
-            <svg className="w-12 h-12 mb-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m6.75 12H9.75m3 0H9.75m0 0v3m0-3v-3m-3.375-6H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-            </svg>
-            <span className="text-lg font-medium">No files found</span>
-            <span className="text-sm mt-1">Files shared in messages will appear here</span>
-          </div>
+          <EmptyState
+            icon={<FileText className="w-full h-full" strokeWidth={1.5} />}
+            title="No files found"
+            subtitle="Files shared in messages will appear here"
+            data-testid="files-empty-state"
+          />
         )}
 
         {files.length > 0 && (

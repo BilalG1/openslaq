@@ -10,7 +10,7 @@ const slashCommandDefSchema = z.object({
   name: z.string(),
   description: z.string(),
   usage: z.string(),
-  source: z.enum(["builtin", "bot"]),
+  source: z.enum(["builtin", "bot", "integration"]),
   botAppId: z.string().optional(),
   botName: z.string().optional(),
 });

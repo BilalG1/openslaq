@@ -1,10 +1,11 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { db } from "../db";
 import { botSlashCommands } from "./slash-command-schema";
 import { botApps } from "../bots/schema";
+import { marketplaceListings } from "../marketplace/schema";
 import type { SlashCommandDefinition } from "@openslaq/shared";
 import { asBotAppId } from "@openslaq/shared";
-import { INTEGRATION_PLUGINS } from "../integrations/registry";
+import { INTEGRATION_PLUGINS, getInternalBotSlugs } from "../integrations/registry";
 
 export const BUILTIN_COMMANDS: SlashCommandDefinition[] = [
   {
@@ -37,11 +38,26 @@ export const BUILTIN_COMMANDS: SlashCommandDefinition[] = [
     usage: "/unmute",
     source: "builtin",
   },
-  // Integration plugin commands
-  ...INTEGRATION_PLUGINS
-    .filter((p) => p.slashCommand)
-    .map((p) => p.slashCommand!.definition),
 ];
+
+export async function isIntegrationInstalledInWorkspace(
+  pluginSlug: string,
+  workspaceId: string,
+): Promise<boolean> {
+  const rows = await db
+    .select({ id: botApps.id })
+    .from(botApps)
+    .innerJoin(marketplaceListings, eq(botApps.marketplaceListingId, marketplaceListings.id))
+    .where(
+      and(
+        eq(marketplaceListings.slug, pluginSlug),
+        eq(botApps.workspaceId, workspaceId),
+        eq(botApps.enabled, true),
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
+}
 
 export async function listCommandsForWorkspace(
   workspaceId: string,
@@ -74,5 +90,29 @@ export async function listCommandsForWorkspace(
     botName: r.botName,
   }));
 
-  return [...BUILTIN_COMMANDS, ...botCommands];
+  // Find installed integration plugins for this workspace
+  const slugs = getInternalBotSlugs();
+  const integrationCommands: SlashCommandDefinition[] = [];
+  if (slugs.length > 0) {
+    const installedSlugs = await db
+      .select({ slug: marketplaceListings.slug })
+      .from(botApps)
+      .innerJoin(marketplaceListings, eq(botApps.marketplaceListingId, marketplaceListings.id))
+      .where(
+        and(
+          inArray(marketplaceListings.slug, slugs),
+          eq(botApps.workspaceId, workspaceId),
+          eq(botApps.enabled, true),
+        ),
+      );
+
+    const installedSlugSet = new Set(installedSlugs.map((r) => r.slug));
+    for (const plugin of INTEGRATION_PLUGINS) {
+      if (plugin.slashCommand && installedSlugSet.has(plugin.slug)) {
+        integrationCommands.push(plugin.slashCommand.definition);
+      }
+    }
+  }
+
+  return [...BUILTIN_COMMANDS, ...botCommands, ...integrationCommands];
 }

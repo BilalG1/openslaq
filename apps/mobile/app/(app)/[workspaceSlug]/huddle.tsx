@@ -15,7 +15,6 @@ import { useHuddle } from "@/contexts/HuddleProvider";
 import { useChatStore } from "@/contexts/ChatStoreProvider";
 import { HuddleControls } from "@/components/huddle/HuddleControls";
 import { VideoGrid } from "@/components/huddle/VideoGrid";
-import { useMobileTheme } from "@/theme/ThemeProvider";
 
 function HuddleModalContent() {
   const {
@@ -30,7 +29,6 @@ function HuddleModalContent() {
   } = useHuddle();
   const { state } = useChatStore();
   const { top, bottom } = useSafeAreaInsets();
-  const { theme } = useMobileTheme();
   const router = useRouter();
 
   const lkParticipants = useParticipants();
@@ -51,13 +49,11 @@ function HuddleModalContent() {
     router.back();
   }, [router]);
 
-  // Build grid participants from LiveKit participants
   const gridParticipants = lkParticipants.map((p) => {
     const isLocal = p.isLocal;
     const userId = p.identity;
     const displayName = p.name || userId;
 
-    // Find camera track for this participant
     const videoTrackRef = tracks.find(
       (t): t is TrackReference =>
         t.participant.identity === userId &&
@@ -65,7 +61,6 @@ function HuddleModalContent() {
         "publication" in t,
     );
 
-    // Find screen share track for this participant
     const screenShareTrackRef = tracks.find(
       (t): t is TrackReference =>
         t.participant.identity === userId &&
@@ -98,30 +93,24 @@ function HuddleModalContent() {
   });
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.surface }]}>
+    <View style={styles.container}>
       {Platform.OS === "ios" && <ScreenCapturePickerView />}
 
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: top + 8 }]}>
-        <Pressable onPress={handleCollapse} hitSlop={8}>
-          <ChevronDown size={24} color={theme.colors.textSecondary} />
+      {/* Translucent header pill overlay */}
+      <View style={[styles.headerOverlay, { top: top + 8 }]}>
+        <Pressable onPress={handleCollapse} hitSlop={8} style={styles.headerPill}>
+          <ChevronDown size={16} color="#fff" />
+          <Text style={styles.headerTitle} numberOfLines={1}>{label}</Text>
+          <Text style={styles.headerCount}>
+            {lkParticipants.length}
+          </Text>
         </Pressable>
-        <View style={styles.headerCenter}>
-          <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>
-            {label}
-          </Text>
-          <Text style={[styles.headerCount, { color: theme.colors.textSecondary }]}>
-            {lkParticipants.length} participant
-            {lkParticipants.length !== 1 ? "s" : ""}
-          </Text>
-        </View>
-        <View style={{ width: 32 }} />
       </View>
 
       {/* Video Grid */}
-      <VideoGrid participants={gridParticipants} />
+      <VideoGrid participants={gridParticipants} safeAreaTop={top} safeAreaBottom={bottom} />
 
-      {/* Controls */}
+      {/* Floating Controls - no background */}
       <View style={{ paddingBottom: bottom }}>
         <HuddleControls
           isMuted={isMuted}
@@ -154,26 +143,33 @@ export default function HuddleModal() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#000",
   },
-  header: {
+  headerOverlay: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    alignItems: "center",
+  },
+  headerPill: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 6,
     paddingHorizontal: 16,
-    paddingBottom: 8,
-  },
-  closeButton: {
-    fontSize: 20,
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: "center",
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "rgba(0,0,0,0.3)",
   },
   headerTitle: {
-    fontSize: 16,
+    color: "#fff",
+    fontSize: 15,
     fontWeight: "600",
+    maxWidth: 180,
   },
   headerCount: {
-    fontSize: 12,
-    marginTop: 2,
+    color: "rgba(255,255,255,0.7)",
+    fontSize: 13,
+    fontWeight: "500",
   },
 });

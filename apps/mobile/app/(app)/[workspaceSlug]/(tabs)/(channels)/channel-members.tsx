@@ -20,6 +20,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useChatStore } from "@/contexts/ChatStoreProvider";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { api } from "@/lib/api";
+import { routes } from "@/lib/routes";
 
 export default function ChannelMembersScreen() {
   const { workspaceSlug, channelId } = useLocalSearchParams<{
@@ -199,7 +200,7 @@ export default function ChannelMembersScreen() {
 
           return (
             <Pressable
-              onPress={() => router.push(`/(app)/${workspaceSlug}/profile/${item.id}`)}
+              onPress={() => router.push(routes.profile(workspaceSlug, item.id))}
             >
               {rowContent}
             </Pressable>

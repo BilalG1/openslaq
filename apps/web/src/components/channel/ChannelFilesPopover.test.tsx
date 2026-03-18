@@ -53,7 +53,8 @@ describe("ChannelFilesPopover", () => {
         onJumpToMessage={noop}
       />,
     );
-    expect(screen.getByText("Loading...")).toBeTruthy();
+    // Skeleton shimmer loading state renders pulse placeholders, not text
+    expect(screen.getByTestId("channel-files-popover").querySelector(".animate-pulse")).toBeTruthy();
   });
 
   test("renders empty state", () => {

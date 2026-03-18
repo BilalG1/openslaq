@@ -1,24 +1,26 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   View,
   Text,
   FlatList,
-  ActivityIndicator,
   Pressable,
-  Alert,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { confirmDelete } from "../../../src/lib/confirm";
 import {
   fetchScheduledMessages,
   deleteScheduledMessageOp,
   updateScheduledMessageOp,
   type ScheduledMessageItem,
 } from "@openslaq/client-core";
-import { useAuth } from "@/contexts/AuthContext";
-import { useChatStore } from "@/contexts/ChatStoreProvider";
+import { Clock, ArrowRight } from "lucide-react-native";
 import { useMobileTheme } from "@/theme/ThemeProvider";
-import { api } from "@/lib/api";
+import { useOperationDeps } from "@/hooks/useOperationDeps";
+import { useFetchData } from "@/hooks/useFetchData";
+import { LoadingScreen } from "@/components/ui/LoadingScreen";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { ScheduleMessageSheet } from "@/components/ScheduleMessageSheet";
+import { routes } from "@/lib/routes";
 
 function statusColor(status: string, theme: ReturnType<typeof useMobileTheme>["theme"]) {
   switch (status) {
@@ -35,59 +37,33 @@ function statusColor(status: string, theme: ReturnType<typeof useMobileTheme>["t
 
 export default function ScheduledMessagesScreen() {
   const { workspaceSlug } = useLocalSearchParams<{ workspaceSlug: string }>();
-  const { authProvider } = useAuth();
-  const { state, dispatch } = useChatStore();
+  const deps = useOperationDeps();
   const { theme } = useMobileTheme();
   const router = useRouter();
 
-  const [items, setItems] = useState<ScheduledMessageItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: items, setData: setItems, loading } = useFetchData<ScheduledMessageItem[]>({
+    fetchFn: () => fetchScheduledMessages(deps, { workspaceSlug }),
+    deps: [workspaceSlug, deps],
+    enabled: !!workspaceSlug,
+    initialValue: [],
+  });
   const [rescheduleItem, setRescheduleItem] = useState<ScheduledMessageItem | null>(null);
-
-  useEffect(() => {
-    if (!workspaceSlug) return;
-    let cancelled = false;
-    const deps = { api, auth: authProvider, dispatch, getState: () => state };
-    void fetchScheduledMessages(deps, { workspaceSlug })
-      .then((result) => {
-        if (cancelled) return;
-        setItems(result);
-        setLoading(false);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workspaceSlug, authProvider, dispatch]);
 
   const handleDelete = useCallback(
     (item: ScheduledMessageItem) => {
-      Alert.alert("Delete Scheduled Message", "Are you sure?", [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            if (!workspaceSlug) return;
-            const deps = { api, auth: authProvider, dispatch, getState: () => state };
-            await deleteScheduledMessageOp(deps, { workspaceSlug, id: item.id });
-            setItems((prev) => prev.filter((i) => i.id !== item.id));
-          },
-        },
-      ]);
+      confirmDelete("Delete Scheduled Message", async () => {
+        if (!workspaceSlug) return;
+        await deleteScheduledMessageOp(deps, { workspaceSlug, id: item.id });
+        setItems((prev) => prev.filter((i) => i.id !== item.id));
+      });
     },
-    [authProvider, dispatch, state, workspaceSlug],
+    [deps, workspaceSlug],
   );
 
   const handleReschedule = useCallback(
     async (scheduledFor: Date) => {
       if (!rescheduleItem || !workspaceSlug) return;
-      const deps = { api, auth: authProvider, dispatch, getState: () => state };
-      const updated = await updateScheduledMessageOp(deps, {
+        const updated = await updateScheduledMessageOp(deps, {
         workspaceSlug,
         id: rescheduleItem.id,
         scheduledFor: scheduledFor.toISOString(),
@@ -101,25 +77,18 @@ export default function ScheduledMessagesScreen() {
       );
       setRescheduleItem(null);
     },
-    [authProvider, dispatch, rescheduleItem, state, workspaceSlug],
+    [deps, rescheduleItem, workspaceSlug],
   );
 
   const handleNavigateToChannel = useCallback(
     (channelId: string) => {
-      router.push(`/(app)/${workspaceSlug}/(tabs)/(channels)/${channelId}`);
+      router.push(routes.channel(workspaceSlug, channelId));
     },
     [router, workspaceSlug],
   );
 
   if (loading) {
-    return (
-      <View
-        testID="scheduled-messages-loading"
-        style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.surface }}
-      >
-        <ActivityIndicator size="large" color={theme.brand.primary} />
-      </View>
-    );
+    return <LoadingScreen testID="scheduled-messages-loading" />;
   }
 
   return (
@@ -200,15 +169,19 @@ export default function ScheduledMessagesScreen() {
               </View>
             )}
             {item.status === "sent" && (
-              <Text style={{ fontSize: 13, color: theme.brand.primary }}>View message →</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <Text style={{ fontSize: 13, color: theme.brand.primary }}>View message</Text>
+                <ArrowRight size={12} color={theme.brand.primary} />
+              </View>
             )}
           </Pressable>
         )}
         ListEmptyComponent={
-          <View testID="scheduled-messages-empty" style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 48 }}>
-            <Text style={{ fontSize: 32, marginBottom: 12 }}>🕐</Text>
-            <Text style={{ fontSize: 16, color: theme.colors.textFaint }}>No scheduled messages</Text>
-          </View>
+          <EmptyState
+            testID="scheduled-messages-empty"
+            icon={<Clock size={32} color={theme.colors.textFaint} />}
+            message="No scheduled messages"
+          />
         }
       />
       <ScheduleMessageSheet

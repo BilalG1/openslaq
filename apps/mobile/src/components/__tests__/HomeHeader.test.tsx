@@ -33,11 +33,11 @@ jest.mock("@/theme/ThemeProvider", () => ({
       colors: {
         surface: "#fff",
         surfaceTertiary: "#f3f4f6",
-        headerBg: "#3F0E40",
+        headerBg: "#111827",
         headerText: "#FFFFFF",
         headerSearchBg: "rgba(255,255,255,0.2)",
       },
-      brand: { primary: "#4A154B" },
+      brand: { primary: "#1264a3" },
     },
   }),
 }));
@@ -63,10 +63,16 @@ jest.mock("@/hooks/useCurrentUserProfile", () => ({
   }),
 }));
 
+const mockToggle = jest.fn();
+jest.mock("@/contexts/WorkspaceDrawerContext", () => ({
+  useWorkspaceDrawer: () => ({ toggle: mockToggle }),
+}));
+
 import { HomeHeader } from "../home/HomeHeader";
 
 beforeEach(() => {
   mockPush.mockClear();
+  mockToggle.mockClear();
 });
 
 describe("HomeHeader", () => {
@@ -75,9 +81,15 @@ describe("HomeHeader", () => {
     expect(screen.getByText("Acme Corp")).toBeTruthy();
   });
 
-  it("renders workspace initial", () => {
+  it("renders workspace icon button", () => {
     render(<HomeHeader />);
-    expect(screen.getByText("A")).toBeTruthy();
+    expect(screen.getByTestId("workspace-icon-button")).toBeTruthy();
+  });
+
+  it("opens drawer when workspace icon is tapped", () => {
+    render(<HomeHeader />);
+    fireEvent.press(screen.getByTestId("workspace-icon-button"));
+    expect(mockToggle).toHaveBeenCalled();
   });
 
   it("renders search pill", () => {
@@ -91,10 +103,10 @@ describe("HomeHeader", () => {
     expect(screen.getByTestId("filter-icon")).toBeTruthy();
   });
 
-  it("opens quick switcher when search pill is pressed", () => {
+  it("navigates to search when search pill is pressed", () => {
     render(<HomeHeader />);
     fireEvent.press(screen.getByTestId("search-pill"));
-    expect(screen.getByTestId("quick-switcher-modal")).toBeTruthy();
+    expect(mockPush).toHaveBeenCalledWith("/(app)/acme/search");
   });
 
   it("renders header avatar button", () => {

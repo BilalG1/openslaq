@@ -45,13 +45,31 @@ describe("HttpClient", () => {
     expect(headers.Authorization).toBe("Bearer osk_test123");
   });
 
-  test("sends Content-Type header", async () => {
+  test("sends Content-Type header on POST", async () => {
+    const { mockFetch, getCaptured } = createCapturingFetch({ status: 200, body: { ok: true } });
+    const client = new HttpClient({ ...baseOptions, fetch: mockFetch });
+
+    await client.post("/api/test", { data: "hello" });
+    const headers = getCaptured().init?.headers as Record<string, string>;
+    expect(headers["Content-Type"]).toBe("application/json");
+  });
+
+  test("GET requests do NOT include Content-Type header", async () => {
     const { mockFetch, getCaptured } = createCapturingFetch({ status: 200, body: { ok: true } });
     const client = new HttpClient({ ...baseOptions, fetch: mockFetch });
 
     await client.get("/api/test");
     const headers = getCaptured().init?.headers as Record<string, string>;
-    expect(headers["Content-Type"]).toBe("application/json");
+    expect(headers["Content-Type"]).toBeUndefined();
+  });
+
+  test("DELETE requests do NOT include Content-Type header", async () => {
+    const { mockFetch, getCaptured } = createCapturingFetch({ status: 200, body: { ok: true } });
+    const client = new HttpClient({ ...baseOptions, fetch: mockFetch });
+
+    await client.del("/api/test");
+    const headers = getCaptured().init?.headers as Record<string, string>;
+    expect(headers["Content-Type"]).toBeUndefined();
   });
 
   test("builds workspace-scoped URL", () => {
@@ -73,6 +91,16 @@ describe("HttpClient", () => {
     expect(url.searchParams.get("limit")).toBe("10");
     expect(url.searchParams.get("cursor")).toBe("abc");
     expect(url.searchParams.has("empty")).toBe(false);
+  });
+
+  test("converts boolean query params to strings", async () => {
+    const { mockFetch, getCaptured } = createCapturingFetch({ status: 200, body: [] });
+    const client = new HttpClient({ ...baseOptions, fetch: mockFetch });
+
+    await client.get("/api/test", { includeArchived: true, showHidden: false });
+    const url = new URL(getCaptured().url);
+    expect(url.searchParams.get("includeArchived")).toBe("true");
+    expect(url.searchParams.get("showHidden")).toBe("false");
   });
 
   test("throws OpenSlaqApiError on 4xx with parsed error", async () => {
@@ -125,12 +153,52 @@ describe("HttpClient", () => {
     expect(getCaptured().init?.body).toBe(JSON.stringify({ content: "updated" }));
   });
 
+  test("patch sends PATCH method with correct body serialization", async () => {
+    const { mockFetch, getCaptured } = createCapturingFetch({ status: 200, body: { id: "1", name: "updated" } });
+    const client = new HttpClient({ ...baseOptions, fetch: mockFetch });
+
+    const result = await client.patch<{ id: string; name: string }>("/api/test", { name: "updated" });
+    expect(getCaptured().init?.method).toBe("PATCH");
+    expect(getCaptured().init?.body).toBe(JSON.stringify({ name: "updated" }));
+    expect(result).toEqual({ id: "1", name: "updated" });
+  });
+
   test("del sends DELETE method", async () => {
     const { mockFetch, getCaptured } = createCapturingFetch({ status: 200, body: { ok: true } });
     const client = new HttpClient({ ...baseOptions, fetch: mockFetch });
 
     await client.del("/api/test");
     expect(getCaptured().init?.method).toBe("DELETE");
+  });
+
+  test("postVoid does not try to parse response body", async () => {
+    const mockFetch = (async (_url: string, _init?: RequestInit) => {
+      return {
+        ok: true,
+        status: 204,
+        // Intentionally no text() or json() methods to prove they aren't called
+        text: () => { throw new Error("text() should not be called"); },
+        json: () => { throw new Error("json() should not be called"); },
+      };
+    }) as unknown as typeof fetch;
+    const client = new HttpClient({ ...baseOptions, fetch: mockFetch });
+
+    // Should complete without error since requestVoid doesn't read the body
+    await client.postVoid("/api/test", { data: "hello" });
+  });
+
+  test("putVoid does not try to parse response body", async () => {
+    const mockFetch = (async (_url: string, _init?: RequestInit) => {
+      return {
+        ok: true,
+        status: 204,
+        text: () => { throw new Error("text() should not be called"); },
+        json: () => { throw new Error("json() should not be called"); },
+      };
+    }) as unknown as typeof fetch;
+    const client = new HttpClient({ ...baseOptions, fetch: mockFetch });
+
+    await client.putVoid("/api/test", { data: "hello" });
   });
 
   test("postFormData skips Content-Type header", async () => {
@@ -145,6 +213,65 @@ describe("HttpClient", () => {
     expect(headers.Authorization).toBe("Bearer osk_test123");
     expect(headers["Content-Type"]).toBeUndefined();
     expect(getCaptured().init?.body).toBeInstanceOf(FormData);
+  });
+
+  test("postFormData throws OpenSlaqApiError on error response", async () => {
+    const client = new HttpClient({
+      ...baseOptions,
+      fetch: createMockFetch({ status: 413, ok: false, body: { error: "Payload too large" } }),
+    });
+
+    const formData = new FormData();
+    formData.append("file", new File(["test"], "test.txt"));
+
+    try {
+      await client.postFormData("/api/test", formData);
+      expect.unreachable("should have thrown");
+    } catch (e) {
+      expect(e).toBeInstanceOf(OpenSlaqApiError);
+      const err = e as OpenSlaqApiError;
+      expect(err.status).toBe(413);
+      expect(err.errorMessage).toBe("Payload too large");
+    }
+  });
+
+  test("network-level error propagates without wrapping", async () => {
+    const networkError = new TypeError("Network error");
+    const mockFetch = (async () => {
+      throw networkError;
+    }) as unknown as typeof fetch;
+    const client = new HttpClient({ ...baseOptions, fetch: mockFetch });
+
+    try {
+      await client.get("/api/test");
+      expect.unreachable("should have thrown");
+    } catch (e) {
+      expect(e).toBe(networkError);
+      expect(e).not.toBeInstanceOf(OpenSlaqApiError);
+      expect(e).toBeInstanceOf(TypeError);
+    }
+  });
+
+  test("empty response body on request() throws OpenSlaqApiError", async () => {
+    const mockFetch = (async (_url: string, _init?: RequestInit) => {
+      return {
+        ok: true,
+        status: 200,
+        text: async () => "",
+        json: async () => ({}),
+      };
+    }) as unknown as typeof fetch;
+    const client = new HttpClient({ ...baseOptions, fetch: mockFetch });
+
+    try {
+      await client.get("/api/test");
+      expect.unreachable("should have thrown");
+    } catch (e) {
+      expect(e).toBeInstanceOf(OpenSlaqApiError);
+      const err = e as OpenSlaqApiError;
+      expect(err.status).toBe(200);
+      expect(err.errorMessage).toContain("empty response");
+    }
   });
 
   test("getRedirectUrl returns Location header", async () => {

@@ -22,7 +22,7 @@ jest.mock("@/theme/ThemeProvider", () => ({
         avatarFallbackBg: "#ccc",
         avatarFallbackText: "#333",
       },
-      brand: { primary: "#4A154B", danger: "#E01E5A" },
+      brand: { primary: "#1264a3", danger: "#dc2626" },
     },
   }),
 }));

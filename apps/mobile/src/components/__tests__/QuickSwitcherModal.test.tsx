@@ -20,7 +20,7 @@ jest.mock("@/theme/ThemeProvider", () => ({
         textMuted: "#888",
         borderDefault: "#ddd",
       },
-      brand: { primary: "#4A154B", success: "#22c55e" },
+      brand: { primary: "#1264a3", success: "#22c55e" },
       interaction: { badgeUnreadBg: "#f00", badgeUnreadText: "#fff" },
     },
   }),
@@ -99,7 +99,7 @@ it("navigates to channel on press", () => {
 
   fireEvent.press(getByTestId("quick-switcher-item-ch-1"));
 
-  expect(mockPush).toHaveBeenCalledWith("/(app)/acme/(channels)/ch-1");
+  expect(mockPush).toHaveBeenCalledWith("/(app)/acme/(tabs)/(channels)/ch-1");
   expect(onClose).toHaveBeenCalled();
 });
 
@@ -133,7 +133,7 @@ it("closes on backdrop press", () => {
     <QuickSwitcherModal visible onClose={onClose} />,
   );
 
-  fireEvent.press(getByTestId("quick-switcher-backdrop"));
+  fireEvent.press(getByTestId("quick-switcher-modal-backdrop"));
 
   expect(onClose).toHaveBeenCalled();
 });

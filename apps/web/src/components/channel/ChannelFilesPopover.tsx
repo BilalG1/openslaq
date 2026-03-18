@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { FileBrowserItem } from "@openslaq/shared";
 import { FileTypeIcon, formatFileSize } from "../files/file-icons";
-import { Button } from "../ui";
+import { Button, EmptyState, LoadingState } from "../ui";
 
 interface ChannelFilesPopoverProps {
   open: boolean;
@@ -52,11 +52,9 @@ export function ChannelFilesPopover({
         <h3 className="font-semibold text-sm text-primary m-0">Files</h3>
       </div>
       {loading && files.length === 0 ? (
-        <div className="px-4 py-6 text-center text-faint text-sm">Loading...</div>
+        <LoadingState size="sm" />
       ) : files.length === 0 ? (
-        <div className="px-4 py-6 text-center text-faint text-sm" data-testid="channel-files-empty">
-          No files shared in this channel
-        </div>
+        <EmptyState title="No files shared in this channel" size="sm" data-testid="channel-files-empty" />
       ) : (
         <div className="divide-y divide-border-default">
           {files.map((file) => (

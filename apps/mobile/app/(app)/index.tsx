@@ -1,10 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { View, ActivityIndicator, NativeModules, Settings } from "react-native";
 import { Redirect } from "expo-router";
-import { listWorkspaces } from "@openslaq/client-core";
+import { listWorkspaces, acceptInvite } from "@openslaq/client-core";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
-import { useState } from "react";
+import { consumePendingInvite } from "@/lib/pending-invite";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 
 export default function WorkspaceIndex() {
@@ -25,10 +25,25 @@ export default function WorkspaceIndex() {
         return;
       }
 
+      // Check for pending invite from deep link
+      const pendingCode = consumePendingInvite();
+      if (pendingCode) {
+        try {
+          const result = await acceptInvite({ api, auth: authProvider }, pendingCode);
+          setSlug(result.slug);
+          setLoading(false);
+          return;
+        } catch {
+          // Invite failed, fall through to normal flow
+        }
+      }
+
       try {
         const workspaces = await listWorkspaces({ api, auth: authProvider });
         if (workspaces.length > 0) {
           setSlug(workspaces[0].slug);
+        } else {
+          setSlug("__none__");
         }
       } catch {
         // Fall back to default workspace
@@ -45,6 +60,10 @@ export default function WorkspaceIndex() {
         <ActivityIndicator size="large" color={theme.brand.primary} />
       </View>
     );
+  }
+
+  if (slug === "__none__") {
+    return <Redirect href="/(app)/no-workspaces" />;
   }
 
   return <Redirect href={`/(app)/${slug ?? "default"}/(channels)`} />;

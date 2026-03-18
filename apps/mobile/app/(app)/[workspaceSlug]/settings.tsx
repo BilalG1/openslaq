@@ -23,6 +23,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useChatStore } from "@/contexts/ChatStoreProvider";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { api } from "@/lib/api";
+import { routes } from "@/lib/routes";
 
 function getInitials(name?: string | null): string {
   if (!name) return "?";
@@ -241,7 +242,7 @@ export default function SettingsScreen() {
             <NavRow
               icon={<Settings2 size={20} color={theme.colors.textSecondary} />}
               label="Workspace Settings"
-              onPress={() => router.push(`/(app)/${workspaceSlug}/workspace-settings`)}
+              onPress={() => router.push(routes.workspaceSettings(workspaceSlug))}
               testID="workspace-settings-link"
               theme={theme}
             />
@@ -249,14 +250,14 @@ export default function SettingsScreen() {
           <NavRow
             icon={<Bell size={20} color={theme.colors.textSecondary} />}
             label="Notifications"
-            onPress={() => router.push(`/(app)/${workspaceSlug}/notification-settings`)}
+            onPress={() => router.push(routes.notificationSettings(workspaceSlug))}
             testID="notification-settings-link"
             theme={theme}
           />
           <NavRow
             icon={<Palette size={20} color={theme.colors.textSecondary} />}
             label="Preferences"
-            onPress={() => router.push(`/(app)/${workspaceSlug}/preferences`)}
+            onPress={() => router.push(routes.preferences(workspaceSlug))}
             testID="preferences-link"
             theme={theme}
             isLast

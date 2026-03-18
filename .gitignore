@@ -9,6 +9,7 @@ playwright/.cache/
 target/
 apps/desktop/src-tauri/gen/
 coverage/
+idb-*/
 coverage-raw/
 railway.json
 .dev.log
@@ -18,3 +19,4 @@ ios/
 android/
 .worktrees/
 docs/slack-screenshots/
+*.pem

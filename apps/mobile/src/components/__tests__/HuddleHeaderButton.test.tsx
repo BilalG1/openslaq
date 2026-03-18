@@ -22,7 +22,7 @@ jest.mock("@/hooks/useHuddleForChannel", () => ({
 jest.mock("@/theme/ThemeProvider", () => ({
   useMobileTheme: () => ({
     theme: {
-      brand: { primary: "#4A154B" },
+      brand: { primary: "#1264a3" },
       colors: { textPrimary: "#000" },
     },
   }),

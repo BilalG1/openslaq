@@ -22,13 +22,14 @@ export const messages = pgTable(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [
-    index("idx_messages_channel_toplevel_created_at")
-      .on(table.channelId, sql`${table.createdAt} DESC`)
+    index("idx_messages_channel_toplevel_user_created")
+      .on(table.channelId, sql`${table.createdAt} DESC`, table.userId)
       .where(sql`${table.parentMessageId} IS NULL`),
     index("idx_messages_parent_created_at").on(
       table.parentMessageId,
       table.createdAt,
     ),
+    index("idx_messages_user_id").on(table.userId),
   ],
 );
 

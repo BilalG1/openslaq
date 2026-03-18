@@ -12,7 +12,7 @@ export function useScheduledMessages(workspaceSlug: string | undefined) {
   const [data, setData] = useState<ScheduledMessageItem[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const isActive = state.activeView === "scheduled";
+  const isActive = state.activeView === "outbox";
   const fetchedRef = useRef(false);
 
   const deps = { api, auth, dispatch, getState: () => state };

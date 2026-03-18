@@ -9,6 +9,11 @@ import {
 } from "bun:test";
 import { defineCommand, run } from "../src/framework";
 
+mock.module("@sentry/node", () => ({
+  captureException: () => {},
+  flush: async () => true,
+}));
+
 // ── sentinel for process.exit ───────────────────────────────────────
 
 class ExitError extends Error {

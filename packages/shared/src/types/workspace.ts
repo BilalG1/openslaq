@@ -5,6 +5,14 @@ export interface Workspace {
   name: string;
   slug: string;
   createdAt: string;
+  memberCount?: number;
+}
+
+export interface WorkspaceFeatureFlags {
+  integrationGithub: boolean;
+  integrationLinear: boolean;
+  integrationSentry: boolean;
+  integrationVercel: boolean;
 }
 
 export interface WorkspaceInvite {

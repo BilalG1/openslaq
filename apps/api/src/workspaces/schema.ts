@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, primaryKey, pgEnum, index } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, primaryKey, pgEnum, index, boolean } from "drizzle-orm/pg-core";
 import { users } from "../users/schema";
 
 export const workspaceRoleEnum = pgEnum("workspace_role", ["owner", "admin", "member"]);
@@ -8,6 +8,10 @@ export const workspaces = pgTable("workspaces", {
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  integrationGithub: boolean("integration_github").notNull().default(false),
+  integrationLinear: boolean("integration_linear").notNull().default(false),
+  integrationSentry: boolean("integration_sentry").notNull().default(false),
+  integrationVercel: boolean("integration_vercel").notNull().default(false),
 });
 
 export const workspaceMembers = pgTable(

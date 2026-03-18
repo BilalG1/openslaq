@@ -35,10 +35,7 @@ export function useTypingTracking(
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
-      return;
-    }
-
-    if (!timerRef.current) {
+    } else if (!timerRef.current) {
       timerRef.current = setInterval(() => {
         const now = Date.now();
         setTypingUsers((prev) => {

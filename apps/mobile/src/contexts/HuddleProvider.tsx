@@ -51,6 +51,8 @@ const HuddleContext = createContext<HuddleContextValue | null>(null);
 export function HuddleProvider({ children }: { children: ReactNode }) {
   const { authProvider, user } = useAuth();
   const { state, dispatch } = useChatStore();
+  const authProviderRef = useRef(authProvider);
+  authProviderRef.current = authProvider;
   const roomRef = useRef<Room | null>(null);
   const [connected, setConnected] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -96,9 +98,9 @@ export function HuddleProvider({ children }: { children: ReactNode }) {
       let camera = false;
       let screenSharing = false;
       for (const pub of p.trackPublications.values()) {
-        if (pub.source === "microphone") {
+        if (pub.source === Track.Source.Microphone) {
           muted = pub.isMuted;
-        } else if (pub.source === "camera") {
+        } else if (pub.source === Track.Source.Camera) {
           camera = !pub.isMuted && !!pub.track;
         } else if (pub.source === Track.Source.ScreenShare) {
           screenSharing = !pub.isMuted && !!pub.track;
@@ -182,7 +184,7 @@ export function HuddleProvider({ children }: { children: ReactNode }) {
 
     (async () => {
       try {
-        const headers = await authorizedHeaders(authProvider);
+        const headers = await authorizedHeaders(authProviderRef.current);
         if (cancelled) return;
         const res = await fetch(`${API_URL}/api/huddle/join`, {
           method: "POST",
@@ -208,7 +210,7 @@ export function HuddleProvider({ children }: { children: ReactNode }) {
 
         await room.connect(wsUrl, token);
         if (cancelled) return;
-        await room.localParticipant.setMicrophoneEnabled(true);
+        await room.localParticipant.setMicrophoneEnabled(!isMuted);
         if (cancelled) return;
         setConnected(true);
         setError(null);

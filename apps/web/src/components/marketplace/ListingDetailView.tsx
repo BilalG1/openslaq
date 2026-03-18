@@ -1,4 +1,5 @@
 import type { MarketplaceListing } from "@openslaq/shared";
+import { ArrowLeft } from "lucide-react";
 import { Avatar, Badge, Button } from "../ui";
 
 interface ListingDetailViewProps {
@@ -24,7 +25,7 @@ export function ListingDetailView({
         onClick={onBack}
         className="mb-4 text-sm text-slaq-blue hover:underline"
       >
-        &larr; Back to marketplace
+        <ArrowLeft className="inline size-4" /> Back to marketplace
       </button>
 
       <div className="flex items-start gap-4">

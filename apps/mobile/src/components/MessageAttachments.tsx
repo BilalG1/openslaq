@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { View, Text, Image, Pressable } from "react-native";
+import { Film, Paperclip } from "lucide-react-native";
 import type { Attachment } from "@openslaq/shared";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { env } from "@/lib/env";
@@ -58,7 +59,7 @@ function VideoAttachment({ attachment }: { attachment: Attachment }) {
       onPress={() => openSafeUrl(url)}
       style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: theme.colors.surfaceTertiary }}
     >
-      <Text style={{ marginRight: 8 }}>🎬</Text>
+      <Film size={16} color={theme.colors.textMuted} style={{ marginRight: 8 }} />
       <View style={{ flex: 1 }}>
         <Text
           style={{ fontSize: 14, color: theme.brand.primary }}
@@ -84,7 +85,7 @@ function FileAttachment({ attachment }: { attachment: Attachment }) {
       onPress={() => openSafeUrl(url)}
       style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: theme.colors.surfaceTertiary }}
     >
-      <Text style={{ marginRight: 8 }}>📎</Text>
+      <Paperclip size={16} color={theme.colors.textMuted} style={{ marginRight: 8 }} />
       <View style={{ flex: 1 }}>
         <Text
           style={{ fontSize: 14, color: theme.brand.primary }}

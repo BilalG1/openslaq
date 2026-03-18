@@ -20,7 +20,7 @@ import { useAuth } from "./AuthContext";
 import { useChatStore } from "./ChatStoreProvider";
 import { useSocket } from "./SocketProvider";
 import { useSocketEvent } from "../hooks/useSocketEvent";
-import { api } from "../lib/api";
+import { useOperationDeps } from "../hooks/useOperationDeps";
 
 interface Props {
   workspaceSlug: string;
@@ -33,12 +33,12 @@ export function WorkspaceBootstrapProvider({
 }: Props) {
   const { authProvider, user } = useAuth();
   const { state, dispatch } = useChatStore();
+  const deps = useOperationDeps();
   const { socket } = useSocket();
 
   // Bootstrap workspace on mount
   useEffect(() => {
     if (!workspaceSlug) return;
-    const deps = { api, auth: authProvider, dispatch, getState: () => state };
     void bootstrapWorkspace(deps, { workspaceSlug });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, authProvider, workspaceSlug]);
@@ -46,7 +46,6 @@ export function WorkspaceBootstrapProvider({
   // Fetch saved message IDs after bootstrap
   useEffect(() => {
     if (!workspaceSlug || state.ui.bootstrapLoading) return;
-    const deps = { api, auth: authProvider, dispatch, getState: () => state };
     void fetchSavedMessageIds(deps, { workspaceSlug }).then((ids) => {
       dispatch({ type: "saved/set", messageIds: ids });
     });
@@ -102,16 +101,14 @@ export function WorkspaceBootstrapProvider({
   useEffect(() => {
     const channelId = state.activeChannelId ?? state.activeDmId ?? state.activeGroupDmId;
     if (!channelId || !workspaceSlug) return;
-    const deps = { api, auth: authProvider, dispatch, getState: () => state };
     void markChannelAsRead(deps, { workspaceSlug, channelId });
-  }, [state.activeChannelId, state.activeDmId, state.activeGroupDmId, authProvider, dispatch, state, workspaceSlug]);
+  }, [state.activeChannelId, state.activeDmId, state.activeGroupDmId, authProvider, dispatch, workspaceSlug]);
 
   // Channel member tracking
   const onMemberAdded = useCallback(
     (payload: { channelId: ChannelId; userId: UserId }) => {
       if (!user || !workspaceSlug) return;
-      const deps = { api, auth: authProvider, dispatch, getState: () => state };
-      void handleChannelMemberAdded(deps, {
+        void handleChannelMemberAdded(deps, {
         socket,
         channelId: payload.channelId,
         userId: payload.userId,

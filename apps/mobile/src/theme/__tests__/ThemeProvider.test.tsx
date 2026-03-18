@@ -16,7 +16,7 @@ jest.mock("@openslaq/shared", () => ({
       surface: mode === "dark" ? "#1a1a1a" : "#ffffff",
       textPrimary: mode === "dark" ? "#fff" : "#000",
     },
-    brand: { primary: "#4A154B" },
+    brand: { primary: "#1264a3" },
   })),
 }));
 

@@ -45,7 +45,11 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(
     const upload = useFileUpload();
     const { sendMessage } = useMessageMutations(user);
     const draftKey = parentMessageId ? `thread-${parentMessageId}` : channelId;
-    const { draft, saveDraft, clearDraft } = useDraftMessage(draftKey);
+    const { draft, saveDraft, clearDraft } = useDraftMessage(draftKey, {
+      workspaceSlug,
+      channelId,
+      parentMessageId: parentMessageId ?? undefined,
+    });
     const { listMembers } = useWorkspaceMembersApi();
     const [mentionMembers, setMentionMembers] = useState<MentionSuggestionItem[]>([]);
 

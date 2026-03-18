@@ -75,22 +75,12 @@ describe("PinnedMessagesSheet", () => {
     expect(onUnpin).toHaveBeenCalledWith("msg-1");
   });
 
-  it("calls onClose when close button is pressed", () => {
-    const onClose = jest.fn();
-
-    render(<PinnedMessagesSheet {...defaultProps} messages={[]} onClose={onClose} />);
-
-    fireEvent.press(screen.getByTestId("pinned-sheet-close"));
-
-    expect(onClose).toHaveBeenCalled();
-  });
-
   it("calls onClose when backdrop is pressed", () => {
     const onClose = jest.fn();
 
     render(<PinnedMessagesSheet {...defaultProps} messages={[]} onClose={onClose} />);
 
-    fireEvent.press(screen.getByTestId("pinned-sheet-backdrop"));
+    fireEvent.press(screen.getByTestId("pinned-sheet-content-backdrop"));
 
     expect(onClose).toHaveBeenCalled();
   });

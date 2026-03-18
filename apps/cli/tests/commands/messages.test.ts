@@ -162,6 +162,58 @@ describe("messages command (integration)", () => {
     expect(thumbsAfter).toBeUndefined();
   });
 
+  test("search messages by query", async () => {
+    const unique = `cli-search-${testId()}`;
+    const sendRes = await client.api.workspaces[":slug"].channels[":id"].messages.$post({
+      param: { slug, id: channelId },
+      json: { content: unique },
+    });
+    expect(sendRes.status).toBe(201);
+
+    // Small delay for search indexing
+    await new Promise((r) => setTimeout(r, 500));
+
+    const searchRes = await client.api.workspaces[":slug"].search.$get({
+      param: { slug },
+      query: { q: unique, limit: 10 },
+    });
+    expect(searchRes.status).toBe(200);
+    const data = (await searchRes.json()) as { results: { content: string }[] };
+    const found = data.results.some((r) => r.content === unique);
+    expect(found).toBe(true);
+  });
+
+  test("search messages with --user filter", async () => {
+    const unique = `cli-usersearch-${testId()}`;
+    const sendRes = await client.api.workspaces[":slug"].channels[":id"].messages.$post({
+      param: { slug, id: channelId },
+      json: { content: unique },
+    });
+    expect(sendRes.status).toBe(201);
+    const msg = (await sendRes.json()) as { userId: string };
+
+    // Small delay for search indexing
+    await new Promise((r) => setTimeout(r, 500));
+
+    const searchRes = await client.api.workspaces[":slug"].search.$get({
+      param: { slug },
+      query: { q: unique, limit: 10, userId: msg.userId },
+    });
+    expect(searchRes.status).toBe(200);
+    const data = (await searchRes.json()) as { results: { content: string }[] };
+    const found = data.results.some((r) => r.content === unique);
+    expect(found).toBe(true);
+
+    // Search with a bogus userId should return no results
+    const emptyRes = await client.api.workspaces[":slug"].search.$get({
+      param: { slug },
+      query: { q: unique, limit: 10, userId: "nonexistent-user-id" },
+    });
+    expect(emptyRes.status).toBe(200);
+    const emptyData = (await emptyRes.json()) as { results: unknown[] };
+    expect(emptyData.results).toHaveLength(0);
+  });
+
   test("list messages from empty channel returns empty array", async () => {
     // Create a new channel to ensure it's empty
     const name = `cli-empty-${testId()}`;

@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { Smile, Settings, Sun, Moon, LogOut } from "lucide-react";
-import { useTheme } from "../../theme/ThemeProvider";
+import { Smile, Settings, LogOut } from "lucide-react";
 import { UserSettingsDialog } from "../settings/UserSettingsDialog";
 import { SetStatusDialog } from "./SetStatusDialog";
 import { useChatStore } from "../../state/chat-store";
@@ -24,7 +23,6 @@ interface CustomUserButtonProps {
 }
 
 export function CustomUserButton({ showUserInfo }: CustomUserButtonProps) {
-  const { mode, cycle } = useTheme();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
   const user = useCurrentUser();
@@ -52,7 +50,7 @@ export function CustomUserButton({ showUserInfo }: CustomUserButtonProps) {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
-            className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-surface-hover outline-none w-full text-left"
+            className={`flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-white/10 outline-none text-left${showUserInfo ? " w-full" : ""}`}
           >
             {avatarUrl ? (
               <img
@@ -67,7 +65,7 @@ export function CustomUserButton({ showUserInfo }: CustomUserButtonProps) {
             )}
             {showUserInfo && (
               <div className="flex flex-col min-w-0">
-                <span className="text-sm font-medium text-text-primary truncate">{displayName}</span>
+                <span className="text-sm font-medium text-inherit truncate">{displayName}</span>
                 {hasStatus && (
                   <span className="text-xs text-text-muted truncate">{statusLabel}</span>
                 )}
@@ -82,21 +80,10 @@ export function CustomUserButton({ showUserInfo }: CustomUserButtonProps) {
               <span className="truncate">{statusLabel}</span>
             </div>
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
             <div className="flex items-center gap-2">
               <Settings className="w-4 h-4 text-text-muted" />
               <span>Settings</span>
-            </div>
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={cycle}>
-            <div className="flex items-center gap-2">
-              {mode === "dark" ? (
-                <Moon className="w-4 h-4 text-text-muted" />
-              ) : (
-                <Sun className="w-4 h-4 text-text-muted" />
-              )}
-              <span>Theme: {mode === "light" ? "Light" : "Dark"}</span>
             </div>
           </DropdownMenuItem>
           <DropdownMenuSeparator />

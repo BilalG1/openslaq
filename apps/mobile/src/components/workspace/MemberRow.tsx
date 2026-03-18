@@ -22,11 +22,13 @@ function getInitials(name: string): string {
   return name[0]?.toUpperCase() ?? "?";
 }
 
-const roleBadgeColors: Record<string, { bg: string; text: string }> = {
-  owner: { bg: "#fef3c7", text: "#92400e" },
-  admin: { bg: "#dbeafe", text: "#1e40af" },
-  member: { bg: "#f3f4f6", text: "#6b7280" },
-};
+function getRoleBadgeColors(theme: ReturnType<typeof useMobileTheme>["theme"]): Record<string, { bg: string; text: string }> {
+  return {
+    owner: { bg: theme.colors.surfaceTertiary, text: "#d97706" },
+    admin: { bg: theme.colors.surfaceTertiary, text: theme.brand.primary },
+    member: { bg: theme.colors.surfaceTertiary, text: theme.colors.textMuted },
+  };
+}
 
 export function MemberRow({
   id,
@@ -41,6 +43,7 @@ export function MemberRow({
   onRemove,
 }: Props) {
   const { theme } = useMobileTheme();
+  const roleBadgeColors = getRoleBadgeColors(theme);
   const badgeColor = roleBadgeColors[role] ?? roleBadgeColors.member;
 
   return (
@@ -136,10 +139,10 @@ export function MemberRow({
             paddingVertical: 4,
             borderRadius: 6,
             borderWidth: 1,
-            borderColor: "#ef4444",
+            borderColor: theme.brand.danger,
           }}
         >
-          <Text style={{ color: "#ef4444", fontSize: 12 }}>Remove</Text>
+          <Text style={{ color: theme.brand.danger, fontSize: 12 }}>Remove</Text>
         </Pressable>
       )}
     </View>

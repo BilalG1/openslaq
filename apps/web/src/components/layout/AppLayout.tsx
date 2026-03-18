@@ -41,7 +41,7 @@ import { PinnedMessagesPopover } from "../channel/PinnedMessagesPopover";
 import { ShareMessageDialog } from "../message/ShareMessageDialog";
 import { AllUnreadsView } from "../unreads/AllUnreadsView";
 import { SavedItemsView } from "../saved/SavedItemsView";
-import { ScheduledMessagesView } from "../scheduled/ScheduledMessagesView";
+import { OutboxView } from "../outbox/OutboxView";
 import { FilesView } from "../files/FilesView";
 import { ChannelFilesPopover } from "../channel/ChannelFilesPopover";
 import { BookmarksBar } from "../channel/BookmarksBar";
@@ -49,7 +49,9 @@ import { AddBookmarkDialog } from "../channel/AddBookmarkDialog";
 import { ScheduledMessagesBanner } from "../message/ScheduledMessagesBanner";
 import { useSavedMessageIds } from "../../hooks/chat/useSavedMessages";
 import { useSlashCommands } from "../../hooks/chat/useSlashCommands";
+import { X, Upload } from "lucide-react";
 import type { SearchResultItem } from "@openslaq/shared";
+import { LoadingState, ErrorState } from "../ui";
 
 export function AppLayout() {
   const user = useCurrentUser();
@@ -208,8 +210,8 @@ export function AppLayout() {
     dispatch({ type: "workspace/selectSavedView" });
   }, [dispatch]);
 
-  const handleSelectScheduledView = useCallback(() => {
-    dispatch({ type: "workspace/selectScheduledView" });
+  const handleSelectOutboxView = useCallback(() => {
+    dispatch({ type: "workspace/selectOutboxView" });
   }, [dispatch]);
 
   const handleSelectFilesView = useCallback(() => {
@@ -295,7 +297,7 @@ export function AppLayout() {
             activeView={state.activeView}
             onSelectUnreadsView={handleSelectUnreadsView}
             onSelectSavedView={handleSelectSavedView}
-            onSelectScheduledView={handleSelectScheduledView}
+            onSelectOutboxView={handleSelectOutboxView}
             onSelectFilesView={handleSelectFilesView}
             style={{ width: leftResize.width }}
           />
@@ -309,13 +311,9 @@ export function AppLayout() {
 
       <div ref={mainContentRef} className="flex-1 min-w-0 flex flex-col bg-surface relative" data-testid="main-content">
         {state.ui.bootstrapLoading ? (
-          <div className="flex-1 flex items-center justify-center text-faint">
-            Loading workspace...
-          </div>
+          <LoadingState label="Loading workspace..." className="flex-1" />
         ) : state.ui.bootstrapError ? (
-          <div className="flex-1 flex items-center justify-center text-danger-text">
-            {state.ui.bootstrapError}
-          </div>
+          <ErrorState message={state.ui.bootstrapError} className="flex-1" />
         ) : state.activeView === "unreads" ? (
           <AllUnreadsView
             workspaceSlug={slug}
@@ -349,8 +347,8 @@ export function AppLayout() {
             onOpenProfile={handleOpenProfile}
             onUnsaveMessage={messageActions.unsaveMessage}
           />
-        ) : state.activeView === "scheduled" ? (
-          <ScheduledMessagesView
+        ) : state.activeView === "outbox" ? (
+          <OutboxView
             workspaceSlug={slug}
             onNavigateToChannel={(channelId, messageId) => {
               dispatch({ type: "workspace/selectChannel", channelId });
@@ -398,7 +396,7 @@ export function AppLayout() {
               isStarred={state.starredChannelIds.includes(activeChannel.id)}
               onToggleStar={channelActions.toggleStar}
               pinnedCount={pins.pinnedCount}
-              onOpenPins={pins.openPins}
+              onOpenPins={pins.togglePins}
               onOpenFiles={popovers.openChannelFiles}
               notificationLevel={state.channelNotificationPrefs[activeChannel.id]}
               onSetNotificationLevel={(level) => channelActions.setNotificationLevel(activeChannel.id, level)}
@@ -455,7 +453,7 @@ export function AppLayout() {
               </div>
             ) : (
               <>
-                <ScheduledMessagesBanner channelId={activeChannel.id} workspaceSlug={slug} onViewScheduled={handleSelectScheduledView} />
+                <ScheduledMessagesBanner channelId={activeChannel.id} workspaceSlug={slug} onViewScheduled={handleSelectOutboxView} />
                 <MessageInput ref={messageInputRef} channelId={activeChannel.id} channelName={activeChannel.name} externalDragDrop onTyping={emitTyping} slashCommands={slashCmds.commands} onSlashCommand={slashCmds.execute} />
               </>
             )}
@@ -473,7 +471,7 @@ export function AppLayout() {
             />
             <MessageList channelId={activeDm.channel.id} onOpenThread={handleOpenThread} onOpenProfile={handleOpenProfile} onJoinHuddle={handleJoinHuddle} onShareMessage={messageActions.shareMessage} onSaveMessage={messageActions.saveMessage} onUnsaveMessage={messageActions.unsaveMessage} savedMessageIds={state.savedMessageIds} ephemeralMessages={slashCmds.getEphemeralMessages(activeDm.channel.id)} onEphemeralMessage={slashCmds.addEphemeral} />
             <TypingIndicator typingUsers={typingUsers} />
-            <ScheduledMessagesBanner channelId={activeDm.channel.id} workspaceSlug={slug} onViewScheduled={handleSelectScheduledView} />
+            <ScheduledMessagesBanner channelId={activeDm.channel.id} workspaceSlug={slug} onViewScheduled={handleSelectOutboxView} />
             <MessageInput
               ref={messageInputRef}
               channelId={activeDm.channel.id}
@@ -497,7 +495,7 @@ export function AppLayout() {
             />
             <MessageList channelId={activeGroupDm.channel.id} onOpenThread={handleOpenThread} onOpenProfile={handleOpenProfile} onJoinHuddle={handleJoinHuddle} onShareMessage={messageActions.shareMessage} onSaveMessage={messageActions.saveMessage} onUnsaveMessage={messageActions.unsaveMessage} savedMessageIds={state.savedMessageIds} ephemeralMessages={slashCmds.getEphemeralMessages(activeGroupDm.channel.id)} onEphemeralMessage={slashCmds.addEphemeral} />
             <TypingIndicator typingUsers={typingUsers} />
-            <ScheduledMessagesBanner channelId={activeGroupDm.channel.id} workspaceSlug={slug} onViewScheduled={handleSelectScheduledView} />
+            <ScheduledMessagesBanner channelId={activeGroupDm.channel.id} workspaceSlug={slug} onViewScheduled={handleSelectOutboxView} />
             <MessageInput
               ref={messageInputRef}
               channelId={activeGroupDm.channel.id}
@@ -523,18 +521,14 @@ export function AppLayout() {
               aria-label="Dismiss error"
               onClick={() => dispatch({ type: "mutations/error", error: null })}
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X className="w-4 h-4" />
             </button>
           </div>
         )}
 
         {isDraggingFiles && (
           <div className="absolute inset-0 bg-surface/80 z-20 flex flex-col items-center justify-center pointer-events-none" data-testid="drag-overlay">
-            <svg className="w-12 h-12 text-slaq-blue mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
-            </svg>
+            <Upload className="w-12 h-12 text-slaq-blue mb-3" />
             <span className="text-lg font-semibold text-primary">Upload file</span>
           </div>
         )}

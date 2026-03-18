@@ -61,8 +61,8 @@ export function LinkDialog({
       aria-modal="true"
       onKeyDown={handleKeyDown}
     >
-      <div className="absolute inset-0 bg-black/20" onMouseDown={() => onOpenChange(false)} />
-      <div className="relative bg-surface rounded-lg border border-border-default w-[360px] max-w-[calc(100vw-24px)] shadow-xl">
+      <div className="absolute inset-0 bg-black/50" onMouseDown={() => onOpenChange(false)} />
+      <div className="relative bg-surface rounded-xl w-[360px] max-w-[calc(100vw-24px)] shadow-2xl">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-4">
           <div className="text-base font-semibold">{showRemove ? "Edit link" : "Add link"}</div>
           <label className="flex flex-col gap-1">
@@ -72,7 +72,7 @@ export function LinkDialog({
               onChange={(e) => setText(e.target.value)}
               placeholder="Link text"
               data-testid="link-dialog-text"
-              className="h-8 rounded border border-border-default bg-surface px-2 text-sm"
+              className="border border-border-strong rounded-lg px-3 py-2 bg-surface text-primary text-sm focus:outline-none focus:ring-2 focus:ring-slaq-blue focus:border-transparent w-full"
             />
           </label>
           <label className="flex flex-col gap-1">
@@ -83,7 +83,7 @@ export function LinkDialog({
               placeholder="https://example.com"
               data-testid="link-dialog-url"
               autoFocus
-              className="h-8 rounded border border-border-default bg-surface px-2 text-sm"
+              className="border border-border-strong rounded-lg px-3 py-2 bg-surface text-primary text-sm focus:outline-none focus:ring-2 focus:ring-slaq-blue focus:border-transparent w-full"
             />
           </label>
           <div className="flex items-center gap-2 justify-end">
@@ -92,7 +92,7 @@ export function LinkDialog({
                 type="button"
                 onClick={onRemove}
                 data-testid="link-dialog-remove"
-                className="h-8 px-3 rounded bg-danger-bg text-danger-text text-sm"
+                className="h-8 px-3 rounded-lg bg-danger-bg text-danger-text text-sm hover:opacity-90"
               >
                 Remove link
               </button>
@@ -100,7 +100,7 @@ export function LinkDialog({
             <button
               type="button"
               onClick={() => onOpenChange(false)}
-              className="h-8 px-3 rounded border border-border-default text-sm"
+              className="h-8 px-3 rounded-lg border border-border-strong text-sm hover:bg-surface-hover"
             >
               Cancel
             </button>
@@ -108,7 +108,7 @@ export function LinkDialog({
               type="submit"
               disabled={!url.trim()}
               data-testid="link-dialog-save"
-              className="h-8 px-3 rounded bg-slaq-blue text-white text-sm disabled:opacity-50"
+              className="h-8 px-3 rounded-lg bg-slaq-blue text-white text-sm disabled:opacity-50 hover:opacity-90"
             >
               Save
             </button>

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 const envSchema = z.object({
+  NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   DATABASE_URL: z.string(),
   VITE_STACK_PROJECT_ID: z.string(),
   PORT: z.coerce.number().optional(),
@@ -25,11 +26,21 @@ const envSchema = z.object({
   GITHUB_WEBHOOK_SECRET: z.string().optional(),
   GITHUB_APP_CLIENT_ID: z.string().optional(),
   GITHUB_APP_CLIENT_SECRET: z.string().optional(),
+  LINEAR_CLIENT_ID: z.string().optional(),
+  LINEAR_CLIENT_SECRET: z.string().optional(),
+  LINEAR_WEBHOOK_SECRET: z.string().optional(),
+  SENTRY_CLIENT_ID: z.string().optional(),
+  SENTRY_CLIENT_SECRET: z.string().optional(),
+  SENTRY_WEBHOOK_SECRET: z.string().optional(),
+  SENTRY_APP_SLUG: z.string().optional(),
+  VERCEL_CLIENT_ID: z.string().optional(),
+  VERCEL_CLIENT_SECRET: z.string().optional(),
+  VERCEL_WEBHOOK_SECRET: z.string().optional(),
 });
 
 const parsed = envSchema.parse(process.env);
 
-const isProduction = process.env.NODE_ENV === "production";
+const isProduction = parsed.NODE_ENV === "production";
 
 if (isProduction && (!parsed.LIVEKIT_API_KEY || !parsed.LIVEKIT_API_SECRET)) {
   throw new Error("LIVEKIT_API_KEY and LIVEKIT_API_SECRET are required in production");

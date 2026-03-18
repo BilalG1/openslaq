@@ -14,7 +14,7 @@ jest.mock("@/theme/ThemeProvider", () => ({
         borderDefault: "#ddd",
         dangerText: "#d00",
       },
-      brand: { primary: "#4A154B" },
+      brand: { primary: "#1264a3" },
     },
   }),
 }));
@@ -94,7 +94,7 @@ describe("DatePickerModal", () => {
     expect(screen.getByTestId("date-picker-error")).toBeTruthy();
 
     // Close via backdrop
-    fireEvent.press(screen.getByTestId("date-picker-backdrop"));
+    fireEvent.press(screen.getByTestId("date-picker-modal-backdrop"));
 
     expect(props.onClose).toHaveBeenCalled();
   });

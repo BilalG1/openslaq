@@ -58,7 +58,7 @@ describe("ScheduleMessageSheet", () => {
       <ScheduleMessageSheet {...defaultProps} onClose={onClose} />,
     );
 
-    fireEvent.press(getByTestId("schedule-sheet-backdrop"));
+    fireEvent.press(getByTestId("schedule-sheet-content-backdrop"));
     expect(onClose).toHaveBeenCalled();
   });
 

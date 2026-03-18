@@ -21,6 +21,10 @@ const sendFlags = {
 const searchFlags = {
   query: { type: "string", required: true },
   channel: { type: "string" },
+  user: { type: "string" },
+  "from-date": { type: "string" },
+  "to-date": { type: "string" },
+  offset: { type: "string", default: "0" },
   workspace: { type: "string", default: "default" },
   limit: { type: "string", default: "20" },
   json: { type: "boolean" },
@@ -152,6 +156,10 @@ export const messagesCommand = defineCommand({
         printHelp("openslaq messages search [flags]", "Search messages in a workspace.", [
           { name: "--query TEXT", desc: "Search query (required)" },
           { name: "--channel ID", desc: "Limit to a specific channel ID" },
+          { name: "--user ID", desc: "Filter by message author user ID" },
+          { name: "--from-date DATE", desc: "Start date filter (ISO datetime)" },
+          { name: "--to-date DATE", desc: "End date filter (ISO datetime)" },
+          { name: "--offset N", desc: "Pagination offset (default: 0)" },
           { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
           { name: "--limit N", desc: "Max results to return (default: 20)" },
           { name: "--json", desc: "Output raw JSON" },
@@ -162,7 +170,15 @@ export const messagesCommand = defineCommand({
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].search.$get({
           param: { slug: f.workspace },
-          query: { q: f.query, limit: Number(f.limit), ...(f.channel ? { channelId: f.channel } : {}) },
+          query: {
+            q: f.query,
+            limit: Number(f.limit),
+            offset: Number(f.offset),
+            ...(f.channel ? { channelId: f.channel } : {}),
+            ...(f.user ? { userId: f.user } : {}),
+            ...(f["from-date"] ? { fromDate: f["from-date"] } : {}),
+            ...(f["to-date"] ? { toDate: f["to-date"] } : {}),
+          },
         });
         if (!res.ok) {
           console.error(`Failed to search messages: ${res.status}`);

@@ -2,16 +2,16 @@ import { useState, useEffect } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Modal,
   Pressable,
   Text,
-  TextInput,
 } from "react-native";
 import { listWorkspaceMembers, getErrorMessage } from "@openslaq/client-core";
 import type { WorkspaceMember } from "@openslaq/client-core";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { BottomSheet } from "@/components/ui/BottomSheet";
+import { Input } from "@/components/ui/Input";
 
 interface Props {
   visible: boolean;
@@ -53,99 +53,61 @@ export function MemberPickerModal({ visible, onClose, onSelect, workspaceSlug }:
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
-      <Pressable
-        testID="member-picker-backdrop"
-        style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" }}
-        onPress={handleClose}
-      >
-        <Pressable
-          testID="member-picker-modal"
-          style={{
-            backgroundColor: theme.colors.surface,
-            borderTopLeftRadius: 16,
-            borderTopRightRadius: 16,
-            paddingTop: 16,
-            paddingBottom: 34,
-            maxHeight: "70%",
-          }}
-          onPress={(e) => e.stopPropagation()}
+    <BottomSheet visible={visible} onClose={handleClose} title="Select Person" maxHeight="70%" testID="member-picker-modal">
+      <Input
+        testID="member-picker-filter"
+        placeholder="Filter people..."
+        placeholderTextColor={theme.colors.textFaint}
+        value={filterText}
+        onChangeText={setFilterText}
+        autoCapitalize="none"
+        autoCorrect={false}
+        style={{
+          marginHorizontal: 16,
+          marginBottom: 8,
+        }}
+      />
+      {loading && (
+        <ActivityIndicator
+          testID="member-picker-loading"
+          style={{ marginVertical: 20 }}
+          color={theme.brand.primary}
+        />
+      )}
+      {error && (
+        <Text
+          testID="member-picker-error"
+          style={{ color: theme.colors.dangerText, paddingHorizontal: 16, marginBottom: 8 }}
         >
-          <Text
-            style={{
-              fontSize: 18,
-              fontWeight: "600",
-              color: theme.colors.textPrimary,
-              paddingHorizontal: 16,
-              marginBottom: 12,
-            }}
-          >
-            Select Person
-          </Text>
-          <TextInput
-            testID="member-picker-filter"
-            placeholder="Filter people..."
-            placeholderTextColor={theme.colors.textFaint}
-            value={filterText}
-            onChangeText={setFilterText}
-            autoCapitalize="none"
-            autoCorrect={false}
-            style={{
-              borderWidth: 1,
-              borderColor: theme.colors.borderDefault,
-              borderRadius: 8,
-              paddingHorizontal: 12,
-              paddingVertical: 10,
-              fontSize: 16,
-              color: theme.colors.textPrimary,
-              backgroundColor: theme.colors.surfaceSecondary,
-              marginHorizontal: 16,
-              marginBottom: 8,
-            }}
-          />
-          {loading && (
-            <ActivityIndicator
-              testID="member-picker-loading"
-              style={{ marginVertical: 20 }}
-              color={theme.brand.primary}
-            />
-          )}
-          {error && (
-            <Text
-              testID="member-picker-error"
-              style={{ color: theme.colors.dangerText, paddingHorizontal: 16, marginBottom: 8 }}
+          {error}
+        </Text>
+      )}
+      {!loading && !error && (
+        <FlatList
+          testID="member-picker-list"
+          data={filtered}
+          keyExtractor={(item) => item.id}
+          keyboardShouldPersistTaps="handled"
+          renderItem={({ item }) => (
+            <Pressable
+              testID={`member-picker-item-${item.id}`}
+              onPress={() => handleSelect(item)}
+              style={({ pressed }) => ({
+                opacity: pressed ? 0.7 : 1,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+              })}
             >
-              {error}
-            </Text>
+              <Text
+                style={{ fontSize: 16, color: theme.colors.textPrimary }}
+                numberOfLines={1}
+              >
+                {item.displayName}
+              </Text>
+            </Pressable>
           )}
-          {!loading && !error && (
-            <FlatList
-              testID="member-picker-list"
-              data={filtered}
-              keyExtractor={(item) => item.id}
-              keyboardShouldPersistTaps="handled"
-              renderItem={({ item }) => (
-                <Pressable
-                  testID={`member-picker-item-${item.id}`}
-                  onPress={() => handleSelect(item)}
-                  style={({ pressed }) => ({
-                    opacity: pressed ? 0.7 : 1,
-                    paddingHorizontal: 16,
-                    paddingVertical: 12,
-                  })}
-                >
-                  <Text
-                    style={{ fontSize: 16, color: theme.colors.textPrimary }}
-                    numberOfLines={1}
-                  >
-                    {item.displayName}
-                  </Text>
-                </Pressable>
-              )}
-            />
-          )}
-        </Pressable>
-      </Pressable>
-    </Modal>
+        />
+      )}
+    </BottomSheet>
   );
 }

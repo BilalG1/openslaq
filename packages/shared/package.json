@@ -4,15 +4,21 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
   },
   "scripts": {
+    "build:types": "tsup src/index.ts --format esm --dts-only",
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "tsup": "^8.5.1",
     "typescript": "^5.7.3"
   }
 }

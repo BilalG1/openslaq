@@ -1,6 +1,53 @@
 import { Hono } from "hono";
+import * as jose from "jose";
+import { env } from "../env";
+import { e2eTestSecret } from "./jwt";
 
 const authRoutes = new Hono();
+
+// Dev-only endpoint: mint a self-signed JWT for quick sign-in (mobile, CLI, etc.)
+authRoutes.post("/dev-sign-in", async (c) => {
+  if (process.env.NODE_ENV === "production") {
+    return c.json({ error: "Not found" }, 404);
+  }
+
+  const body = await c.req.json<{ secret: string }>();
+
+  if (!e2eTestSecret || body.secret !== env.E2E_TEST_SECRET) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  const projectId = env.VITE_STACK_PROJECT_ID;
+  const issuer = `https://api.stack-auth.com/api/v1/projects/${projectId}`;
+
+  const n = Math.floor(Math.random() * 10000);
+  const userId = crypto.randomUUID();
+  const displayName = `Dev User ${n}`;
+  const email = `dev-${n}@openslaq.local`;
+
+  const accessToken = await new jose.SignJWT({
+    email,
+    name: displayName,
+    email_verified: true,
+    project_id: projectId,
+    branch_id: "main",
+    refresh_token_id: `dev-rt-${userId}`,
+    role: "authenticated",
+    selected_team_id: null,
+    is_anonymous: false,
+    is_restricted: false,
+    restricted_reason: null,
+  })
+    .setProtectedHeader({ alg: "HS256" })
+    .setSubject(userId)
+    .setIssuer(issuer)
+    .setAudience(projectId)
+    .setIssuedAt()
+    .setExpirationTime("24h")
+    .sign(e2eTestSecret);
+
+  return c.json({ userId, accessToken });
+});
 
 authRoutes.get("/mobile-oauth-callback", (c) => {
   const code = c.req.query("code");

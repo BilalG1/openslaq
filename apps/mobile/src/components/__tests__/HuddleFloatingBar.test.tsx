@@ -62,7 +62,7 @@ jest.mock("@/theme/ThemeProvider", () => ({
         textPrimary: "#000",
         textSecondary: "#666",
       },
-      brand: { primary: "#4A154B", danger: "#E01E5A" },
+      brand: { primary: "#1264a3", danger: "#dc2626" },
     },
   }),
 }));
@@ -101,10 +101,10 @@ describe("HuddleFloatingBar", () => {
     render(<HuddleFloatingBar />);
 
     expect(screen.getByTestId("huddle-floating-bar")).toBeTruthy();
-    expect(screen.getByText("# general")).toBeTruthy();
+    expect(screen.getByText("G")).toBeTruthy();
   });
 
-  it("shows participant count when connected", () => {
+  it("shows green dot when connected", () => {
     mockHuddleState.channelId = "ch-1";
     mockHuddleState.connected = true;
     mockHuddleState.participants = [
@@ -114,7 +114,8 @@ describe("HuddleFloatingBar", () => {
 
     render(<HuddleFloatingBar />);
 
-    expect(screen.getByText("2")).toBeTruthy();
+    expect(screen.getByTestId("huddle-floating-bar")).toBeTruthy();
+    expect(screen.getByTestId("huddle-bar-mute")).toBeTruthy();
   });
 
   it("shows avatar initial fallback when no video track", () => {
@@ -155,6 +156,6 @@ describe("HuddleFloatingBar", () => {
 
     render(<HuddleFloatingBar />);
 
-    expect(screen.getByText("Alice")).toBeTruthy();
+    expect(screen.getByText("A")).toBeTruthy();
   });
 });

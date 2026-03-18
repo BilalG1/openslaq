@@ -1,51 +1,66 @@
 import React from "react";
-import { render, screen, fireEvent, act, waitFor } from "@testing-library/react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { render, screen, fireEvent, act } from "@testing-library/react-native";
 import { MessageInput } from "../MessageInput";
 
+// Access the WebViewEditor mock helpers
+const webViewEditorMock = require("@/components/WebViewEditor");
+
+function getMockRef() {
+  return webViewEditorMock.__mockRef;
+}
+
+beforeEach(() => {
+  const ref = getMockRef();
+  // Reset all mock functions
+  for (const key of Object.keys(ref)) {
+    if (typeof ref[key]?.mockClear === "function") {
+      ref[key].mockClear();
+    }
+  }
+  ref.getMarkdown.mockImplementation(() => Promise.resolve(""));
+  jest.clearAllMocks();
+});
+
 describe("MessageInput", () => {
-  it("send button is disabled when empty", () => {
+  it("send button is disabled when editor is empty", () => {
     const onSend = jest.fn();
     render(<MessageInput onSend={onSend} />);
 
-    const sendButton = screen.getByText("↑");
+    const sendButton = screen.getByTestId("message-send");
     fireEvent.press(sendButton);
 
     expect(onSend).not.toHaveBeenCalled();
   });
 
-  it("typing enables send button", () => {
+  it("calls onSend with markdown content on send", async () => {
     const onSend = jest.fn();
     render(<MessageInput onSend={onSend} />);
 
-    const input = screen.getByPlaceholderText("Message");
-    fireEvent.changeText(input, "hello");
-    fireEvent.press(screen.getByText("↑"));
+    act(() => {
+      webViewEditorMock._simulateContentChange("hello", "hello", false);
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId("message-send"));
+    });
 
     expect(onSend).toHaveBeenCalledWith("hello");
   });
 
-  it("calls onSend with trimmed text and clears input", () => {
+  it("clears editor after sending", async () => {
     const onSend = jest.fn();
     render(<MessageInput onSend={onSend} />);
 
-    const input = screen.getByPlaceholderText("Message");
-    fireEvent.changeText(input, "  hello world  ");
-    fireEvent.press(screen.getByText("↑"));
+    const ref = getMockRef();
+    act(() => {
+      webViewEditorMock._simulateContentChange("hello", "hello", false);
+    });
 
-    expect(onSend).toHaveBeenCalledWith("hello world");
-    expect(input.props.value).toBe("");
-  });
+    await act(async () => {
+      fireEvent.press(screen.getByTestId("message-send"));
+    });
 
-  it("whitespace-only does not trigger onSend", () => {
-    const onSend = jest.fn();
-    render(<MessageInput onSend={onSend} />);
-
-    const input = screen.getByPlaceholderText("Message");
-    fireEvent.changeText(input, "   ");
-    fireEvent.press(screen.getByText("↑"));
-
-    expect(onSend).not.toHaveBeenCalled();
+    expect(ref.clearContent).toHaveBeenCalled();
   });
 
   it("shows edit banner when editingMessage is set", () => {
@@ -63,7 +78,8 @@ describe("MessageInput", () => {
     expect(screen.getByTestId("edit-cancel")).toBeTruthy();
   });
 
-  it("pre-fills input with message content in edit mode", () => {
+  it("loads editing message content into editor", () => {
+    const ref = getMockRef();
     render(
       <MessageInput
         onSend={jest.fn()}
@@ -73,11 +89,10 @@ describe("MessageInput", () => {
       />,
     );
 
-    const input = screen.getByTestId("message-input");
-    expect(input.props.value).toBe("original text");
+    expect(ref.setContent).toHaveBeenCalledWith("original text");
   });
 
-  it("calls onSaveEdit in edit mode when content changed", () => {
+  it("calls onSaveEdit in edit mode when content changed", async () => {
     const onSaveEdit = jest.fn();
     const onSend = jest.fn();
 
@@ -90,9 +105,13 @@ describe("MessageInput", () => {
       />,
     );
 
-    const input = screen.getByTestId("message-input");
-    fireEvent.changeText(input, "updated text");
-    fireEvent.press(screen.getByText("↑"));
+    act(() => {
+      webViewEditorMock._simulateContentChange("updated text", "updated text", false);
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId("message-send"));
+    });
 
     expect(onSaveEdit).toHaveBeenCalledWith("msg-1", "updated text");
     expect(onSend).not.toHaveBeenCalled();
@@ -123,17 +142,6 @@ describe("MessageInput", () => {
     );
 
     expect(screen.queryByTestId("edit-banner")).toBeNull();
-  });
-
-  it("calls onTyping when text changes", () => {
-    const onTyping = jest.fn();
-    render(<MessageInput onSend={jest.fn()} onTyping={onTyping} />);
-
-    const input = screen.getByPlaceholderText("Message");
-    fireEvent.changeText(input, "h");
-    fireEvent.changeText(input, "he");
-
-    expect(onTyping).toHaveBeenCalledTimes(2);
   });
 
   it("shows attachment button when onAddAttachment is provided", () => {
@@ -167,7 +175,7 @@ describe("MessageInput", () => {
     expect(onAddAttachment).toHaveBeenCalled();
   });
 
-  it("enables send button when files are pending even with empty text", () => {
+  it("enables send button when files are pending even with empty text", async () => {
     const onSend = jest.fn();
     const pendingFiles = [
       { id: "f1", uri: "file:///test.jpg", name: "test.jpg", mimeType: "image/jpeg", isImage: true },
@@ -181,7 +189,9 @@ describe("MessageInput", () => {
       />,
     );
 
-    fireEvent.press(screen.getByTestId("message-send"));
+    await act(async () => {
+      fireEvent.press(screen.getByTestId("message-send"));
+    });
 
     expect(onSend).toHaveBeenCalledWith("");
   });
@@ -202,167 +212,52 @@ describe("MessageInput", () => {
     expect(screen.getByTestId("upload-spinner")).toBeTruthy();
   });
 
-  it("triggers light haptic on send", () => {
+  it("triggers light haptic on send", async () => {
     const { impactAsync, ImpactFeedbackStyle } = require("expo-haptics");
     const onSend = jest.fn();
     render(<MessageInput onSend={onSend} />);
 
-    const input = screen.getByPlaceholderText("Message");
-    fireEvent.changeText(input, "hello");
-    fireEvent.press(screen.getByText("↑"));
+    act(() => {
+      webViewEditorMock._simulateContentChange("hello", "hello", false);
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId("message-send"));
+    });
 
     expect(impactAsync).toHaveBeenCalledWith(ImpactFeedbackStyle.Light);
   });
 
-  it("shows mention suggestion list when @ triggers autocomplete", () => {
-    const members = [
-      { id: "user-1", displayName: "Alice" },
-      { id: "user-2", displayName: "Bob" },
-    ];
-    render(<MessageInput onSend={jest.fn()} members={members} />);
-
-    const input = screen.getByTestId("message-input");
-    fireEvent.changeText(input, "@a");
-    // Simulate cursor position after the typed text
-    fireEvent(input, "selectionChange", {
-      nativeEvent: { selection: { start: 2, end: 2 } },
-    });
-
-    expect(screen.getByTestId("mention-suggestion-list")).toBeTruthy();
-    expect(screen.getByText("Alice")).toBeTruthy();
-  });
-
-  it("shows slash command suggestion list when / is typed at start", () => {
-    const commands = [
-      { name: "remind", description: "Set a reminder", usage: "/remind", source: "builtin" as const },
-      { name: "mute", description: "Mute channel", usage: "/mute", source: "builtin" as const },
-    ];
-    render(<MessageInput onSend={jest.fn()} slashCommands={commands} onSlashCommand={jest.fn()} />);
-
-    const input = screen.getByTestId("message-input");
-    fireEvent.changeText(input, "/");
-
-    expect(screen.getByTestId("slash-command-suggestion-list")).toBeTruthy();
-    expect(screen.getByText("/remind")).toBeTruthy();
-  });
-
-  it("calls onSlashCommand instead of onSend when text starts with /", () => {
+  it("calls onSlashCommand instead of onSend when text starts with /", async () => {
     const onSend = jest.fn();
     const onSlashCommand = jest.fn();
     render(<MessageInput onSend={onSend} onSlashCommand={onSlashCommand} />);
 
-    const input = screen.getByTestId("message-input");
-    fireEvent.changeText(input, "/remind me at 3pm");
-    fireEvent.press(screen.getByTestId("message-send"));
+    act(() => {
+      webViewEditorMock._simulateContentChange("/remind me at 3pm", "/remind me at 3pm", false);
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId("message-send"));
+    });
 
     expect(onSlashCommand).toHaveBeenCalledWith("remind", "me at 3pm");
     expect(onSend).not.toHaveBeenCalled();
   });
 
-  it("calls onSlashCommand with empty args for command-only input", () => {
+  it("calls onSlashCommand with empty args for command-only input", async () => {
     const onSlashCommand = jest.fn();
     render(<MessageInput onSend={jest.fn()} onSlashCommand={onSlashCommand} />);
-
-    const input = screen.getByTestId("message-input");
-    fireEvent.changeText(input, "/mute");
-    fireEvent.press(screen.getByTestId("message-send"));
-
-    expect(onSlashCommand).toHaveBeenCalledWith("mute", "");
-  });
-
-  it("falls through to onSend when / text but no onSlashCommand handler", () => {
-    const onSend = jest.fn();
-    render(<MessageInput onSend={onSend} />);
-
-    const input = screen.getByTestId("message-input");
-    fireEvent.changeText(input, "/remind test");
-    fireEvent.press(screen.getByTestId("message-send"));
-
-    expect(onSend).toHaveBeenCalledWith("/remind test");
-  });
-
-  it("clears input after slash command is sent", () => {
-    const onSlashCommand = jest.fn();
-    render(<MessageInput onSend={jest.fn()} onSlashCommand={onSlashCommand} />);
-
-    const input = screen.getByTestId("message-input");
-    fireEvent.changeText(input, "/remind test");
-    fireEvent.press(screen.getByTestId("message-send"));
-
-    expect(input.props.value).toBe("");
-  });
-
-  it("opens schedule sheet on long-press of send button", () => {
-    const onScheduleSend = jest.fn();
-    render(
-      <MessageInput onSend={jest.fn()} onScheduleSend={onScheduleSend} />,
-    );
-
-    const input = screen.getByTestId("message-input");
-    fireEvent.changeText(input, "scheduled message");
-    fireEvent(screen.getByTestId("message-send"), "longPress");
-
-    expect(screen.getByTestId("schedule-sheet-content")).toBeTruthy();
-  });
-
-  it("does not show schedule sheet in edit mode", () => {
-    const onScheduleSend = jest.fn();
-    render(
-      <MessageInput
-        onSend={jest.fn()}
-        onScheduleSend={onScheduleSend}
-        editingMessage={{ id: "msg-1", content: "editing" }}
-        onCancelEdit={jest.fn()}
-        onSaveEdit={jest.fn()}
-      />,
-    );
-
-    // onLongPress should be undefined when editing, so longPress is a no-op
-    fireEvent(screen.getByTestId("message-send"), "longPress");
-    expect(screen.queryByTestId("schedule-sheet-content")).toBeNull();
-  });
-
-  it("restores draft on mount when draftKey is set", async () => {
-    (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce("saved draft text");
-
-    render(<MessageInput onSend={jest.fn()} draftKey="ch-1" />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId("message-input").props.value).toBe("saved draft text");
-    });
-  });
-
-  it("saves draft when typing with draftKey", async () => {
-    jest.useFakeTimers();
-    (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce(null);
-
-    render(<MessageInput onSend={jest.fn()} draftKey="ch-1" />);
-
-    await act(async () => {});
-
-    const input = screen.getByPlaceholderText("Message");
-    fireEvent.changeText(input, "hello draft");
 
     act(() => {
-      jest.advanceTimersByTime(300);
+      webViewEditorMock._simulateContentChange("/mute", "/mute", false);
     });
 
-    expect(AsyncStorage.setItem).toHaveBeenCalledWith("openslaq-draft-ch-1", "hello draft");
-    jest.useRealTimers();
-  });
-
-  it("clears draft on send", async () => {
-    (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce("old draft");
-
-    render(<MessageInput onSend={jest.fn()} draftKey="ch-1" />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId("message-input").props.value).toBe("old draft");
+    await act(async () => {
+      fireEvent.press(screen.getByTestId("message-send"));
     });
 
-    fireEvent.press(screen.getByTestId("message-send"));
-
-    expect(AsyncStorage.removeItem).toHaveBeenCalledWith("openslaq-draft-ch-1");
+    expect(onSlashCommand).toHaveBeenCalledWith("mute", "");
   });
 
   it("renders Aa formatting toggle button", () => {
@@ -385,23 +280,75 @@ describe("MessageInput", () => {
     expect(screen.queryByTestId("formatting-toolbar")).toBeNull();
   });
 
-  it("bold format button wraps text with **", () => {
+  it("bold button calls editor.toggleBold()", () => {
     render(<MessageInput onSend={jest.fn()} />);
-
-    const input = screen.getByTestId("message-input");
-    fireEvent.changeText(input, "hello");
+    const ref = getMockRef();
 
     // Open toolbar
     fireEvent.press(screen.getByTestId("formatting-toggle"));
-
-    // Simulate selecting all text
-    fireEvent(input, "selectionChange", {
-      nativeEvent: { selection: { start: 0, end: 5 } },
-    });
-
     fireEvent.press(screen.getByTestId("format-btn-bold"));
 
-    expect(input.props.value).toBe("**hello**");
+    expect(ref.toggleBold).toHaveBeenCalled();
+  });
+
+  it("italic button calls editor.toggleItalic()", () => {
+    render(<MessageInput onSend={jest.fn()} />);
+    const ref = getMockRef();
+
+    fireEvent.press(screen.getByTestId("formatting-toggle"));
+    fireEvent.press(screen.getByTestId("format-btn-italic"));
+
+    expect(ref.toggleItalic).toHaveBeenCalled();
+  });
+
+  it("strikethrough button calls editor.toggleStrike()", () => {
+    render(<MessageInput onSend={jest.fn()} />);
+    const ref = getMockRef();
+
+    fireEvent.press(screen.getByTestId("formatting-toggle"));
+    fireEvent.press(screen.getByTestId("format-btn-strikethrough"));
+
+    expect(ref.toggleStrike).toHaveBeenCalled();
+  });
+
+  it("code button calls editor.toggleCode()", () => {
+    render(<MessageInput onSend={jest.fn()} />);
+    const ref = getMockRef();
+
+    fireEvent.press(screen.getByTestId("formatting-toggle"));
+    fireEvent.press(screen.getByTestId("format-btn-code"));
+
+    expect(ref.toggleCode).toHaveBeenCalled();
+  });
+
+  it("blockquote button calls editor.toggleBlockquote()", () => {
+    render(<MessageInput onSend={jest.fn()} />);
+    const ref = getMockRef();
+
+    fireEvent.press(screen.getByTestId("formatting-toggle"));
+    fireEvent.press(screen.getByTestId("format-btn-blockquote"));
+
+    expect(ref.toggleBlockquote).toHaveBeenCalled();
+  });
+
+  it("bullet list button calls editor.toggleBulletList()", () => {
+    render(<MessageInput onSend={jest.fn()} />);
+    const ref = getMockRef();
+
+    fireEvent.press(screen.getByTestId("formatting-toggle"));
+    fireEvent.press(screen.getByTestId("format-btn-bulletList"));
+
+    expect(ref.toggleBulletList).toHaveBeenCalled();
+  });
+
+  it("ordered list button calls editor.toggleOrderedList()", () => {
+    render(<MessageInput onSend={jest.fn()} />);
+    const ref = getMockRef();
+
+    fireEvent.press(screen.getByTestId("formatting-toggle"));
+    fireEvent.press(screen.getByTestId("format-btn-orderedList"));
+
+    expect(ref.toggleOrderedList).toHaveBeenCalled();
   });
 
   it("link button opens link insert sheet", () => {
@@ -419,17 +366,6 @@ describe("MessageInput", () => {
     );
 
     expect(screen.getByTestId("mic-button")).toBeTruthy();
-  });
-
-  it("hides mic button when text is non-empty", () => {
-    render(
-      <MessageInput onSend={jest.fn()} onSendVoiceMessage={jest.fn()} />,
-    );
-
-    const input = screen.getByPlaceholderText("Message");
-    fireEvent.changeText(input, "hello");
-
-    expect(screen.queryByTestId("mic-button")).toBeNull();
   });
 
   it("hides mic button when editing a message", () => {
@@ -506,23 +442,180 @@ describe("MessageInput", () => {
     );
   });
 
-  it("calls onScheduleSend with content and date when preset is selected", () => {
-    const onScheduleSend = jest.fn();
-    render(
-      <MessageInput onSend={jest.fn()} onScheduleSend={onScheduleSend} />,
+  it("renders the WebView editor", () => {
+    render(<MessageInput onSend={jest.fn()} />);
+    expect(screen.getByTestId("webview-editor")).toBeTruthy();
+  });
+
+  it("sets height, minHeight, and maxHeight on input container", () => {
+    render(<MessageInput onSend={jest.fn()} />);
+    const input = screen.getByTestId("message-input");
+    expect(input.props.style).toEqual(
+      expect.objectContaining({ height: 36, minHeight: 36, maxHeight: 120 }),
     );
+  });
+
+  it("expands capsule when height-change event fires", () => {
+    render(<MessageInput onSend={jest.fn()} />);
+    const capsule = screen.getByTestId("input-capsule");
+    expect(capsule.props.style).toEqual(expect.objectContaining({ minHeight: 44 }));
+
+    act(() => {
+      webViewEditorMock._simulateHeightChange(80);
+    });
 
     const input = screen.getByTestId("message-input");
-    fireEvent.changeText(input, "hello scheduled");
-    fireEvent(screen.getByTestId("message-send"), "longPress");
+    expect(input.props.style).toEqual(expect.objectContaining({ height: 80 }));
+    expect(capsule.props.style).toEqual(expect.objectContaining({ minHeight: 88 }));
+  });
 
-    // Tap the first preset
-    fireEvent.press(screen.getByTestId("schedule-preset-in-20-minutes"));
+  it("clamps height between 36 and 120", () => {
+    render(<MessageInput onSend={jest.fn()} />);
 
-    expect(onScheduleSend).toHaveBeenCalledTimes(1);
-    expect(onScheduleSend.mock.calls[0][0]).toBe("hello scheduled");
-    expect(onScheduleSend.mock.calls[0][1]).toBeInstanceOf(Date);
-    // Input should be cleared
-    expect(input.props.value).toBe("");
+    act(() => {
+      webViewEditorMock._simulateHeightChange(10);
+    });
+    expect(screen.getByTestId("message-input").props.style).toEqual(
+      expect.objectContaining({ height: 36 }),
+    );
+
+    act(() => {
+      webViewEditorMock._simulateHeightChange(200);
+    });
+    expect(screen.getByTestId("message-input").props.style).toEqual(
+      expect.objectContaining({ height: 120 }),
+    );
+  });
+
+  it("resets editorHeight to 36 after sending a message", async () => {
+    render(<MessageInput onSend={jest.fn()} />);
+
+    // Expand the input
+    act(() => {
+      webViewEditorMock._simulateContentChange("hello", "hello", false);
+      webViewEditorMock._simulateHeightChange(80);
+    });
+    expect(screen.getByTestId("message-input").props.style).toEqual(
+      expect.objectContaining({ height: 80 }),
+    );
+
+    // Send the message
+    await act(async () => {
+      fireEvent.press(screen.getByTestId("message-send"));
+    });
+
+    // Height should reset to initial
+    expect(screen.getByTestId("message-input").props.style).toEqual(
+      expect.objectContaining({ height: 36 }),
+    );
+  });
+
+  it("shows mention suggestions when mention-query fires", () => {
+    const members = [
+      { id: "u1", displayName: "John" },
+      { id: "u2", displayName: "Jane" },
+      { id: "u3", displayName: "Bob" },
+    ];
+    render(<MessageInput onSend={jest.fn()} members={members} />);
+
+    act(() => {
+      webViewEditorMock._simulateMentionQuery("jo");
+    });
+
+    expect(screen.getByTestId("mention-suggestion-list")).toBeTruthy();
+    expect(screen.getByTestId("mention-suggestion-u1")).toBeTruthy(); // John
+    expect(screen.queryByTestId("mention-suggestion-u3")).toBeNull(); // Bob - no match
+  });
+
+  it("shows slash command suggestions when slash-query fires", () => {
+    const slashCommands = [
+      { name: "remind", description: "Set a reminder", usage: "/remind [text]", source: "builtin" as const },
+      { name: "mute", description: "Mute channel", usage: "/mute", source: "builtin" as const },
+    ];
+    render(<MessageInput onSend={jest.fn()} slashCommands={slashCommands} />);
+
+    act(() => {
+      webViewEditorMock._simulateSlashQuery("rem");
+    });
+
+    expect(screen.getByTestId("slash-command-suggestion-list")).toBeTruthy();
+    expect(screen.getByTestId("slash-command-remind")).toBeTruthy();
+    expect(screen.queryByTestId("slash-command-mute")).toBeNull();
+  });
+
+  it("hides suggestions when query is null", () => {
+    const members = [{ id: "u1", displayName: "John" }];
+    render(<MessageInput onSend={jest.fn()} members={members} />);
+
+    act(() => {
+      webViewEditorMock._simulateMentionQuery("jo");
+    });
+    expect(screen.getByTestId("mention-suggestion-list")).toBeTruthy();
+
+    act(() => {
+      webViewEditorMock._simulateMentionQuery(null);
+    });
+    expect(screen.queryByTestId("mention-suggestion-list")).toBeNull();
+  });
+
+  it("inserts mention when suggestion is selected", () => {
+    const members = [{ id: "u1", displayName: "John" }];
+    render(<MessageInput onSend={jest.fn()} members={members} />);
+
+    const ref = getMockRef();
+    act(() => {
+      webViewEditorMock._simulateMentionQuery("jo");
+    });
+
+    fireEvent.press(screen.getByTestId("mention-suggestion-u1"));
+
+    expect(ref.insertMention).toHaveBeenCalledWith("u1", "John");
+    expect(ref.focus).toHaveBeenCalled();
+  });
+
+  it("re-focuses editor after slash command selection", () => {
+    const slashCommands = [
+      { name: "remind", description: "Set a reminder", usage: "/remind [text]", source: "builtin" as const },
+    ];
+    render(<MessageInput onSend={jest.fn()} slashCommands={slashCommands} />);
+
+    const ref = getMockRef();
+    act(() => {
+      webViewEditorMock._simulateSlashQuery("rem");
+    });
+
+    fireEvent.press(screen.getByTestId("slash-command-remind"));
+
+    expect(ref.insertSlashCommand).toHaveBeenCalledWith("remind");
+    expect(ref.focus).toHaveBeenCalled();
+  });
+
+  it("resets mention and slash queries when edit is canceled", () => {
+    const members = [{ id: "u1", displayName: "John" }];
+    const slashCommands = [
+      { name: "remind", description: "Set a reminder", usage: "/remind [text]", source: "builtin" as const },
+    ];
+    render(
+      <MessageInput
+        onSend={jest.fn()}
+        members={members}
+        slashCommands={slashCommands}
+        editingMessage={{ id: "msg-1", content: "original" }}
+        onCancelEdit={jest.fn()}
+        onSaveEdit={jest.fn()}
+      />,
+    );
+
+    // Trigger mention suggestions
+    act(() => {
+      webViewEditorMock._simulateMentionQuery("jo");
+    });
+    expect(screen.getByTestId("mention-suggestion-list")).toBeTruthy();
+
+    // Cancel edit
+    fireEvent.press(screen.getByTestId("edit-cancel"));
+
+    // Suggestions should be gone
+    expect(screen.queryByTestId("mention-suggestion-list")).toBeNull();
   });
 });

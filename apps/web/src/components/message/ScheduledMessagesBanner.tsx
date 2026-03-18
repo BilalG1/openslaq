@@ -1,3 +1,4 @@
+import { Clock } from "lucide-react";
 import { useScheduledCountForChannel } from "../../hooks/chat/useScheduledMessages";
 
 interface ScheduledMessagesBannerProps {
@@ -21,9 +22,7 @@ export function ScheduledMessagesBanner({
       data-testid="scheduled-messages-banner"
     >
       <span className="text-blue-700 dark:text-blue-300">
-        <svg className="w-4 h-4 inline-block mr-1.5 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-        </svg>
+        <Clock className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />
         You have {count} scheduled message{count !== 1 ? "s" : ""}
       </span>
       <button

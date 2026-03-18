@@ -10,6 +10,8 @@ import {
   getScheduledMessageById,
   updateScheduledMessage,
   deleteScheduledMessage,
+  getScheduledCountForUser,
+  MAX_PENDING_SCHEDULED_PER_USER,
 } from "./scheduled-service";
 import { isChannelMember } from "../channels/service";
 import { asChannelId, asUserId, asScheduledMessageId } from "@openslaq/shared";
@@ -202,6 +204,12 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     const isMember = await isChannelMember(asChannelId(channelId), asUserId(user.id));
     if (!isMember) {
       return c.json({ error: "Not a channel member" }, 403);
+    }
+
+    // Check per-user pending scheduled message cap
+    const pendingCount = await getScheduledCountForUser(user.id);
+    if (pendingCount >= MAX_PENDING_SCHEDULED_PER_USER) {
+      return c.json({ error: `Maximum ${MAX_PENDING_SCHEDULED_PER_USER} pending scheduled messages allowed` }, 400);
     }
 
     const scheduled = await createScheduledMessage(

@@ -2,7 +2,7 @@ import type { EphemeralMessage } from "@openslaq/shared";
 import { asChannelId, asUserId } from "@openslaq/shared";
 import { handleStatus, handleRemind, handleInvite, handleMute, handleUnmute } from "./handlers";
 import { executeBotCommand } from "./bot-command-executor";
-import { BUILTIN_COMMANDS } from "./registry";
+import { BUILTIN_COMMANDS, isIntegrationInstalledInWorkspace } from "./registry";
 import { isChannelMember } from "../channels/service";
 import { INTEGRATION_PLUGINS } from "../integrations/registry";
 
@@ -30,15 +30,20 @@ export async function executeCommand(
   workspaceId: string,
   channelId: string,
 ): Promise<ExecuteResult> {
-  // Check integration plugin commands
+  // Check integration plugin commands (only if installed in workspace)
   const plugin = INTEGRATION_PLUGINS.find((p) => p.slashCommand?.definition.name === command);
   if (plugin?.slashCommand) {
-    const isMember = await isChannelMember(asChannelId(channelId), asUserId(userId));
-    if (!isMember) {
-      return { ok: false, error: "You are not a member of this channel." };
+    const installed = await isIntegrationInstalledInWorkspace(plugin.slug, workspaceId);
+    if (!installed) {
+      // Fall through — don't execute, treat as unknown
+    } else {
+      const isMember = await isChannelMember(asChannelId(channelId), asUserId(userId));
+      if (!isMember) {
+        return { ok: false, error: "You are not a member of this channel." };
+      }
+      const ephemeralMessages = await plugin.slashCommand.handler(args, userId, channelId, workspaceId);
+      return { ok: true, ephemeralMessages };
     }
-    const ephemeralMessages = await plugin.slashCommand.handler(args, userId, channelId, workspaceId);
-    return { ok: true, ephemeralMessages };
   }
 
   // Check built-in commands

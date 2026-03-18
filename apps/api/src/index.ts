@@ -1,5 +1,8 @@
+import "./sentry";
 import { createAdaptorServer } from "@hono/node-server";
 import { Server } from "socket.io";
+import { createAdapter } from "@socket.io/postgres-adapter";
+import pg from "pg";
 import type {
   ClientToServerEvents,
   ServerToClientEvents,
@@ -10,6 +13,7 @@ import { setupSocketHandlers } from "./socket";
 import { setIO } from "./socket/io";
 import { env } from "./env";
 import { startCleanup } from "./rate-limit";
+import { cleanupStalePresence } from "./presence/service";
 import { closeOrphanedHuddleMessages } from "./messages/service";
 import { startScheduledMessageProcessor } from "./messages/scheduled-service";
 import { startReminderProcessor } from "./commands/reminder-service";
@@ -38,6 +42,9 @@ const io = new Server<
   },
 });
 
+const pgPool = new pg.Pool({ connectionString: env.DATABASE_URL });
+io.adapter(createAdapter(pgPool as any));
+
 setupSocketHandlers(io);
 setIO(io);
 
@@ -47,6 +54,9 @@ httpServer.listen(port, "0.0.0.0", () => {
   startCleanup();
   startScheduledMessageProcessor();
   startReminderProcessor();
+  setInterval(() => {
+    cleanupStalePresence().catch((err) => console.error("Stale presence cleanup error:", err));
+  }, 60_000);
   closeOrphanedHuddleMessages()
     .then((count) => {
       if (count > 0) console.log(`Closed ${count} orphaned huddle message(s)`);
