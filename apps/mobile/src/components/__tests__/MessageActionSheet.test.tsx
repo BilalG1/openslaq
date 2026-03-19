@@ -458,6 +458,53 @@ describe("MessageActionSheet", () => {
     expect(onMarkAsUnread).toHaveBeenCalledWith("msg-1");
   });
 
+  // Reply in Thread tests
+  it("shows Reply in Thread when onReplyInThread is provided", () => {
+    render(
+      <MessageActionSheet
+        {...defaultProps}
+        message={makeMessage()}
+        currentUserId="user-1"
+        onReplyInThread={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("action-reply-in-thread")).toBeTruthy();
+    expect(screen.getByText("Reply in Thread")).toBeTruthy();
+  });
+
+  it("hides Reply in Thread when onReplyInThread is not provided", () => {
+    render(
+      <MessageActionSheet
+        {...defaultProps}
+        message={makeMessage()}
+        currentUserId="user-1"
+      />,
+    );
+
+    expect(screen.queryByTestId("action-reply-in-thread")).toBeNull();
+  });
+
+  it("tapping Reply in Thread calls onClose and onReplyInThread with message ID", () => {
+    const onReplyInThread = jest.fn();
+    const onClose = jest.fn();
+
+    render(
+      <MessageActionSheet
+        {...defaultProps}
+        message={makeMessage()}
+        currentUserId="user-1"
+        onReplyInThread={onReplyInThread}
+        onClose={onClose}
+      />,
+    );
+
+    fireEvent.press(screen.getByTestId("action-reply-in-thread"));
+
+    expect(onClose).toHaveBeenCalled();
+    expect(onReplyInThread).toHaveBeenCalledWith("msg-1");
+  });
+
   it("calls selectionAsync on action press (haptic feedback)", () => {
     const { selectionAsync } = require("expo-haptics");
 
