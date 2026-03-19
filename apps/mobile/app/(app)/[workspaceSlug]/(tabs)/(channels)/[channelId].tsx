@@ -78,9 +78,10 @@ export default function ChannelScreen() {
 }
 
 function ChannelScreenInner() {
-  const { workspaceSlug, channelId } = useLocalSearchParams<{
+  const { workspaceSlug, channelId, showInfo } = useLocalSearchParams<{
     workspaceSlug: string;
     channelId: string;
+    showInfo?: string;
   }>();
   const { authProvider, user } = useAuth();
   const { state, dispatch } = useChatStore();
@@ -96,6 +97,13 @@ function ChannelScreenInner() {
 
   const modalsState = useChannelModalsState();
   const modalsDispatch = useChannelModalsDispatch();
+
+  // Open channel info panel when navigated with ?showInfo=true
+  useEffect(() => {
+    if (showInfo === "true") {
+      modalsDispatch({ type: "showChannelInfo" });
+    }
+  }, [showInfo, modalsDispatch]);
 
   const { data: members } = useFetchData({
     fetchFn: async () => {

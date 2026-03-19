@@ -8,8 +8,10 @@ const mockDispatch = jest.fn();
 const mockJoinChannel = jest.fn();
 const mockLeaveChannel = jest.fn();
 
+let mockSearchParams: Record<string, string> = { workspaceSlug: "acme", channelId: "ch-1" };
+
 jest.mock("expo-router", () => ({
-  useLocalSearchParams: () => ({ workspaceSlug: "acme", channelId: "ch-1" }),
+  useLocalSearchParams: () => mockSearchParams,
   useNavigation: () => ({ setOptions: mockSetOptions }),
   useRouter: () => ({ push: mockPush, back: jest.fn() }),
 }));
@@ -208,7 +210,13 @@ jest.mock("@/components/PinnedMessagesSheet", () => ({ PinnedMessagesSheet: () =
 jest.mock("@/components/ShareMessageModal", () => ({ ShareMessageModal: () => null }));
 jest.mock("@/components/NotificationLevelSheet", () => ({ NotificationLevelSheet: () => null }));
 jest.mock("@/components/huddle/HuddleHeaderButton", () => ({ HuddleHeaderButton: () => null }));
-jest.mock("@/components/ChannelInfoPanel.variant-a", () => ({ ChannelInfoPanel: () => null }));
+jest.mock("@/components/ChannelInfoPanel.variant-a", () => ({
+  ChannelInfoPanel: ({ visible }: { visible: boolean }) => {
+    if (!visible) return null;
+    const { View: V } = require("react-native");
+    return <V testID="channel-info-panel" />;
+  },
+}));
 
 import { loadChannelMessages } from "@openslaq/client-core";
 import ChannelScreen from "../../../app/(app)/[workspaceSlug]/(tabs)/(channels)/[channelId]";
@@ -219,6 +227,7 @@ describe("ChannelScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockWorkspaceRole = "owner";
+    mockSearchParams = { workspaceSlug: "acme", channelId: "ch-1" };
   });
 
   it("renders message list with messages", () => {
@@ -306,5 +315,16 @@ describe("ChannelScreen", () => {
     expect(titleButton.props.style).toEqual(
       expect.objectContaining({ minHeight: 44 }),
     );
+  });
+
+  it("opens channel info panel when showInfo query param is true", () => {
+    mockSearchParams = { workspaceSlug: "acme", channelId: "ch-1", showInfo: "true" };
+    render(<ChannelScreen />);
+    expect(screen.getByTestId("channel-info-panel")).toBeTruthy();
+  });
+
+  it("does not open channel info panel without showInfo param", () => {
+    render(<ChannelScreen />);
+    expect(screen.queryByTestId("channel-info-panel")).toBeNull();
   });
 });

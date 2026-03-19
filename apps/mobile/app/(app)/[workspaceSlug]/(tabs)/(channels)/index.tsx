@@ -90,7 +90,7 @@ export default function HomeScreen() {
   };
 
   const handleChannelInfo = (channelId: string) => {
-    router.push(routes.channel(workspaceSlug, channelId as ChannelId));
+    router.push(`${routes.channel(workspaceSlug, channelId as ChannelId)}?showInfo=true`);
   };
 
   const handleLeaveChannel = (channelId: string) => {
