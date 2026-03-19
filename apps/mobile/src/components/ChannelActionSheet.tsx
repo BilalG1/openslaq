@@ -1,8 +1,10 @@
-import { Alert, Pressable, Text, View } from "react-native";
-import type { Channel, ChannelNotifyLevel } from "@openslaq/shared";
+import { useMemo } from "react";
+import { Alert, Pressable, Text, View, StyleSheet } from "react-native";
+import type { Channel, ChannelNotifyLevel, MobileTheme } from "@openslaq/shared";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { haptics } from "@/utils/haptics";
 import { BottomSheet } from "@/components/ui/BottomSheet";
+import { confirmAction } from "@/lib/confirm";
 
 interface Props {
   visible: boolean;
@@ -15,6 +17,8 @@ interface Props {
   onUnstar: (channelId: string) => void;
   onSetNotificationPref: (channelId: string, level: ChannelNotifyLevel) => void;
   onArchive: (channelId: string) => void;
+  onChannelInfo: (channelId: string) => void;
+  onLeaveChannel: (channelId: string) => void;
   onClose: () => void;
 }
 
@@ -23,6 +27,49 @@ const NOTIFY_LABELS: Record<ChannelNotifyLevel, string> = {
   mentions: "Mentions only",
   muted: "Muted",
 };
+
+import { TRANSPARENT } from "@/theme/constants";
+
+const makeStyles = (theme: MobileTheme) =>
+  StyleSheet.create({
+    channelName: {
+      fontSize: 16,
+      fontWeight: "600",
+      color: theme.colors.textPrimary,
+      textAlign: "center",
+      marginBottom: 12,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: theme.colors.borderDefault,
+      marginBottom: 8,
+    },
+    dividerVertical: {
+      height: 1,
+      backgroundColor: theme.colors.borderDefault,
+      marginVertical: 8,
+    },
+    actionText: {
+      fontSize: 16,
+      color: theme.colors.textPrimary,
+    },
+    dangerText: {
+      fontSize: 16,
+      color: theme.brand.danger,
+    },
+    actionButtonDefault: {
+      paddingVertical: 14,
+      paddingHorizontal: 8,
+      borderRadius: 8,
+      backgroundColor: TRANSPARENT,
+    },
+    actionButtonPressed: {
+      paddingVertical: 14,
+      paddingHorizontal: 8,
+      borderRadius: 8,
+      backgroundColor: theme.colors.surfaceTertiary,
+    },
+  });
 
 export function ChannelActionSheet({
   visible,
@@ -35,9 +82,12 @@ export function ChannelActionSheet({
   onUnstar,
   onSetNotificationPref,
   onArchive,
+  onChannelInfo,
+  onLeaveChannel,
   onClose,
 }: Props) {
   const { theme } = useMobileTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
 
   if (!channel) return null;
 
@@ -70,55 +120,51 @@ export function ChannelActionSheet({
     );
   };
 
-  const handleArchive = () => {
+  const handleChannelInfo = () => {
     haptics.selection();
     onClose();
-    Alert.alert(
-      "Archive Channel",
-      `Are you sure you want to archive #${channel.name}?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Archive",
-          style: "destructive",
-          onPress: () => onArchive(channel.id),
-        },
-      ],
+    onChannelInfo(channel.id);
+  };
+
+  const handleLeaveChannel = () => {
+    haptics.selection();
+    onClose();
+    confirmAction(
+      "Leave Channel",
+      () => onLeaveChannel(channel.id),
+      { message: `Are you sure you want to leave #${channel.name}?`, confirmLabel: "Leave", destructive: true },
     );
   };
 
-  const actionButtonStyle = (pressed: boolean) => ({
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    backgroundColor: pressed ? theme.colors.surfaceTertiary : ("transparent" as string),
-  });
+  const handleArchive = () => {
+    haptics.selection();
+    onClose();
+    confirmAction(
+      "Archive Channel",
+      () => onArchive(channel.id),
+      { message: `Are you sure you want to archive #${channel.name}?`, confirmLabel: "Archive", destructive: true },
+    );
+  };
 
   return (
     <BottomSheet visible={visible} onClose={onClose} testID="channel-action-sheet-content">
       {/* Channel name header */}
-      <Text
-        style={{
-          fontSize: 16,
-          fontWeight: "600",
-          color: theme.colors.textPrimary,
-          textAlign: "center",
-          marginBottom: 12,
-        }}
-      >
+      <Text style={styles.channelName}>
         # {channel.name}
       </Text>
 
       {/* Divider */}
-      <View style={{ height: 1, backgroundColor: theme.colors.borderDefault, marginBottom: 8 }} />
+      <View style={styles.divider} />
 
       {/* Star / Unstar */}
       <Pressable
         testID={isStarred ? "action-unstar-channel" : "action-star-channel"}
         onPress={handleStar}
-        style={({ pressed }) => actionButtonStyle(pressed)}
+        accessibilityLabel={isStarred ? "Unstar channel" : "Star channel"}
+        accessibilityHint={isStarred ? "Removes the channel from your starred list" : "Adds the channel to your starred list"}
+        style={({ pressed }) => pressed ? styles.actionButtonPressed : styles.actionButtonDefault}
       >
-        <Text style={{ fontSize: 16, color: theme.colors.textPrimary }}>
+        <Text style={styles.actionText}>
           {isStarred ? "Unstar Channel" : "Star Channel"}
         </Text>
       </Pressable>
@@ -127,23 +173,50 @@ export function ChannelActionSheet({
       <Pressable
         testID="action-notification-pref"
         onPress={handleNotificationPref}
-        style={({ pressed }) => actionButtonStyle(pressed)}
+        accessibilityLabel="Change notification preference"
+        accessibilityHint="Opens notification preference options"
+        style={({ pressed }) => pressed ? styles.actionButtonPressed : styles.actionButtonDefault}
       >
-        <Text style={{ fontSize: 16, color: theme.colors.textPrimary }}>
+        <Text style={styles.actionText}>
           Notifications: {NOTIFY_LABELS[notifyLevel]}
         </Text>
+      </Pressable>
+
+      {/* Channel Info */}
+      <Pressable
+        testID="action-channel-info"
+        onPress={handleChannelInfo}
+        accessibilityLabel="Channel info"
+        accessibilityHint="Opens channel information panel"
+        style={({ pressed }) => pressed ? styles.actionButtonPressed : styles.actionButtonDefault}
+      >
+        <Text style={styles.actionText}>Channel Info</Text>
+      </Pressable>
+
+      {/* Leave Channel */}
+      <View style={styles.dividerVertical} />
+      <Pressable
+        testID="action-leave-channel"
+        onPress={handleLeaveChannel}
+        accessibilityLabel="Leave channel"
+        accessibilityHint="Leaves this channel"
+        style={({ pressed }) => pressed ? styles.actionButtonPressed : styles.actionButtonDefault}
+      >
+        <Text style={styles.dangerText}>Leave Channel</Text>
       </Pressable>
 
       {/* Archive — admin only */}
       {isAdmin && (
         <>
-          <View style={{ height: 1, backgroundColor: theme.colors.borderDefault, marginVertical: 8 }} />
+          <View style={styles.dividerVertical} />
           <Pressable
             testID="action-archive-channel"
             onPress={handleArchive}
-            style={({ pressed }) => actionButtonStyle(pressed)}
+            accessibilityLabel="Archive channel"
+            accessibilityHint="Archives this channel permanently"
+            style={({ pressed }) => pressed ? styles.actionButtonPressed : styles.actionButtonDefault}
           >
-            <Text style={{ fontSize: 16, color: theme.brand.danger }}>Archive Channel</Text>
+            <Text style={styles.dangerText}>Archive Channel</Text>
           </Pressable>
         </>
       )}

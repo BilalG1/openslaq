@@ -1,9 +1,10 @@
 import { useCallback, useRef, useState } from "react";
 import { View, Text, SectionList, ActivityIndicator, Pressable, StyleSheet, Alert } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { getAllDraftKeys } from "@/lib/draft-storage";
 import { useChatStore } from "@/contexts/ChatStoreProvider";
+import { useWorkspaceSlug } from "@/contexts/WorkspaceBootstrapProvider";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
 import { useMobileTheme } from "@/theme/ThemeProvider";
@@ -19,8 +20,10 @@ import {
   unstarChannelOp,
   setChannelNotificationPrefOp,
   archiveChannel,
+  leaveChannel,
 } from "@openslaq/client-core";
-import type { Channel, ChannelId, ChannelNotifyLevel } from "@openslaq/shared";
+import { useSocket } from "@/contexts/SocketProvider";
+import type { Channel, ChannelId, ChannelNotifyLevel, MobileTheme } from "@openslaq/shared";
 import { Lock, Users } from "lucide-react-native";
 import type { DmConversation, GroupDmConversation } from "@openslaq/client-core";
 import { routes } from "@/lib/routes";
@@ -38,15 +41,17 @@ interface HomeSection {
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { workspaceSlug } = useLocalSearchParams<{ workspaceSlug: string }>();
+  const workspaceSlug = useWorkspaceSlug();
   const { state, dispatch } = useChatStore();
   const { authProvider } = useAuth();
   const { theme } = useMobileTheme();
   const { openCreateChannel, openNewDm } = useHomeActions();
+  const { socket } = useSocket();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [draftSet, setDraftSet] = useState<Set<string>>(new Set());
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
+  const styles = makeStyles(theme);
 
   // Ref for getState callback (avoids stale closures)
   const stateRef = useRef(state);
@@ -84,6 +89,14 @@ export default function HomeScreen() {
     void archiveChannel(operationDeps, { workspaceSlug, channelId: channelId as ChannelId });
   };
 
+  const handleChannelInfo = (channelId: string) => {
+    router.push(routes.channel(workspaceSlug, channelId as ChannelId));
+  };
+
+  const handleLeaveChannel = (channelId: string) => {
+    void leaveChannel(operationDeps, { workspaceSlug, channelId: channelId as ChannelId, socket });
+  };
+
   useFocusEffect(
     useCallback(() => {
       void getAllDraftKeys().then((keys) => setDraftSet(new Set(keys)));
@@ -92,7 +105,7 @@ export default function HomeScreen() {
 
   if (state.ui.bootstrapLoading) {
     return (
-      <View style={[styles.center, { backgroundColor: theme.colors.surface }]}>
+      <View style={styles.center}>
         <ActivityIndicator size="large" color={theme.brand.primary} />
       </View>
     );
@@ -100,8 +113,8 @@ export default function HomeScreen() {
 
   if (state.ui.bootstrapError) {
     return (
-      <View style={[styles.center, { backgroundColor: theme.colors.surface, paddingHorizontal: 16 }]}>
-        <Text style={{ color: theme.colors.dangerText, textAlign: "center" }}>{state.ui.bootstrapError}</Text>
+      <View style={[styles.center, styles.errorPadding]}>
+        <Text style={styles.errorText}>{state.ui.bootstrapError}</Text>
       </View>
     );
   }
@@ -173,7 +186,7 @@ export default function HomeScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.colors.surface }}>
+    <View style={styles.container}>
       <HomeHeader />
       <SectionList
         testID="channel-list"
@@ -205,32 +218,31 @@ export default function HomeScreen() {
                   router.push(routes.channel(workspaceSlug, ch.id))
                 }
                 onLongPress={() => handleLongPressChannel(ch)}
+                accessibilityRole="button"
+                accessibilityLabel={`${isPrivate ? "Private channel" : "Channel"} ${ch.name}${unread > 0 ? `, ${unread} unread` : ""}`}
+                accessibilityHint="Opens the channel"
               >
-                <View style={{ paddingHorizontal: 20, paddingVertical: 10, flexDirection: "row", alignItems: "center" }}>
-                  <View style={{ width: 28, alignItems: "center", justifyContent: "center" }}>
-                    {isPrivate ? <Lock size={16} color={theme.colors.textMuted} /> : <Text style={{ color: theme.colors.textMuted, fontSize: 18, fontWeight: "400" }}>#</Text>}
+                <View style={styles.channelRow}>
+                  <View style={styles.iconContainer}>
+                    {isPrivate ? <Lock size={16} color={theme.colors.textMuted} /> : <Text style={styles.hashSymbol}>#</Text>}
                   </View>
                   <Text
-                    style={{
-                      flex: 1,
-                      fontSize: 16,
-                      fontWeight: unread > 0 ? "700" : "400",
-                      color: unread > 0 ? theme.colors.textPrimary : theme.colors.textSecondary,
-                    }}
+                    style={[
+                      styles.channelName,
+                      unread > 0 ? styles.channelNameUnread : styles.channelNameRead,
+                    ]}
                     numberOfLines={1}
                   >
                     {ch.name}
                   </Text>
                   {draftSet.has(ch.id) && (
-                    <Text style={{ fontSize: 13, fontStyle: "italic", color: theme.colors.textMuted, marginRight: 6 }}>
+                    <Text style={styles.draftLabel}>
                       Draft
                     </Text>
                   )}
                   {unread > 0 && (
-                    <View
-                      style={{ borderRadius: 9999, minWidth: 20, height: 20, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.interaction.badgeUnreadBg }}
-                    >
-                      <Text style={{ fontSize: 12, fontWeight: 'bold', color: theme.interaction.badgeUnreadText }}>
+                    <View style={styles.unreadBadge}>
+                      <Text style={styles.unreadText}>
                         {unread > 99 ? "99+" : unread}
                       </Text>
                     </View>
@@ -251,36 +263,33 @@ export default function HomeScreen() {
                 onPress={() =>
                   router.push(routes.dm(workspaceSlug, groupDm.channel.id))
                 }
+                accessibilityRole="button"
+                accessibilityLabel={`Group message ${label}${unread > 0 ? `, ${unread} unread` : ""}`}
+                accessibilityHint="Opens the group conversation"
               >
-                <View style={{ paddingHorizontal: 20, paddingVertical: 10, flexDirection: "row", alignItems: "center" }}>
-                  <View style={{ marginRight: 12 }}>
-                    <View
-                      style={{ width: 32, height: 32, borderRadius: 9999, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.avatarFallbackBg }}
-                    >
+                <View style={styles.channelRow}>
+                  <View style={styles.avatarMargin}>
+                    <View style={styles.groupDmAvatar}>
                       <Users size={16} color={theme.colors.textMuted} />
                     </View>
                   </View>
                   <Text
-                    style={{
-                      flex: 1,
-                      fontSize: 16,
-                      fontWeight: unread > 0 ? "700" : "400",
-                      color: unread > 0 ? theme.colors.textPrimary : theme.colors.textSecondary,
-                    }}
+                    style={[
+                      styles.channelName,
+                      unread > 0 ? styles.channelNameUnread : styles.channelNameRead,
+                    ]}
                     numberOfLines={1}
                   >
                     {label}
                   </Text>
                   {draftSet.has(groupDm.channel.id) && (
-                    <Text style={{ fontSize: 13, fontStyle: "italic", color: theme.colors.textMuted, marginRight: 6 }}>
+                    <Text style={styles.draftLabel}>
                       Draft
                     </Text>
                   )}
                   {unread > 0 && (
-                    <View
-                      style={{ borderRadius: 9999, minWidth: 20, height: 20, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.interaction.badgeUnreadBg }}
-                    >
-                      <Text style={{ fontSize: 12, fontWeight: 'bold', color: theme.interaction.badgeUnreadText }}>
+                    <View style={styles.unreadBadge}>
+                      <Text style={styles.unreadText}>
                         {unread > 99 ? "99+" : unread}
                       </Text>
                     </View>
@@ -302,43 +311,38 @@ export default function HomeScreen() {
               onPress={() =>
                 router.push(routes.dm(workspaceSlug, dm.channel.id))
               }
+              accessibilityRole="button"
+              accessibilityLabel={`Direct message with ${dm.otherUser.displayName ?? "Unknown"}${unread > 0 ? `, ${unread} unread` : ""}`}
+              accessibilityHint="Opens the conversation"
             >
-              <View style={{ paddingHorizontal: 20, paddingVertical: 10, flexDirection: "row", alignItems: "center" }}>
-                <View style={{ position: "relative", marginRight: 12 }}>
-                  <View
-                    style={{ width: 32, height: 32, borderRadius: 9999, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.avatarFallbackBg }}
-                  >
-                    <Text style={{ fontWeight: '500', color: theme.colors.avatarFallbackText }}>
+              <View style={styles.channelRow}>
+                <View style={styles.avatarRelative}>
+                  <View style={styles.dmAvatar}>
+                    <Text style={styles.dmAvatarText}>
                       {dm.otherUser.displayName?.charAt(0)?.toUpperCase() ?? "?"}
                     </Text>
                   </View>
                   {isOnline && (
-                    <View
-                      style={{ position: 'absolute', bottom: -2, right: -2, width: 12, height: 12, borderRadius: 9999, borderWidth: 2, backgroundColor: theme.brand.success, borderColor: theme.colors.surface }}
-                    />
+                    <View style={styles.onlineIndicator} />
                   )}
                 </View>
                 <Text
-                  style={{
-                    flex: 1,
-                    fontSize: 16,
-                    fontWeight: unread > 0 ? "700" : "400",
-                    color: unread > 0 ? theme.colors.textPrimary : theme.colors.textSecondary,
-                  }}
+                  style={[
+                    styles.channelName,
+                    unread > 0 ? styles.channelNameUnread : styles.channelNameRead,
+                  ]}
                   numberOfLines={1}
                 >
                   {dm.otherUser.displayName ?? "Unknown"}
                 </Text>
                 {draftSet.has(dm.channel.id) && (
-                  <Text style={{ fontSize: 13, fontStyle: "italic", color: theme.colors.textMuted, marginRight: 6 }}>
+                  <Text style={styles.draftLabel}>
                     Draft
                   </Text>
                 )}
                 {unread > 0 && (
-                  <View
-                    style={{ borderRadius: 9999, minWidth: 20, height: 20, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.interaction.badgeUnreadBg }}
-                  >
-                    <Text style={{ fontSize: 12, fontWeight: 'bold', color: theme.interaction.badgeUnreadText }}>
+                  <View style={styles.unreadBadge}>
+                    <Text style={styles.unreadText}>
                       {unread > 99 ? "99+" : unread}
                     </Text>
                   </View>
@@ -360,10 +364,10 @@ export default function HomeScreen() {
                   ]);
                 }}
               >
-                <View style={{ width: 28, alignItems: "center", justifyContent: "center" }}>
-                  <Text style={{ color: theme.colors.textMuted, fontSize: 18, fontWeight: "300" }}>+</Text>
+                <View style={styles.iconContainer}>
+                  <Text style={styles.plusSymbol}>+</Text>
                 </View>
-                <Text style={{ fontSize: 16, color: theme.colors.textSecondary }}>
+                <Text style={styles.addLabel}>
                   Add channel
                 </Text>
               </ListRow>
@@ -375,10 +379,10 @@ export default function HomeScreen() {
                 testID="new-dm-link"
                 onPress={openNewDm}
               >
-                <View style={{ width: 28, alignItems: "center", justifyContent: "center" }}>
-                  <Text style={{ color: theme.colors.textMuted, fontSize: 18, fontWeight: "300" }}>+</Text>
+                <View style={styles.iconContainer}>
+                  <Text style={styles.plusSymbol}>+</Text>
                 </View>
-                <Text style={{ fontSize: 16, color: theme.colors.textSecondary }}>
+                <Text style={styles.addLabel}>
                   Start a new message
                 </Text>
               </ListRow>
@@ -386,8 +390,8 @@ export default function HomeScreen() {
           }
           if (section.data.length === 0 && !collapsed[section.key] && section.key !== "unreads" && section.key !== "starred") {
             return (
-              <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 48 }}>
-                <Text style={{ color: theme.colors.textFaint }}>
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>
                   {section.key === "dms" ? "No conversations yet" : "No channels yet"}
                 </Text>
               </View>
@@ -407,16 +411,134 @@ export default function HomeScreen() {
         onUnstar={handleUnstar}
         onSetNotificationPref={handleSetNotificationPref}
         onArchive={handleArchiveChannel}
+        onChannelInfo={handleChannelInfo}
+        onLeaveChannel={handleLeaveChannel}
         onClose={() => setActionSheetVisible(false)}
       />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-});
+const makeStyles = (theme: MobileTheme) =>
+  StyleSheet.create({
+    center: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.colors.surface,
+    },
+    errorPadding: {
+      paddingHorizontal: 16,
+    },
+    errorText: {
+      color: theme.colors.dangerText,
+      textAlign: "center",
+    },
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.surface,
+    },
+    channelRow: {
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    iconContainer: {
+      width: 28,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    hashSymbol: {
+      color: theme.colors.textMuted,
+      fontSize: 18,
+      fontWeight: "400",
+    },
+    plusSymbol: {
+      color: theme.colors.textMuted,
+      fontSize: 18,
+      fontWeight: "300",
+    },
+    channelName: {
+      flex: 1,
+      fontSize: 16,
+    },
+    channelNameUnread: {
+      fontWeight: "700",
+      color: theme.colors.textPrimary,
+    },
+    channelNameRead: {
+      fontWeight: "400",
+      color: theme.colors.textSecondary,
+    },
+    draftLabel: {
+      fontSize: 13,
+      fontStyle: "italic",
+      color: theme.colors.textMuted,
+      marginRight: 6,
+    },
+    unreadBadge: {
+      borderRadius: 9999,
+      minWidth: 20,
+      height: 20,
+      paddingHorizontal: 6,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.interaction.badgeUnreadBg,
+    },
+    unreadText: {
+      fontSize: 12,
+      fontWeight: "bold",
+      color: theme.interaction.badgeUnreadText,
+    },
+    avatarMargin: {
+      marginRight: 12,
+    },
+    groupDmAvatar: {
+      width: 32,
+      height: 32,
+      borderRadius: 9999,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.colors.avatarFallbackBg,
+    },
+    avatarRelative: {
+      position: "relative",
+      marginRight: 12,
+    },
+    dmAvatar: {
+      width: 32,
+      height: 32,
+      borderRadius: 9999,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.colors.avatarFallbackBg,
+    },
+    dmAvatarText: {
+      fontWeight: "500",
+      color: theme.colors.avatarFallbackText,
+    },
+    onlineIndicator: {
+      position: "absolute",
+      bottom: -2,
+      right: -2,
+      width: 12,
+      height: 12,
+      borderRadius: 9999,
+      borderWidth: 2,
+      backgroundColor: theme.brand.success,
+      borderColor: theme.colors.surface,
+    },
+    addLabel: {
+      fontSize: 16,
+      color: theme.colors.textSecondary,
+    },
+    emptyContainer: {
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 48,
+    },
+    emptyText: {
+      color: theme.colors.textFaint,
+    },
+  });

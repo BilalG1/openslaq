@@ -53,6 +53,8 @@ describe("ChannelActionSheet", () => {
     onUnstar: jest.fn(),
     onSetNotificationPref: jest.fn(),
     onArchive: jest.fn(),
+    onChannelInfo: jest.fn(),
+    onLeaveChannel: jest.fn(),
     onClose: jest.fn(),
   };
 
@@ -133,6 +135,40 @@ describe("ChannelActionSheet", () => {
       expect.arrayContaining([
         expect.objectContaining({ text: "Cancel" }),
         expect.objectContaining({ text: "Archive", style: "destructive" }),
+      ]),
+    );
+    alertSpy.mockRestore();
+  });
+
+  it("shows Channel Info action", () => {
+    render(<ChannelActionSheet {...defaultProps} />);
+    expect(screen.getByTestId("action-channel-info")).toBeTruthy();
+    expect(screen.getByText("Channel Info")).toBeTruthy();
+  });
+
+  it("calls onChannelInfo when Channel Info is pressed", () => {
+    render(<ChannelActionSheet {...defaultProps} />);
+    fireEvent.press(screen.getByTestId("action-channel-info"));
+    expect(defaultProps.onChannelInfo).toHaveBeenCalledWith("ch-1");
+    expect(defaultProps.onClose).toHaveBeenCalled();
+  });
+
+  it("shows Leave Channel action", () => {
+    render(<ChannelActionSheet {...defaultProps} />);
+    expect(screen.getByTestId("action-leave-channel")).toBeTruthy();
+    expect(screen.getByText("Leave Channel")).toBeTruthy();
+  });
+
+  it("shows confirmation before leaving channel", () => {
+    const alertSpy = jest.spyOn(Alert, "alert");
+    render(<ChannelActionSheet {...defaultProps} />);
+    fireEvent.press(screen.getByTestId("action-leave-channel"));
+    expect(alertSpy).toHaveBeenCalledWith(
+      "Leave Channel",
+      expect.stringContaining("general"),
+      expect.arrayContaining([
+        expect.objectContaining({ text: "Cancel" }),
+        expect.objectContaining({ text: "Leave", style: "destructive" }),
       ]),
     );
     alertSpy.mockRestore();
