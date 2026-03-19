@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { useCallback, useEffect } from "react";
+import { createContext, useCallback, useContext, useEffect } from "react";
+import { useRouter } from "expo-router";
 import type { Channel, ChannelId, CustomEmoji, HuddleState, Message, MessageId, UserId } from "@openslaq/shared";
 import {
   bootstrapWorkspace,
@@ -22,6 +23,12 @@ import { useSocket } from "./SocketProvider";
 import { useSocketEvent } from "../hooks/useSocketEvent";
 import { useOperationDeps } from "../hooks/useOperationDeps";
 
+const WorkspaceSlugContext = createContext<string>("");
+
+export function useWorkspaceSlug(): string {
+  return useContext(WorkspaceSlugContext);
+}
+
 interface Props {
   workspaceSlug: string;
   children: ReactNode;
@@ -35,13 +42,21 @@ export function WorkspaceBootstrapProvider({
   const { state, dispatch } = useChatStore();
   const deps = useOperationDeps();
   const { socket } = useSocket();
+  const router = useRouter();
 
   // Bootstrap workspace on mount
   useEffect(() => {
     if (!workspaceSlug) return;
     void bootstrapWorkspace(deps, { workspaceSlug });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, authProvider, workspaceSlug]);
+
+  // Redirect to workspace list when bootstrap fails (e.g. invalid workspace slug)
+  const bootstrapError = state.ui.bootstrapError;
+  useEffect(() => {
+    if (bootstrapError) {
+      router.replace("/(app)/");
+    }
+  }, [bootstrapError, router]);
 
   // Fetch saved message IDs after bootstrap
   useEffect(() => {
@@ -49,7 +64,6 @@ export function WorkspaceBootstrapProvider({
     void fetchSavedMessageIds(deps, { workspaceSlug }).then((ids) => {
       dispatch({ type: "saved/set", messageIds: ids });
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, authProvider, workspaceSlug, state.ui.bootstrapLoading]);
 
   // Presence tracking
@@ -107,6 +121,7 @@ export function WorkspaceBootstrapProvider({
   // Channel member tracking
   const onMemberAdded = useCallback(
     (payload: { channelId: ChannelId; userId: UserId }) => {
+      dispatch({ type: "channel/memberCountDelta", channelId: String(payload.channelId), delta: 1 });
       if (!user || !workspaceSlug) return;
         void handleChannelMemberAdded(deps, {
         socket,
@@ -121,6 +136,7 @@ export function WorkspaceBootstrapProvider({
 
   const onMemberRemoved = useCallback(
     (payload: { channelId: ChannelId; userId: UserId }) => {
+      dispatch({ type: "channel/memberCountDelta", channelId: String(payload.channelId), delta: -1 });
       if (!user) return;
       handleChannelMemberRemoved(dispatch, {
         socket,
@@ -136,6 +152,14 @@ export function WorkspaceBootstrapProvider({
   useSocketEvent("channel:member-removed", onMemberRemoved);
 
   // Channel updated tracking
+  const onChannelCreated = useCallback(
+    (payload: { channel: Channel }) => {
+      const channel = normalizeChannel(payload.channel as Parameters<typeof normalizeChannel>[0]);
+      dispatch({ type: "workspace/addChannel", channel });
+    },
+    [dispatch],
+  );
+
   const onChannelUpdated = useCallback(
     (payload: { channelId: ChannelId; channel: Channel }) => {
       const channel = normalizeChannel(payload.channel as Parameters<typeof normalizeChannel>[0]);
@@ -144,6 +168,7 @@ export function WorkspaceBootstrapProvider({
     [dispatch],
   );
 
+  useSocketEvent("channel:created", onChannelCreated);
   useSocketEvent("channel:updated", onChannelUpdated);
 
   // Thread summary tracking
@@ -239,5 +264,14 @@ export function WorkspaceBootstrapProvider({
   useSocketEvent("emoji:added", onEmojiAdded);
   useSocketEvent("emoji:deleted", onEmojiDeleted);
 
-  return <>{children}</>;
+  // Don't render children when bootstrap has failed — we're redirecting
+  if (bootstrapError) {
+    return null;
+  }
+
+  return (
+    <WorkspaceSlugContext.Provider value={workspaceSlug}>
+      {children}
+    </WorkspaceSlugContext.Provider>
+  );
 }

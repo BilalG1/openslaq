@@ -1,4 +1,5 @@
 import React from "react";
+import { Text } from "react-native";
 import { render } from "@testing-library/react-native";
 import {
   bootstrapWorkspace,
@@ -44,6 +45,11 @@ jest.mock("../../hooks/useSocketEvent", () => ({
   useSocketEvent: jest.fn(),
 }));
 
+const mockReplace = jest.fn();
+jest.mock("expo-router", () => ({
+  useRouter: () => ({ replace: mockReplace }),
+}));
+
 const bootstrapWorkspaceMock = bootstrapWorkspace as jest.Mock;
 const handlePresenceSyncMock = handlePresenceSync as jest.Mock;
 const handlePresenceUpdateMock = handlePresenceUpdate as jest.Mock;
@@ -67,7 +73,7 @@ describe("WorkspaceBootstrapProvider", () => {
     activeChannelId: "channel-1",
     activeDmId: null,
     activeGroupDmId: null,
-    ui: { bootstrapLoading: false },
+    ui: { bootstrapLoading: false, bootstrapError: null },
   };
 
   beforeEach(() => {
@@ -196,6 +202,17 @@ describe("WorkspaceBootstrapProvider", () => {
     eventHandlers.get("channel:member-added")?.({ channelId: "channel-1", userId: "user-3" });
     eventHandlers.get("channel:member-removed")?.({ channelId: "channel-1", userId: "user-3" });
 
+    expect(dispatch).toHaveBeenCalledWith({
+      type: "channel/memberCountDelta",
+      channelId: "channel-1",
+      delta: 1,
+    });
+    expect(dispatch).toHaveBeenCalledWith({
+      type: "channel/memberCountDelta",
+      channelId: "channel-1",
+      delta: -1,
+    });
+
     expect(handleChannelMemberAddedMock).toHaveBeenCalledWith(
       expect.objectContaining({
         auth: authProvider,
@@ -242,5 +259,53 @@ describe("WorkspaceBootstrapProvider", () => {
       replyCount: 2,
       latestReplyAt: "2026-02-01T00:00:00.000Z",
     });
+  });
+
+  it("adds channels from channel:created socket events", () => {
+    render(
+      <WorkspaceBootstrapProvider workspaceSlug="acme">
+        <></>
+      </WorkspaceBootstrapProvider>,
+    );
+
+    const channel = { id: "channel-2", name: "search-results" };
+    eventHandlers.get("channel:created")?.({ channel });
+
+    expect(dispatch).toHaveBeenCalledWith({
+      type: "workspace/addChannel",
+      channel,
+    });
+  });
+
+  it("redirects to workspace list when bootstrap error occurs", () => {
+    const errorState = {
+      ...baseState,
+      ui: { ...baseState.ui, bootstrapError: "Workspace not found" },
+    };
+    useChatStoreMock.mockReturnValue({ state: errorState, dispatch });
+
+    render(
+      <WorkspaceBootstrapProvider workspaceSlug="invalid-slug">
+        <></>
+      </WorkspaceBootstrapProvider>,
+    );
+
+    expect(mockReplace).toHaveBeenCalledWith("/(app)/");
+  });
+
+  it("does not render children when bootstrap has errored", () => {
+    const errorState = {
+      ...baseState,
+      ui: { ...baseState.ui, bootstrapError: "Workspace not found" },
+    };
+    useChatStoreMock.mockReturnValue({ state: errorState, dispatch });
+
+    const { queryByText } = render(
+      <WorkspaceBootstrapProvider workspaceSlug="invalid-slug">
+        <Text>child content</Text>
+      </WorkspaceBootstrapProvider>,
+    );
+
+    expect(queryByText("child content")).toBeNull();
   });
 });
