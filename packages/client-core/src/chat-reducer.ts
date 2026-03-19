@@ -52,8 +52,10 @@ export interface PresenceEntry {
 }
 
 export interface ScrollTarget {
+  channelId: string;
   messageId: string;
   highlightMessageId: string;
+  parentMessageId?: string | null;
 }
 
 export interface ChannelPaginationState {
@@ -80,7 +82,8 @@ export interface ChatStoreState {
   channels: Channel[];
   dms: DmConversation[];
   groupDms: GroupDmConversation[];
-  activeView: "channel" | "unreads" | "saved" | "outbox" | "files";
+  activeView: "channel" | "unreads" | "saved" | "outbox" | "files" | "compose";
+  composePreviewChannelId: string | null;
   activeChannelId: string | null;
   activeDmId: string | null;
   activeGroupDmId: string | null;
@@ -112,6 +115,7 @@ export const initialState: ChatStoreState = {
   dms: [],
   groupDms: [],
   activeView: "channel",
+  composePreviewChannelId: null,
   activeChannelId: null,
   activeDmId: null,
   activeGroupDmId: null,
@@ -159,6 +163,8 @@ export type ChatAction =
   | { type: "workspace/selectSavedView" }
   | { type: "workspace/selectOutboxView" }
   | { type: "workspace/selectFilesView" }
+  | { type: "workspace/selectComposeView" }
+  | { type: "compose/setPreviewChannel"; channelId: string | null }
   | { type: "workspace/selectChannel"; channelId: string }
   | { type: "workspace/selectDefaultChannel"; channelId: string }
   | { type: "workspace/selectDm"; channelId: string }
@@ -174,6 +180,7 @@ export type ChatAction =
   | { type: "workspace/addChannel"; channel: Channel }
   | { type: "workspace/updateChannel"; channel: Channel }
   | { type: "workspace/removeChannel"; channelId: string }
+  | { type: "channel/memberCountDelta"; channelId: string; delta: number }
   | { type: "channel/loadStart"; channelId: string }
   | { type: "channel/loadError"; channelId: string; error: string }
   | {
@@ -347,6 +354,7 @@ export function chatReducer(state: ChatStoreState, action: ChatAction): ChatStor
         activeGroupDmId: null,
         activeThreadId: null,
         activeProfileUserId: null,
+        composePreviewChannelId: null,
       };
     }
     case "workspace/selectSavedView": {
@@ -358,6 +366,7 @@ export function chatReducer(state: ChatStoreState, action: ChatAction): ChatStor
         activeGroupDmId: null,
         activeThreadId: null,
         activeProfileUserId: null,
+        composePreviewChannelId: null,
       };
     }
     case "workspace/selectOutboxView": {
@@ -369,6 +378,7 @@ export function chatReducer(state: ChatStoreState, action: ChatAction): ChatStor
         activeGroupDmId: null,
         activeThreadId: null,
         activeProfileUserId: null,
+        composePreviewChannelId: null,
       };
     }
     case "workspace/selectFilesView": {
@@ -380,6 +390,25 @@ export function chatReducer(state: ChatStoreState, action: ChatAction): ChatStor
         activeGroupDmId: null,
         activeThreadId: null,
         activeProfileUserId: null,
+        composePreviewChannelId: null,
+      };
+    }
+    case "workspace/selectComposeView": {
+      return {
+        ...state,
+        activeView: "compose",
+        activeChannelId: null,
+        activeDmId: null,
+        activeGroupDmId: null,
+        activeThreadId: null,
+        activeProfileUserId: null,
+        composePreviewChannelId: null,
+      };
+    }
+    case "compose/setPreviewChannel": {
+      return {
+        ...state,
+        composePreviewChannelId: action.channelId,
       };
     }
     case "workspace/selectChannel": {
@@ -394,11 +423,12 @@ export function chatReducer(state: ChatStoreState, action: ChatAction): ChatStor
         activeProfileUserId: null,
         unreadCounts: restUnread,
         markedUnreadChannelId: null,
+        composePreviewChannelId: null,
       };
     }
     case "workspace/selectDefaultChannel": {
       // Used by bootstrap — only select if user hasn't explicitly chosen unreads view
-      if (state.activeView === "unreads" || state.activeView === "saved" || state.activeView === "outbox" || state.activeView === "files" || state.activeChannelId || state.activeDmId || state.activeGroupDmId) {
+      if (state.activeView === "unreads" || state.activeView === "saved" || state.activeView === "outbox" || state.activeView === "files" || state.activeView === "compose" || state.activeChannelId || state.activeDmId || state.activeGroupDmId) {
         return state;
       }
       return {
@@ -410,6 +440,7 @@ export function chatReducer(state: ChatStoreState, action: ChatAction): ChatStor
         activeThreadId: null,
         activeProfileUserId: null,
         markedUnreadChannelId: null,
+        composePreviewChannelId: null,
       };
     }
     case "workspace/selectDm": {
@@ -424,6 +455,7 @@ export function chatReducer(state: ChatStoreState, action: ChatAction): ChatStor
         activeProfileUserId: null,
         unreadCounts: restUnread,
         markedUnreadChannelId: null,
+        composePreviewChannelId: null,
       };
     }
     case "workspace/openThread": {
@@ -482,6 +514,7 @@ export function chatReducer(state: ChatStoreState, action: ChatAction): ChatStor
         activeProfileUserId: null,
         unreadCounts: restUnread,
         markedUnreadChannelId: null,
+        composePreviewChannelId: null,
       };
     }
     case "workspace/removeGroupDm": {
@@ -521,6 +554,16 @@ export function chatReducer(state: ChatStoreState, action: ChatAction): ChatStor
         ...state,
         channels: state.channels.filter((ch) => ch.id !== action.channelId),
         activeChannelId: state.activeChannelId === action.channelId ? null : state.activeChannelId,
+      };
+    }
+    case "channel/memberCountDelta": {
+      return {
+        ...state,
+        channels: state.channels.map((ch) =>
+          ch.id === action.channelId
+            ? { ...ch, memberCount: Math.max(0, (ch.memberCount ?? 0) + action.delta) }
+            : ch,
+        ),
       };
     }
     case "channel/loadStart": {
@@ -566,7 +609,7 @@ export function chatReducer(state: ChatStoreState, action: ChatAction): ChatStor
         messagesById: byId,
         channelMessageIds: {
           ...state.channelMessageIds,
-          [action.channelId]: action.messages.map((message) => message.id),
+          [action.channelId]: dedupeIds(action.messages.map((message) => message.id)),
         },
         channelPagination: {
           ...state.channelPagination,
@@ -720,7 +763,7 @@ export function chatReducer(state: ChatStoreState, action: ChatAction): ChatStor
         messagesById: byId,
         threadReplyIds: {
           ...state.threadReplyIds,
-          [action.parent.id]: action.replies.map((reply) => reply.id),
+          [action.parent.id]: dedupeIds(action.replies.map((reply) => reply.id)),
         },
         threadPagination: {
           ...state.threadPagination,
@@ -986,7 +1029,9 @@ export function chatReducer(state: ChatStoreState, action: ChatAction): ChatStor
         presence: {
           ...state.presence,
           [action.userId]: {
-            ...existing,
+            statusEmoji: existing?.statusEmoji ?? null,
+            statusText: existing?.statusText ?? null,
+            statusExpiresAt: existing?.statusExpiresAt ?? null,
             online: action.online,
             lastSeenAt: action.lastSeenAt,
           },

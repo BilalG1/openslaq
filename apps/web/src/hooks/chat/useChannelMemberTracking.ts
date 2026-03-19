@@ -20,6 +20,7 @@ export function useChannelMemberTracking(workspaceSlug?: string) {
 
   const onMemberAdded = useCallback(
     (payload: { channelId: ChannelId; userId: UserId }) => {
+      dispatch({ type: "channel/memberCountDelta", channelId: String(payload.channelId), delta: 1 });
       if (!user || !workspaceSlug) return;
       const deps = { api, auth, dispatch, getState: () => state };
       void handleChannelMemberAdded(deps, {
@@ -35,6 +36,7 @@ export function useChannelMemberTracking(workspaceSlug?: string) {
 
   const onMemberRemoved = useCallback(
     (payload: { channelId: ChannelId; userId: UserId }) => {
+      dispatch({ type: "channel/memberCountDelta", channelId: String(payload.channelId), delta: -1 });
       if (!user) return;
       handleChannelMemberRemoved(dispatch, {
         socket,
@@ -44,6 +46,16 @@ export function useChannelMemberTracking(workspaceSlug?: string) {
       });
     },
     [dispatch, socket, user],
+  );
+
+  const onChannelCreated = useCallback(
+    (payload: { channel: Channel }) => {
+      dispatch({
+        type: "workspace/addChannel",
+        channel: normalizeChannel(payload.channel as Parameters<typeof normalizeChannel>[0]),
+      });
+    },
+    [dispatch],
   );
 
   const onChannelUpdated = useCallback(
@@ -56,6 +68,7 @@ export function useChannelMemberTracking(workspaceSlug?: string) {
     [dispatch],
   );
 
+  useSocketEvent("channel:created", onChannelCreated);
   useSocketEvent("channel:updated", onChannelUpdated);
   useSocketEvent("channel:member-added", onMemberAdded);
   useSocketEvent("channel:member-removed", onMemberRemoved);

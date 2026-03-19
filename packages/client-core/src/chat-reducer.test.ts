@@ -288,6 +288,51 @@ describe("channels & DMs", () => {
     expect(state.channels).toHaveLength(1);
     expect(state.activeChannelId).toBe("ch-2");
   });
+
+  it("memberCountDelta increments memberCount", () => {
+    const ch = makeChannel({ id: asChannelId("ch-1"), memberCount: 5 });
+    const prev: ChatStoreState = { ...initialState, channels: [ch] };
+    const state = chatReducer(prev, {
+      type: "channel/memberCountDelta",
+      channelId: "ch-1",
+      delta: 1,
+    });
+    expect(state.channels[0]!.memberCount).toBe(6);
+  });
+
+  it("memberCountDelta decrements memberCount", () => {
+    const ch = makeChannel({ id: asChannelId("ch-1"), memberCount: 3 });
+    const prev: ChatStoreState = { ...initialState, channels: [ch] };
+    const state = chatReducer(prev, {
+      type: "channel/memberCountDelta",
+      channelId: "ch-1",
+      delta: -1,
+    });
+    expect(state.channels[0]!.memberCount).toBe(2);
+  });
+
+  it("memberCountDelta does not go below zero", () => {
+    const ch = makeChannel({ id: asChannelId("ch-1"), memberCount: 0 });
+    const prev: ChatStoreState = { ...initialState, channels: [ch] };
+    const state = chatReducer(prev, {
+      type: "channel/memberCountDelta",
+      channelId: "ch-1",
+      delta: -1,
+    });
+    expect(state.channels[0]!.memberCount).toBe(0);
+  });
+
+  it("memberCountDelta treats undefined memberCount as 0", () => {
+    const ch = makeChannel({ id: asChannelId("ch-1") });
+    delete (ch as unknown as Record<string, unknown>).memberCount;
+    const prev: ChatStoreState = { ...initialState, channels: [ch] };
+    const state = chatReducer(prev, {
+      type: "channel/memberCountDelta",
+      channelId: "ch-1",
+      delta: 1,
+    });
+    expect(state.channels[0]!.memberCount).toBe(1);
+  });
 });
 
 describe("channel messages", () => {
@@ -836,7 +881,12 @@ describe("huddles", () => {
 
 describe("scroll target", () => {
   it("setScrollTarget sets the target", () => {
-    const target = { messageId: "msg-1", highlightMessageId: "msg-1" };
+    const target = {
+      channelId: "ch-1",
+      messageId: "msg-1",
+      highlightMessageId: "msg-1",
+      parentMessageId: null,
+    };
     const state = chatReducer(initialState, {
       type: "navigation/setScrollTarget",
       scrollTarget: target,
@@ -847,7 +897,12 @@ describe("scroll target", () => {
   it("clearScrollTarget clears the target", () => {
     const prev: ChatStoreState = {
       ...initialState,
-      scrollTarget: { messageId: "msg-1", highlightMessageId: "msg-1" },
+      scrollTarget: {
+        channelId: "ch-1",
+        messageId: "msg-1",
+        highlightMessageId: "msg-1",
+        parentMessageId: null,
+      },
     };
     const state = chatReducer(prev, { type: "navigation/clearScrollTarget" });
     expect(state.scrollTarget).toBeNull();
@@ -893,5 +948,64 @@ describe("misc", () => {
     // @ts-expect-error testing unknown action type
     const state = chatReducer(initialState, { type: "unknown/action" });
     expect(state).toBe(initialState);
+  });
+});
+
+describe("compose view", () => {
+  it("selectComposeView sets activeView and clears IDs", () => {
+    const prev: ChatStoreState = {
+      ...initialState,
+      activeView: "channel",
+      activeChannelId: "ch-1",
+      activeDmId: "dm-1",
+      activeGroupDmId: "gdm-1",
+      activeThreadId: "t-1",
+      activeProfileUserId: "u-1",
+    };
+    const state = chatReducer(prev, { type: "workspace/selectComposeView" });
+    expect(state.activeView).toBe("compose");
+    expect(state.activeChannelId).toBeNull();
+    expect(state.activeDmId).toBeNull();
+    expect(state.activeGroupDmId).toBeNull();
+    expect(state.activeThreadId).toBeNull();
+    expect(state.activeProfileUserId).toBeNull();
+    expect(state.composePreviewChannelId).toBeNull();
+  });
+
+  it("compose/setPreviewChannel sets the preview channel", () => {
+    const prev: ChatStoreState = { ...initialState, activeView: "compose" };
+    const state = chatReducer(prev, { type: "compose/setPreviewChannel", channelId: "dm-42" });
+    expect(state.composePreviewChannelId).toBe("dm-42");
+  });
+
+  it("compose/setPreviewChannel can clear with null", () => {
+    const prev: ChatStoreState = { ...initialState, activeView: "compose", composePreviewChannelId: "dm-42" };
+    const state = chatReducer(prev, { type: "compose/setPreviewChannel", channelId: null });
+    expect(state.composePreviewChannelId).toBeNull();
+  });
+
+  it("selectChannel clears composePreviewChannelId", () => {
+    const prev: ChatStoreState = { ...initialState, activeView: "compose", composePreviewChannelId: "dm-42" };
+    const state = chatReducer(prev, { type: "workspace/selectChannel", channelId: "ch-1" });
+    expect(state.activeView).toBe("channel");
+    expect(state.composePreviewChannelId).toBeNull();
+  });
+
+  it("selectDm clears composePreviewChannelId", () => {
+    const prev: ChatStoreState = { ...initialState, activeView: "compose", composePreviewChannelId: "dm-42" };
+    const state = chatReducer(prev, { type: "workspace/selectDm", channelId: "dm-1" });
+    expect(state.composePreviewChannelId).toBeNull();
+  });
+
+  it("selectGroupDm clears composePreviewChannelId", () => {
+    const prev: ChatStoreState = { ...initialState, activeView: "compose", composePreviewChannelId: "dm-42" };
+    const state = chatReducer(prev, { type: "workspace/selectGroupDm", channelId: "gdm-1" });
+    expect(state.composePreviewChannelId).toBeNull();
+  });
+
+  it("selectDefaultChannel is a no-op when compose view is active", () => {
+    const prev: ChatStoreState = { ...initialState, activeView: "compose" };
+    const state = chatReducer(prev, { type: "workspace/selectDefaultChannel", channelId: "ch-1" });
+    expect(state).toBe(prev);
   });
 });
