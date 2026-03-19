@@ -67,7 +67,7 @@ export async function createChannel(
     userId,
   });
 
-  return toChannel(channel);
+  return toChannel(channel, 1);
 }
 
 export async function joinChannel(channelId: ChannelId, userId: UserId): Promise<void> {
