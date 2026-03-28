@@ -1,13 +1,16 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { HuddleClient, type HuddleMediaState } from "@openslaq/huddle/client";
+import { notifyHuddleLeave } from "@openslaq/client-core";
 import { useCurrentUser } from "../hooks/useCurrentUser";
-import { authorizedHeaders } from "../lib/api-client";
+import { useAuthProvider, authorizedHeaders } from "../lib/api-client";
+import { api } from "../api";
 import { env } from "../env";
 import { VideoGrid } from "../components/huddle/VideoGrid";
 import { DeviceSelector } from "../components/huddle/DeviceSelector";
 import { Radio, VolumeX, Mic, Video, VideoOff, Monitor, PhoneOff } from "lucide-react";
 import { Tooltip } from "../components/ui";
+import { classifyMediaError, type PermissionAlert } from "../hooks/chat/useHuddleMedia";
 
 const API_URL = env.VITE_API_URL;
 
@@ -17,6 +20,7 @@ export function HuddlePage() {
   const clientRef = useRef<HuddleClient | null>(null);
   const [mediaState, setMediaState] = useState<HuddleMediaState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [permissionAlert, setPermissionAlert] = useState<PermissionAlert | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOn, setIsCameraOn] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
@@ -58,10 +62,18 @@ export function HuddlePage() {
 
         try {
           await client.connect(wsUrl, token);
-          await client.enableMicrophone();
         } catch (connectErr) {
           console.warn("LiveKit connection failed, running in degraded mode:", connectErr);
         }
+
+        // Enable mic — if it fails, join muted
+        try {
+          await client.enableMicrophone();
+        } catch (micErr) {
+          console.warn("Microphone unavailable, joining muted:", micErr);
+          setIsMuted(true);
+        }
+
         setError(null);
       } catch (err) {
         if (abortController.signal.aborted) return;
@@ -78,49 +90,85 @@ export function HuddlePage() {
         clientRef.current = null;
       }
     };
-  }, [channelId, user?.id]);
+  }, [channelId, user]);
+
+  const auth = useAuthProvider();
+  const apiDeps = useMemo(() => ({ api, auth }), [auth]);
 
   const handleLeave = useCallback(() => {
     clientRef.current?.destroy();
     clientRef.current = null;
+    notifyHuddleLeave(apiDeps);
     window.close();
+  }, [apiDeps]);
+
+  const toggleMute = useCallback(async () => {
+    const client = clientRef.current;
+    if (!client) return;
+    try {
+      await client.toggleMicrophone();
+      setIsMuted((prev) => !prev);
+    } catch (err) {
+      const alert = classifyMediaError(err, "microphone");
+      if (alert) setPermissionAlert(alert);
+    }
   }, []);
 
-  const toggleMute = useCallback(() => {
-    setIsMuted((prev) => !prev);
-    clientRef.current?.toggleMicrophone().catch(console.error);
+  const toggleCamera = useCallback(async () => {
+    const client = clientRef.current;
+    if (!client) return;
+    try {
+      await client.toggleCamera();
+      setIsCameraOn((prev) => !prev);
+    } catch (err) {
+      const alert = classifyMediaError(err, "camera");
+      if (alert) setPermissionAlert(alert);
+    }
   }, []);
 
-  const toggleCamera = useCallback(() => {
-    setIsCameraOn((prev) => !prev);
-    clientRef.current?.toggleCamera().catch(console.error);
-  }, []);
-
-  const toggleScreenShare = useCallback(() => {
-    setIsScreenSharing((prev) => !prev);
+  const toggleScreenShare = useCallback(async () => {
     const client = clientRef.current;
     if (!client) return;
     const s = client.getState();
     const sharing = s.localParticipant?.isScreenSharing ?? false;
     if (sharing) {
-      client.stopScreenShare().catch(console.error);
+      try {
+        await client.stopScreenShare();
+        setIsScreenSharing(false);
+      } catch (err) {
+        console.error("Failed to stop screen share:", err);
+      }
     } else {
-      client.startScreenShare().catch(console.error);
+      try {
+        await client.startScreenShare();
+        setIsScreenSharing(true);
+      } catch (err) {
+        const alert = classifyMediaError(err, "screen");
+        if (alert) setPermissionAlert(alert);
+      }
     }
   }, []);
 
-  const switchAudioDevice = useCallback((deviceId: string) => {
-    clientRef.current?.switchAudioDevice(deviceId).catch(console.error);
+  const switchAudioDevice = useCallback(async (deviceId: string) => {
+    try {
+      await clientRef.current?.switchAudioDevice(deviceId);
+    } catch {
+      setPermissionAlert({
+        title: "Could not switch device",
+        description: "The selected device is unavailable. Try a different one.",
+      });
+    }
   }, []);
 
-  // beforeunload to disconnect
+  // beforeunload to disconnect and notify server
   useEffect(() => {
     const handler = () => {
       clientRef.current?.destroy();
+      notifyHuddleLeave(apiDeps);
     };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
-  }, []);
+  }, [apiDeps]);
 
   if (error) {
     return (
@@ -143,6 +191,26 @@ export function HuddlePage() {
 
   return (
     <div className="flex flex-col h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-950 text-white relative">
+      {/* Permission alert overlay */}
+      {permissionAlert && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50">
+          <div className="bg-slate-800 rounded-xl p-6 max-w-sm mx-4 shadow-2xl" data-testid="permission-alert">
+            <h3 className="text-base font-semibold mb-2">{permissionAlert.title}</h3>
+            <p className="text-sm text-white/60 mb-5">{permissionAlert.description}</p>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setPermissionAlert(null)}
+                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white text-sm font-medium border-none cursor-pointer"
+                data-testid="permission-alert-ok"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Floating header badge */}
       <div className="absolute top-4 left-4 z-10 flex items-center gap-2 backdrop-blur-md bg-white/10 rounded-full px-3 py-1.5 border border-white/10">
         <Radio className="w-4 h-4 text-blue-400" />

@@ -1,4 +1,4 @@
-import { View, Text, SectionList, Pressable } from "react-native";
+import { View, Text, SectionList, Pressable, StyleSheet } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { fetchUserThreads } from "@openslaq/client-core";
@@ -58,6 +58,9 @@ export function ThreadsScreen() {
     return (
       <Pressable
         testID={`thread-item-${msg.id}`}
+        accessibilityRole="button"
+        accessibilityLabel={`Thread by ${msg.senderDisplayName ?? "Unknown"}`}
+        accessibilityHint="Opens this thread"
         style={({ pressed }) => ({
           paddingHorizontal: 16,
           paddingVertical: 10,
@@ -68,35 +71,25 @@ export function ThreadsScreen() {
           router.push(routes.thread(workspaceSlug!, msg.id));
         }}
       >
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 3 }}>
-          <Text
-            style={{
-              fontSize: 13,
-              fontWeight: "600",
-              color: theme.colors.textSecondary,
-            }}
-          >
+        <View style={styles.threadHeader}>
+          <Text style={[styles.senderName, { color: theme.colors.textSecondary }]}>
             {msg.senderDisplayName ?? "Unknown"}
           </Text>
-          <Text style={{ fontSize: 11, color: theme.colors.textFaint }}>
+          <Text style={[styles.timestamp, { color: theme.colors.textFaint }]}>
             {formatRelativeTime(timestamp)}
           </Text>
         </View>
 
         <Text
           numberOfLines={2}
-          style={{
-            fontSize: 14,
-            color: theme.colors.textPrimary,
-            marginBottom: 4,
-          }}
+          style={[styles.contentPreview, { color: theme.colors.textPrimary }]}
         >
           {msg.content}
         </Text>
 
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+        <View style={styles.replyInfo}>
           <MessageSquare size={12} color={theme.colors.textFaint} />
-          <Text style={{ fontSize: 12, color: theme.colors.textMuted }}>
+          <Text style={[styles.replyCount, { color: theme.colors.textMuted }]}>
             {msg.replyCount} {msg.replyCount === 1 ? "reply" : "replies"}
           </Text>
         </View>
@@ -106,24 +99,16 @@ export function ThreadsScreen() {
 
   const renderSectionHeader = ({ section }: { section: Section }) => (
     <View
-      style={{
-        paddingHorizontal: 16,
-        paddingVertical: 8,
+      style={[styles.sectionHeader, {
         backgroundColor: theme.colors.surfaceSecondary,
-        borderBottomWidth: 1,
         borderBottomColor: theme.colors.borderSecondary,
-        borderTopWidth: 1,
         borderTopColor: theme.colors.borderSecondary,
-      }}
+      }]}
     >
       <Text
-        style={{
-          fontSize: 13,
-          fontWeight: "700",
+        style={[styles.sectionTitle, {
           color: section.isNew ? theme.brand.primary : theme.colors.textSecondary,
-          textTransform: "uppercase",
-          letterSpacing: 0.5,
-        }}
+        }]}
       >
         {section.title}
       </Text>
@@ -131,7 +116,7 @@ export function ThreadsScreen() {
   );
 
   const renderSeparator = () => (
-    <View style={{ height: 1, backgroundColor: theme.colors.borderSecondary, marginLeft: 16 }} />
+    <View style={[styles.separator, { backgroundColor: theme.colors.borderSecondary }]} />
   );
 
   if (loading) {
@@ -140,17 +125,17 @@ export function ThreadsScreen() {
 
   if (error) {
     return (
-      <View testID="threads-screen" style={{ flex: 1, backgroundColor: theme.colors.surface, alignItems: "center", justifyContent: "center", padding: 24 }}>
-        <Text style={{ fontSize: 14, color: theme.colors.textFaint, textAlign: "center", marginBottom: 16 }}>{error}</Text>
-        <Pressable testID="threads-retry" onPress={() => void loadThreads()}>
-          <Text style={{ fontSize: 14, fontWeight: "600", color: theme.brand.primary }}>Retry</Text>
+      <View testID="threads-screen" style={[styles.errorContainer, { backgroundColor: theme.colors.surface }]}>
+        <Text style={[styles.errorText, { color: theme.colors.textFaint }]}>{error}</Text>
+        <Pressable testID="threads-retry" onPress={() => void loadThreads()} accessibilityRole="button" accessibilityLabel="Retry" accessibilityHint="Retries loading threads">
+          <Text style={[styles.retryText, { color: theme.brand.primary }]}>Retry</Text>
         </Pressable>
       </View>
     );
   }
 
   return (
-    <View testID="threads-screen" style={{ flex: 1, backgroundColor: theme.colors.surface }}>
+    <View testID="threads-screen" style={[styles.flex1, { backgroundColor: theme.colors.surface }]}>
       <SectionList
         testID="threads-list"
         sections={sections}
@@ -170,3 +155,65 @@ export function ThreadsScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  flex1: {
+    flex: 1,
+  },
+  errorContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  errorText: {
+    fontSize: 14,
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  retryText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  threadHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 3,
+  },
+  senderName: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  timestamp: {
+    fontSize: 11,
+  },
+  contentPreview: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  replyInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  replyCount: {
+    fontSize: 12,
+  },
+  sectionHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderTopWidth: 1,
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  separator: {
+    height: 1,
+    marginLeft: 16,
+  },
+});

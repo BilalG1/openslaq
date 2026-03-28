@@ -19,8 +19,9 @@ const INLINE_MARKERS: Partial<Record<FormatType, string>> = {
 };
 
 function getLineBounds(text: string, start: number, end: number) {
-  let lineStart = text.lastIndexOf("\n", start - 1) + 1;
-  let lineEnd = text.indexOf("\n", end);
+  let lineStart = start > 0 ? text.lastIndexOf("\n", start - 1) + 1 : 0;
+  const adjustedEnd = end > start && text[end - 1] === "\n" ? end - 1 : end;
+  let lineEnd = text.indexOf("\n", adjustedEnd);
   if (lineEnd === -1) lineEnd = text.length;
   return { lineStart, lineEnd };
 }

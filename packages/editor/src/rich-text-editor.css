@@ -1,3 +1,7 @@
+.rich-text-editor {
+  background-color: var(--surface-secondary);
+}
+
 .tiptap {
   outline: none;
   padding: 10px 14px;
@@ -96,20 +100,25 @@
   background-color: var(--surface-selected);
 }
 
-/* Send button — circular, slaq-blue */
+/* Split send button group */
+.editor-send-group {
+  display: inline-flex;
+  align-items: stretch;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
 .editor-send-btn {
   border: none;
   background: var(--color-slaq-blue, #1264a3);
   color: white;
   cursor: pointer;
-  width: 32px;
   height: 32px;
-  border-radius: 9999px;
+  padding: 0 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   line-height: 1;
-  padding: 0;
 }
 
 .editor-send-btn:hover {
@@ -122,6 +131,45 @@
 }
 
 .editor-send-btn:disabled:hover {
+  background-color: var(--color-slaq-blue, #1264a3);
+}
+
+.editor-send-divider {
+  width: 1px;
+  margin: 6px 0;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.dark .editor-send-divider {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.editor-send-group.disabled .editor-send-divider {
+  background: transparent;
+}
+
+.editor-send-chevron {
+  border: none;
+  background: var(--color-slaq-blue, #1264a3);
+  color: white;
+  cursor: pointer;
+  height: 32px;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.editor-send-chevron:hover {
+  background-color: #0e5a94;
+}
+
+.editor-send-chevron:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.editor-send-chevron:disabled:hover {
   background-color: var(--color-slaq-blue, #1264a3);
 }
 

@@ -1,10 +1,11 @@
 import { View, Text, StyleSheet } from "react-native";
 import { VideoTrack } from "@livekit/react-native";
 import type { TrackReference } from "@livekit/react-native";
+import type { UserId } from "@openslaq/shared";
 import { MicOff, ScreenShare } from "lucide-react-native";
 
 interface VideoTileProps {
-  userId: string;
+  userId: UserId;
   displayName: string;
   isMuted: boolean;
   isLocal: boolean;
@@ -21,6 +22,8 @@ const GRADIENT_COLORS = [
   ["#fa709a", "#fee140"],
   ["#a18cd1", "#fbc2eb"],
 ];
+
+import { WHITE, WHITE_OVERLAY_25, DARK_OVERLAY_30 } from "@/theme/constants";
 
 function getGradientIndex(name: string): number {
   let hash = 0;
@@ -40,7 +43,7 @@ export function VideoTile({
   style,
 }: VideoTileProps) {
   const gradientIdx = getGradientIndex(displayName);
-  const gradientColor = GRADIENT_COLORS[gradientIdx][0];
+  const gradientColor = GRADIENT_COLORS[gradientIdx]?.[0] ?? "#667eea";
 
   return (
     <View testID={`video-tile-${userId}`} style={[styles.container, style]}>
@@ -67,8 +70,8 @@ export function VideoTile({
           {displayName}
           {isLocal ? " (You)" : ""}
         </Text>
-        {isScreenShare && <ScreenShare size={10} color="#fff" />}
-        {isMuted && !isScreenShare && <MicOff size={10} color="#fff" />}
+        {isScreenShare && <ScreenShare size={10} color={WHITE} />}
+        {isMuted && !isScreenShare && <MicOff size={10} color={WHITE} />}
       </View>
     </View>
   );
@@ -93,14 +96,14 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "rgba(255,255,255,0.25)",
+    backgroundColor: WHITE_OVERLAY_25,
     alignItems: "center",
     justifyContent: "center",
   },
   avatarText: {
     fontSize: 24,
     fontWeight: "700",
-    color: "#fff",
+    color: WHITE,
   },
   namePill: {
     position: "absolute",
@@ -112,10 +115,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
-    backgroundColor: "rgba(0,0,0,0.3)",
+    backgroundColor: DARK_OVERLAY_30,
   },
   nameText: {
-    color: "#fff",
+    color: WHITE,
     fontSize: 11,
     fontWeight: "500",
   },

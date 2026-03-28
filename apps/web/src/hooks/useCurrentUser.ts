@@ -1,7 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import { useUser } from "@stackframe/react";
 import { useMockUser } from "../gallery/gallery-context";
-import { getDevSession, createDevUser } from "../lib/dev-auth";
+import {
+  createDevUser,
+  subscribeDevSession,
+  getDevSessionSnapshot,
+} from "../lib/dev-auth";
 
 /**
  * Wrapper around Stack Auth's useUser().
@@ -11,10 +15,8 @@ export function useCurrentUser() {
   const mockUser = useMockUser();
   const realUser = useUser();
 
-  const devUser = useMemo(() => {
-    const session = getDevSession();
-    return session ? createDevUser(session) : null;
-  }, []);
+  const session = useSyncExternalStore(subscribeDevSession, getDevSessionSnapshot);
+  const devUser = useMemo(() => (session ? createDevUser(session) : null), [session]);
 
   return mockUser ?? devUser ?? realUser;
 }

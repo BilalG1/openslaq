@@ -1,6 +1,7 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { eq, and, sql } from "drizzle-orm";
 import { auth } from "../auth/middleware";
+import { BEARER_SECURITY, jsonBody, jsonContent } from "../lib/openapi-helpers";
 import { db } from "../db";
 import { pushTokens, notificationPreferences } from "./schema";
 import { rlRead, rlProfileUpdate } from "../rate-limit";
@@ -13,25 +14,16 @@ const registerTokenRoute = createRoute({
   tags: ["Push"],
   summary: "Register push token",
   description: "Registers or updates a device push token for the current user.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [auth, rlProfileUpdate] as const,
   request: {
-    body: {
-      content: {
-        "application/json": {
-          schema: z.object({
-            token: z.string().min(1).describe("APNs device token"),
-            platform: z.enum(["ios"]).describe("Device platform"),
-          }),
-        },
-      },
-    },
+    body: jsonBody(z.object({
+      token: z.string().min(1).describe("APNs device token"),
+      platform: z.enum(["ios"]).describe("Device platform"),
+    })),
   },
   responses: {
-    200: {
-      content: { "application/json": { schema: okSchema } },
-      description: "Token registered",
-    },
+    200: jsonContent(okSchema, "Token registered"),
   },
 });
 
@@ -41,24 +33,15 @@ const unregisterTokenRoute = createRoute({
   tags: ["Push"],
   summary: "Unregister push token",
   description: "Removes a device push token (e.g., on sign-out).",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [auth, rlProfileUpdate] as const,
   request: {
-    body: {
-      content: {
-        "application/json": {
-          schema: z.object({
-            token: z.string().min(1).describe("APNs device token to remove"),
-          }),
-        },
-      },
-    },
+    body: jsonBody(z.object({
+      token: z.string().min(1).describe("APNs device token to remove"),
+    })),
   },
   responses: {
-    200: {
-      content: { "application/json": { schema: okSchema } },
-      description: "Token removed",
-    },
+    200: jsonContent(okSchema, "Token removed"),
   },
 });
 
@@ -73,13 +56,10 @@ const getNotifPrefsRoute = createRoute({
   tags: ["Push"],
   summary: "Get notification preferences",
   description: "Returns the current user's global notification preferences.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [auth, rlRead] as const,
   responses: {
-    200: {
-      content: { "application/json": { schema: notifPrefsSchema } },
-      description: "Notification preferences",
-    },
+    200: jsonContent(notifPrefsSchema, "Notification preferences"),
   },
 });
 
@@ -89,25 +69,16 @@ const updateNotifPrefsRoute = createRoute({
   tags: ["Push"],
   summary: "Update notification preferences",
   description: "Updates the current user's global notification preferences. Partial update via upsert.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [auth, rlProfileUpdate] as const,
   request: {
-    body: {
-      content: {
-        "application/json": {
-          schema: z.object({
-            pushEnabled: z.boolean().optional(),
-            soundEnabled: z.boolean().optional(),
-          }),
-        },
-      },
-    },
+    body: jsonBody(z.object({
+      pushEnabled: z.boolean().optional(),
+      soundEnabled: z.boolean().optional(),
+    })),
   },
   responses: {
-    200: {
-      content: { "application/json": { schema: notifPrefsSchema } },
-      description: "Updated notification preferences",
-    },
+    200: jsonContent(notifPrefsSchema, "Updated notification preferences"),
   },
 });
 

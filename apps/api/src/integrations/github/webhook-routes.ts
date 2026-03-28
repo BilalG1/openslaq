@@ -1,11 +1,12 @@
 import { Hono } from "hono";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { env } from "../../env";
+import { ServiceUnavailableError, UnauthorizedError, BadRequestError } from "../../errors";
 import { getSubscriptionsForRepo, getGithubBotForWorkspace } from "./service";
 import { handleGithubEvent } from "./event-handlers";
 import { createMessage } from "../../messages/service";
 import { setMessageActions } from "../../bots/service";
-import { getIO } from "../../socket/io";
+import { emitToChannel } from "../../lib/emit";
 import { asChannelId, asUserId } from "@openslaq/shared";
 
 const app = new Hono();
@@ -15,12 +16,12 @@ app.post("/webhook", async (c) => {
 
   // Require webhook secret — reject all requests if not configured
   if (!env.GITHUB_WEBHOOK_SECRET) {
-    return c.json({ error: "GitHub webhook signature verification is not configured" }, 503);
+    throw new ServiceUnavailableError("GitHub webhook signature verification is not configured");
   }
 
   const signature = c.req.header("X-Hub-Signature-256");
   if (!signature) {
-    return c.json({ error: "Missing signature" }, 401);
+    throw new UnauthorizedError("Missing signature");
   }
 
   const expected = `sha256=${createHmac("sha256", env.GITHUB_WEBHOOK_SECRET).update(body).digest("hex")}`;
@@ -28,12 +29,12 @@ app.post("/webhook", async (c) => {
   const expectedBuffer = Buffer.from(expected);
 
   if (sigBuffer.length !== expectedBuffer.length || !timingSafeEqual(sigBuffer, expectedBuffer)) {
-    return c.json({ error: "Invalid signature" }, 401);
+    throw new UnauthorizedError("Invalid signature");
   }
 
   const eventType = c.req.header("X-GitHub-Event");
   if (!eventType) {
-    return c.json({ error: "Missing X-GitHub-Event header" }, 400);
+    throw new BadRequestError("Missing X-GitHub-Event header");
   }
 
   // Respond immediately, process async
@@ -91,7 +92,7 @@ async function processWebhook(
     }
 
     try {
-      getIO().to(`channel:${sub.channelId}`).emit("message:new", result);
+      emitToChannel(asChannelId(sub.channelId), "message:new", result);
     } catch {
       // Socket.IO may not be initialized
     }

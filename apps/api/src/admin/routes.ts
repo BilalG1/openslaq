@@ -10,6 +10,7 @@ import { db } from "../db";
 import { workspaces } from "../workspaces/schema";
 import { eq } from "drizzle-orm";
 import { env } from "../env";
+import { NotFoundError, AppError, ServiceUnavailableError } from "../errors";
 
 const app = new Hono()
   .use(auth)
@@ -44,7 +45,7 @@ const app = new Hono()
       const { workspaceId } = c.req.valid("param");
       // Verify workspace exists
       const [ws] = await db.select({ id: workspaces.id }).from(workspaces).where(eq(workspaces.id, workspaceId)).limit(1);
-      if (!ws) return c.json({ error: "Workspace not found" }, 404);
+      if (!ws) throw new NotFoundError("Workspace");
       const flags = await getFeatureFlags(workspaceId);
       return c.json(flags);
     },
@@ -66,7 +67,7 @@ const app = new Hono()
       const body = c.req.valid("json");
       // Verify workspace exists
       const [ws] = await db.select({ id: workspaces.id }).from(workspaces).where(eq(workspaces.id, workspaceId)).limit(1);
-      if (!ws) return c.json({ error: "Workspace not found" }, 404);
+      if (!ws) throw new NotFoundError("Workspace");
       const flags = await updateFeatureFlags(workspaceId, body);
       return c.json(flags);
     },
@@ -90,11 +91,8 @@ const app = new Hono()
     "/impersonate/:userId",
     zValidator("param", z.object({ userId: z.string().regex(/^[a-zA-Z0-9_-]+$/) })),
     async (c) => {
-      if (!env.STACK_SECRET_SERVER_KEY) {
-        return c.json(
-          { error: "Impersonation is unavailable — STACK_SECRET_SERVER_KEY is not configured" },
-          503,
-        );
+      if (!env.STACK_SECRET_SERVER_KEY || !env.VITE_STACK_PROJECT_ID) {
+        throw new ServiceUnavailableError("Impersonation is unavailable — requires Stack Auth configuration");
       }
       const { userId } = c.req.valid("param");
       try {
@@ -105,7 +103,7 @@ const app = new Hono()
         return c.json({ snippet });
       } catch (err) {
         console.error("Impersonation failed:", err);
-        return c.json({ error: "Impersonation failed" }, 500);
+        throw new AppError(500, "Impersonation failed");
       }
     },
   );

@@ -22,6 +22,10 @@ jest.mock("react-native-svg", () => {
   };
 });
 
+jest.mock("@/contexts/WorkspaceBootstrapProvider", () => ({
+  useWorkspaceSlug: () => "acme",
+}));
+
 jest.mock("@/theme/ThemeProvider", () => ({
   useMobileTheme: () => ({
     theme: {

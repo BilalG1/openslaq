@@ -1,4 +1,3 @@
-import { AuthError } from "../api/errors";
 import { authorizedRequest } from "../api/api-client";
 import type { ApiDeps } from "./types";
 
@@ -18,17 +17,10 @@ export async function listWorkspaceMembers(
 ): Promise<WorkspaceMember[]> {
   const { api, auth } = deps;
 
-  try {
-    const response = await authorizedRequest(auth, (headers) =>
-      api.api.workspaces[":slug"].members.$get({ param: { slug }, query: {} }, { headers }),
-    );
-    return (await response.json()) as WorkspaceMember[];
-  } catch (err) {
-    if (err instanceof AuthError) {
-      auth.onAuthRequired();
-    }
-    throw err;
-  }
+  const response = await authorizedRequest(auth, (headers) =>
+    api.api.workspaces[":slug"].members.$get({ param: { slug }, query: {} }, { headers }),
+  );
+  return (await response.json()) as WorkspaceMember[];
 }
 
 export async function updateMemberRole(
@@ -39,20 +31,12 @@ export async function updateMemberRole(
 ): Promise<void> {
   const { api, auth } = deps;
 
-  try {
-    await authorizedRequest(auth, (headers) =>
-      api.api.workspaces[":slug"].members[":userId"].role.$patch(
-        { param: { slug, userId }, json: { role: role as "member" | "admin" } },
-        { headers },
-      ),
-    );
-  } catch (err) {
-    if (err instanceof AuthError) {
-      auth.onAuthRequired();
-      return;
-    }
-    throw err;
-  }
+  await authorizedRequest(auth, (headers) =>
+    api.api.workspaces[":slug"].members[":userId"].role.$patch(
+      { param: { slug, userId }, json: { role: role as "member" | "admin" } },
+      { headers },
+    ),
+  );
 }
 
 export async function removeMember(
@@ -62,20 +46,26 @@ export async function removeMember(
 ): Promise<void> {
   const { api, auth } = deps;
 
-  try {
-    await authorizedRequest(auth, (headers) =>
-      api.api.workspaces[":slug"].members[":userId"].$delete(
-        { param: { slug, userId } },
-        { headers },
-      ),
-    );
-  } catch (err) {
-    if (err instanceof AuthError) {
-      auth.onAuthRequired();
-      return;
-    }
-    throw err;
-  }
+  await authorizedRequest(auth, (headers) =>
+    api.api.workspaces[":slug"].members[":userId"].$delete(
+      { param: { slug, userId } },
+      { headers },
+    ),
+  );
+}
+
+export async function leaveWorkspace(
+  deps: ApiDeps,
+  slug: string,
+): Promise<void> {
+  const { api, auth } = deps;
+
+  await authorizedRequest(auth, (headers) =>
+    api.api.workspaces[":slug"].members.leave.$post(
+      { param: { slug } },
+      { headers },
+    ),
+  );
 }
 
 export async function deleteWorkspace(
@@ -84,15 +74,7 @@ export async function deleteWorkspace(
 ): Promise<void> {
   const { api, auth } = deps;
 
-  try {
-    await authorizedRequest(auth, (headers) =>
-      api.api.workspaces[":slug"].$delete({ param: { slug } }, { headers }),
-    );
-  } catch (err) {
-    if (err instanceof AuthError) {
-      auth.onAuthRequired();
-      return;
-    }
-    throw err;
-  }
+  await authorizedRequest(auth, (headers) =>
+    api.api.workspaces[":slug"].$delete({ param: { slug } }, { headers }),
+  );
 }

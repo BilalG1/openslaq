@@ -160,7 +160,7 @@ describe("admin", () => {
       param: { userId: "00000000-0000-0000-0000-000000000000" },
     });
     expect(res.status).toBe(500);
-    const body = (await res.json()) as { error: string };
+    const body = (await res.json()) as unknown as { error: string };
     expect(typeof body.error).toBe("string");
   });
 
@@ -174,7 +174,7 @@ describe("admin", () => {
         param: { userId: "test-user" },
       });
       expect(res.status).toBe(503);
-      const body = (await res.json()) as { error: string };
+      const body = (await res.json()) as unknown as { error: string };
       expect(body.error).toContain("unavailable");
     } finally {
       env.STACK_SECRET_SERVER_KEY = original;

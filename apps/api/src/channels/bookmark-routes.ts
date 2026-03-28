@@ -5,8 +5,11 @@ import { rlRead, rlMemberManage } from "../rate-limit";
 import { asChannelId, asUserId, asBookmarkId, zChannelId } from "@openslaq/shared";
 import type { ChannelBookmark } from "@openslaq/shared";
 import { addBookmark, removeBookmark, getBookmarks } from "./bookmark-service";
-import { getIO } from "../socket/io";
+import { emitToChannel } from "../lib/emit";
 import { okSchema, errorSchema } from "../openapi/schemas";
+import { BadRequestError, NotFoundError } from "../errors";
+import { BEARER_SECURITY, jsonBody, jsonContent } from "../lib/openapi-helpers";
+import { getChannelContext } from "../lib/context";
 
 const channelIdParam = z.object({ id: zChannelId() });
 
@@ -24,14 +27,11 @@ const listBookmarksRoute = createRoute({
   path: "/:id/bookmarks",
   tags: ["Channel Bookmarks"],
   summary: "List channel bookmarks",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlRead, resolveChannel, requireChannelMember] as const,
   request: { params: channelIdParam },
   responses: {
-    200: {
-      content: { "application/json": { schema: z.object({ bookmarks: z.array(bookmarkSchema) }) } },
-      description: "List of bookmarks",
-    },
+    200: jsonContent(z.object({ bookmarks: z.array(bookmarkSchema) }), "List of bookmarks"),
   },
 });
 
@@ -40,30 +40,18 @@ const addBookmarkRoute = createRoute({
   path: "/:id/bookmarks",
   tags: ["Channel Bookmarks"],
   summary: "Add channel bookmark",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMemberManage, resolveChannel, requireChannelMember] as const,
   request: {
     params: channelIdParam,
-    body: {
-      content: {
-        "application/json": {
-          schema: z.object({
-            url: z.string().url().max(2000),
-            title: z.string().min(1).max(200),
-          }),
-        },
-      },
-    },
+    body: jsonBody(z.object({
+      url: z.string().url().max(2000),
+      title: z.string().min(1).max(200),
+    })),
   },
   responses: {
-    201: {
-      content: { "application/json": { schema: bookmarkSchema } },
-      description: "Created bookmark",
-    },
-    400: {
-      content: { "application/json": { schema: errorSchema } },
-      description: "Validation error or channel is archived",
-    },
+    201: jsonContent(bookmarkSchema, "Created bookmark"),
+    400: jsonContent(errorSchema, "Validation error or channel is archived"),
   },
 });
 
@@ -72,7 +60,7 @@ const removeBookmarkRoute = createRoute({
   path: "/:id/bookmarks/:bookmarkId",
   tags: ["Channel Bookmarks"],
   summary: "Remove channel bookmark",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMemberManage, resolveChannel, requireChannelMember] as const,
   request: {
     params: z.object({
@@ -81,14 +69,8 @@ const removeBookmarkRoute = createRoute({
     }),
   },
   responses: {
-    200: {
-      content: { "application/json": { schema: okSchema } },
-      description: "Bookmark removed",
-    },
-    404: {
-      content: { "application/json": { schema: errorSchema } },
-      description: "Bookmark not found",
-    },
+    200: jsonContent(okSchema, "Bookmark removed"),
+    404: jsonContent(errorSchema, "Bookmark not found"),
   },
 });
 
@@ -112,39 +94,36 @@ function toBookmarkResponse(row: {
 
 const app = new OpenAPIHono<WorkspaceMemberEnv>()
   .openapi(listBookmarksRoute, async (c) => {
-    const channel = c.get("channel");
+    const { channel } = getChannelContext(c);
     const rows = await getBookmarks(channel.id);
     const bookmarks = rows.map(toBookmarkResponse);
     return c.json({ bookmarks }, 200);
   })
   .openapi(addBookmarkRoute, async (c) => {
-    const channel = c.get("channel");
-    const user = c.get("user");
+    const { channel, user } = getChannelContext(c);
 
     if (channel.isArchived) {
-      return c.json({ error: "Channel is archived" }, 400);
+      throw new BadRequestError("Channel is archived");
     }
 
     const { url, title } = c.req.valid("json");
     const row = await addBookmark(channel.id, url, title, user.id);
     const bookmark = toBookmarkResponse(row);
 
-    const io = getIO();
-    io.to(`channel:${channel.id}`).emit("bookmark:added", { bookmark });
+    emitToChannel(channel.id, "bookmark:added", { bookmark });
 
     return c.json(bookmark, 201);
   })
   .openapi(removeBookmarkRoute, async (c) => {
-    const channel = c.get("channel");
+    const { channel } = getChannelContext(c);
     const { bookmarkId } = c.req.valid("param");
 
     const removed = await removeBookmark(channel.id, bookmarkId);
     if (!removed) {
-      return c.json({ error: "Bookmark not found" }, 404);
+      throw new NotFoundError("Bookmark");
     }
 
-    const io = getIO();
-    io.to(`channel:${channel.id}`).emit("bookmark:removed", {
+    emitToChannel(channel.id, "bookmark:removed", {
       channelId: channel.id,
       bookmarkId: asBookmarkId(bookmarkId),
     });

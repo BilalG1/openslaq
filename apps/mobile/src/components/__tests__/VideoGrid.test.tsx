@@ -1,6 +1,7 @@
 import React from "react";
 import { render, screen } from "@testing-library/react-native";
 import { VideoGrid } from "../huddle/VideoGrid";
+import { asUserId } from "@openslaq/shared";
 
 jest.mock("@livekit/react-native", () => {
   const { View } = require("react-native");
@@ -29,7 +30,7 @@ jest.mock("@/theme/ThemeProvider", () => ({
 
 function makeParticipant(id: string, overrides: Record<string, unknown> = {}) {
   return {
-    userId: id,
+    userId: asUserId(id),
     displayName: `User ${id}`,
     isMuted: false,
     isCameraOn: false,

@@ -4,6 +4,7 @@ import { auth } from "../auth/middleware";
 import { getWorkspaceBySlug, deleteWorkspace } from "./service";
 import type { WorkspaceEnv } from "./types";
 import { resolveMemberRole, requireRole, type WorkspaceMemberEnv } from "./role-middleware";
+import { enforceBotWorkspace } from "../auth/scope-middleware";
 import { ROLES } from "@openslaq/shared";
 import channelRoutes from "../channels/routes";
 import channelMessageRoutes from "../messages/channel-routes";
@@ -27,17 +28,20 @@ import commandRoutes from "../commands/routes";
 import marketplaceInstallRoutes from "../marketplace/install-routes";
 import { INTEGRATION_PLUGINS } from "../integrations/registry";
 import { okSchema, errorSchema } from "../openapi/schemas";
+import { BEARER_SECURITY, jsonContent } from "../lib/openapi-helpers";
 import featureFlagRoutes from "./feature-flag-routes";
 import { PLUGIN_SLUG_TO_FLAG, isIntegrationEnabled } from "./feature-flags";
+import { NotFoundError, ForbiddenError } from "../errors";
+import { getWorkspaceMemberContext } from "../lib/context";
 
 const resolveWorkspace = createMiddleware<WorkspaceEnv>(async (c, next) => {
   const slug = c.req.param("slug");
   if (!slug) {
-    return c.json({ error: "Workspace not found" }, 404);
+    throw new NotFoundError("Workspace");
   }
   const workspace = await getWorkspaceBySlug(slug);
   if (!workspace) {
-    return c.json({ error: "Workspace not found" }, 404);
+    throw new NotFoundError("Workspace");
   }
   c.set("workspace", workspace);
   await next();
@@ -49,12 +53,12 @@ const deleteWorkspaceRoute = createRoute({
   tags: ["Workspaces"],
   summary: "Delete workspace",
   description: "Deletes a workspace. Only the workspace owner can delete.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [requireRole(ROLES.OWNER)] as const,
   responses: {
-    200: { content: { "application/json": { schema: okSchema } }, description: "Workspace deleted" },
-    403: { content: { "application/json": { schema: errorSchema } }, description: "Insufficient permissions" },
-    404: { content: { "application/json": { schema: errorSchema } }, description: "Workspace not found" },
+    200: jsonContent(okSchema, "Workspace deleted"),
+    403: jsonContent(errorSchema, "Insufficient permissions"),
+    404: jsonContent(errorSchema, "Workspace not found"),
   },
 });
 
@@ -63,10 +67,11 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>();
 app.use(auth);
 app.use(resolveWorkspace);
 app.use(resolveMemberRole);
+app.use(enforceBotWorkspace);
 
 const routes = app
   .openapi(deleteWorkspaceRoute, async (c) => {
-    const workspace = c.get("workspace");
+    const { workspace } = getWorkspaceMemberContext(c);
     await deleteWorkspace(workspace.id);
     return c.json({ ok: true as const }, 200);
   })
@@ -99,7 +104,7 @@ for (const plugin of INTEGRATION_PLUGINS) {
       const gated = new OpenAPIHono<WorkspaceMemberEnv>();
       gated.use(async (c, next) => {
         const enabled = await isIntegrationEnabled(c.get("workspace").id, plugin.slug);
-        if (!enabled) return c.json({ error: "Integration not enabled" }, 403);
+        if (!enabled) throw new ForbiddenError("Integration not enabled");
         await next();
       });
       gated.route("/", plugin.setupRoutes);

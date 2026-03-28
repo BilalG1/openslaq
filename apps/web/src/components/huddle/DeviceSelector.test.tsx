@@ -1,9 +1,9 @@
-import { describe, test, expect, afterEach, jest } from "bun:test";
+import { describe, test, expect, afterEach, vi } from "vitest";
 import { render, screen, cleanup, act } from "../../test-utils";
 import { fireEvent } from "@testing-library/react";
 
 // Mock navigator.mediaDevices.enumerateDevices
-const mockEnumerateDevices = jest.fn<() => Promise<MediaDeviceInfo[]>>();
+const mockEnumerateDevices = vi.fn<() => Promise<MediaDeviceInfo[]>>();
 Object.defineProperty(navigator, "mediaDevices", {
   value: { enumerateDevices: mockEnumerateDevices },
   configurable: true,
@@ -27,7 +27,7 @@ describe("DeviceSelector", () => {
     ]);
 
     const { container } = render(
-      <DeviceSelector onSelectDevice={jest.fn()} />,
+      <DeviceSelector onSelectDevice={vi.fn()} />,
     );
     await act(() => Promise.resolve());
 
@@ -40,7 +40,7 @@ describe("DeviceSelector", () => {
       makeDevice("audioinput", "mic-2", "Mic 2"),
     ]);
 
-    render(<DeviceSelector onSelectDevice={jest.fn()} />);
+    render(<DeviceSelector onSelectDevice={vi.fn()} />);
     await act(() => Promise.resolve());
 
     // Toggle open
@@ -60,7 +60,7 @@ describe("DeviceSelector", () => {
     ]);
 
     render(
-      <DeviceSelector onSelectDevice={jest.fn()} onSelectVideoDevice={jest.fn()} />,
+      <DeviceSelector onSelectDevice={vi.fn()} onSelectVideoDevice={vi.fn()} />,
     );
     await act(() => Promise.resolve());
 
@@ -77,7 +77,7 @@ describe("DeviceSelector", () => {
       makeDevice("audioinput", "mic-2", "Mic 2"),
     ]);
 
-    const onSelect = jest.fn();
+    const onSelect = vi.fn();
     render(<DeviceSelector onSelectDevice={onSelect} />);
     await act(() => Promise.resolve());
 
@@ -97,9 +97,9 @@ describe("DeviceSelector", () => {
       makeDevice("videoinput", "cam-2", "Cam 2"),
     ]);
 
-    const onSelectVideo = jest.fn();
+    const onSelectVideo = vi.fn();
     render(
-      <DeviceSelector onSelectDevice={jest.fn()} onSelectVideoDevice={onSelectVideo} />,
+      <DeviceSelector onSelectDevice={vi.fn()} onSelectVideoDevice={onSelectVideo} />,
     );
     await act(() => Promise.resolve());
 
@@ -116,7 +116,7 @@ describe("DeviceSelector", () => {
       makeDevice("audioinput", "mic-2", "Mic 2"),
     ]);
 
-    render(<DeviceSelector onSelectDevice={jest.fn()} />);
+    render(<DeviceSelector onSelectDevice={vi.fn()} />);
     await act(() => Promise.resolve());
 
     fireEvent.click(screen.getByTestId("device-selector-toggle"));
@@ -134,7 +134,7 @@ describe("DeviceSelector", () => {
       makeDevice("audioinput", "mic-2", "Mic 2"),
     ]);
 
-    render(<DeviceSelector onSelectDevice={jest.fn()} />);
+    render(<DeviceSelector onSelectDevice={vi.fn()} />);
     await act(() => Promise.resolve());
 
     const toggle = screen.getByTestId("device-selector-toggle");
@@ -154,7 +154,7 @@ describe("DeviceSelector", () => {
       makeDevice("audioinput", "xyz98765-5678", ""),
     ]);
 
-    render(<DeviceSelector onSelectDevice={jest.fn()} />);
+    render(<DeviceSelector onSelectDevice={vi.fn()} />);
     await act(() => Promise.resolve());
 
     fireEvent.click(screen.getByTestId("device-selector-toggle"));

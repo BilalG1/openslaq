@@ -112,4 +112,44 @@ describe("ScheduleMessageSheet", () => {
 
     expect(queryByTestId("schedule-sheet-content")).toBeNull();
   });
+
+  it("computes preset time relative to tap time, not render time", () => {
+    const onSchedule = jest.fn();
+    // Render the sheet at T=0
+    const { getByTestId } = render(
+      <ScheduleMessageSheet {...defaultProps} onSchedule={onSchedule} />,
+    );
+
+    // Advance clock by 10 minutes to simulate the user waiting before tapping
+    const tenMinutesMs = 10 * 60_000;
+    jest.useFakeTimers();
+    jest.setSystemTime(Date.now() + tenMinutesMs);
+
+    fireEvent.press(getByTestId("schedule-preset-in-20-minutes"));
+
+    const scheduledDate = onSchedule.mock.calls[0][0] as Date;
+    // The scheduled time should be ~20 min from NOW (after the 10 min wait),
+    // not ~20 min from when the sheet was rendered (which would be ~10 min from now)
+    const diffFromNow = scheduledDate.getTime() - Date.now();
+    // Should be ~20 minutes from now (with 5 min rounding tolerance), NOT ~10 min
+    expect(diffFromNow).toBeGreaterThan(15 * 60_000);
+
+    jest.useRealTimers();
+  });
+
+  it("does not submit when custom date string is invalid", () => {
+    // BUG: new Date("abcT09:00") creates Invalid Date, but NaN <= number is false,
+    // so the guard passes and onSchedule is called with Invalid Date
+    const onSchedule = jest.fn();
+    const { getByTestId } = render(
+      <ScheduleMessageSheet {...defaultProps} onSchedule={onSchedule} />,
+    );
+
+    fireEvent.press(getByTestId("schedule-custom-toggle"));
+    fireEvent.changeText(getByTestId("schedule-custom-date"), "not-a-date");
+    fireEvent.changeText(getByTestId("schedule-custom-time"), "09:00");
+    fireEvent.press(getByTestId("schedule-custom-submit"));
+
+    expect(onSchedule).not.toHaveBeenCalled();
+  });
 });

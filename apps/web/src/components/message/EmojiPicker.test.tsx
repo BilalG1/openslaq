@@ -1,22 +1,22 @@
-import { describe, test, expect, afterEach, jest, mock } from "bun:test";
+import { describe, test, expect, afterEach, vi } from "vitest";
 import { render, screen, cleanup } from "../../test-utils";
 import { fireEvent } from "@testing-library/react";
 import { createRef, type RefObject } from "react";
 
 let capturedOnEmojiSelect: ((emoji: { native?: string; id?: string; src?: string }) => void) | null = null;
 
-mock.module("@emoji-mart/react", () => ({
+vi.mock("@emoji-mart/react", () => ({
   default: ({ onEmojiSelect }: { onEmojiSelect: (emoji: { native?: string; id?: string; src?: string }) => void }) => {
     capturedOnEmojiSelect = onEmojiSelect;
     return <div data-testid="mock-picker">Picker</div>;
   },
 }));
 
-mock.module("../../theme/ThemeProvider", () => ({
+vi.mock("../../theme/ThemeProvider", () => ({
   useTheme: () => ({ resolved: "dark" }),
 }));
 
-const { EmojiPicker } = await import("./EmojiPicker");
+import { EmojiPicker } from "./EmojiPicker";
 
 function createAnchor(): RefObject<HTMLElement | null> {
   const div = document.createElement("div");
@@ -53,7 +53,7 @@ describe("EmojiPicker", () => {
   test("renders picker via portal when anchor is connected", () => {
     const anchorRef = createAnchor();
     render(
-      <EmojiPicker onSelect={jest.fn()} onClose={jest.fn()} anchorRef={anchorRef} />,
+      <EmojiPicker onSelect={vi.fn()} onClose={vi.fn()} anchorRef={anchorRef} />,
     );
     expect(screen.getByTestId("emoji-picker")).toBeTruthy();
     expect(screen.getByTestId("mock-picker")).toBeTruthy();
@@ -62,16 +62,16 @@ describe("EmojiPicker", () => {
   test("returns null when anchorRef.current is null", () => {
     const ref = createRef<HTMLElement>();
     render(
-      <EmojiPicker onSelect={jest.fn()} onClose={jest.fn()} anchorRef={ref} />,
+      <EmojiPicker onSelect={vi.fn()} onClose={vi.fn()} anchorRef={ref} />,
     );
     expect(screen.queryByTestId("emoji-picker")).toBeNull();
   });
 
   test("calls onSelect with native emoji string", () => {
-    const onSelect = jest.fn();
+    const onSelect = vi.fn();
     const anchorRef = createAnchor();
     render(
-      <EmojiPicker onSelect={onSelect} onClose={jest.fn()} anchorRef={anchorRef} />,
+      <EmojiPicker onSelect={onSelect} onClose={vi.fn()} anchorRef={anchorRef} />,
     );
 
     capturedOnEmojiSelect!({ native: "😀" });
@@ -79,10 +79,10 @@ describe("EmojiPicker", () => {
   });
 
   test("calls onSelect with :custom:id: format for custom emojis", () => {
-    const onSelect = jest.fn();
+    const onSelect = vi.fn();
     const anchorRef = createAnchor();
     render(
-      <EmojiPicker onSelect={onSelect} onClose={jest.fn()} anchorRef={anchorRef} />,
+      <EmojiPicker onSelect={onSelect} onClose={vi.fn()} anchorRef={anchorRef} />,
     );
 
     capturedOnEmojiSelect!({ id: "partyparrot" });
@@ -90,10 +90,10 @@ describe("EmojiPicker", () => {
   });
 
   test("calls onClose when clicking the backdrop", () => {
-    const onClose = jest.fn();
+    const onClose = vi.fn();
     const anchorRef = createAnchor();
     render(
-      <EmojiPicker onSelect={jest.fn()} onClose={onClose} anchorRef={anchorRef} />,
+      <EmojiPicker onSelect={vi.fn()} onClose={onClose} anchorRef={anchorRef} />,
     );
 
     // The backdrop is the fixed inset-0 div
@@ -124,7 +124,7 @@ describe("EmojiPicker", () => {
     Object.defineProperty(window, "innerWidth", { value: 1024, configurable: true });
 
     render(
-      <EmojiPicker onSelect={jest.fn()} onClose={jest.fn()} anchorRef={anchorRef} />,
+      <EmojiPicker onSelect={vi.fn()} onClose={vi.fn()} anchorRef={anchorRef} />,
     );
 
     const pickerEl = screen.getByTestId("emoji-picker");
@@ -152,7 +152,7 @@ describe("EmojiPicker", () => {
     Object.defineProperty(window, "innerWidth", { value: 900, configurable: true });
 
     render(
-      <EmojiPicker onSelect={jest.fn()} onClose={jest.fn()} anchorRef={anchorRef} />,
+      <EmojiPicker onSelect={vi.fn()} onClose={vi.fn()} anchorRef={anchorRef} />,
     );
 
     const pickerEl = screen.getByTestId("emoji-picker");

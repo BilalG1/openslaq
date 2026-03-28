@@ -1,12 +1,12 @@
 import { expect } from "@playwright/test";
-import { test } from "./helpers/coverage-fixture";
+import { test } from "./fixtures";
+import { setupMockAuth } from "./helpers/mock-auth";
 
 test("app loads without console errors", async ({ page }) => {
   const errors: string[] = [];
   page.on("console", (msg) => {
     if (msg.type() === "error") {
       const text = msg.text();
-      // Ignore browser-initiated favicon 404 — not an app error
       if (text.includes("Failed to load resource")) return;
       errors.push(text);
     }
@@ -16,8 +16,20 @@ test("app loads without console errors", async ({ page }) => {
   });
 
   await page.goto("/");
-  // Wait for page to settle (workspace list or auth redirect)
   await page.waitForLoadState("networkidle");
 
   expect(errors).toEqual([]);
+});
+
+test("authenticated user sees workspace with channels", async ({ page, testWorkspace }) => {
+  await setupMockAuth(page);
+  await page.goto(`/w/${testWorkspace.slug}`);
+
+  // Sidebar shows channel list
+  await expect(page.getByText("# general")).toBeVisible();
+  await expect(page.getByText("# random")).toBeVisible();
+
+  // Click into a channel — editor appears
+  await page.getByText("# general").click();
+  await expect(page.locator(".tiptap")).toBeVisible();
 });

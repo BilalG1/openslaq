@@ -1,14 +1,14 @@
-import { describe, test, expect, afterEach, jest, mock } from "bun:test";
+import { describe, test, expect, afterEach, vi } from "vitest";
 import { render, screen, cleanup, act } from "../test-utils";
 import { fireEvent } from "@testing-library/react";
 
 // Prevent @stripe/stripe-js side-effect
-mock.module("@stripe/stripe-js", () => ({
+vi.mock("@stripe/stripe-js", () => ({
   loadStripe: async () => null,
 }));
 
 const mockUser = { id: "user-1" };
-mock.module("../hooks/useCurrentUser", () => ({
+vi.mock("../hooks/useCurrentUser", () => ({
   useCurrentUser: () => mockUser,
 }));
 
@@ -39,13 +39,13 @@ const sampleListings = [
   },
 ];
 
-const mockListListings = jest.fn(async () => [...sampleListings]);
-const mockInstall = jest.fn(async () => {});
-const mockUninstall = jest.fn(async () => {});
-const mockGetInstalled = jest.fn(async () => [] as string[]);
-const mockGetListing = jest.fn(async () => sampleListings[0]!);
+const mockListListings = vi.fn(async () => [...sampleListings]);
+const mockInstall = vi.fn(async () => {});
+const mockUninstall = vi.fn(async () => {});
+const mockGetInstalled = vi.fn(async () => [] as string[]);
+const mockGetListing = vi.fn(async () => sampleListings[0]!);
 
-mock.module("../hooks/api/useMarketplaceApi", () => ({
+vi.mock("../hooks/api/useMarketplaceApi", () => ({
   useMarketplaceApi: () => ({
     listListings: mockListListings,
     getListing: mockGetListing,
@@ -55,21 +55,21 @@ mock.module("../hooks/api/useMarketplaceApi", () => ({
   }),
 }));
 
-const mockListWorkspaces = jest.fn(async () => [
+const mockListWorkspaces = vi.fn(async () => [
   { slug: "default", name: "Default Workspace", role: "owner", memberCount: 5, id: "ws-1", createdAt: "2026-01-01" },
 ]);
 
-mock.module("../hooks/api/useWorkspacesApi", () => ({
+vi.mock("../hooks/api/useWorkspacesApi", () => ({
   useWorkspacesApi: () => ({
     listWorkspaces: mockListWorkspaces,
   }),
 }));
 
-mock.module("../lib/auth", () => ({
+vi.mock("../lib/auth", () => ({
   redirectToAuth: async () => {},
 }));
 
-const { MarketplacePage } = await import("./MarketplacePage");
+import { MarketplacePage } from "./MarketplacePage";
 
 afterEach(cleanup);
 

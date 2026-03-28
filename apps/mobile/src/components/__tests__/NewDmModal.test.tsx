@@ -2,6 +2,7 @@ import React from "react";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react-native";
 import { NewDmModal } from "../NewDmModal";
 import * as clientCore from "@openslaq/client-core";
+import { asUserId } from "@openslaq/shared";
 
 jest.mock("@openslaq/client-core", () => ({
   listWorkspaceMembers: jest.fn(),
@@ -10,6 +11,21 @@ jest.mock("@openslaq/client-core", () => ({
   getErrorMessage: jest.fn((err, fallback) =>
     err instanceof Error ? err.message : fallback,
   ),
+}));
+
+const mockChannels = [
+  { id: "ch-1", name: "general", type: "public", isArchived: false, workspaceId: "ws-1", description: null, displayName: null, createdBy: null, createdAt: "2026-01-01T00:00:00.000Z" },
+  { id: "ch-2", name: "secret", type: "private", isArchived: false, workspaceId: "ws-1", description: null, displayName: null, createdBy: null, createdAt: "2026-01-01T00:00:00.000Z" },
+  { id: "ch-3", name: "archived", type: "public", isArchived: true, workspaceId: "ws-1", description: null, displayName: null, createdBy: null, createdAt: "2026-01-01T00:00:00.000Z" },
+];
+
+jest.mock("@/contexts/ChatStoreProvider", () => ({
+  useChatStore: () => ({
+    state: {
+      channels: mockChannels,
+    },
+    dispatch: jest.fn(),
+  }),
 }));
 
 const mockListMembers = clientCore.listWorkspaceMembers as jest.MockedFunction<
@@ -41,8 +57,9 @@ function renderModal(overrides = {}) {
     visible: true,
     onClose: jest.fn(),
     onCreated: jest.fn(),
+    onChannelSelected: jest.fn(),
     workspaceSlug: "test-ws",
-    currentUserId: "current",
+    currentUserId: asUserId("current"),
     deps: mockDeps,
     ...overrides,
   };
@@ -55,41 +72,96 @@ beforeEach(() => {
 });
 
 describe("NewDmModal", () => {
-  it("renders member list when visible", async () => {
+  it("renders channels and users in combined list", async () => {
     renderModal();
 
     await waitFor(() => {
       expect(screen.getByTestId("new-dm-member-list")).toBeTruthy();
     });
 
+    // Channels (non-archived)
+    expect(screen.getByText("general")).toBeTruthy();
+    expect(screen.getByText("secret")).toBeTruthy();
+    // Archived channel excluded
+    expect(screen.queryByText("archived")).toBeNull();
+    // Users
     expect(screen.getByText("Alice")).toBeTruthy();
     expect(screen.getByText("Bob")).toBeTruthy();
   });
 
-  it("filters out current user from member list", async () => {
+  it("channels show # prefix via Hash icon, no checkbox", async () => {
     renderModal();
 
     await waitFor(() => {
       expect(screen.getByTestId("new-dm-member-list")).toBeTruthy();
     });
 
-    expect(screen.queryByText("Me")).toBeNull();
+    // Channel row exists
+    expect(screen.getByTestId("new-dm-channel-ch-1")).toBeTruthy();
+    // No checkbox for channels
+    expect(screen.queryByTestId("new-dm-checkbox-ch-1")).toBeNull();
   });
 
-  it("filters members by search text", async () => {
+  it("users show right-aligned checkbox", async () => {
     renderModal();
 
     await waitFor(() => {
       expect(screen.getByTestId("new-dm-member-list")).toBeTruthy();
     });
 
+    expect(screen.getByTestId("new-dm-checkbox-user-1")).toBeTruthy();
+  });
+
+  it("tapping a channel calls onChannelSelected", async () => {
+    const { props } = renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("new-dm-member-list")).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByTestId("new-dm-channel-ch-1"));
+
+    expect(props.onChannelSelected).toHaveBeenCalledWith("ch-1");
+    expect(props.onCreated).not.toHaveBeenCalled();
+    expect(props.onClose).toHaveBeenCalled();
+  });
+
+  it("tapping a user toggles checkbox and shows chip", async () => {
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("new-dm-member-list")).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByTestId("new-dm-member-user-1"));
+
+    expect(screen.getByTestId("selected-chips")).toBeTruthy();
+    expect(screen.getByTestId("selected-chip-user-1")).toBeTruthy();
+  });
+
+  it("search filters both channels and users", async () => {
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("new-dm-member-list")).toBeTruthy();
+    });
+
+    fireEvent.changeText(screen.getByTestId("new-dm-filter"), "gen");
+
+    // "general" channel matches
+    expect(screen.getByText("general")).toBeTruthy();
+    // Other items filtered out
+    expect(screen.queryByText("secret")).toBeNull();
+    expect(screen.queryByText("Alice")).toBeNull();
+
+    // Now search for a user
     fireEvent.changeText(screen.getByTestId("new-dm-filter"), "alice");
 
     expect(screen.getByText("Alice")).toBeTruthy();
-    expect(screen.queryByText("Bob")).toBeNull();
+    expect(screen.queryByText("general")).toBeNull();
   });
 
-  it("filters members by email", async () => {
+  it("filters users by email", async () => {
     renderModal();
 
     await waitFor(() => {
@@ -100,6 +172,26 @@ describe("NewDmModal", () => {
 
     expect(screen.getByText("Bob")).toBeTruthy();
     expect(screen.queryByText("Alice")).toBeNull();
+  });
+
+  it("drag handle renders", async () => {
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("new-dm-member-list")).toBeTruthy();
+    });
+
+    expect(screen.getByTestId("drag-handle")).toBeTruthy();
+  });
+
+  it("filters out current user from member list", async () => {
+    renderModal();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("new-dm-member-list")).toBeTruthy();
+    });
+
+    expect(screen.queryByText("Me")).toBeNull();
   });
 
   it("shows loading state while fetching members", async () => {
@@ -129,19 +221,6 @@ describe("NewDmModal", () => {
     expect(screen.getByText("Network error")).toBeTruthy();
   });
 
-  it("shows chips when members are selected", async () => {
-    renderModal();
-
-    await waitFor(() => {
-      expect(screen.getByTestId("new-dm-member-list")).toBeTruthy();
-    });
-
-    fireEvent.press(screen.getByTestId("new-dm-member-user-1"));
-
-    expect(screen.getByTestId("selected-chips")).toBeTruthy();
-    expect(screen.getByTestId("selected-chip-user-1")).toBeTruthy();
-  });
-
   it("removes chip when tapped", async () => {
     renderModal();
 
@@ -149,17 +228,15 @@ describe("NewDmModal", () => {
       expect(screen.getByTestId("new-dm-member-list")).toBeTruthy();
     });
 
-    // Select Alice
     fireEvent.press(screen.getByTestId("new-dm-member-user-1"));
     expect(screen.getByTestId("selected-chip-user-1")).toBeTruthy();
 
-    // Tap chip to deselect
     fireEvent.press(screen.getByTestId("selected-chip-user-1"));
     expect(screen.queryByTestId("selected-chip-user-1")).toBeNull();
     expect(screen.queryByTestId("selected-chips")).toBeNull();
   });
 
-  it("shows Go button for single selection", async () => {
+  it("shows Open button for single selection", async () => {
     renderModal();
 
     await waitFor(() => {
@@ -290,14 +367,11 @@ describe("NewDmModal", () => {
       expect(screen.getByTestId("new-dm-member-list")).toBeTruthy();
     });
 
-    // Select a member
     fireEvent.press(screen.getByTestId("new-dm-member-user-1"));
     expect(screen.getByTestId("selected-chips")).toBeTruthy();
 
-    // Close
     fireEvent.press(screen.getByTestId("new-dm-modal-backdrop"));
 
-    // Re-open
     rerender(<NewDmModal {...{ ...props, visible: true }} />);
 
     await waitFor(() => {

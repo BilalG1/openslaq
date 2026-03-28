@@ -16,7 +16,7 @@ jest.mock("@/lib/api", () => ({
   api: { test: true },
 }));
 
-const mockSetPendingInvite = jest.fn();
+const mockSetPendingInvite = jest.fn().mockResolvedValue(undefined);
 
 jest.mock("@/lib/pending-invite", () => ({
   setPendingInvite: (...args: unknown[]) => mockSetPendingInvite(...args),
@@ -70,11 +70,13 @@ beforeEach(() => {
 });
 
 describe("InviteAcceptScreen", () => {
-  it("redirects to sign-in when not authenticated", () => {
+  it("redirects to sign-in when not authenticated", async () => {
     mockIsAuthenticated = false;
     render(<InviteAcceptScreen />);
     expect(mockSetPendingInvite).toHaveBeenCalledWith("test-invite-code");
-    expect(mockReplace).toHaveBeenCalledWith("/(auth)/sign-in");
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith("/(auth)/sign-in");
+    });
   });
 
   it("shows workspace name after loading invite", async () => {
@@ -107,7 +109,7 @@ describe("InviteAcceptScreen", () => {
     fireEvent.press(screen.getByTestId("invite-accept-button"));
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith("/(app)/acme/(channels)");
+      expect(mockReplace).toHaveBeenCalledWith("/(app)/acme/(tabs)/(channels)");
     });
   });
 

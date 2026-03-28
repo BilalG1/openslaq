@@ -1,16 +1,16 @@
-import { describe, test, expect, afterEach, jest, mock } from "bun:test";
+import { describe, test, expect, afterEach, vi } from "vitest";
 import { render, screen, cleanup } from "../../test-utils";
 import { fireEvent } from "@testing-library/react";
 import { TooltipProvider } from "../ui";
 
-mock.module("./ChannelMembersDialog", () => ({
+vi.mock("./ChannelMembersDialog", () => ({
   ChannelMembersDialog: () => null,
 }));
-mock.module("../huddle/HuddleHeaderButton", () => ({
+vi.mock("../huddle/HuddleHeaderButton", () => ({
   HuddleHeaderButton: () => null,
 }));
 
-const { ChannelHeader } = await import("./ChannelHeader");
+import { ChannelHeader } from "./ChannelHeader";
 
 function renderHeader(props: Parameters<typeof ChannelHeader>[0]) {
   return render(
@@ -60,7 +60,7 @@ describe("ChannelHeader", () => {
   // ── Star button ──────────────────────────────────────────────────
 
   test("renders star button when onToggleStar provided", () => {
-    renderHeader({ channelName: "general", onToggleStar: jest.fn() });
+    renderHeader({ channelName: "general", onToggleStar: vi.fn() });
     expect(screen.getByTestId("star-channel-button")).toBeTruthy();
   });
 
@@ -70,38 +70,38 @@ describe("ChannelHeader", () => {
   });
 
   test("calls onToggleStar on click", () => {
-    const onToggleStar = jest.fn();
+    const onToggleStar = vi.fn();
     renderHeader({ channelName: "general", onToggleStar });
     fireEvent.click(screen.getByTestId("star-channel-button"));
     expect(onToggleStar).toHaveBeenCalledTimes(1);
   });
 
   test('shows "Unstar channel" aria-label when isStarred=true', () => {
-    renderHeader({ channelName: "general", onToggleStar: jest.fn(), isStarred: true });
+    renderHeader({ channelName: "general", onToggleStar: vi.fn(), isStarred: true });
     expect(screen.getByLabelText("Unstar channel")).toBeTruthy();
   });
 
   test('shows "Star channel" aria-label when isStarred=false', () => {
-    renderHeader({ channelName: "general", onToggleStar: jest.fn(), isStarred: false });
+    renderHeader({ channelName: "general", onToggleStar: vi.fn(), isStarred: false });
     expect(screen.getByLabelText("Star channel")).toBeTruthy();
   });
 
   // ── Topic editing ────────────────────────────────────────────────
 
   test("shows topic text when description provided", () => {
-    renderHeader({ channelName: "general", onUpdateDescription: jest.fn(), description: "Our main channel" });
+    renderHeader({ channelName: "general", onUpdateDescription: vi.fn(), description: "Our main channel" });
     expect(screen.getByTestId("channel-topic-text")).toBeTruthy();
     expect(screen.getByTestId("channel-topic-text").textContent).toBe("Our main channel");
   });
 
   test("hides topic section when no description", () => {
-    renderHeader({ channelName: "general", onUpdateDescription: jest.fn() });
+    renderHeader({ channelName: "general", onUpdateDescription: vi.fn() });
     expect(screen.queryByTestId("channel-topic-button")).toBeNull();
     expect(screen.queryByTestId("channel-topic-placeholder")).toBeNull();
   });
 
   test("saves topic on blur instead of discarding", () => {
-    const onUpdateDescription = jest.fn();
+    const onUpdateDescription = vi.fn();
     renderHeader({ channelName: "general", onUpdateDescription, description: "Old topic" });
 
     fireEvent.click(screen.getByTestId("channel-topic-button"));
@@ -113,7 +113,7 @@ describe("ChannelHeader", () => {
   });
 
   test("pressing Enter saves topic", () => {
-    const onUpdateDescription = jest.fn();
+    const onUpdateDescription = vi.fn();
     renderHeader({ channelName: "general", onUpdateDescription, description: "Old topic" });
 
     fireEvent.click(screen.getByTestId("channel-topic-button"));
@@ -125,7 +125,7 @@ describe("ChannelHeader", () => {
   });
 
   test("pressing Escape cancels editing without saving", () => {
-    const onUpdateDescription = jest.fn();
+    const onUpdateDescription = vi.fn();
     renderHeader({ channelName: "general", onUpdateDescription, description: "Original" });
 
     fireEvent.click(screen.getByTestId("channel-topic-button"));
@@ -139,7 +139,7 @@ describe("ChannelHeader", () => {
   });
 
   test("does not call onUpdateDescription when topic is unchanged", () => {
-    const onUpdateDescription = jest.fn();
+    const onUpdateDescription = vi.fn();
     renderHeader({ channelName: "general", onUpdateDescription, description: "Same topic" });
 
     fireEvent.click(screen.getByTestId("channel-topic-button"));
@@ -153,7 +153,7 @@ describe("ChannelHeader", () => {
   // ── Overflow menu ──────────────────────────────────────────────
 
   test("renders overflow menu when secondary actions exist", () => {
-    renderHeader({ channelName: "general", onSetNotificationLevel: jest.fn() });
+    renderHeader({ channelName: "general", onSetNotificationLevel: vi.fn() });
     expect(screen.getByTestId("channel-overflow-menu")).toBeTruthy();
   });
 
@@ -165,7 +165,7 @@ describe("ChannelHeader", () => {
   // ── Notification levels (inside overflow menu) ─────────────────
 
   test("notification levels appear in overflow menu", () => {
-    renderHeader({ channelName: "general", onSetNotificationLevel: jest.fn() });
+    renderHeader({ channelName: "general", onSetNotificationLevel: vi.fn() });
     openOverflowMenu();
     expect(screen.getByTestId("notify-level-all")).toBeTruthy();
     expect(screen.getByTestId("notify-level-mentions")).toBeTruthy();
@@ -175,26 +175,26 @@ describe("ChannelHeader", () => {
   // ── Pinned messages ──────────────────────────────────────────────
 
   test("renders pin item in overflow menu when onOpenPins provided", () => {
-    renderHeader({ channelName: "general", onOpenPins: jest.fn() });
+    renderHeader({ channelName: "general", onOpenPins: vi.fn() });
     openOverflowMenu();
     expect(screen.getByTestId("pinned-messages-button")).toBeTruthy();
   });
 
   test("shows pinned count when pinnedCount > 0", () => {
-    renderHeader({ channelName: "general", onOpenPins: jest.fn(), pinnedCount: 5 });
+    renderHeader({ channelName: "general", onOpenPins: vi.fn(), pinnedCount: 5 });
     openOverflowMenu();
     expect(screen.getByTestId("pinned-count")).toBeTruthy();
     expect(screen.getByTestId("pinned-count").textContent).toBe("5");
   });
 
   test("does NOT show pinned count when pinnedCount=0", () => {
-    renderHeader({ channelName: "general", onOpenPins: jest.fn(), pinnedCount: 0 });
+    renderHeader({ channelName: "general", onOpenPins: vi.fn(), pinnedCount: 0 });
     openOverflowMenu();
     expect(screen.queryByTestId("pinned-count")).toBeNull();
   });
 
   test("calls onOpenPins from overflow menu", () => {
-    const onOpenPins = jest.fn();
+    const onOpenPins = vi.fn();
     renderHeader({ channelName: "general", onOpenPins });
     openOverflowMenu();
     fireEvent.click(screen.getByTestId("pinned-messages-button"));
@@ -204,7 +204,7 @@ describe("ChannelHeader", () => {
   // ── Files button (inside overflow menu) ────────────────────────
 
   test("renders files item in overflow menu when onOpenFiles provided", () => {
-    renderHeader({ channelName: "general", onOpenFiles: jest.fn() });
+    renderHeader({ channelName: "general", onOpenFiles: vi.fn() });
     openOverflowMenu();
     expect(screen.getByTestId("channel-files-button")).toBeTruthy();
   });
@@ -215,7 +215,7 @@ describe("ChannelHeader", () => {
   });
 
   test("calls onOpenFiles from overflow menu", () => {
-    const onOpenFiles = jest.fn();
+    const onOpenFiles = vi.fn();
     renderHeader({ channelName: "general", onOpenFiles });
     openOverflowMenu();
     fireEvent.click(screen.getByTestId("channel-files-button"));
@@ -243,18 +243,18 @@ describe("ChannelHeader", () => {
   // ── Archive / Unarchive (inside overflow menu) ─────────────────
 
   test("renders archive item in overflow menu when canArchive && !isArchived && onArchive", () => {
-    renderHeader({ channelName: "random", canArchive: true, isArchived: false, onArchive: jest.fn() });
+    renderHeader({ channelName: "random", canArchive: true, isArchived: false, onArchive: vi.fn() });
     openOverflowMenu();
     expect(screen.getByTestId("archive-channel-button")).toBeTruthy();
   });
 
   test("does NOT render archive item for general channel", () => {
-    renderHeader({ channelName: "general", canArchive: true, isArchived: false, onArchive: jest.fn() });
+    renderHeader({ channelName: "general", canArchive: true, isArchived: false, onArchive: vi.fn() });
     expect(screen.queryByTestId("channel-overflow-menu")).toBeNull();
   });
 
   test("confirm-archive-button calls onArchive", () => {
-    const onArchive = jest.fn();
+    const onArchive = vi.fn();
     renderHeader({ channelName: "random", canArchive: true, isArchived: false, onArchive });
 
     // Open overflow menu, then click archive item
@@ -266,7 +266,7 @@ describe("ChannelHeader", () => {
   });
 
   test("cancel button closes dialog without calling onArchive", () => {
-    const onArchive = jest.fn();
+    const onArchive = vi.fn();
     renderHeader({ channelName: "random", canArchive: true, isArchived: false, onArchive });
 
     openOverflowMenu();
@@ -277,13 +277,13 @@ describe("ChannelHeader", () => {
   });
 
   test("renders unarchive item in overflow menu when canArchive && isArchived && onUnarchive", () => {
-    renderHeader({ channelName: "old-stuff", canArchive: true, isArchived: true, onUnarchive: jest.fn() });
+    renderHeader({ channelName: "old-stuff", canArchive: true, isArchived: true, onUnarchive: vi.fn() });
     openOverflowMenu();
     expect(screen.getByTestId("unarchive-channel-button")).toBeTruthy();
   });
 
   test("calls onUnarchive from overflow menu", () => {
-    const onUnarchive = jest.fn();
+    const onUnarchive = vi.fn();
     renderHeader({ channelName: "old-stuff", canArchive: true, isArchived: true, onUnarchive });
 
     openOverflowMenu();
@@ -292,7 +292,43 @@ describe("ChannelHeader", () => {
   });
 
   test("does NOT render archive item when canArchive is false", () => {
-    renderHeader({ channelName: "random", canArchive: false, isArchived: false, onArchive: jest.fn() });
+    renderHeader({ channelName: "random", canArchive: false, isArchived: false, onArchive: vi.fn() });
     expect(screen.queryByTestId("channel-overflow-menu")).toBeNull();
+  });
+
+  // ── Leave channel (inside overflow menu) ──────────────────────────
+
+  test("renders leave channel item in overflow menu for non-general channels", () => {
+    renderHeader({ channelName: "random", onLeaveChannel: vi.fn(), onOpenPins: vi.fn() });
+    openOverflowMenu();
+    expect(screen.getByTestId("leave-channel-button")).toBeTruthy();
+  });
+
+  test("does NOT render leave channel item for general channel", () => {
+    renderHeader({ channelName: "general", onLeaveChannel: vi.fn(), onOpenPins: vi.fn() });
+    openOverflowMenu();
+    expect(screen.queryByTestId("leave-channel-button")).toBeNull();
+  });
+
+  test("does NOT render leave or archive items when channelName is null", () => {
+    renderHeader({
+      channelName: null,
+      onLeaveChannel: vi.fn(),
+      canArchive: true,
+      isArchived: false,
+      onArchive: vi.fn(),
+      onOpenPins: vi.fn(),
+    });
+    openOverflowMenu();
+    expect(screen.queryByTestId("leave-channel-button")).toBeNull();
+    expect(screen.queryByTestId("archive-channel-button")).toBeNull();
+  });
+
+  test("calls onLeaveChannel when leave channel is clicked", () => {
+    const onLeaveChannel = vi.fn();
+    renderHeader({ channelName: "random", onLeaveChannel, onOpenPins: vi.fn() });
+    openOverflowMenu();
+    fireEvent.click(screen.getByTestId("leave-channel-button"));
+    expect(onLeaveChannel).toHaveBeenCalledTimes(1);
   });
 });

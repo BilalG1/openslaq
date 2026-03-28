@@ -3,6 +3,7 @@ import { eq, and } from "drizzle-orm";
 import { updateUser } from "../users/service";
 import { addChannelMember, isChannelMember, getChannelById } from "../channels/service";
 import { setChannelNotificationPref } from "../channels/notification-prefs-service";
+import { emitToChannel } from "../lib/emit";
 import { getIO } from "../socket/io";
 import { db } from "../db";
 import { workspaceMembers } from "../workspaces/schema";
@@ -183,12 +184,14 @@ export async function handleInvite(
 
   await addChannelMember(asChannelId(channelId), asUserId(targetUserId));
 
-  safeEmit((io) =>
-    io.to(`channel:${channelId}`).emit("channel:member-added", {
+  try {
+    emitToChannel(asChannelId(channelId), "channel:member-added", {
       channelId: asChannelId(channelId),
       userId: asUserId(targetUserId),
-    }),
-  );
+    });
+  } catch {
+    // Socket.IO may not be initialized in all contexts
+  }
 
   return [makeEphemeral(channelId, `Invited <@${targetUserId}> to this channel.`)];
 }

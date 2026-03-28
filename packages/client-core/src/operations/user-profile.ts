@@ -1,6 +1,14 @@
-import { AuthError } from "../api/errors";
 import { authorizedRequest } from "../api/api-client";
+import type { ChatAction } from "../chat-reducer";
 import type { ApiDeps } from "./types";
+
+export function handleUserProfileUpdated(payload: {
+  userId: string;
+  displayName: string;
+  avatarUrl: string | null;
+}): ChatAction {
+  return { type: "user/profileUpdated", ...payload };
+}
 
 export interface UserProfile {
   id: string;
@@ -17,17 +25,10 @@ export interface UserProfile {
 export async function getCurrentUser(deps: ApiDeps): Promise<UserProfile> {
   const { api, auth } = deps;
 
-  try {
-    const response = await authorizedRequest(auth, (headers) =>
-      api.api.users.me.$get({}, { headers }),
-    );
-    return (await response.json()) as UserProfile;
-  } catch (err) {
-    if (err instanceof AuthError) {
-      auth.onAuthRequired();
-    }
-    throw err;
-  }
+  const response = await authorizedRequest(auth, (headers) =>
+    api.api.users.me.$get({}, { headers }),
+  );
+  return (await response.json()) as UserProfile;
 }
 
 export async function updateCurrentUser(
@@ -36,17 +37,10 @@ export async function updateCurrentUser(
 ): Promise<UserProfile> {
   const { api, auth } = deps;
 
-  try {
-    const response = await authorizedRequest(auth, (headers) =>
-      api.api.users.me.$patch({ json: data }, { headers }),
-    );
-    return (await response.json()) as UserProfile;
-  } catch (err) {
-    if (err instanceof AuthError) {
-      auth.onAuthRequired();
-    }
-    throw err;
-  }
+  const response = await authorizedRequest(auth, (headers) =>
+    api.api.users.me.$patch({ json: data }, { headers }),
+  );
+  return (await response.json()) as UserProfile;
 }
 
 export async function setUserStatus(
@@ -55,30 +49,16 @@ export async function setUserStatus(
 ): Promise<UserProfile> {
   const { api, auth } = deps;
 
-  try {
-    const response = await authorizedRequest(auth, (headers) =>
-      api.api.users.me.status.$put({ json: data }, { headers }),
-    );
-    return (await response.json()) as UserProfile;
-  } catch (err) {
-    if (err instanceof AuthError) {
-      auth.onAuthRequired();
-    }
-    throw err;
-  }
+  const response = await authorizedRequest(auth, (headers) =>
+    api.api.users.me.status.$put({ json: data }, { headers }),
+  );
+  return (await response.json()) as UserProfile;
 }
 
 export async function clearUserStatus(deps: ApiDeps): Promise<void> {
   const { api, auth } = deps;
 
-  try {
-    await authorizedRequest(auth, (headers) =>
-      api.api.users.me.status.$delete({}, { headers }),
-    );
-  } catch (err) {
-    if (err instanceof AuthError) {
-      auth.onAuthRequired();
-    }
-    throw err;
-  }
+  await authorizedRequest(auth, (headers) =>
+    api.api.users.me.status.$delete({}, { headers }),
+  );
 }

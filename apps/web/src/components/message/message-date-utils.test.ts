@@ -1,5 +1,8 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { getMessageDateKey, isDifferentDay } from "./message-date-utils";
+
+// These functions use local time (new Date().getDate()), so test with
+// timestamps that produce the same local date regardless of timezone offset.
 
 describe("getMessageDateKey", () => {
   test("formats ISO date to YYYY-MM-DD", () => {
@@ -7,15 +10,15 @@ describe("getMessageDateKey", () => {
   });
 
   test("pads single-digit month and day", () => {
-    expect(getMessageDateKey("2026-01-05T00:00:00.000Z")).toBe("2026-01-05");
+    expect(getMessageDateKey("2026-01-05T12:00:00.000Z")).toBe("2026-01-05");
   });
 
   test("handles end of year", () => {
-    expect(getMessageDateKey("2025-12-31T23:59:59.999Z")).toBe("2025-12-31");
+    expect(getMessageDateKey("2025-12-31T12:00:00.000Z")).toBe("2025-12-31");
   });
 
   test("handles start of year", () => {
-    expect(getMessageDateKey("2026-01-01T00:00:00.000Z")).toBe("2026-01-01");
+    expect(getMessageDateKey("2026-01-01T12:00:00.000Z")).toBe("2026-01-01");
   });
 });
 
@@ -37,10 +40,10 @@ describe("isDifferentDay", () => {
   });
 
   test("handles month boundaries", () => {
-    expect(isDifferentDay("2026-01-31T23:00:00.000Z", "2026-02-01T01:00:00.000Z")).toBe(true);
+    expect(isDifferentDay("2026-01-31T12:00:00.000Z", "2026-02-01T12:00:00.000Z")).toBe(true);
   });
 
   test("handles year boundaries", () => {
-    expect(isDifferentDay("2025-12-31T23:00:00.000Z", "2026-01-01T01:00:00.000Z")).toBe(true);
+    expect(isDifferentDay("2025-12-31T12:00:00.000Z", "2026-01-01T12:00:00.000Z")).toBe(true);
   });
 });

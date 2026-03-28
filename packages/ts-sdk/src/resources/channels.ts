@@ -1,4 +1,5 @@
-import type { HttpClient } from "../http";
+import type { RpcClient } from "../rpc";
+import { checked } from "../rpc";
 import type {
   BrowseChannel,
   Channel,
@@ -15,7 +16,7 @@ export interface CreateChannelOptions {
 }
 
 export interface UpdateChannelOptions {
-  description?: string;
+  description: string | null;
 }
 
 export interface BrowseChannelsOptions {
@@ -35,102 +36,175 @@ export interface GetNotificationPrefResponse {
 }
 
 export class Channels {
-  constructor(private readonly http: HttpClient) {}
+  constructor(
+    private readonly rpc: RpcClient,
+    private readonly slug: string,
+  ) {}
 
   async list(): Promise<Channel[]> {
-    const path = this.http.workspacePath("/channels");
-    return this.http.get<Channel[]>(path);
+    const res = await checked(
+      await this.rpc.api.workspaces[":slug"].channels.$get({
+        param: { slug: this.slug },
+      }),
+    );
+    return await res.json();
   }
 
   async browse(options?: BrowseChannelsOptions): Promise<BrowseChannel[]> {
-    const path = this.http.workspacePath("/channels/browse");
-    return this.http.get<BrowseChannel[]>(path, {
-      includeArchived: options?.includeArchived,
-    });
+    const res = await checked(
+      await this.rpc.api.workspaces[":slug"].channels.browse.$get({
+        param: { slug: this.slug },
+        query: options?.includeArchived ? { includeArchived: "true" } : {},
+      }),
+    );
+    return await res.json();
   }
 
   async create(options: CreateChannelOptions): Promise<Channel> {
-    const path = this.http.workspacePath("/channels");
-    return this.http.post<Channel>(path, options);
+    const res = await checked(
+      await this.rpc.api.workspaces[":slug"].channels.$post({
+        param: { slug: this.slug },
+        json: options,
+      }),
+    );
+    return await res.json();
   }
 
   async update(id: string, options: UpdateChannelOptions): Promise<Channel> {
-    const path = this.http.workspacePath(`/channels/${id}`);
-    return this.http.patch<Channel>(path, options);
+    const res = await checked(
+      await this.rpc.api.workspaces[":slug"].channels[":id"].$patch({
+        param: { slug: this.slug, id },
+        json: options,
+      }),
+    );
+    return await res.json();
   }
 
   async archive(id: string): Promise<void> {
-    const path = this.http.workspacePath(`/channels/${id}/archive`);
-    await this.http.postVoid(path);
+    await checked(
+      await this.rpc.api.workspaces[":slug"].channels[":id"].archive.$post({
+        param: { slug: this.slug, id },
+      }),
+    );
   }
 
   async unarchive(id: string): Promise<void> {
-    const path = this.http.workspacePath(`/channels/${id}/unarchive`);
-    await this.http.postVoid(path);
+    await checked(
+      await this.rpc.api.workspaces[":slug"].channels[":id"].unarchive.$post({
+        param: { slug: this.slug, id },
+      }),
+    );
   }
 
   async join(id: string): Promise<void> {
-    const path = this.http.workspacePath(`/channels/${id}/join`);
-    await this.http.postVoid(path);
+    await checked(
+      await this.rpc.api.workspaces[":slug"].channels[":id"].join.$post({
+        param: { slug: this.slug, id },
+      }),
+    );
   }
 
   async leave(id: string): Promise<void> {
-    const path = this.http.workspacePath(`/channels/${id}/leave`);
-    await this.http.postVoid(path);
+    await checked(
+      await this.rpc.api.workspaces[":slug"].channels[":id"].leave.$post({
+        param: { slug: this.slug, id },
+      }),
+    );
   }
 
   async listMembers(id: string): Promise<ChannelMember[]> {
-    const path = this.http.workspacePath(`/channels/${id}/members`);
-    return this.http.get<ChannelMember[]>(path);
+    const res = await checked(
+      await this.rpc.api.workspaces[":slug"].channels[":id"].members.$get({
+        param: { slug: this.slug, id },
+      }),
+    );
+    return await res.json();
   }
 
   async addMember(id: string, userId: string): Promise<void> {
-    const path = this.http.workspacePath(`/channels/${id}/members`);
-    await this.http.postVoid(path, { userId });
+    await checked(
+      await this.rpc.api.workspaces[":slug"].channels[":id"].members.$post({
+        param: { slug: this.slug, id },
+        json: { userId },
+      }),
+    );
   }
 
   async removeMember(id: string, userId: string): Promise<void> {
-    const path = this.http.workspacePath(`/channels/${id}/members/${userId}`);
-    await this.http.del(path);
+    await checked(
+      await this.rpc.api.workspaces[":slug"].channels[":id"].members[":userId"].$delete({
+        param: { slug: this.slug, id, userId },
+      }),
+    );
   }
 
-  async listStarred(): Promise<Channel[]> {
-    const path = this.http.workspacePath("/channels/starred");
-    return this.http.get<Channel[]>(path);
+  async listStarred(): Promise<string[]> {
+    const res = await checked(
+      await this.rpc.api.workspaces[":slug"].channels.starred.$get({
+        param: { slug: this.slug },
+      }),
+    );
+    return await res.json();
   }
 
   async star(id: string): Promise<void> {
-    const path = this.http.workspacePath(`/channels/${id}/star`);
-    await this.http.postVoid(path);
+    await checked(
+      await this.rpc.api.workspaces[":slug"].channels[":id"].star.$post({
+        param: { slug: this.slug, id },
+      }),
+    );
   }
 
   async unstar(id: string): Promise<void> {
-    const path = this.http.workspacePath(`/channels/${id}/star`);
-    await this.http.del(path);
+    await checked(
+      await this.rpc.api.workspaces[":slug"].channels[":id"].star.$delete({
+        param: { slug: this.slug, id },
+      }),
+    );
   }
 
   async markRead(id: string): Promise<void> {
-    const path = this.http.workspacePath(`/channels/${id}/read`);
-    await this.http.postVoid(path);
+    await checked(
+      await this.rpc.api.workspaces[":slug"].channels[":id"].read.$post({
+        param: { slug: this.slug, id },
+      }),
+    );
   }
 
   async markUnread(id: string, options: MarkUnreadOptions): Promise<MarkUnreadResponse> {
-    const path = this.http.workspacePath(`/channels/${id}/mark-unread`);
-    return this.http.post<MarkUnreadResponse>(path, options);
+    const res = await checked(
+      await this.rpc.api.workspaces[":slug"].channels[":id"]["mark-unread"].$post({
+        param: { slug: this.slug, id },
+        json: options,
+      }),
+    );
+    return await res.json();
   }
 
   async listNotificationPrefs(): Promise<NotificationPrefsMap> {
-    const path = this.http.workspacePath("/channels/notification-prefs");
-    return this.http.get<NotificationPrefsMap>(path);
+    const res = await checked(
+      await this.rpc.api.workspaces[":slug"].channels["notification-prefs"].$get({
+        param: { slug: this.slug },
+      }),
+    );
+    return await res.json();
   }
 
   async getNotificationPref(id: string): Promise<GetNotificationPrefResponse> {
-    const path = this.http.workspacePath(`/channels/${id}/notification-pref`);
-    return this.http.get<GetNotificationPrefResponse>(path);
+    const res = await checked(
+      await this.rpc.api.workspaces[":slug"].channels[":id"]["notification-pref"].$get({
+        param: { slug: this.slug, id },
+      }),
+    );
+    return await res.json();
   }
 
   async setNotificationPref(id: string, options: SetNotificationPrefOptions): Promise<void> {
-    const path = this.http.workspacePath(`/channels/${id}/notification-pref`);
-    await this.http.putVoid(path, options);
+    await checked(
+      await this.rpc.api.workspaces[":slug"].channels[":id"]["notification-pref"].$put({
+        param: { slug: this.slug, id },
+        json: options,
+      }),
+    );
   }
 }

@@ -1,7 +1,9 @@
 import { OpenAPIHono, createRoute } from "@hono/zod-openapi";
 import type { WorkspaceMemberEnv } from "../workspaces/role-middleware";
+import { BEARER_SECURITY, jsonContent } from "../lib/openapi-helpers";
 import { getWorkspacePresence } from "./service";
 import { rlRead } from "../rate-limit";
+import { requireScope } from "../auth/scope-middleware";
 import { presenceEntrySchema } from "../openapi/schemas";
 import { z } from "@hono/zod-openapi";
 import { jsonResponse } from "../openapi/responses";
@@ -12,13 +14,10 @@ const getPresenceRoute = createRoute({
   tags: ["Presence"],
   summary: "Get workspace presence",
   description: "Returns all online users in the workspace.",
-  security: [{ Bearer: [] }],
-  middleware: [rlRead] as const,
+  security: BEARER_SECURITY,
+  middleware: [rlRead, requireScope("presence:read")] as const,
   responses: {
-    200: {
-      content: { "application/json": { schema: z.array(presenceEntrySchema) } },
-      description: "List of online users",
-    },
+    200: jsonContent(z.array(presenceEntrySchema), "List of online users"),
   },
 });
 

@@ -48,7 +48,7 @@ describe("Feature Flags", () => {
       param: { slug: workspaceSlug },
     });
     expect(res.status).toBe(200);
-    const flags = (await res.json()) as any;
+    const flags = (await res.json()) as Record<string, unknown>;
     expect(flags.integrationGithub).toBe(false);
     expect(flags.integrationLinear).toBe(false);
     expect(flags.integrationSentry).toBe(false);
@@ -60,7 +60,7 @@ describe("Feature Flags", () => {
       param: { slug: workspaceSlug },
     });
     expect(res.status).toBe(200);
-    const flags = (await res.json()) as any;
+    const flags = (await res.json()) as Record<string, unknown>;
     expect(flags.integrationGithub).toBe(false);
   });
 
@@ -82,7 +82,7 @@ describe("Feature Flags", () => {
       param: { workspaceId },
     });
     expect(res.status).toBe(200);
-    const flags = (await res.json()) as any;
+    const flags = (await res.json()) as Record<string, unknown>;
     expect(flags.integrationGithub).toBe(false);
   });
 
@@ -92,7 +92,7 @@ describe("Feature Flags", () => {
       json: { integrationGithub: true, integrationLinear: true },
     });
     expect(res.status).toBe(200);
-    const flags = (await res.json()) as any;
+    const flags = (await res.json()) as Record<string, unknown>;
     expect(flags.integrationGithub).toBe(true);
     expect(flags.integrationLinear).toBe(true);
     expect(flags.integrationSentry).toBe(false);
@@ -104,14 +104,14 @@ describe("Feature Flags", () => {
       json: { flag: "integrationSentry", enabled: true },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as Record<string, unknown>;
     expect(result.updated).toBeGreaterThan(0);
 
     // Verify it took effect on our workspace
     const flagsRes = await adminClient.api.workspaces[":slug"]["feature-flags"].$get({
       param: { slug: workspaceSlug },
     });
-    const flags = (await flagsRes.json()) as any;
+    const flags = (await flagsRes.json()) as Record<string, unknown>;
     expect(flags.integrationSentry).toBe(true);
   });
 

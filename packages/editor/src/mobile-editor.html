@@ -254,6 +254,9 @@ window.__editorBridge = {
           editor.commands.focus("end");
         }
         break;
+      case "blur":
+        editor.commands.blur();
+        break;
       case "get-markdown": {
         const storage = editor.storage.markdown;
         const md = storage?.getMarkdown?.() ?? "";
@@ -283,6 +286,13 @@ window.__editorBridge = {
         break;
       case "set-link":
         editor.chain().focus().setLink({ href: msg.url }).run();
+        break;
+      case "insert-link":
+        editor.chain().focus().insertContent({
+          type: "text",
+          text: msg.text || msg.url,
+          marks: [{ type: "link", attrs: { href: msg.url } }],
+        }).run();
         break;
       case "unset-link":
         editor.chain().focus().unsetLink().run();

@@ -1,9 +1,9 @@
-import { describe, test, expect, afterEach, beforeEach, jest, mock } from "bun:test";
+import { describe, test, expect, afterEach, beforeEach, vi } from "vitest";
 import { render, screen, cleanup, act } from "../../test-utils";
 import { fireEvent } from "@testing-library/react";
 
-const mockListApiKeys = jest.fn(async () => [] as any[]);
-const mockCreateApiKey = jest.fn(async () => ({
+const mockListApiKeys = vi.fn(async () => [] as unknown[]);
+const mockCreateApiKey = vi.fn(async () => ({
   id: "key-new",
   name: "New Key",
   token: "osk_full_secret_token_value",
@@ -13,9 +13,9 @@ const mockCreateApiKey = jest.fn(async () => ({
   lastUsedAt: null,
   createdAt: "2026-03-10T00:00:00.000Z",
 }));
-const mockDeleteApiKey = jest.fn(async () => {});
+const mockDeleteApiKey = vi.fn(async () => {});
 
-mock.module("../../hooks/api/useApiKeysApi", () => ({
+vi.mock("../../hooks/api/useApiKeysApi", () => ({
   useApiKeysApi: () => ({
     listApiKeys: mockListApiKeys,
     createApiKey: mockCreateApiKey,
@@ -23,7 +23,7 @@ mock.module("../../hooks/api/useApiKeysApi", () => ({
   }),
 }));
 
-const { ApiKeysManager } = await import("./ApiKeysManager");
+import { ApiKeysManager } from "./ApiKeysManager";
 
 async function renderManager() {
   await act(async () => {
@@ -113,7 +113,7 @@ describe("ApiKeysManager", () => {
   });
 
   test("copy button copies token to clipboard", async () => {
-    const writeTextMock = jest.fn(async () => {});
+    const writeTextMock = vi.fn(async () => {});
     Object.defineProperty(navigator, "clipboard", {
       value: { writeText: writeTextMock },
       writable: true,
@@ -141,9 +141,6 @@ describe("ApiKeysManager", () => {
   });
 
   test("delete key calls deleteApiKey and removes from list", async () => {
-    const originalConfirm = globalThis.confirm;
-    globalThis.confirm = () => true;
-
     mockListApiKeys.mockImplementation(async () => [
       {
         id: "key-1",
@@ -164,16 +161,19 @@ describe("ApiKeysManager", () => {
       await new Promise((r) => setTimeout(r, 50));
     });
 
+    // Confirm dialog should appear
+    expect(screen.getByTestId("confirm-dialog-confirm")).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("confirm-dialog-confirm"));
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
     expect(mockDeleteApiKey).toHaveBeenCalledWith("key-1");
     expect(screen.queryByTestId("api-key-row-key-1")).toBeNull();
-
-    globalThis.confirm = originalConfirm;
   });
 
-  test("delete is cancelled when confirm returns false", async () => {
-    const originalConfirm = globalThis.confirm;
-    globalThis.confirm = () => false;
-
+  test("delete is cancelled when confirm dialog is dismissed", async () => {
     mockListApiKeys.mockImplementation(async () => [
       {
         id: "key-1",
@@ -193,9 +193,13 @@ describe("ApiKeysManager", () => {
       await new Promise((r) => setTimeout(r, 50));
     });
 
+    // Click cancel in confirm dialog
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("confirm-dialog-cancel"));
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
     expect(mockDeleteApiKey).not.toHaveBeenCalled();
     expect(screen.getByTestId("api-key-row-key-1")).toBeTruthy();
-
-    globalThis.confirm = originalConfirm;
   });
 });

@@ -7,11 +7,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  StyleSheet,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
 } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import type { Message, ChannelId, MessageId, ReactionGroup } from "@openslaq/shared";
+import { useRouter } from "expo-router";
+import type { Message, ChannelId, MessageId, UserId, ReactionGroup, MobileTheme } from "@openslaq/shared";
+import { asChannelId, asUserId, asMessageId } from "@openslaq/shared";
 import {
   loadThreadMessages,
   loadOlderReplies,
@@ -26,6 +28,7 @@ import { useChatStore } from "@/contexts/ChatStoreProvider";
 import { useSocketEvent } from "@/hooks/useSocketEvent";
 import { useMessageActions } from "@/hooks/useMessageActions";
 import { useOperationDeps } from "@/hooks/useOperationDeps";
+import { useMessageScrollTarget } from "@/hooks/useMessageScrollTarget";
 import { useTypingEmitter } from "@/hooks/useTypingEmitter";
 import { useTypingTracking } from "@/hooks/useTypingTracking";
 import { useFileUpload, type PendingFile } from "@/hooks/useFileUpload";
@@ -37,49 +40,58 @@ import { EmojiPickerSheet } from "@/components/EmojiPickerSheet";
 import { ShareMessageModal } from "@/components/ShareMessageModal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMobileTheme } from "@/theme/ThemeProvider";
+import { useThreadParams } from "@/hooks/useRouteParams";
 import { routes } from "@/lib/routes";
 
 export default function ThreadScreen() {
-  const { workspaceSlug, parentMessageId } = useLocalSearchParams<{
-    workspaceSlug: string;
-    parentMessageId: string;
-  }>();
+  const { workspaceSlug, parentMessageId } = useThreadParams();
   const { authProvider, user } = useAuth();
   const { state, dispatch } = useChatStore();
   const deps = useOperationDeps();
   const { theme } = useMobileTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { handleEditMessage, handleDeleteMessage, handleToggleReaction } = useMessageActions(user?.id);
+  const currentUserId = user?.id ? asUserId(user.id) : undefined;
+  const { handleEditMessage, handleDeleteMessage, handleToggleReaction } = useMessageActions(currentUserId);
+  const styles = makeStyles(theme);
 
-  const [editingMessage, setEditingMessage] = useState<{
-    id: string;
-    content: string;
-  } | null>(null);
+  const [editingMessage, setEditingMessage] = useState<{ id: MessageId; content: string } | null>(null);
   const [actionSheetMessage, setActionSheetMessage] = useState<Message | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [emojiPickerMessageId, setEmojiPickerMessageId] = useState<string | null>(null);
   const [members, setMembers] = useState<MentionSuggestionItem[]>([]);
   const [shareMessage, setShareMessage] = useState<Message | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollTarget = state.scrollTarget;
 
-  const parentMessage = parentMessageId
-    ? state.messagesById[parentMessageId]
-    : undefined;
-  const channelId = parentMessage?.channelId;
+  const parentMessage = parentMessageId ? state.messagesById[parentMessageId] : undefined;
+  const channelId =
+    parentMessage?.channelId ??
+    (scrollTarget != null && scrollTarget.parentMessageId === parentMessageId ? asChannelId(scrollTarget.channelId) : undefined);
   const customEmojis = state.customEmojis;
 
   const { emitTyping } = useTypingEmitter(channelId);
-  const typingUsers = useTypingTracking(channelId, user?.id, members);
+  const typingUsers = useTypingTracking(channelId, currentUserId, members as { id: UserId; displayName: string }[]);
   const fileUpload = useFileUpload();
 
-  // Load thread messages on mount
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+    };
+  }, []);
+
   useEffect(() => {
     if (!workspaceSlug || !parentMessageId || !channelId) return;
-    void loadThreadMessages(deps, { workspaceSlug, channelId, parentMessageId });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let cancelled = false;
+    void loadThreadMessages(deps, { workspaceSlug, channelId, parentMessageId }).then(() => {
+      if (cancelled) return;
+    });
+    return () => { cancelled = true; };
   }, [parentMessageId, channelId, dispatch, authProvider, workspaceSlug]);
 
-  // Load workspace members for mention autocomplete
   useEffect(() => {
     if (!workspaceSlug) return;
     let cancelled = false;
@@ -88,10 +100,9 @@ export default function ThreadScreen() {
       setMembers(result.map((m) => ({ id: m.id, displayName: m.displayName })));
     });
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [workspaceSlug, authProvider]);
 
-  // Real-time message events — filter to this thread's replies
   const onMessageNew = useCallback(
     (message: Message) => {
       if (message.parentMessageId === parentMessageId) {
@@ -103,10 +114,7 @@ export default function ThreadScreen() {
 
   const onMessageUpdated = useCallback(
     (message: Message) => {
-      if (
-        message.id === parentMessageId ||
-        message.parentMessageId === parentMessageId
-      ) {
+      if (message.id === parentMessageId || message.parentMessageId === parentMessageId) {
         dispatch({ type: "messages/upsert", message });
       }
     },
@@ -114,12 +122,8 @@ export default function ThreadScreen() {
   );
 
   const onMessageDeleted = useCallback(
-    (payload: { id: string; channelId: string }) => {
-      dispatch({
-        type: "messages/delete",
-        messageId: payload.id,
-        channelId: payload.channelId,
-      });
+    (payload: { id: MessageId; channelId: ChannelId }) => {
+      dispatch({ type: "messages/delete", messageId: payload.id, channelId: payload.channelId });
     },
     [dispatch],
   );
@@ -127,11 +131,7 @@ export default function ThreadScreen() {
   const onReactionUpdated = useCallback(
     (payload: { messageId: MessageId; channelId: ChannelId; reactions: ReactionGroup[] }) => {
       if (payload.channelId === channelId) {
-        dispatch({
-          type: "messages/updateReactions",
-          messageId: payload.messageId,
-          reactions: payload.reactions,
-        });
+        dispatch({ type: "messages/updateReactions", messageId: payload.messageId, reactions: payload.reactions });
       }
     },
     [channelId, dispatch],
@@ -142,49 +142,22 @@ export default function ThreadScreen() {
   useSocketEvent("message:deleted", onMessageDeleted);
   useSocketEvent("reaction:updated", onReactionUpdated);
 
-  // Get replies for this thread
-  const replyIds = parentMessageId
-    ? state.threadReplyIds[parentMessageId] ?? []
-    : [];
-  const replies = replyIds
-    .map((id) => state.messagesById[id])
-    .filter((m): m is Message => Boolean(m));
+  const replyIds = parentMessageId ? state.threadReplyIds[parentMessageId] ?? [] : [];
+  const replies = replyIds.map((id) => state.messagesById[id]).filter((m): m is Message => Boolean(m));
+  const isLoading = parentMessageId ? state.ui.threadLoading[parentMessageId] : false;
+  const error = parentMessageId ? state.ui.threadError[parentMessageId] : null;
+  const pagination = parentMessageId ? state.threadPagination[parentMessageId] : undefined;
 
-  const isLoading = parentMessageId
-    ? state.ui.threadLoading[parentMessageId]
-    : false;
-  const error = parentMessageId
-    ? state.ui.threadError[parentMessageId]
-    : null;
+  const handlePressSender = useCallback((userId: string) => { router.push(routes.profile(workspaceSlug!, userId)); }, [router, workspaceSlug]);
 
-  const pagination = parentMessageId
-    ? state.threadPagination[parentMessageId]
-    : undefined;
-
-  const handlePressSender = useCallback(
-    (userId: string) => {
-      router.push(routes.profile(workspaceSlug, userId));
-    },
-    [router, workspaceSlug],
-  );
-
-  const handleSendVoiceMessage = useCallback(
-    async (uri: string, _durationMs: number) => {
-      if (!workspaceSlug || !channelId || !parentMessageId) return;
-      const file: PendingFile = {
-        id: `voice-${Date.now()}`,
-        uri,
-        name: `voice-message-${Date.now()}.m4a`,
-        mimeType: "audio/mp4",
-        isImage: false,
-      };
-      fileUpload.addFile(file);
-      const attachmentIds = await fileUpload.uploadAll(() => authProvider.requireAccessToken());
-        await coreSendMessage(deps, { channelId, workspaceSlug, content: "", attachmentIds, parentMessageId });
-      fileUpload.reset();
-    },
-    [authProvider, channelId, dispatch, fileUpload, parentMessageId, state, workspaceSlug],
-  );
+  const handleSendVoiceMessage = useCallback(async (uri: string, _durationMs: number) => {
+    if (!workspaceSlug || !channelId || !parentMessageId) return;
+    const file: PendingFile = { id: `voice-${Date.now()}`, uri, name: `voice-message-${Date.now()}.m4a`, mimeType: "audio/mp4", isImage: false };
+    fileUpload.addFile(file);
+    const attachmentIds = await fileUpload.uploadAll(() => authProvider.requireAccessToken());
+    await coreSendMessage(deps, { channelId, workspaceSlug, content: "", attachmentIds, parentMessageId, userId: user?.id });
+    fileUpload.reset();
+  }, [authProvider, channelId, dispatch, fileUpload, parentMessageId, workspaceSlug]);
 
   const handleAddAttachment = useCallback(() => {
     Alert.alert("Attach", undefined, [
@@ -195,266 +168,157 @@ export default function ThreadScreen() {
     ]);
   }, [fileUpload]);
 
-  const handleSend = useCallback(
-    async (content: string) => {
-      if (!workspaceSlug || !channelId || !parentMessageId) return;
-      let attachmentIds: string[] = [];
-      if (fileUpload.hasFiles) {
-        attachmentIds = await fileUpload.uploadAll(() => authProvider.requireAccessToken());
-      }
-        await coreSendMessage(deps, {
-        channelId,
-        workspaceSlug,
-        content,
-        attachmentIds,
-        parentMessageId,
-      });
-      fileUpload.reset();
-    },
-    [authProvider, channelId, dispatch, fileUpload, parentMessageId, state, workspaceSlug],
-  );
+  const handleSend = useCallback(async (content: string): Promise<boolean> => {
+    if (!workspaceSlug || !channelId || !parentMessageId) return false;
+    let attachmentIds: string[] = [];
+    if (fileUpload.hasFiles) { attachmentIds = await fileUpload.uploadAll(() => authProvider.requireAccessToken()); }
+    const ok = await coreSendMessage(deps, { channelId, workspaceSlug, content, attachmentIds, parentMessageId, userId: user?.id });
+    if (ok) fileUpload.reset();
+    return ok;
+  }, [authProvider, channelId, dispatch, fileUpload, parentMessageId, workspaceSlug]);
 
   const handleLoadOlder = useCallback(() => {
-    if (
-      !workspaceSlug ||
-      !channelId ||
-      !parentMessageId ||
-      !pagination?.hasOlder ||
-      pagination.loadingOlder ||
-      !pagination.olderCursor
-    )
-      return;
-    void loadOlderReplies(deps, {
-      workspaceSlug,
-      channelId,
-      parentMessageId,
-      cursor: pagination.olderCursor,
-    });
-  }, [
-    authProvider,
-    channelId,
-    dispatch,
-    pagination,
-    parentMessageId,
-    state,
-    workspaceSlug,
-  ]);
+    if (!workspaceSlug || !channelId || !parentMessageId || !pagination?.hasOlder || pagination.loadingOlder || !pagination.olderCursor) return;
+    void loadOlderReplies(deps, { workspaceSlug, channelId, parentMessageId, cursor: pagination.olderCursor });
+  }, [authProvider, channelId, dispatch, pagination, parentMessageId, workspaceSlug]);
 
-  const handleStartEdit = useCallback((message: Message) => {
-    setEditingMessage({ id: message.id, content: message.content });
-  }, []);
+  const handleStartEdit = useCallback((message: Message) => { setEditingMessage({ id: message.id, content: message.content }); }, []);
+  const handleCancelEdit = useCallback(() => { setEditingMessage(null); }, []);
+  const handleSaveEdit = useCallback(async (messageId: string, content: string) => { await handleEditMessage(asMessageId(messageId), content); setEditingMessage(null); }, [handleEditMessage]);
+  const handleLongPress = useCallback((message: Message) => { setActionSheetMessage(message); }, []);
+  const handleOpenEmojiPicker = useCallback(() => { if (actionSheetMessage) { setEmojiPickerMessageId(actionSheetMessage.id); } setShowEmojiPicker(true); }, [actionSheetMessage]);
+  const handleEmojiSelect = useCallback((emoji: string) => { if (emojiPickerMessageId) { handleToggleReaction(asMessageId(emojiPickerMessageId), emoji); } setShowEmojiPicker(false); setEmojiPickerMessageId(null); }, [emojiPickerMessageId, handleToggleReaction]);
+  const handleMarkAsUnread = useCallback(async (messageId: string) => { if (!workspaceSlug || !channelId) return; await markChannelAsUnread(deps, { workspaceSlug, channelId, messageId }); }, [authProvider, channelId, dispatch, workspaceSlug]);
+  const handleShareMessage = useCallback((message: Message) => { setShareMessage(message); }, []);
+  const handleConfirmShare = useCallback(async (destinationChannelId: string, destinationName: string, comment: string) => {
+    if (!shareMessage || !workspaceSlug) return;
+    try { await shareMessageOp(deps, { workspaceSlug, destinationChannelId, sharedMessageId: shareMessage.id, comment }); Alert.alert("Shared", `Message shared to ${destinationName}`); } catch { Alert.alert("Error", "Failed to share message"); }
+    setShareMessage(null);
+  }, [authProvider, dispatch, shareMessage, workspaceSlug]);
 
-  const handleCancelEdit = useCallback(() => {
-    setEditingMessage(null);
-  }, []);
-
-  const handleSaveEdit = useCallback(
-    async (messageId: string, content: string) => {
-      await handleEditMessage(messageId, content);
-      setEditingMessage(null);
-    },
-    [handleEditMessage],
-  );
-
-  const handleLongPress = useCallback((message: Message) => {
-    setActionSheetMessage(message);
-  }, []);
-
-  const handleOpenEmojiPicker = useCallback(() => {
-    if (actionSheetMessage) {
-      setEmojiPickerMessageId(actionSheetMessage.id);
-    }
-    setShowEmojiPicker(true);
-  }, [actionSheetMessage]);
-
-  const handleEmojiSelect = useCallback(
-    (emoji: string) => {
-      if (emojiPickerMessageId) {
-        handleToggleReaction(emojiPickerMessageId, emoji);
-      }
-      setShowEmojiPicker(false);
-      setEmojiPickerMessageId(null);
-    },
-    [emojiPickerMessageId, handleToggleReaction],
-  );
-
-  const handleMarkAsUnread = useCallback(
-    async (messageId: string) => {
-      if (!workspaceSlug || !channelId) return;
-        await markChannelAsUnread(deps, { workspaceSlug, channelId, messageId });
-    },
-    [authProvider, channelId, dispatch, state, workspaceSlug],
-  );
-
-  const handleShareMessage = useCallback((message: Message) => {
-    setShareMessage(message);
-  }, []);
-
-  const handleConfirmShare = useCallback(
-    async (destinationChannelId: string, destinationName: string, comment: string) => {
-      if (!shareMessage || !workspaceSlug) return;
-      try {
-            await shareMessageOp(deps, {
-          workspaceSlug,
-          destinationChannelId,
-          sharedMessageId: shareMessage.id,
-          comment,
-        });
-        Alert.alert("Shared", `Message shared to ${destinationName}`);
-      } catch {
-        Alert.alert("Error", "Failed to share message");
-      }
-      setShareMessage(null);
-    },
-    [authProvider, dispatch, shareMessage, state, workspaceSlug],
-  );
-
-  // Build combined list: parent message + replies
   const data = parentMessage ? [parentMessage, ...replies] : replies;
+  const flatListRef = useRef<FlatList<Message>>(null);
 
-  const flatListRef = useRef<FlatList>(null);
+  const highlightMessage = useCallback((messageId: string) => {
+    if (highlightTimeoutRef.current) {
+      clearTimeout(highlightTimeoutRef.current);
+    }
+    setHighlightedMessageId(messageId);
+    highlightTimeoutRef.current = setTimeout(() => {
+      setHighlightedMessageId((current) => (current === messageId ? null : current));
+      highlightTimeoutRef.current = null;
+    }, 2000);
+  }, []);
 
-  // Scroll to bottom on initial thread load (so user sees newest replies)
   useEffect(() => {
-    if (data.length > 1 && !isLoading) {
+    if (
+      data.length > 1 &&
+      !isLoading &&
+      !(scrollTarget?.parentMessageId === parentMessageId)
+    ) {
       flatListRef.current?.scrollToEnd({ animated: false });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoading]);
+     
+  }, [data.length, isLoading, parentMessageId, scrollTarget?.parentMessageId]);
 
-  const handleScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      if (event.nativeEvent.contentOffset.y < 200) {
-        handleLoadOlder();
-      }
+  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => { if (event.nativeEvent.contentOffset.y < 200) { handleLoadOlder(); } }, [handleLoadOlder]);
+
+  const activeScrollTarget =
+    scrollTarget != null && scrollTarget.parentMessageId === parentMessageId
+      ? scrollTarget
+      : null;
+
+  useMessageScrollTarget({
+    scrollTarget: activeScrollTarget,
+    messages: data,
+    listRef: flatListRef,
+    isInitialLoading: Boolean(isLoading && data.length === 0),
+    canLoadOlder: pagination?.hasOlder ?? false,
+    loadingOlder: pagination?.loadingOlder ?? false,
+    onLoadOlder: handleLoadOlder,
+    onResolve: (messageId) => {
+      highlightMessage(messageId);
+      dispatch({ type: "navigation/clearScrollTarget" });
     },
-    [handleLoadOlder],
-  );
+    onExhausted: () => {
+      dispatch({ type: "navigation/clearScrollTarget" });
+    },
+  });
 
   if (!parentMessage) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.surface }}>
-        <ActivityIndicator size="large" color={theme.brand.primary} />
-      </View>
-    );
+    return (<View style={styles.center}><ActivityIndicator size="large" color={theme.brand.primary} /></View>);
   }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={{ flex: 1, backgroundColor: theme.colors.surface }}
-      keyboardVerticalOffset={insets.top + 56}
-    >
+    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flexSurface} keyboardVerticalOffset={insets.top + 56}>
       {isLoading && data.length === 0 ? (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator size="large" color={theme.brand.primary} />
-        </View>
+        <View style={styles.centerFlex}><ActivityIndicator size="large" color={theme.brand.primary} /></View>
       ) : error ? (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
-          <Text style={{ color: theme.colors.textFaint }}>{error}</Text>
-        </View>
+        <View style={styles.errorContainer}><Text style={styles.errorText}>{error}</Text></View>
       ) : (
         <FlatList
           ref={flatListRef}
           testID="thread-message-list"
           data={data}
           keyExtractor={(item) => item.id}
+          onScrollToIndexFailed={({ index }) => {
+            setTimeout(() => {
+              flatListRef.current?.scrollToIndex({
+                index,
+                animated: false,
+                viewPosition: 0.5,
+              });
+            }, 50);
+          }}
           renderItem={({ item, index }) => {
             const prev = index > 0 ? data[index - 1] : undefined;
-            const isGrouped =
-              index > 0 &&
-              prev != null &&
-              prev.userId === item.userId &&
-              new Date(item.createdAt).getTime() - new Date(prev.createdAt).getTime() < 5 * 60 * 1000 &&
-              new Date(item.createdAt).toDateString() === new Date(prev.createdAt).toDateString();
+            const isGrouped = index > 0 && prev != null && prev.userId === item.userId && new Date(item.createdAt).getTime() - new Date(prev.createdAt).getTime() < 5 * 60 * 1000 && new Date(item.createdAt).toDateString() === new Date(prev.createdAt).toDateString();
             return (
-            <View>
-              <MessageBubble
-                message={item}
-                isGrouped={isGrouped}
-                currentUserId={user?.id}
-                onToggleReaction={handleToggleReaction}
-                onLongPress={handleLongPress}
-                onPressSender={handlePressSender}
-                onPressMention={handlePressSender}
-                customEmojis={customEmojis}
-              />
-              {index === 0 && replies.length > 0 && (
-                <>
-                  <View
-                    style={{ marginHorizontal: 16, marginVertical: 8, borderBottomWidth: 1, borderColor: theme.colors.borderDefault }}
-                  />
-                  {pagination?.loadingOlder && (
-                    <View testID="thread-load-more-spinner" style={{ alignItems: 'center', paddingVertical: 16 }}>
-                      <ActivityIndicator size="small" color={theme.brand.primary} />
-                    </View>
-                  )}
-                </>
-              )}
-            </View>
+              <View>
+                <MessageBubble message={item} isGrouped={isGrouped} currentUserId={currentUserId} onToggleReaction={handleToggleReaction} onLongPress={handleLongPress} onPressSender={handlePressSender} onPressMention={handlePressSender} customEmojis={customEmojis} highlighted={item.id === highlightedMessageId} />
+                {index === 0 && replies.length > 0 && (
+                  <>
+                    <View style={styles.divider} />
+                    {pagination?.loadingOlder && (<View testID="thread-load-more-spinner" style={styles.loadMoreSpinner}><ActivityIndicator size="small" color={theme.brand.primary} /></View>)}
+                  </>
+                )}
+              </View>
             );
           }}
-          ListEmptyComponent={
-            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 48 }}>
-              <Text style={{ color: theme.colors.textFaint }}>
-                No replies yet
-              </Text>
-            </View>
-          }
-          contentContainerStyle={
-            data.length === 0 ? { flex: 1 } : undefined
-          }
+          ListEmptyComponent={<View style={styles.emptyContainer}><Text style={styles.emptyText}>No replies yet</Text></View>}
+          contentContainerStyle={data.length === 0 ? staticStyles.flexOne : undefined}
           onScroll={handleScroll}
           scrollEventThrottle={200}
           maintainVisibleContentPosition={{ minIndexForVisible: 1 }}
         />
       )}
       <TypingIndicator typingUsers={typingUsers} />
-      <MessageInput
-        onSend={handleSend}
-        placeholder="Reply in thread"
-        draftKey={parentMessageId ? `thread-${parentMessageId}` : undefined}
-        editingMessage={editingMessage}
-        onCancelEdit={handleCancelEdit}
-        onSaveEdit={handleSaveEdit}
-        members={members}
-        onTyping={emitTyping}
-        pendingFiles={fileUpload.pendingFiles}
-        onAddAttachment={handleAddAttachment}
-        onRemoveFile={fileUpload.removeFile}
-        uploading={fileUpload.uploading}
-        onSendVoiceMessage={handleSendVoiceMessage}
-      />
-      <MessageActionSheet
-        visible={actionSheetMessage != null}
-        message={actionSheetMessage}
-        currentUserId={user?.id}
-        onReaction={handleToggleReaction}
-        onOpenEmojiPicker={handleOpenEmojiPicker}
-        onEditMessage={handleStartEdit}
-        onDeleteMessage={handleDeleteMessage}
-        onMarkAsUnread={handleMarkAsUnread}
-        onShareMessage={handleShareMessage}
-        onClose={() => setActionSheetMessage(null)}
-      />
-      <EmojiPickerSheet
-        visible={showEmojiPicker}
-        onSelect={handleEmojiSelect}
-        onClose={() => {
-          setShowEmojiPicker(false);
-          setEmojiPickerMessageId(null);
-        }}
-        customEmojis={customEmojis}
-      />
-      <ShareMessageModal
-        visible={shareMessage != null}
-        message={shareMessage}
-        channels={state.channels.filter((c) => !c.isArchived)}
-        dms={state.dms}
-        groupDms={state.groupDms}
-        onShare={handleConfirmShare}
-        onClose={() => setShareMessage(null)}
-      />
+      <MessageInput onSend={handleSend} placeholder="Reply in thread" draftKey={parentMessageId ? `thread-${parentMessageId}` : undefined} editingMessage={editingMessage} onCancelEdit={handleCancelEdit} onSaveEdit={handleSaveEdit} members={members} onTyping={emitTyping} pendingFiles={fileUpload.pendingFiles} onAddAttachment={handleAddAttachment} onRemoveFile={fileUpload.removeFile} uploading={fileUpload.uploading} onSendVoiceMessage={handleSendVoiceMessage} autoFocus />
+      <View style={{ height: insets.bottom }} />
+      {actionSheetMessage && (
+        <MessageActionSheet visible message={actionSheetMessage} currentUserId={currentUserId} onReaction={handleToggleReaction} onOpenEmojiPicker={handleOpenEmojiPicker} onEditMessage={handleStartEdit} onDeleteMessage={handleDeleteMessage} onMarkAsUnread={handleMarkAsUnread} onShareMessage={handleShareMessage} onClose={() => setActionSheetMessage(null)} />
+      )}
+      {showEmojiPicker && (
+        <EmojiPickerSheet visible onSelect={handleEmojiSelect} onClose={() => { setShowEmojiPicker(false); setEmojiPickerMessageId(null); }} customEmojis={customEmojis} />
+      )}
+      {shareMessage && (
+        <ShareMessageModal visible message={shareMessage} channels={state.channels.filter((c) => !c.isArchived)} dms={state.dms} groupDms={state.groupDms} onShare={handleConfirmShare} onClose={() => setShareMessage(null)} />
+      )}
     </KeyboardAvoidingView>
   );
 }
+
+const staticStyles = StyleSheet.create({ flexOne: { flex: 1 } });
+
+const makeStyles = (theme: MobileTheme) =>
+  StyleSheet.create({
+    center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.surface },
+    flexSurface: { flex: 1, backgroundColor: theme.colors.surface },
+    centerFlex: { flex: 1, alignItems: "center", justifyContent: "center" },
+    errorContainer: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 24 },
+    errorText: { color: theme.colors.textFaint },
+    divider: { marginHorizontal: 16, marginVertical: 8, borderBottomWidth: 1, borderColor: theme.colors.borderDefault },
+    loadMoreSpinner: { alignItems: "center", paddingVertical: 16 },
+    emptyContainer: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 48 },
+    emptyText: { color: theme.colors.textFaint },
+  });

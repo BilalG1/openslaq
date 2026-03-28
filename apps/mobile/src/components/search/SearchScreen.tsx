@@ -4,6 +4,7 @@ import {
   FlatList,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   View,
@@ -14,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Search, X, Hash, AtSign, Paperclip } from "lucide-react-native";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { useSearch } from "@/hooks/useSearch";
+import { useChatStore } from "@/contexts/ChatStoreProvider";
 import { HeadlineRenderer } from "./HeadlineRenderer";
 import { ChannelPickerModal } from "./ChannelPickerModal";
 import { MemberPickerModal } from "./MemberPickerModal";
@@ -21,15 +23,20 @@ import { DatePickerModal } from "./DatePickerModal";
 import { routes } from "@/lib/routes";
 import { formatRelativeTime } from "@/lib/time";
 
+import { WHITE, SEARCH_BAR_BG, CHIP_ACTIVE_BG, CHIP_INACTIVE_BG } from "@/theme/constants";
+const SEARCH_ICON_COLOR = "#999";
+const SEARCH_TEXT_COLOR = "#1D1C1D";
+
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  if (parts.length >= 2) return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase();
   return name.trim()[0]?.toUpperCase() ?? "?";
 }
 
 export function SearchScreen() {
   const { workspaceSlug } = useLocalSearchParams<{ workspaceSlug: string }>();
   const router = useRouter();
+  const { dispatch } = useChatStore();
   const { theme } = useMobileTheme();
   const insets = useSafeAreaInsets();
   const inputRef = useRef<TextInput>(null);
@@ -44,6 +51,7 @@ export function SearchScreen() {
     loadMore,
     hasMore,
     reset,
+    recentSearches,
     channels,
     dms,
   } = useSearch(workspaceSlug);
@@ -66,6 +74,16 @@ export function SearchScreen() {
 
   const handleResultPress = useCallback(
     (item: SearchResultItem) => {
+      dispatch({
+        type: "navigation/setScrollTarget",
+        scrollTarget: {
+          channelId: item.channelId,
+          messageId: item.messageId,
+          highlightMessageId: item.messageId,
+          parentMessageId: item.parentMessageId ?? null,
+        },
+      });
+
       if (item.parentMessageId) {
         router.push(routes.thread(workspaceSlug!, item.parentMessageId));
       } else if (item.channelType === "dm") {
@@ -74,7 +92,7 @@ export function SearchScreen() {
         router.push(routes.channel(workspaceSlug!, item.channelId));
       }
     },
-    [router, workspaceSlug],
+    [dispatch, router, workspaceSlug],
   );
 
   const dateLabel =
@@ -118,57 +136,50 @@ export function SearchScreen() {
   const showInitialLoading = loading && results.length === 0;
 
   return (
-    <View testID="search-screen" style={{ flex: 1, backgroundColor: theme.colors.surface }}>
+    <View testID="search-screen" style={[styles.screenContainer, { backgroundColor: theme.colors.surface }]}>
       {/* Dark header area */}
       <View style={{ backgroundColor: theme.colors.headerBg, paddingTop: insets.top }}>
         {/* Search input row */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            paddingHorizontal: 12,
-            paddingVertical: 8,
-          }}
-        >
-          <View
-            style={{
-              flex: 1,
-              flexDirection: "row",
-              alignItems: "center",
-              backgroundColor: "rgba(255,255,255,0.95)",
-              borderRadius: 10,
-              paddingHorizontal: 10,
-              paddingVertical: 8,
-            }}
-          >
-            <Search size={16} color="#999" />
+        <View style={styles.inputRow}>
+          <View style={styles.searchBarContainer}>
+            <Search size={16} color={SEARCH_ICON_COLOR} />
             <TextInput
               ref={inputRef}
               testID="search-input"
+              accessibilityLabel="Search messages"
+              accessibilityHint="Type to search messages"
               placeholder="Search messages..."
-              placeholderTextColor="#999"
+              placeholderTextColor={SEARCH_ICON_COLOR}
               value={filters.q}
               onChangeText={(text) => updateFilters({ q: text })}
               autoFocus
               autoCapitalize="none"
               autoCorrect={false}
               returnKeyType="search"
-              style={{
-                flex: 1,
-                fontSize: 16,
-                color: "#1D1C1D",
-                paddingHorizontal: 8,
-                paddingVertical: 0,
-              }}
+              style={styles.searchInput}
             />
             {filters.q.length > 0 && (
-              <Pressable testID="search-clear-button" onPress={handleClear} hitSlop={8}>
-                <X size={16} color="#999" />
+              <Pressable
+                testID="search-clear-button"
+                accessibilityRole="button"
+                accessibilityLabel="Clear search"
+                accessibilityHint="Clears the search text"
+                onPress={handleClear}
+                hitSlop={8}
+              >
+                <X size={16} color={SEARCH_ICON_COLOR} />
               </Pressable>
             )}
           </View>
-          <Pressable onPress={handleCancel} hitSlop={8} style={{ marginLeft: 12 }}>
-            <Text style={{ color: theme.colors.headerText, fontSize: 16 }}>Cancel</Text>
+          <Pressable
+            onPress={handleCancel}
+            accessibilityRole="button"
+            accessibilityLabel="Cancel search"
+            accessibilityHint="Closes the search screen"
+            hitSlop={8}
+            style={styles.cancelButton}
+          >
+            <Text style={[styles.cancelText, { color: theme.colors.headerText }]}>Cancel</Text>
           </Pressable>
         </View>
 
@@ -177,33 +188,26 @@ export function SearchScreen() {
           testID="filter-chips"
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 10, gap: 8 }}
-          style={{ flexGrow: 0 }}
+          contentContainerStyle={styles.chipScrollContent}
+          style={styles.chipScrollView}
         >
           {chipDefs.map((chip) => {
             const active = Boolean(chip.value);
             return (
-              <View key={chip.key} style={{ flexDirection: "row" }}>
+              <View key={chip.key} style={styles.chipRow}>
                 <Pressable
                   testID={`filter-chip-${chip.key}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={chip.value ?? chip.label}
+                  accessibilityHint={active ? "Tap to change filter" : `Tap to filter by ${chip.label}`}
                   onPress={chip.onPress}
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    paddingHorizontal: 12,
-                    paddingVertical: 6,
-                    borderRadius: 16,
-                    backgroundColor: active
-                      ? "rgba(255,255,255,0.35)"
-                      : "rgba(255,255,255,0.15)",
-                  }}
+                  style={[
+                    styles.chipPressable,
+                    { backgroundColor: active ? CHIP_ACTIVE_BG : CHIP_INACTIVE_BG },
+                  ]}
                 >
                   <Text
-                    style={{
-                      fontSize: 13,
-                      color: "#FFFFFF",
-                      fontWeight: active ? "600" : "400",
-                    }}
+                    style={active ? styles.chipTextActive : styles.chipText}
                     numberOfLines={1}
                   >
                     {chip.value ?? chip.label}
@@ -211,11 +215,14 @@ export function SearchScreen() {
                   {active && (
                     <Pressable
                       testID={`filter-chip-clear-${chip.key}`}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Clear ${chip.label} filter`}
+                      accessibilityHint="Removes this filter"
                       onPress={() => chip.onClear()}
                       hitSlop={8}
-                      style={{ marginLeft: 6 }}
+                      style={styles.chipClearButton}
                     >
-                      <X size={12} color="#FFFFFF" />
+                      <X size={12} color={WHITE} />
                     </Pressable>
                   )}
                 </Pressable>
@@ -227,35 +234,38 @@ export function SearchScreen() {
 
       {/* Pre-search state */}
       {showEmpty && (
-        <View style={{ flex: 1, padding: 20 }}>
-          <Text
-            style={{
-              fontSize: 14,
-              fontWeight: "600",
-              color: theme.colors.textSecondary,
-              marginBottom: 12,
-              textTransform: "uppercase",
-              letterSpacing: 0.5,
-            }}
-          >
+        <View style={styles.emptyContainer}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>
             Recent searches
           </Text>
-          <Text style={{ fontSize: 15, color: theme.colors.textFaint, marginBottom: 24 }}>
-            Try searching for messages
-          </Text>
-          <Text
-            style={{
-              fontSize: 14,
-              fontWeight: "600",
-              color: theme.colors.textSecondary,
-              marginBottom: 12,
-              textTransform: "uppercase",
-              letterSpacing: 0.5,
-            }}
-          >
+          {recentSearches.length === 0 ? (
+            <Text style={[styles.emptyHint, { color: theme.colors.textFaint }]}>
+              Try searching for messages
+            </Text>
+          ) : (
+            <View style={styles.recentSearchesList}>
+              {recentSearches.map((query) => (
+                <Pressable
+                  key={query}
+                  testID={`recent-search-${query}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Search for ${query}`}
+                  accessibilityHint="Taps to search for this query"
+                  onPress={() => updateFilters({ q: query })}
+                  style={styles.recentSearchRow}
+                >
+                  <Search size={14} color={theme.colors.textFaint} />
+                  <Text style={[styles.recentSearchText, { color: theme.colors.textPrimary }]} numberOfLines={1}>
+                    {query}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+          <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>
             Browse
           </Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScrollView}>
             {[
               { label: "Channels", icon: <Hash size={24} color={theme.colors.textSecondary} />, route: routes.browse(workspaceSlug!) },
               { label: "People", icon: <AtSign size={24} color={theme.colors.textSecondary} />, route: `/(app)/${workspaceSlug}/(tabs)/(dms)` },
@@ -264,19 +274,14 @@ export function SearchScreen() {
               <Pressable
                 key={item.label}
                 testID={`browse-card-${item.label.toLowerCase()}`}
+                accessibilityRole="button"
+                accessibilityLabel={`Browse ${item.label}`}
+                accessibilityHint={`Navigate to ${item.label}`}
                 onPress={() => router.push(item.route as any)}
-                style={{
-                  width: 100,
-                  height: 80,
-                  borderRadius: 12,
-                  backgroundColor: theme.colors.surfaceSecondary,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginRight: 10,
-                }}
+                style={[styles.browseCard, { backgroundColor: theme.colors.surfaceSecondary }]}
               >
-                <View style={{ marginBottom: 4 }}>{item.icon}</View>
-                <Text style={{ fontSize: 13, color: theme.colors.textSecondary, fontWeight: "500" }}>
+                <View style={styles.browseCardIcon}>{item.icon}</View>
+                <Text style={[styles.browseCardLabel, { color: theme.colors.textSecondary }]}>
                   {item.label}
                 </Text>
               </Pressable>
@@ -288,24 +293,30 @@ export function SearchScreen() {
       {showInitialLoading && (
         <ActivityIndicator
           testID="search-loading"
-          style={{ marginTop: 32 }}
+          style={styles.loadingIndicator}
           size="large"
           color={theme.brand.primary}
         />
       )}
 
       {error && (
-        <View testID="search-error" style={{ padding: 16, alignItems: "center" }}>
-          <Text style={{ color: theme.colors.dangerText, textAlign: "center", marginBottom: 12 }}>{error}</Text>
-          <Pressable testID="search-retry" onPress={() => updateFilters({ q: filters.q })}>
-            <Text style={{ fontSize: 14, fontWeight: "600", color: theme.brand.primary }}>Retry</Text>
+        <View testID="search-error" style={styles.errorContainer}>
+          <Text style={[styles.errorText, { color: theme.colors.dangerText }]}>{error}</Text>
+          <Pressable
+            testID="search-retry"
+            accessibilityRole="button"
+            accessibilityLabel="Retry search"
+            accessibilityHint="Retries the failed search"
+            onPress={() => updateFilters({ q: filters.q })}
+          >
+            <Text style={[styles.retryText, { color: theme.brand.primary }]}>Retry</Text>
           </Pressable>
         </View>
       )}
 
       {showNoResults && (
-        <View testID="search-no-results" style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 32 }}>
-          <Text style={{ fontSize: 16, color: theme.colors.textFaint, textAlign: "center" }}>
+        <View testID="search-no-results" style={styles.noResultsContainer}>
+          <Text style={[styles.noResultsText, { color: theme.colors.textFaint }]}>
             No results found
           </Text>
         </View>
@@ -315,7 +326,7 @@ export function SearchScreen() {
         <>
           <Text
             testID="search-result-count"
-            style={{ fontSize: 12, color: theme.colors.textFaint, paddingHorizontal: 16, paddingVertical: 8 }}
+            style={[styles.resultCount, { color: theme.colors.textFaint }]}
           >
             {total} result{total !== 1 ? "s" : ""}
           </Text>
@@ -326,6 +337,9 @@ export function SearchScreen() {
             renderItem={({ item }) => (
               <Pressable
                 testID={`search-result-${item.messageId}`}
+                accessibilityRole="button"
+                accessibilityLabel={`Message from ${item.userDisplayName}`}
+                accessibilityHint="Opens this message"
                 onPress={() => handleResultPress(item)}
                 style={({ pressed }) => ({
                   opacity: pressed ? 0.7 : 1,
@@ -337,36 +351,25 @@ export function SearchScreen() {
                 })}
               >
                 {/* Avatar circle */}
-                <View
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 18,
-                    backgroundColor: theme.colors.avatarFallbackBg,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginRight: 12,
-                    marginTop: 2,
-                  }}
-                >
-                  <Text style={{ color: theme.colors.avatarFallbackText, fontSize: 14, fontWeight: "600" }}>
+                <View style={[styles.resultAvatar, { backgroundColor: theme.colors.avatarFallbackBg }]}>
+                  <Text style={[styles.resultAvatarText, { color: theme.colors.avatarFallbackText }]}>
                     {getInitials(item.userDisplayName)}
                   </Text>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 2 }}>
+                <View style={styles.resultContent}>
+                  <View style={styles.resultHeaderRow}>
                     <Text
-                      style={{ fontSize: 13, color: theme.colors.textSecondary, flex: 1 }}
+                      style={[styles.resultChannelName, { color: theme.colors.textSecondary }]}
                       numberOfLines={1}
                     >
                       {item.channelType !== "dm" ? "# " : ""}{item.channelName}
                     </Text>
-                    <Text style={{ fontSize: 12, color: theme.colors.textFaint, marginLeft: 8 }}>
+                    <Text style={[styles.resultTimestamp, { color: theme.colors.textFaint }]}>
                       {formatRelativeTime(item.createdAt)}
                     </Text>
                   </View>
                   <Text
-                    style={{ fontSize: 14, fontWeight: "600", color: theme.colors.textPrimary, marginBottom: 2 }}
+                    style={[styles.resultSenderName, { color: theme.colors.textPrimary }]}
                     numberOfLines={1}
                   >
                     {item.userDisplayName}
@@ -418,3 +421,175 @@ export function SearchScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  screenContainer: {
+    flex: 1,
+  },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  searchBarContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: SEARCH_BAR_BG,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: SEARCH_TEXT_COLOR,
+    paddingHorizontal: 8,
+    paddingVertical: 0,
+  },
+  cancelButton: {
+    marginLeft: 12,
+  },
+  cancelText: {
+    fontSize: 16,
+  },
+  chipScrollContent: {
+    paddingHorizontal: 12,
+    paddingBottom: 10,
+    gap: 8,
+  },
+  chipScrollView: {
+    flexGrow: 0,
+  },
+  chipRow: {
+    flexDirection: "row",
+  },
+  chipPressable: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  chipText: {
+    fontSize: 13,
+    color: WHITE,
+    fontWeight: "400",
+  },
+  chipTextActive: {
+    fontSize: 13,
+    color: WHITE,
+    fontWeight: "600",
+  },
+  chipClearButton: {
+    marginLeft: 6,
+  },
+  emptyContainer: {
+    flex: 1,
+    padding: 20,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 12,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  emptyHint: {
+    fontSize: 15,
+    marginBottom: 24,
+  },
+  recentSearchesList: {
+    marginBottom: 24,
+  },
+  recentSearchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    gap: 10,
+  },
+  recentSearchText: {
+    fontSize: 15,
+    flex: 1,
+  },
+  browseCard: {
+    width: 100,
+    height: 80,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  browseCardIcon: {
+    marginBottom: 4,
+  },
+  browseCardLabel: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  loadingIndicator: {
+    marginTop: 32,
+  },
+  errorContainer: {
+    padding: 16,
+    alignItems: "center",
+  },
+  errorText: {
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  retryText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  noResultsContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 32,
+  },
+  noResultsText: {
+    fontSize: 16,
+    textAlign: "center",
+  },
+  resultCount: {
+    fontSize: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  resultAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+    marginTop: 2,
+  },
+  resultAvatarText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  resultContent: {
+    flex: 1,
+  },
+  resultHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 2,
+  },
+  resultChannelName: {
+    fontSize: 13,
+    flex: 1,
+  },
+  resultTimestamp: {
+    fontSize: 12,
+    marginLeft: 8,
+  },
+  resultSenderName: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+});

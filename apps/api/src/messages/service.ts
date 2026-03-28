@@ -193,7 +193,7 @@ async function batchBotInfo(messageRows: { id: string; userId: string }[]) {
 async function batchSharedMessages(
   messageRows: { id: string; sharedMessageId: string | null }[],
 ): Promise<Map<string, SharedMessageInfo>> {
-  const entries = messageRows.filter((m) => m.sharedMessageId != null);
+  const entries = messageRows.filter((m) => m.sharedMessageId !== null);
   if (entries.length === 0) return new Map();
 
   const sharedIds = [...new Set(entries.map((m) => m.sharedMessageId!))];

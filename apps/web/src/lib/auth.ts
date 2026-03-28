@@ -1,5 +1,6 @@
 import { stackApp } from "../stack";
 import { AuthError } from "@openslaq/client-core";
+import { clearDevSession } from "./dev-auth";
 
 interface AuthJsonUser {
   getAuthJson: () => Promise<{ accessToken?: string | null }>;
@@ -22,6 +23,7 @@ export async function requireAccessToken(user: AuthUser): Promise<string> {
 }
 
 export async function redirectToAuth(): Promise<void> {
+  clearDevSession();
   await stackApp.signOut();
   window.location.assign("/handler/sign-in");
 }

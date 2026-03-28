@@ -1,10 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Alert } from "react-native";
 import {
   Pressable,
   Text,
   ActivityIndicator,
   Keyboard,
+  StyleSheet,
 } from "react-native";
+import type { MobileTheme } from "@openslaq/shared";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { Input } from "@/components/ui/Input";
@@ -16,6 +19,25 @@ interface Props {
   onSave: (description: string | null) => Promise<void>;
 }
 
+const makeStyles = (theme: MobileTheme) =>
+  StyleSheet.create({
+    input: {
+      marginBottom: 12,
+      minHeight: 80,
+      textAlignVertical: "top",
+    },
+    saveButtonText: {
+      color: theme.colors.headerText,
+      fontWeight: "600",
+      fontSize: 16,
+    },
+    clearButtonText: {
+      color: theme.colors.dangerText,
+      fontWeight: "500",
+      fontSize: 16,
+    },
+  });
+
 export function EditTopicModal({
   visible,
   onClose,
@@ -23,6 +45,7 @@ export function EditTopicModal({
   onSave,
 }: Props) {
   const { theme } = useMobileTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const [draft, setDraft] = useState(currentDescription ?? "");
   const [saving, setSaving] = useState(false);
 
@@ -38,6 +61,8 @@ export function EditTopicModal({
     try {
       await onSave(draft.trim() || null);
       onClose();
+    } catch (err) {
+      Alert.alert("Error", err instanceof Error ? err.message : "Failed to save topic");
     } finally {
       setSaving(false);
     }
@@ -48,6 +73,8 @@ export function EditTopicModal({
     try {
       await onSave(null);
       onClose();
+    } catch (err) {
+      Alert.alert("Error", err instanceof Error ? err.message : "Failed to clear topic");
     } finally {
       setSaving(false);
     }
@@ -70,17 +97,15 @@ export function EditTopicModal({
         onChangeText={setDraft}
         multiline
         maxLength={500}
-        style={{
-          marginBottom: 12,
-          minHeight: 80,
-          textAlignVertical: "top",
-        }}
+        style={styles.input}
       />
 
       <Pressable
         testID="edit-topic-save"
         onPress={handleSave}
         disabled={saving}
+        accessibilityLabel="Save topic"
+        accessibilityHint="Saves the topic for this channel"
         style={({ pressed }) => ({
           opacity: pressed ? 0.8 : 1,
           backgroundColor: saving
@@ -88,14 +113,14 @@ export function EditTopicModal({
             : theme.brand.primary,
           borderRadius: 8,
           paddingVertical: 12,
-          alignItems: "center",
+          alignItems: "center" as const,
           marginBottom: currentDescription ? 8 : 0,
         })}
       >
         {saving ? (
-          <ActivityIndicator size="small" color="#fff" />
+          <ActivityIndicator size="small" color={theme.colors.headerText} />
         ) : (
-          <Text style={{ color: "#fff", fontWeight: "600", fontSize: 16 }}>
+          <Text style={styles.saveButtonText}>
             Save
           </Text>
         )}
@@ -106,16 +131,18 @@ export function EditTopicModal({
           testID="edit-topic-clear"
           onPress={handleClear}
           disabled={saving}
+          accessibilityLabel="Clear topic"
+          accessibilityHint="Removes the current topic from this channel"
           style={({ pressed }) => ({
             opacity: pressed ? 0.8 : 1,
             borderRadius: 8,
             paddingVertical: 12,
-            alignItems: "center",
+            alignItems: "center" as const,
             borderWidth: 1,
             borderColor: theme.colors.borderDefault,
           })}
         >
-          <Text style={{ color: theme.colors.dangerText, fontWeight: "500", fontSize: 16 }}>
+          <Text style={styles.clearButtonText}>
             Clear Topic
           </Text>
         </Pressable>

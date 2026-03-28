@@ -1,15 +1,18 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import type { AuthEnv } from "../auth/types";
 import { auth } from "../auth/middleware";
+import { BEARER_SECURITY, jsonContent } from "../lib/openapi-helpers";
 import { rlRead } from "../rate-limit";
 import { jsonResponse } from "../openapi/responses";
 import { errorSchema } from "../openapi/schemas";
 import { listListings, getListingBySlug } from "./service";
+import { NotFoundError } from "../errors";
 
 const BOT_SCOPES = [
   "chat:write",
   "chat:read",
   "channels:read",
+  "channels:join",
   "channels:write",
   "reactions:write",
   "reactions:read",
@@ -54,13 +57,10 @@ const listRoute = createRoute({
   tags: ["Marketplace"],
   summary: "List marketplace listings",
   description: "Returns all published marketplace bot listings.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlRead] as const,
   responses: {
-    200: {
-      content: { "application/json": { schema: z.array(listingSchema) } },
-      description: "List of marketplace listings",
-    },
+    200: jsonContent(z.array(listingSchema), "List of marketplace listings"),
   },
 });
 
@@ -70,20 +70,14 @@ const getBySlugRoute = createRoute({
   tags: ["Marketplace"],
   summary: "Get marketplace listing",
   description: "Returns a single marketplace listing by slug.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlRead] as const,
   request: {
     params: z.object({ slug: z.string() }),
   },
   responses: {
-    200: {
-      content: { "application/json": { schema: listingSchema } },
-      description: "Listing details",
-    },
-    404: {
-      content: { "application/json": { schema: errorSchema } },
-      description: "Listing not found",
-    },
+    200: jsonContent(listingSchema, "Listing details"),
+    404: jsonContent(errorSchema, "Listing not found"),
   },
 });
 
@@ -98,7 +92,7 @@ const routes = app
   .openapi(getBySlugRoute, async (c) => {
     const slug = c.req.valid("param").slug;
     const listing = await getListingBySlug(slug);
-    if (!listing) return c.json({ error: "Listing not found" }, 404);
+    if (!listing) throw new NotFoundError("Listing");
     return jsonResponse(c, listing, 200);
   });
 

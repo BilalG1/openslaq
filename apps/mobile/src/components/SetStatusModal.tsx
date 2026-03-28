@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import {
+  Alert,
   Pressable,
   Text,
   View,
   ScrollView,
+  StyleSheet,
 } from "react-native";
 import {
   STATUS_PRESETS,
@@ -17,6 +19,7 @@ import {
   type ApiDeps,
 } from "@openslaq/client-core";
 import type { ChatAction } from "@openslaq/client-core";
+import type { UserId } from "@openslaq/shared";
 import { EmojiPickerSheet } from "./EmojiPickerSheet";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { BottomSheet } from "@/components/ui/BottomSheet";
@@ -27,7 +30,7 @@ interface Props {
   onClose: () => void;
   currentEmoji?: string | null;
   currentText?: string | null;
-  userId: string;
+  userId: UserId;
   deps: ApiDeps;
   dispatch: (action: ChatAction) => void;
 }
@@ -82,6 +85,8 @@ export function SetStatusModal({
         }),
       );
       onClose();
+    } catch (err) {
+      Alert.alert("Error", err instanceof Error ? err.message : "Failed to set status");
     } finally {
       setSaving(false);
     }
@@ -102,6 +107,8 @@ export function SetStatusModal({
       setEmoji("");
       setText("");
       onClose();
+    } catch (err) {
+      Alert.alert("Error", err instanceof Error ? err.message : "Failed to clear status");
     } finally {
       setSaving(false);
     }
@@ -113,22 +120,19 @@ export function SetStatusModal({
     <>
       <BottomSheet visible={visible} onClose={onClose} title="Set a status" avoidKeyboard testID="set-status-modal">
         {/* Emoji + Text input row */}
-        <View style={{ flexDirection: "row", gap: 8, marginBottom: 16 }}>
+        <View style={styles.inputRow}>
           <Pressable
             testID="status-emoji-field"
             onPress={() => setEmojiPickerVisible(true)}
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 8,
-              borderWidth: 1,
+            accessibilityRole="button"
+            accessibilityLabel="Select emoji"
+            accessibilityHint="Opens emoji picker to choose a status emoji"
+            style={[styles.emojiButton, {
               borderColor: theme.colors.borderDefault,
               backgroundColor: theme.colors.surfaceSecondary,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
+            }]}
           >
-            <Text style={{ fontSize: 24 }}>
+            <Text style={styles.emojiText}>
               {emoji || "\u{1F600}"}
             </Text>
           </Pressable>
@@ -139,10 +143,7 @@ export function SetStatusModal({
             placeholder="What's your status?"
             placeholderTextColor={theme.colors.textFaint}
             maxLength={100}
-            style={{
-              flex: 1,
-              height: 48,
-            }}
+            style={styles.textInput}
           />
         </View>
 
@@ -150,32 +151,25 @@ export function SetStatusModal({
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          style={{ marginBottom: 16 }}
+          style={styles.presetsScroll}
         >
-          <View style={{ flexDirection: "row", gap: 8 }}>
+          <View style={styles.presetsRow}>
             {STATUS_PRESETS.map((preset) => (
               <Pressable
                 key={preset.text}
                 testID={`status-preset-${preset.text.toLowerCase().replace(/\s+/g, "-")}`}
                 onPress={() => handlePreset(preset)}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 4,
-                  paddingHorizontal: 10,
-                  paddingVertical: 8,
-                  borderRadius: 8,
-                  borderWidth: 1,
+                accessibilityRole="button"
+                accessibilityLabel={`${preset.emoji} ${preset.text}`}
+                accessibilityHint={`Sets status to ${preset.text}`}
+                style={[styles.presetButton, {
                   borderColor: theme.colors.borderDefault,
                   backgroundColor: theme.colors.surfaceSecondary,
-                }}
+                }]}
               >
-                <Text style={{ fontSize: 14 }}>{preset.emoji}</Text>
+                <Text style={styles.presetEmoji}>{preset.emoji}</Text>
                 <Text
-                  style={{
-                    fontSize: 13,
-                    color: theme.colors.textPrimary,
-                  }}
+                  style={[styles.presetText, { color: theme.colors.textPrimary }]}
                 >
                   {preset.text}
                 </Text>
@@ -186,61 +180,66 @@ export function SetStatusModal({
 
         {/* Duration chips */}
         <Text
-          style={{
-            fontSize: 13,
-            color: theme.colors.textMuted,
-            marginBottom: 8,
-          }}
+          style={[styles.clearAfterLabel, { color: theme.colors.textMuted }]}
         >
           Clear after
         </Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          style={{ marginBottom: 20 }}
+          style={styles.durationScroll}
         >
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            {DURATION_OPTIONS.map((opt) => (
-              <Pressable
-                key={opt}
-                testID={`status-duration-${opt}`}
-                onPress={() => setDuration(opt)}
-                style={{
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
-                  borderRadius: 16,
-                  backgroundColor:
-                    duration === opt
-                      ? theme.brand.primary
-                      : theme.colors.surfaceSecondary,
-                  borderWidth: duration === opt ? 0 : 1,
-                  borderColor: theme.colors.borderDefault,
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: 13,
-                    color:
-                      duration === opt
-                        ? "#fff"
-                        : theme.colors.textPrimary,
-                    fontWeight: duration === opt ? "600" : "400",
-                  }}
+          <View style={styles.presetsRow}>
+            {DURATION_OPTIONS.map((opt) => {
+              const isSelected = duration === opt;
+              return (
+                <Pressable
+                  key={opt}
+                  testID={`status-duration-${opt}`}
+                  onPress={() => setDuration(opt)}
+                  accessibilityRole="button"
+                  accessibilityLabel={DURATION_LABELS[opt]}
+                  accessibilityHint={`Sets clear duration to ${DURATION_LABELS[opt]}`}
+                  style={[
+                    styles.durationChip,
+                    isSelected ? styles.durationChipSelected : styles.durationChipUnselected,
+                    {
+                      backgroundColor: isSelected
+                        ? theme.brand.primary
+                        : theme.colors.surfaceSecondary,
+                      borderColor: theme.colors.borderDefault,
+                    },
+                  ]}
                 >
-                  {DURATION_LABELS[opt]}
-                </Text>
-              </Pressable>
-            ))}
+                  <Text
+                    style={[
+                      styles.durationText,
+                      isSelected ? styles.durationTextSelected : styles.durationTextUnselected,
+                      {
+                        color: isSelected
+                          ? theme.colors.headerText
+                          : theme.colors.textPrimary,
+                      },
+                    ]}
+                  >
+                    {DURATION_LABELS[opt]}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
         </ScrollView>
 
         {/* Action buttons */}
-        <View style={{ flexDirection: "row", gap: 12 }}>
+        <View style={styles.actionsRow}>
           {hasCurrentStatus && (
             <Pressable
               testID="clear-status-button"
               onPress={handleClear}
               disabled={saving}
+              accessibilityRole="button"
+              accessibilityLabel="Clear status"
+              accessibilityHint="Clears your current status"
               style={({ pressed }) => ({
                 flex: 1,
                 paddingVertical: 14,
@@ -252,11 +251,7 @@ export function SetStatusModal({
               })}
             >
               <Text
-                style={{
-                  fontSize: 16,
-                  fontWeight: "600",
-                  color: theme.colors.textPrimary,
-                }}
+                style={[styles.clearButtonText, { color: theme.colors.textPrimary }]}
               >
                 Clear Status
               </Text>
@@ -266,6 +261,9 @@ export function SetStatusModal({
             testID="save-status-button"
             onPress={handleSave}
             disabled={saving || (!emoji && !text)}
+            accessibilityRole="button"
+            accessibilityLabel={saving ? "Saving status" : "Save status"}
+            accessibilityHint="Saves your status"
             style={({ pressed }) => ({
               flex: 1,
               paddingVertical: 14,
@@ -277,11 +275,7 @@ export function SetStatusModal({
             })}
           >
             <Text
-              style={{
-                fontSize: 16,
-                fontWeight: "600",
-                color: "#fff",
-              }}
+              style={[styles.saveButtonText, { color: theme.colors.headerText }]}
             >
               {saving ? "Saving..." : "Save"}
             </Text>
@@ -297,3 +291,87 @@ export function SetStatusModal({
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  inputRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 16,
+  },
+  emojiButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emojiText: {
+    fontSize: 24,
+  },
+  textInput: {
+    flex: 1,
+    height: 48,
+  },
+  presetsScroll: {
+    marginBottom: 16,
+  },
+  presetsRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  presetButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  presetEmoji: {
+    fontSize: 14,
+  },
+  presetText: {
+    fontSize: 13,
+  },
+  clearAfterLabel: {
+    fontSize: 13,
+    marginBottom: 8,
+  },
+  durationScroll: {
+    marginBottom: 20,
+  },
+  durationChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  durationChipSelected: {
+    borderWidth: 0,
+  },
+  durationChipUnselected: {
+    borderWidth: 1,
+  },
+  durationText: {
+    fontSize: 13,
+  },
+  durationTextSelected: {
+    fontWeight: "600",
+  },
+  durationTextUnselected: {
+    fontWeight: "400",
+  },
+  actionsRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  clearButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+});

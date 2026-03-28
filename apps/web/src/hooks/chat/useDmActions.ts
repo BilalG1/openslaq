@@ -57,6 +57,8 @@ export function useDmActions(user: AuthJsonUser | null | undefined, workspaceSlu
             displayName: targetMember.displayName,
             avatarUrl: targetMember.avatarUrl,
           },
+          lastMessageContent: null,
+          lastMessageAt: null,
         };
 
         dispatch({ type: "workspace/addDm", dm });

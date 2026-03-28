@@ -1,4 +1,4 @@
-import { describe, expect, test, afterEach } from "bun:test";
+import { describe, expect, test, afterEach } from "vitest";
 import { render, screen, cleanup } from "../../test-utils";
 import { DaySeparator } from "./DaySeparator";
 

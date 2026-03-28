@@ -24,7 +24,7 @@ describe("bot admin API", () => {
     });
 
     expect(res.status).toBe(201);
-    const data = (await res.json()) as { bot: any; apiToken: string };
+    const data = (await res.json()) as unknown as { bot: { id: string; userId: string; name: string; scopes: string[]; enabled: boolean; subscribedEvents: string[]; webhookUrl?: string }; apiToken: string };
     expect(data.bot.id).toBeDefined();
     expect(data.bot.name).toMatch(/Test Bot/);
     expect(data.bot.userId).toMatch(/^bot:/);
@@ -51,7 +51,7 @@ describe("bot admin API", () => {
       param: { slug },
     });
     expect(listRes.status).toBe(200);
-    const bots = (await listRes.json()) as any[];
+    const bots = (await listRes.json()) as unknown as Array<{ id: string; name: string; enabled: boolean; subscribedEvents: string[] }>;
     expect(bots.length).toBeGreaterThanOrEqual(1);
     expect(bots.some((b) => b.name.startsWith("List Bot"))).toBe(true);
   });
@@ -66,13 +66,13 @@ describe("bot admin API", () => {
       },
     });
     expect(createRes.status).toBe(201);
-    const { bot } = (await createRes.json()) as { bot: any };
+    const { bot } = (await createRes.json()) as unknown as { bot: { id: string; userId: string; name: string; scopes: string[]; enabled: boolean; subscribedEvents: string[]; webhookUrl?: string; description?: string | null } };
 
     const getRes = await client.api.workspaces[":slug"].bots[":botId"].$get({
       param: { slug, botId: bot.id },
     });
     expect(getRes.status).toBe(200);
-    const fetched = (await getRes.json()) as any;
+    const fetched = (await getRes.json()) as unknown as { id: string; name: string; scopes: string[]; enabled: boolean; webhookUrl?: string; subscribedEvents: string[]; description?: string | null };
     expect(fetched.id).toBe(bot.id);
     expect(fetched.name).toBe(bot.name);
   });
@@ -87,7 +87,7 @@ describe("bot admin API", () => {
       },
     });
     expect(createRes.status).toBe(201);
-    const { bot } = (await createRes.json()) as { bot: any };
+    const { bot } = (await createRes.json()) as unknown as { bot: { id: string; userId: string; name: string; scopes: string[]; enabled: boolean; subscribedEvents: string[]; webhookUrl?: string; description?: string | null } };
 
     const updateRes = await client.api.workspaces[":slug"].bots[":botId"].$put({
       param: { slug, botId: bot.id },
@@ -98,7 +98,7 @@ describe("bot admin API", () => {
       },
     });
     expect(updateRes.status).toBe(200);
-    const updated = (await updateRes.json()) as any;
+    const updated = (await updateRes.json()) as unknown as { id: string; name: string; scopes: string[]; enabled: boolean; subscribedEvents: string[]; description?: string | null };
     expect(updated.name).toBe("Updated Name");
     expect(updated.description).toBe("New description");
     expect(updated.scopes).toContain("chat:read");
@@ -114,7 +114,7 @@ describe("bot admin API", () => {
       },
     });
     expect(createRes.status).toBe(201);
-    const { bot } = (await createRes.json()) as { bot: any };
+    const { bot } = (await createRes.json()) as unknown as { bot: { id: string; userId: string; name: string; scopes: string[]; enabled: boolean; subscribedEvents: string[]; webhookUrl?: string; description?: string | null } };
 
     const delRes = await client.api.workspaces[":slug"].bots[":botId"].$delete({
       param: { slug, botId: bot.id },
@@ -138,7 +138,7 @@ describe("bot admin API", () => {
       },
     });
     expect(createRes.status).toBe(201);
-    const { bot, apiToken: oldToken } = (await createRes.json()) as { bot: any; apiToken: string };
+    const { bot, apiToken: oldToken } = (await createRes.json()) as unknown as { bot: { id: string; userId: string; name: string; scopes: string[]; enabled: boolean; subscribedEvents: string[]; webhookUrl?: string }; apiToken: string };
 
     const regenRes = await client.api.workspaces[":slug"].bots[":botId"]["regenerate-token"].$post({
       param: { slug, botId: bot.id },
@@ -159,7 +159,7 @@ describe("bot admin API", () => {
       },
     });
     expect(createRes.status).toBe(201);
-    const { bot } = (await createRes.json()) as { bot: any };
+    const { bot } = (await createRes.json()) as unknown as { bot: { id: string; userId: string; name: string; scopes: string[]; enabled: boolean; subscribedEvents: string[]; webhookUrl?: string; description?: string | null } };
 
     // Disable
     const toggleRes = await client.api.workspaces[":slug"].bots[":botId"].toggle.$post({
@@ -172,7 +172,7 @@ describe("bot admin API", () => {
     const getRes = await client.api.workspaces[":slug"].bots[":botId"].$get({
       param: { slug, botId: bot.id },
     });
-    const fetched = (await getRes.json()) as any;
+    const fetched = (await getRes.json()) as unknown as { id: string; name: string; scopes: string[]; enabled: boolean; webhookUrl?: string; subscribedEvents: string[]; description?: string | null };
     expect(fetched.enabled).toBe(false);
   });
 
@@ -188,7 +188,7 @@ describe("bot admin API", () => {
       },
     });
     expect(createRes.status).toBe(201);
-    const { bot } = (await createRes.json()) as { bot: any };
+    const { bot } = (await createRes.json()) as unknown as { bot: { id: string; userId: string; name: string; scopes: string[]; enabled: boolean; subscribedEvents: string[]; webhookUrl?: string; description?: string | null } };
     expect(bot.subscribedEvents).toEqual(["message:new", "message:updated"]);
 
     // Update to events A, C (remove B, add C)
@@ -199,7 +199,7 @@ describe("bot admin API", () => {
       },
     });
     expect(updateRes.status).toBe(200);
-    const updated = (await updateRes.json()) as any;
+    const updated = (await updateRes.json()) as unknown as { id: string; name: string; scopes: string[]; enabled: boolean; subscribedEvents: string[]; description?: string | null };
     expect(updated.subscribedEvents).toContain("message:new");
     expect(updated.subscribedEvents).toContain("reaction:updated");
     expect(updated.subscribedEvents).not.toContain("message:updated");
@@ -216,14 +216,14 @@ describe("bot admin API", () => {
       },
     });
     expect(createRes.status).toBe(201);
-    const { bot } = (await createRes.json()) as { bot: any };
+    const { bot } = (await createRes.json()) as unknown as { bot: { id: string; userId: string; name: string; scopes: string[]; enabled: boolean; subscribedEvents: string[]; webhookUrl?: string; description?: string | null } };
 
     const updateRes = await client.api.workspaces[":slug"].bots[":botId"].$put({
       param: { slug, botId: bot.id },
       json: { subscribedEvents: [] },
     });
     expect(updateRes.status).toBe(200);
-    const updated = (await updateRes.json()) as any;
+    const updated = (await updateRes.json()) as unknown as { id: string; name: string; scopes: string[]; enabled: boolean; subscribedEvents: string[]; description?: string | null };
     expect(updated.subscribedEvents).toEqual([]);
   });
 
@@ -258,7 +258,7 @@ describe("bot admin API", () => {
       param: { slug: ws.slug },
     });
     expect(listRes.status).toBe(200);
-    const bots = (await listRes.json()) as any[];
+    const bots = (await listRes.json()) as unknown as Array<{ id: string; name: string; enabled: boolean; subscribedEvents: string[] }>;
     expect(bots.length).toBeGreaterThanOrEqual(2);
 
     const withEvents = bots.find((b) => b.name.startsWith("With Events"));
@@ -301,7 +301,7 @@ describe("bot admin API", () => {
       },
     });
     expect(createRes.status).toBe(201);
-    const { bot } = (await createRes.json()) as { bot: any };
+    const { bot } = (await createRes.json()) as unknown as { bot: { id: string; userId: string; name: string; scopes: string[]; enabled: boolean; subscribedEvents: string[]; webhookUrl?: string; description?: string | null } };
 
     const getRes = await clientA.api.workspaces[":slug"].bots[":botId"].$get({
       param: { slug: wsA.slug, botId: bot.id },
@@ -334,7 +334,7 @@ describe("bot admin API", () => {
       param: { slug: wsB.slug, botId: bot.id },
     });
     expect(stillThereRes.status).toBe(200);
-    const stillThere = (await stillThereRes.json()) as any;
+    const stillThere = (await stillThereRes.json()) as unknown as { id: string; name: string; enabled: boolean };
     expect(stillThere.id).toBe(bot.id);
     expect(stillThere.name).toContain("Cross Bot");
     expect(stillThere.enabled).toBe(true);

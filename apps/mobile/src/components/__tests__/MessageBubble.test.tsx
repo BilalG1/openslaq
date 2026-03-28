@@ -1,5 +1,6 @@
 import React from "react";
-import { render, screen, fireEvent, act } from "@testing-library/react-native";
+import { StyleSheet } from "react-native";
+import { render, screen, fireEvent } from "@testing-library/react-native";
 import { MessageBubble } from "../MessageBubble";
 import type { Message, CustomEmoji } from "@openslaq/shared";
 import { asMessageId, asChannelId, asUserId, asEmojiId, asWorkspaceId } from "@openslaq/shared";
@@ -143,64 +144,78 @@ describe("MessageBubble", () => {
   });
 
   it("long-press calls onLongPress with the message", () => {
-    jest.useFakeTimers();
     const onLongPress = jest.fn();
     const msg = makeMessage();
 
     render(
       <MessageBubble
         message={msg}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
         onLongPress={onLongPress}
       />,
     );
 
-    // The component uses onTouchStart + setTimeout for long press
-    fireEvent(screen.getByTestId("message-bubble-msg-1"), "touchStart");
-    act(() => jest.advanceTimersByTime(400));
+    fireEvent(screen.getByTestId("message-bubble-msg-1"), "onLongPress");
 
     expect(onLongPress).toHaveBeenCalledWith(msg);
-    jest.useRealTimers();
   });
 
   it("long-press triggers heavy haptic feedback", () => {
-    jest.useFakeTimers();
     const { impactAsync, ImpactFeedbackStyle } = require("expo-haptics");
     const onLongPress = jest.fn();
 
     render(
       <MessageBubble
         message={makeMessage()}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
         onLongPress={onLongPress}
       />,
     );
 
-    fireEvent(screen.getByTestId("message-bubble-msg-1"), "touchStart");
-    act(() => jest.advanceTimersByTime(400));
+    fireEvent(screen.getByTestId("message-bubble-msg-1"), "onLongPress");
 
     expect(impactAsync).toHaveBeenCalledWith(ImpactFeedbackStyle.Heavy);
-    jest.useRealTimers();
   });
 
   it("long-press on other user's message still calls onLongPress", () => {
-    jest.useFakeTimers();
     const onLongPress = jest.fn();
     const msg = makeMessage({ userId: asUserId("other-user") });
 
     render(
       <MessageBubble
         message={msg}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
         onLongPress={onLongPress}
       />,
     );
 
-    fireEvent(screen.getByTestId("message-bubble-msg-1"), "touchStart");
-    act(() => jest.advanceTimersByTime(400));
+    fireEvent(screen.getByTestId("message-bubble-msg-1"), "onLongPress");
 
     expect(onLongPress).toHaveBeenCalledWith(msg);
-    jest.useRealTimers();
+  });
+
+  it("regular press does not trigger onLongPress", () => {
+    const onLongPress = jest.fn();
+
+    render(
+      <MessageBubble
+        message={makeMessage()}
+        currentUserId={asUserId("user-1")}
+        onLongPress={onLongPress}
+      />,
+    );
+
+    fireEvent.press(screen.getByTestId("message-bubble-msg-1"));
+
+    expect(onLongPress).not.toHaveBeenCalled();
+  });
+
+  it("applies highlighted styling when highlighted", () => {
+    render(<MessageBubble message={makeMessage()} highlighted />);
+
+    const bubble = screen.getByTestId("message-bubble-msg-1");
+    const style = StyleSheet.flatten(bubble.props.style);
+    expect(style.borderRadius).toBe(12);
   });
 
   it("tapping reaction pill calls onToggleReaction", () => {
@@ -214,7 +229,7 @@ describe("MessageBubble", () => {
     render(
       <MessageBubble
         message={msg}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
         onToggleReaction={onToggleReaction}
       />,
     );
@@ -235,7 +250,7 @@ describe("MessageBubble", () => {
     render(
       <MessageBubble
         message={msg}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
         onToggleReaction={jest.fn()}
       />,
     );
@@ -244,16 +259,18 @@ describe("MessageBubble", () => {
     const inactiveReaction = screen.getByTestId("reaction-msg-1-❤️");
 
     // Active reaction should have borderWidth 1
-    expect(activeReaction.props.style).toEqual(
+    expect(StyleSheet.flatten(activeReaction.props.style)).toEqual(
       expect.objectContaining({ borderWidth: 1 }),
     );
-    // Inactive reaction should have borderWidth 1 with transparent borderColor
-    expect(inactiveReaction.props.style).toEqual(
-      expect.objectContaining({ borderWidth: 1, borderColor: "transparent" }),
+    // Inactive reaction should have borderWidth 1 with non-active borderColor
+    const inactiveStyle = StyleSheet.flatten(inactiveReaction.props.style);
+    expect(inactiveStyle).toEqual(
+      expect.objectContaining({ borderWidth: 1 }),
     );
+    expect(inactiveStyle.borderColor).not.toBe("#1264a3");
   });
 
-  it("shows + button when onToggleReaction is provided and reactions exist", () => {
+  it("shows add reaction button with SmilePlus icon when onToggleReaction is provided and reactions exist", () => {
     const msg = makeMessage({
       reactions: [
         { emoji: "👍", count: 1, userIds: [asUserId("u1")] },
@@ -268,6 +285,31 @@ describe("MessageBubble", () => {
     );
 
     expect(screen.getByTestId("reaction-add-msg-1")).toBeTruthy();
+    expect(screen.getByTestId("smile-plus-icon")).toBeTruthy();
+  });
+
+  it("pressing add reaction button calls onAddReaction instead of onLongPress", () => {
+    const onAddReaction = jest.fn();
+    const onLongPress = jest.fn();
+    const msg = makeMessage({
+      reactions: [
+        { emoji: "👍", count: 1, userIds: [asUserId("u1")] },
+      ],
+    });
+
+    render(
+      <MessageBubble
+        message={msg}
+        onToggleReaction={jest.fn()}
+        onAddReaction={onAddReaction}
+        onLongPress={onLongPress}
+      />,
+    );
+
+    fireEvent.press(screen.getByTestId("reaction-add-msg-1"));
+
+    expect(onAddReaction).toHaveBeenCalledWith(msg);
+    expect(onLongPress).not.toHaveBeenCalled();
   });
 
   it("hides + button when onToggleReaction is not provided", () => {
@@ -359,6 +401,179 @@ describe("MessageBubble", () => {
 
     // Should not throw
     fireEvent.press(screen.getByTestId("sender-name-msg-1"));
+  });
+
+  describe("bot APP badge", () => {
+    it("shows APP badge for bot messages", () => {
+      const msg = makeMessage({ isBot: true, botAppId: "bot-1", actions: [] } as Partial<Message>);
+      render(<MessageBubble message={msg} />);
+      expect(screen.getByTestId("bot-badge-msg-1")).toBeTruthy();
+      expect(screen.getByText("APP")).toBeTruthy();
+    });
+
+    it("does not show APP badge for regular messages", () => {
+      render(<MessageBubble message={makeMessage()} />);
+      expect(screen.queryByTestId("bot-badge-msg-1")).toBeNull();
+    });
+  });
+
+  describe("bot action buttons", () => {
+    it("renders action buttons for bot messages", () => {
+      const msg = makeMessage({
+        isBot: true,
+        botAppId: "bot-1",
+        actions: [
+          { id: "a1", type: "button", label: "Approve", style: "primary" },
+          { id: "a2", type: "button", label: "Reject", style: "danger" },
+          { id: "a3", type: "button", label: "Details" },
+        ],
+      } as Partial<Message>);
+
+      render(<MessageBubble message={msg} />);
+
+      expect(screen.getByTestId("bot-actions-msg-1")).toBeTruthy();
+      expect(screen.getByText("Approve")).toBeTruthy();
+      expect(screen.getByText("Reject")).toBeTruthy();
+      expect(screen.getByText("Details")).toBeTruthy();
+    });
+
+    it("calls onBotAction when action button pressed", () => {
+      const onBotAction = jest.fn();
+      const msg = makeMessage({
+        isBot: true,
+        botAppId: "bot-1",
+        actions: [{ id: "a1", type: "button", label: "Approve", style: "primary" }],
+      } as Partial<Message>);
+
+      render(<MessageBubble message={msg} onBotAction={onBotAction} />);
+      fireEvent.press(screen.getByTestId("bot-action-msg-1-a1"));
+
+      expect(onBotAction).toHaveBeenCalledWith("msg-1", "a1");
+    });
+
+    it("does not render actions for regular messages", () => {
+      render(<MessageBubble message={makeMessage()} />);
+      expect(screen.queryByTestId("bot-actions-msg-1")).toBeNull();
+    });
+  });
+
+  describe("sender status emoji", () => {
+    it("renders status emoji when provided", () => {
+      render(<MessageBubble message={makeMessage()} senderStatusEmoji="🏠" />);
+      expect(screen.getByTestId("status-emoji-msg-1")).toBeTruthy();
+      expect(screen.getByText("🏠")).toBeTruthy();
+    });
+
+    it("does not render status emoji when null", () => {
+      render(<MessageBubble message={makeMessage()} senderStatusEmoji={null} />);
+      expect(screen.queryByTestId("status-emoji-msg-1")).toBeNull();
+    });
+  });
+
+  describe("pinned message highlight", () => {
+    it("shows pinned badge for pinned messages", () => {
+      const msg = makeMessage({ isPinned: true } as Partial<Message>);
+      render(<MessageBubble message={msg} />);
+      expect(screen.getByTestId("pinned-badge-msg-1")).toBeTruthy();
+      expect(screen.getByText(/Pinned/)).toBeTruthy();
+    });
+
+    it("applies yellow background for pinned messages", () => {
+      const msg = makeMessage({ isPinned: true } as Partial<Message>);
+      render(<MessageBubble message={msg} />);
+      const bubble = screen.getByTestId("message-bubble-msg-1");
+      const style = StyleSheet.flatten(bubble.props.style);
+      expect(style.backgroundColor).toBe("#fefce8");
+    });
+
+    it("does not show pinned badge for unpinned messages", () => {
+      render(<MessageBubble message={makeMessage()} />);
+      expect(screen.queryByTestId("pinned-badge-msg-1")).toBeNull();
+    });
+  });
+
+  it("long-pressing a reaction pill calls onLongPressReaction", () => {
+    const { impactAsync, ImpactFeedbackStyle } = require("expo-haptics");
+    const onLongPressReaction = jest.fn();
+    const msg = makeMessage({
+      reactions: [
+        { emoji: "👍", count: 2, userIds: [asUserId("u1"), asUserId("u2")] },
+      ],
+    });
+
+    render(
+      <MessageBubble
+        message={msg}
+        onToggleReaction={jest.fn()}
+        onLongPressReaction={onLongPressReaction}
+      />,
+    );
+
+    fireEvent(screen.getByTestId("reaction-msg-1-👍"), "onLongPress");
+
+    expect(onLongPressReaction).toHaveBeenCalledWith(msg, "👍");
+    expect(impactAsync).toHaveBeenCalledWith(ImpactFeedbackStyle.Medium);
+  });
+
+  describe("reaction pill sizing", () => {
+    it("renders reaction pills with larger tap-friendly padding", () => {
+      const msg = makeMessage({
+        reactions: [
+          { emoji: "👍", count: 1, userIds: [asUserId("u1")] },
+        ],
+      });
+
+      render(
+        <MessageBubble
+          message={msg}
+          onToggleReaction={jest.fn()}
+        />,
+      );
+
+      const pill = screen.getByTestId("reaction-msg-1-👍");
+      const style = StyleSheet.flatten(pill.props.style);
+      expect(style.paddingHorizontal).toBe(10);
+      expect(style.paddingVertical).toBe(4);
+    });
+
+    it("renders reaction emoji with larger font size", () => {
+      const msg = makeMessage({
+        reactions: [
+          { emoji: "👍", count: 1, userIds: [asUserId("u1")] },
+        ],
+      });
+
+      render(
+        <MessageBubble
+          message={msg}
+          onToggleReaction={jest.fn()}
+        />,
+      );
+
+      const emojiText = screen.getByText("👍");
+      const style = StyleSheet.flatten(emojiText.props.style);
+      expect(style.fontSize).toBe(16);
+    });
+
+    it("renders add reaction button with matching larger padding", () => {
+      const msg = makeMessage({
+        reactions: [
+          { emoji: "👍", count: 1, userIds: [asUserId("u1")] },
+        ],
+      });
+
+      render(
+        <MessageBubble
+          message={msg}
+          onToggleReaction={jest.fn()}
+        />,
+      );
+
+      const addBtn = screen.getByTestId("reaction-add-msg-1");
+      const style = StyleSheet.flatten(addBtn.props.style);
+      expect(style.paddingHorizontal).toBe(10);
+      expect(style.paddingVertical).toBe(4);
+    });
   });
 
   describe("custom emoji reactions", () => {

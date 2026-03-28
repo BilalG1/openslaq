@@ -62,6 +62,7 @@ interface EmptyStateProps extends VariantProps<typeof emptyStateVariants> {
   icon?: ReactNode;
   title: string;
   subtitle?: string;
+  action?: ReactNode;
   className?: string;
   "data-testid"?: string;
 }
@@ -70,6 +71,7 @@ function EmptyState({
   icon,
   title,
   subtitle,
+  action,
   size,
   className,
   "data-testid": testId,
@@ -86,6 +88,7 @@ function EmptyState({
       )}
       <span className={titleVariants({ size })}>{title}</span>
       {subtitle && <span className={subtitleVariants({ size })}>{subtitle}</span>}
+      {action && <div className="mt-2">{action}</div>}
     </div>
   );
 }

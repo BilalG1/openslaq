@@ -101,5 +101,23 @@ describe("applyMarkdownFormat", () => {
       const result = applyMarkdownFormat("first\nsecond\nthird", { start: 8, end: 8 }, "blockquote");
       expect(result.text).toBe("first\n> second\nthird");
     });
+
+    it("blockquote does not format next line when selection ends at line boundary", () => {
+      // BUG: Selection "first\n" (end=6, cursor at start of "second") causes
+      // getLineBounds to search for next \n from position 6, finding position 12,
+      // so "second" is incorrectly included in the blockquote
+      const text = "first\nsecond\nthird";
+      // Selection covers "first\n" — positions 0 through 5, cursor at 6
+      const result = applyMarkdownFormat(text, { start: 0, end: 6 }, "blockquote");
+      // Only "first" should be blockquoted, not "second"
+      expect(result.text).toBe("> first\nsecond\nthird");
+    });
+
+    it("bulletList does not format next line when selection ends at line boundary", () => {
+      const text = "aaa\nbbb\nccc";
+      // Selection covers "aaa\n" — end=4 is at start of "bbb"
+      const result = applyMarkdownFormat(text, { start: 0, end: 4 }, "bulletList");
+      expect(result.text).toBe("- aaa\nbbb\nccc");
+    });
   });
 });

@@ -40,16 +40,20 @@ For each variant:
    agent-browser type ref:15 "hello"
    ```
 
-   **Mobile (idb):**
+   **Mobile (dtx):**
    ```bash
+   # Start a Detox REPL session (run once)
+   dtx start
+
    # See what's on screen
-   idb ui describe-all
+   dtx tree
 
-   # Tap at coordinates
-   idb ui tap X Y
+   # Tap element by testID, text, or label
+   dtx tap --id myButton
+   dtx tap --text "Submit"
 
-   # Input text
-   idb ui text "hello"
+   # Type into an input
+   dtx type --id myInput "hello"
    ```
 
 4. **Take a screenshot** with a descriptive filename:
@@ -61,7 +65,7 @@ For each variant:
 
    **Mobile:**
    ```bash
-   idb screenshot /tmp/ui-variants/MessageBubble-variant-a.png
+   dtx screenshot MessageBubble-variant-a
    ```
 
 ### 3. Restore original import
@@ -108,19 +112,30 @@ agent-browser type ref:<id> "<input>"
 agent-browser scroll down
 ```
 
-### idb (Mobile)
+### dtx (Mobile)
 
 ```bash
+# Start Detox REPL session (run once)
+dtx start
+
 # Take a screenshot
-idb screenshot <dest_path.png>
+dtx screenshot <name>
 
 # Accessibility tree (find tap targets)
-idb ui describe-all
+dtx tree
 
-# Tap, type, swipe
-idb ui tap <x> <y>
-idb ui text "<input>"
-idb ui swipe <start_x> <start_y> <end_x> <end_y>
+# Tap by testID, text, or label
+dtx tap --id <testID>
+dtx tap --text "Submit"
+dtx tap --label "Close"
+
+# Type, scroll, swipe
+dtx type --id <testID> "<input>"
+dtx scroll --id <testID> down 300
+dtx swipe --id <testID> left
+
+# Stop session when done
+dtx stop
 ```
 
 ## After the user picks a winner

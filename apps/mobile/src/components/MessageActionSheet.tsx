@@ -1,5 +1,5 @@
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
-import type { Message } from "@openslaq/shared";
+import type { Message, MessageId, UserId } from "@openslaq/shared";
 import { Pin, Bookmark, Copy, Link, Mail, Share2, Pencil, Trash2, MessageSquare } from "lucide-react-native";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { haptics } from "@/utils/haptics";
@@ -11,21 +11,21 @@ const QUICK_REACTIONS = ["✅", "👀", "🙌"];
 interface Props {
   visible: boolean;
   message: Message | null;
-  currentUserId?: string;
+  currentUserId?: UserId;
   isSaved?: boolean;
-  onReaction: (messageId: string, emoji: string) => void;
+  onReaction: (messageId: MessageId, emoji: string) => void;
   onOpenEmojiPicker: () => void;
   onEditMessage: (message: Message) => void;
-  onDeleteMessage: (messageId: string) => void;
-  onPinMessage?: (messageId: string) => void;
-  onUnpinMessage?: (messageId: string) => void;
-  onSaveMessage?: (messageId: string) => void;
-  onUnsaveMessage?: (messageId: string) => void;
+  onDeleteMessage: (messageId: MessageId) => void;
+  onPinMessage?: (messageId: MessageId) => void;
+  onUnpinMessage?: (messageId: MessageId) => void;
+  onSaveMessage?: (messageId: MessageId) => void;
+  onUnsaveMessage?: (messageId: MessageId) => void;
   onCopyText?: (message: Message) => void;
   onCopyLink?: (message: Message) => void;
-  onMarkAsUnread?: (messageId: string) => void;
+  onMarkAsUnread?: (messageId: MessageId) => void;
   onShareMessage?: (message: Message) => void;
-  onReplyInThread?: (messageId: string) => void;
+  onReplyInThread?: (messageId: MessageId) => void;
   onClose: () => void;
 }
 

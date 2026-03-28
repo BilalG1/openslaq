@@ -1,11 +1,14 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import type { WorkspaceMemberEnv } from "../../workspaces/role-middleware";
+import { BEARER_SECURITY, jsonBody, jsonContent } from "../../lib/openapi-helpers";
 import { requireRole } from "../../workspaces/role-middleware";
 import { ROLES } from "@openslaq/shared";
 import { rlMemberManage } from "../../rate-limit";
 import { okSchema, errorSchema } from "../../openapi/schemas";
 import { env } from "../../env";
+import { ServiceUnavailableError, ConflictError, BadRequestError } from "../../errors";
 import { createConnection, getConnectionForWorkspace } from "./service";
+import { getWorkspaceMemberContext } from "../../lib/context";
 
 const oauthUrlRoute = createRoute({
   method: "get",
@@ -13,21 +16,11 @@ const oauthUrlRoute = createRoute({
   tags: ["Vercel"],
   summary: "Get Vercel integration install URL",
   description: "Returns the URL to start the Vercel integration installation flow.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMemberManage, requireRole(ROLES.ADMIN)] as const,
   responses: {
-    200: {
-      content: {
-        "application/json": {
-          schema: z.object({ url: z.string() }),
-        },
-      },
-      description: "Integration install URL",
-    },
-    503: {
-      content: { "application/json": { schema: errorSchema } },
-      description: "Vercel integration not configured",
-    },
+    200: jsonContent(z.object({ url: z.string() }), "Integration install URL"),
+    503: jsonContent(errorSchema, "Vercel integration not configured"),
   },
 });
 
@@ -37,39 +30,21 @@ const connectRoute = createRoute({
   tags: ["Vercel"],
   summary: "Exchange Vercel OAuth code for access token",
   description: "Exchanges a Vercel integration installation code for an access token and stores the connection.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMemberManage, requireRole(ROLES.ADMIN)] as const,
   request: {
-    body: {
-      content: {
-        "application/json": {
-          schema: z.object({
-            code: z.string().describe("Authorization code from Vercel"),
-            configurationId: z.string().describe("Vercel configuration ID"),
-            teamId: z.string().describe("Vercel team ID"),
-            teamSlug: z.string().describe("Vercel team slug"),
-          }),
-        },
-      },
-    },
+    body: jsonBody(z.object({
+      code: z.string().describe("Authorization code from Vercel"),
+      configurationId: z.string().describe("Vercel configuration ID"),
+      teamId: z.string().describe("Vercel team ID"),
+      teamSlug: z.string().describe("Vercel team slug"),
+    })),
   },
   responses: {
-    200: {
-      content: { "application/json": { schema: okSchema } },
-      description: "Connection established",
-    },
-    400: {
-      content: { "application/json": { schema: errorSchema } },
-      description: "Bad request",
-    },
-    409: {
-      content: { "application/json": { schema: errorSchema } },
-      description: "Already connected",
-    },
-    503: {
-      content: { "application/json": { schema: errorSchema } },
-      description: "Vercel integration not configured",
-    },
+    200: jsonContent(okSchema, "Connection established"),
+    400: jsonContent(errorSchema, "Bad request"),
+    409: jsonContent(errorSchema, "Already connected"),
+    503: jsonContent(errorSchema, "Vercel integration not configured"),
   },
 });
 
@@ -79,32 +54,25 @@ const getConnectionRoute = createRoute({
   tags: ["Vercel"],
   summary: "Get Vercel connection info",
   description: "Returns the Vercel team connected to this workspace.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMemberManage] as const,
   responses: {
-    200: {
-      content: {
-        "application/json": {
-          schema: z.object({
-            connection: z
-              .object({
-                id: z.string(),
-                vercelTeamId: z.string(),
-                vercelTeamSlug: z.string(),
-              })
-              .nullable(),
-          }),
-        },
-      },
-      description: "Connection info",
-    },
+    200: jsonContent(z.object({
+      connection: z
+        .object({
+          id: z.string(),
+          vercelTeamId: z.string(),
+          vercelTeamSlug: z.string(),
+        })
+        .nullable(),
+    }), "Connection info"),
   },
 });
 
 const app = new OpenAPIHono<WorkspaceMemberEnv>()
   .openapi(oauthUrlRoute, async (c) => {
     if (!env.VERCEL_CLIENT_ID) {
-      return c.json({ error: "Vercel integration is not configured" }, 503);
+      throw new ServiceUnavailableError("Vercel integration is not configured");
     }
 
     const redirectUri = `${c.req.url.split("/api/")[0]}/api/integrations/vercel-bot/oauth/callback`;
@@ -118,17 +86,16 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
   })
   .openapi(connectRoute, async (c) => {
     if (!env.VERCEL_CLIENT_ID || !env.VERCEL_CLIENT_SECRET) {
-      return c.json({ error: "Vercel integration is not configured" }, 503);
+      throw new ServiceUnavailableError("Vercel integration is not configured");
     }
 
-    const workspace = c.get("workspace");
-    const user = c.get("user");
+    const { user, workspace } = getWorkspaceMemberContext(c);
     const { code, configurationId, teamId, teamSlug } = c.req.valid("json");
 
     // Check if already connected
     const existing = await getConnectionForWorkspace(workspace.id);
     if (existing) {
-      return c.json({ error: "A Vercel team is already connected to this workspace" }, 409);
+      throw new ConflictError("A Vercel team is already connected to this workspace");
     }
 
     // Exchange code for access token (Vercel uses x-www-form-urlencoded)
@@ -144,7 +111,7 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     });
 
     if (!tokenRes.ok) {
-      return c.json({ error: "Failed to exchange authorization code" }, 400);
+      throw new BadRequestError("Failed to exchange authorization code");
     }
 
     const tokenData = (await tokenRes.json()) as { access_token: string; team_id?: string };

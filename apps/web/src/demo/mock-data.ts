@@ -62,6 +62,8 @@ export const DEMO_DMS: DmConversation[] = [
       displayName: "Alice Park",
       avatarUrl: null,
     },
+    lastMessageContent: null,
+    lastMessageAt: null,
   },
 ];
 

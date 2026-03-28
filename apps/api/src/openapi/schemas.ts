@@ -298,6 +298,8 @@ export const dmListItemSchema = z
   .object({
     channel: channelSchema.describe("DM channel"),
     otherUser: dmUserSchema.describe("Other user in the DM"),
+    lastMessageContent: z.string().nullable().describe("Content of the last message"),
+    lastMessageAt: z.string().nullable().describe("Timestamp of the last message"),
   })
   .openapi("DmListItem");
 
@@ -347,6 +349,7 @@ export const invitePreviewSchema = z
   .object({
     workspaceName: z.string().describe("Workspace name"),
     workspaceSlug: z.string().describe("Workspace slug"),
+    alreadyMember: z.boolean().describe("Whether the user is already a workspace member"),
   })
   .openapi("InvitePreview");
 

@@ -3,14 +3,15 @@ export { bootstrapWorkspace } from "./bootstrap";
 export { loadChannelMessages, loadOlderMessages, loadNewerMessages } from "./messages";
 export { loadThreadMessages, loadOlderReplies, loadMoreReplies, fetchUserThreads } from "./threads";
 export type { UserThreadItem } from "./threads";
+export type { PendingAttachmentInfo } from "./mutations";
 export {
   toggleReaction,
   sendMessage,
   editMessage,
   deleteMessage,
 } from "./mutations";
-export { createDm } from "./dm";
-export { createGroupDm } from "./group-dm";
+export { createDm, findOrCreateDmForCompose } from "./dm";
+export { createGroupDm, findOrCreateGroupDmForCompose } from "./group-dm";
 export { handlePresenceSync, handlePresenceUpdate, handleUserStatusUpdated } from "./presence";
 export { handleNewMessageUnread, markChannelAsRead, markChannelAsUnread } from "./unread";
 export {
@@ -19,6 +20,7 @@ export {
   handleHuddleUpdated,
   handleHuddleEnded,
   setCurrentHuddleChannel,
+  notifyHuddleLeave,
 } from "./huddle";
 export {
   handleChannelMemberAdded,
@@ -40,6 +42,7 @@ export {
   removeMember,
   deleteWorkspace,
 } from "./members";
+export { leaveWorkspace } from "./members";
 export type { WorkspaceMember } from "./members";
 export {
   checkAdmin,
@@ -49,7 +52,7 @@ export {
   getWorkspaces as getAdminWorkspaces,
   impersonate,
 } from "./admin";
-export { listChannelMembers, addChannelMember, removeChannelMember } from "./channel-members";
+export { listChannelMembers, addChannelMember, addChannelMembersBulk, removeChannelMember } from "./channel-members";
 export type { ChannelMember } from "./channel-members";
 export { listWorkspaces, createWorkspace } from "./workspaces";
 export type { WorkspaceListItem } from "./workspaces";
@@ -84,7 +87,7 @@ export {
   fetchChannelNotificationPrefs,
   setChannelNotificationPref as setChannelNotificationPrefOp,
 } from "./notification-prefs";
-export { getCurrentUser, updateCurrentUser, setUserStatus, clearUserStatus } from "./user-profile";
+export { getCurrentUser, updateCurrentUser, setUserStatus, clearUserStatus, handleUserProfileUpdated } from "./user-profile";
 export type { UserProfile } from "./user-profile";
 export { fetchAllUnreads, markAllAsRead } from "./unreads-view";
 export { shareMessage as shareMessageOp } from "./share";

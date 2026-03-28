@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { View, Text, Image, ScrollView, Pressable, ActivityIndicator, Alert } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { View, Text, Image, ScrollView, Pressable, ActivityIndicator, Alert, StyleSheet } from "react-native";
+import { useRouter } from "expo-router";
 import { listWorkspaceMembers, createDm, type WorkspaceMember, type PresenceEntry } from "@openslaq/client-core";
 import { useAuth } from "@/contexts/AuthContext";
 import { useChatStore } from "@/contexts/ChatStoreProvider";
@@ -8,21 +8,23 @@ import { useHuddle } from "@/contexts/HuddleProvider";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { SetStatusModal } from "@/components/SetStatusModal";
 import { useOperationDeps, useApiDeps } from "@/hooks/useOperationDeps";
+import { useProfileParams } from "@/hooks/useRouteParams";
 import { routes } from "@/lib/routes";
+import type { MobileTheme, UserId } from "@openslaq/shared";
 
 function getInitials(name?: string | null): string {
   if (!name) return "?";
   const parts = name.trim().split(/\s+/);
   if (parts.length >= 2) {
-    return (parts[0][0] + parts[1][0]).toUpperCase();
+    return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase();
   }
-  return name[0].toUpperCase();
+  return (name[0] ?? "?").toUpperCase();
 }
 
-function roleBadgeColor(role: string, theme: ReturnType<typeof useMobileTheme>["theme"]): string {
+function roleBadgeColor(role: string, theme: MobileTheme): string {
   switch (role) {
     case "owner":
-      return "#d97706";
+      return theme.colors.ownerBadge;
     case "admin":
       return theme.brand.primary;
     default:
@@ -44,10 +46,7 @@ function formatPresence(presence: PresenceEntry | undefined): { label: string; o
 }
 
 export default function ProfileScreen() {
-  const { workspaceSlug, userId } = useLocalSearchParams<{
-    workspaceSlug: string;
-    userId: string;
-  }>();
+  const { workspaceSlug, userId } = useProfileParams();
   const { user: currentUser } = useAuth();
   const { state, dispatch } = useChatStore();
   const deps = useOperationDeps();
@@ -55,6 +54,7 @@ export default function ProfileScreen() {
   const { joinHuddle } = useHuddle();
   const router = useRouter();
   const { theme } = useMobileTheme();
+  const styles = makeStyles(theme);
 
   const [member, setMember] = useState<WorkspaceMember | null>(null);
   const [loading, setLoading] = useState(true);
@@ -108,7 +108,7 @@ export default function ProfileScreen() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.surface }}>
+      <View style={styles.center}>
         <ActivityIndicator size="large" color={theme.brand.primary} />
       </View>
     );
@@ -116,8 +116,8 @@ export default function ProfileScreen() {
 
   if (!member) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.surface }}>
-        <Text style={{ color: theme.colors.textFaint }}>User not found</Text>
+      <View style={styles.center}>
+        <Text style={styles.emptyText}>User not found</Text>
       </View>
     );
   }
@@ -126,89 +126,56 @@ export default function ProfileScreen() {
     <>
       <ScrollView
         testID="profile-screen"
-        style={{ flex: 1, backgroundColor: theme.colors.surface }}
-        contentContainerStyle={{ alignItems: "center", paddingVertical: 32, paddingHorizontal: 24 }}
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
       >
         {member.avatarUrl ? (
           <Image
             source={{ uri: member.avatarUrl }}
-            style={{
-              width: 96,
-              height: 96,
-              borderRadius: 48,
-              backgroundColor: theme.colors.surfaceTertiary,
-              marginBottom: 16,
-            }}
+            style={styles.avatarImage}
           />
         ) : (
-          <View
-            style={{
-              width: 96,
-              height: 96,
-              borderRadius: 48,
-              backgroundColor: theme.brand.primary,
-              alignItems: "center",
-              justifyContent: "center",
-              marginBottom: 16,
-            }}
-          >
-            <Text style={{ color: "#fff", fontSize: 36, fontWeight: "700" }}>
+          <View style={styles.avatarFallback}>
+            <Text style={styles.avatarFallbackText}>
               {getInitials(member.displayName)}
             </Text>
           </View>
         )}
 
-        <Text
-          testID="profile-display-name"
-          style={{ color: theme.colors.textPrimary, fontSize: 24, fontWeight: "700", marginBottom: 4 }}
-        >
+        <Text testID="profile-display-name" style={styles.displayName}>
           {member.displayName}
         </Text>
 
-        <Text
-          testID="profile-email"
-          style={{ color: theme.colors.textSecondary, fontSize: 14, marginBottom: 4 }}
-        >
+        <Text testID="profile-email" style={styles.email}>
           {member.email}
         </Text>
 
         {/* Status display */}
         {hasStatus && presence && (
-          <View testID="profile-status" style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 8 }}>
-            {presence.statusEmoji && <Text style={{ fontSize: 14 }}>{presence.statusEmoji}</Text>}
+          <View testID="profile-status" style={styles.statusRow}>
+            {presence.statusEmoji && <Text style={styles.statusEmoji}>{presence.statusEmoji}</Text>}
             {presence.statusText && (
-              <Text style={{ fontSize: 14, color: theme.colors.textMuted }}>{presence.statusText}</Text>
+              <Text style={styles.statusText}>{presence.statusText}</Text>
             )}
           </View>
         )}
 
         {/* Role badge + presence */}
-        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8, marginTop: 4 }}>
-          <View
-            style={{
-              paddingHorizontal: 10,
-              paddingVertical: 4,
-              borderRadius: 12,
-              backgroundColor: theme.colors.surfaceTertiary,
-              marginRight: 8,
-            }}
-          >
-            <Text style={{ color: roleBadgeColor(member.role, theme), fontSize: 12, fontWeight: "600", textTransform: "capitalize" }}>
+        <View style={styles.roleBadgeRow}>
+          <View style={styles.roleBadge}>
+            <Text style={[styles.roleText, { color: roleBadgeColor(member.role, theme) }]}>
               {member.role}
             </Text>
           </View>
 
-          <View testID="profile-presence" style={{ flexDirection: "row", alignItems: "center" }}>
+          <View testID="profile-presence" style={styles.presenceRow}>
             <View
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: 4,
-                backgroundColor: presenceInfo.online ? "#22c55e" : "#9ca3af",
-                marginRight: 4,
-              }}
+              style={[
+                styles.presenceDot,
+                { backgroundColor: presenceInfo.online ? theme.colors.presenceOnline : theme.colors.presenceOffline },
+              ]}
             />
-            <Text style={{ color: theme.colors.textMuted, fontSize: 12 }}>
+            <Text style={styles.presenceLabel}>
               {presenceInfo.label}
             </Text>
           </View>
@@ -216,20 +183,20 @@ export default function ProfileScreen() {
 
         {/* Member since */}
         {member.joinedAt && (
-          <Text
-            testID="profile-member-since"
-            style={{ color: theme.colors.textFaint, fontSize: 12, marginBottom: 16 }}
-          >
+          <Text testID="profile-member-since" style={styles.memberSince}>
             Member since {new Date(member.joinedAt).toLocaleDateString(undefined, { month: "long", year: "numeric" })}
           </Text>
         )}
 
         {/* Own profile actions */}
         {isOwnProfile && (
-          <View style={{ alignItems: "center", gap: 8, marginTop: 8 }}>
+          <View style={styles.ownActions}>
             <Pressable
               testID="profile-edit-status"
               onPress={() => setStatusModalVisible(true)}
+              accessibilityRole="button"
+              accessibilityLabel={hasStatus ? "Edit Status" : "Set a status"}
+              accessibilityHint="Opens the status editor"
               style={({ pressed }) => ({
                 paddingHorizontal: 20,
                 paddingVertical: 10,
@@ -239,13 +206,16 @@ export default function ProfileScreen() {
                 opacity: pressed ? 0.7 : 1,
               })}
             >
-              <Text style={{ color: theme.colors.textPrimary, fontSize: 15, fontWeight: "500" }}>
+              <Text style={styles.ownActionText}>
                 {hasStatus ? "Edit Status" : "Set a status"}
               </Text>
             </Pressable>
             <Pressable
               testID="profile-edit-profile"
-              onPress={() => router.push(routes.settings(workspaceSlug))}
+              onPress={() => router.push(routes.settings(workspaceSlug!))}
+              accessibilityRole="button"
+              accessibilityLabel="Edit Profile"
+              accessibilityHint="Opens profile settings"
               style={({ pressed }) => ({
                 paddingHorizontal: 20,
                 paddingVertical: 10,
@@ -255,7 +225,7 @@ export default function ProfileScreen() {
                 opacity: pressed ? 0.7 : 1,
               })}
             >
-              <Text style={{ color: theme.colors.textPrimary, fontSize: 15, fontWeight: "500" }}>
+              <Text style={styles.ownActionText}>
                 Edit Profile
               </Text>
             </Pressable>
@@ -264,10 +234,13 @@ export default function ProfileScreen() {
 
         {/* Other user actions: Message + Huddle */}
         {!isOwnProfile && (
-          <View style={{ flexDirection: "row", gap: 12, marginTop: 8 }}>
+          <View style={styles.otherActions}>
             <Pressable
               testID="profile-send-message"
               onPress={handleSendMessage}
+              accessibilityRole="button"
+              accessibilityLabel="Message"
+              accessibilityHint="Sends a direct message to this user"
               style={({ pressed }) => ({
                 flex: 1,
                 backgroundColor: pressed ? theme.brand.primary + "dd" : theme.brand.primary,
@@ -276,11 +249,14 @@ export default function ProfileScreen() {
                 alignItems: "center",
               })}
             >
-              <Text style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}>Message</Text>
+              <Text style={styles.primaryButtonText}>Message</Text>
             </Pressable>
             <Pressable
               testID="profile-huddle"
               onPress={handleHuddle}
+              accessibilityRole="button"
+              accessibilityLabel="Huddle"
+              accessibilityHint="Starts a huddle with this user"
               style={({ pressed }) => ({
                 flex: 1,
                 paddingVertical: 12,
@@ -291,7 +267,7 @@ export default function ProfileScreen() {
                 opacity: pressed ? 0.7 : 1,
               })}
             >
-              <Text style={{ color: theme.brand.primary, fontSize: 16, fontWeight: "600" }}>Huddle</Text>
+              <Text style={styles.huddleButtonText}>Huddle</Text>
             </Pressable>
           </View>
         )}
@@ -303,7 +279,7 @@ export default function ProfileScreen() {
           onClose={() => setStatusModalVisible(false)}
           currentEmoji={hasStatus && presence ? (presence.statusEmoji ?? null) : null}
           currentText={hasStatus && presence ? (presence.statusText ?? null) : null}
-          userId={userId}
+          userId={userId!}
           deps={apiDeps}
           dispatch={dispatch}
         />
@@ -311,3 +287,132 @@ export default function ProfileScreen() {
     </>
   );
 }
+
+const makeStyles = (theme: MobileTheme) =>
+  StyleSheet.create({
+    center: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.colors.surface,
+    },
+    emptyText: {
+      color: theme.colors.textFaint,
+    },
+    scroll: {
+      flex: 1,
+      backgroundColor: theme.colors.surface,
+    },
+    scrollContent: {
+      alignItems: "center",
+      paddingVertical: 32,
+      paddingHorizontal: 24,
+    },
+    avatarImage: {
+      width: 96,
+      height: 96,
+      borderRadius: 48,
+      backgroundColor: theme.colors.surfaceTertiary,
+      marginBottom: 16,
+    },
+    avatarFallback: {
+      width: 96,
+      height: 96,
+      borderRadius: 48,
+      backgroundColor: theme.brand.primary,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 16,
+    },
+    avatarFallbackText: {
+      color: theme.colors.headerText,
+      fontSize: 36,
+      fontWeight: "700",
+    },
+    displayName: {
+      color: theme.colors.textPrimary,
+      fontSize: 24,
+      fontWeight: "700",
+      marginBottom: 4,
+    },
+    email: {
+      color: theme.colors.textSecondary,
+      fontSize: 14,
+      marginBottom: 4,
+    },
+    statusRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      marginBottom: 8,
+    },
+    statusEmoji: {
+      fontSize: 14,
+    },
+    statusText: {
+      fontSize: 14,
+      color: theme.colors.textMuted,
+    },
+    roleBadgeRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 8,
+      marginTop: 4,
+    },
+    roleBadge: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 12,
+      backgroundColor: theme.colors.surfaceTertiary,
+      marginRight: 8,
+    },
+    roleText: {
+      fontSize: 12,
+      fontWeight: "600",
+      textTransform: "capitalize",
+    },
+    presenceRow: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    presenceDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      marginRight: 4,
+    },
+    presenceLabel: {
+      color: theme.colors.textMuted,
+      fontSize: 12,
+    },
+    memberSince: {
+      color: theme.colors.textFaint,
+      fontSize: 12,
+      marginBottom: 16,
+    },
+    ownActions: {
+      alignItems: "center",
+      gap: 8,
+      marginTop: 8,
+    },
+    ownActionText: {
+      color: theme.colors.textPrimary,
+      fontSize: 15,
+      fontWeight: "500",
+    },
+    otherActions: {
+      flexDirection: "row",
+      gap: 12,
+      marginTop: 8,
+    },
+    primaryButtonText: {
+      color: theme.colors.headerText,
+      fontSize: 16,
+      fontWeight: "600",
+    },
+    huddleButtonText: {
+      color: theme.brand.primary,
+      fontSize: 16,
+      fontWeight: "600",
+    },
+  });

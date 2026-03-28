@@ -1,4 +1,4 @@
-import { describe, test, expect, mock, afterEach } from "bun:test";
+import { describe, test, expect, afterEach, vi } from "vitest";
 import { render, screen, cleanup } from "../../test-utils";
 import { IntegrationsTab } from "./IntegrationsTab";
 import type { MarketplaceListing, WorkspaceFeatureFlags } from "@openslaq/shared";
@@ -42,8 +42,8 @@ const defaultProps = {
   listings: allListings,
   installedIds: new Set<string>(),
   installing: false,
-  onInstall: mock(() => {}),
-  onUninstall: mock(() => {}),
+  onInstall: vi.fn(),
+  onUninstall: vi.fn(),
 };
 
 describe("IntegrationsTab", () => {

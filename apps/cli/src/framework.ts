@@ -34,7 +34,21 @@ export interface BranchCommand {
   subcommands: Record<string, Command>;
 }
 
-export type Command = LeafCommand<any> | BranchCommand;
+/** Erased flags type — the runtime shape that ParsedFlags<S> always satisfies. */
+export type ErasedFlags = Record<string, string | boolean | undefined>;
+
+/**
+ * Type-erased leaf command used in command registries.
+ * The flags-action relationship is ensured at construction time via defineCommand.
+ */
+export interface ErasedLeafCommand {
+  help: () => void;
+  flags?: FlagSchema;
+  /** @internal — type safety is ensured by defineCommand; dispatch calls this with parsed flags */
+  action: (flags: ErasedFlags) => Promise<void>;
+}
+
+export type Command = ErasedLeafCommand | BranchCommand;
 
 function isBranch(cmd: Command): cmd is BranchCommand {
   return "subcommands" in cmd;
@@ -42,10 +56,10 @@ function isBranch(cmd: Command): cmd is BranchCommand {
 
 // ── defineCommand (identity helper for type inference) ─────────────
 
-export function defineCommand<S extends FlagSchema>(def: LeafCommand<S>): LeafCommand<S>;
+export function defineCommand<S extends FlagSchema>(def: LeafCommand<S>): ErasedLeafCommand;
 export function defineCommand(def: BranchCommand): BranchCommand;
-export function defineCommand(def: Command): Command {
-  return def;
+export function defineCommand(def: LeafCommand<FlagSchema> | BranchCommand): Command {
+  return def as Command;
 }
 
 // ── Flag parsing ───────────────────────────────────────────────────
@@ -99,7 +113,7 @@ function dispatch(cmd: Command, argv: string[]): Promise<void> {
     return Promise.resolve();
   }
 
-  const flags = cmd.flags ? parseFlags(cmd.flags, argv) : ({} as any);
+  const flags = cmd.flags ? parseFlags(cmd.flags, argv) : ({} as ErasedFlags);
   return cmd.action(flags);
 }
 

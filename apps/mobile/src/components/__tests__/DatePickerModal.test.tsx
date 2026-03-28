@@ -106,4 +106,36 @@ describe("DatePickerModal", () => {
 
     expect(props.onApply).toHaveBeenCalledWith(undefined, undefined);
   });
+
+  it("uses dynamic placeholders based on current date", () => {
+    renderModal();
+
+    const fromInput = screen.getByTestId("date-picker-from");
+    const toInput = screen.getByTestId("date-picker-to");
+
+    const now = new Date();
+    const expectedFrom = `${now.getFullYear()}-01-01`;
+    const expectedTo = now.toISOString().slice(0, 10);
+
+    expect(fromInput.props.placeholder).toBe(expectedFrom);
+    expect(toInput.props.placeholder).toBe(expectedTo);
+  });
+
+  it("uses keyboard avoidance so inputs and apply button remain reachable", () => {
+    const { toJSON } = renderModal();
+    const tree = toJSON()!;
+    // When avoidKeyboard is enabled, the Modal's first child is a KeyboardAvoidingView
+    // which renders as a View with style [{flex:1},{paddingBottom:0}] (padding behavior).
+    // Without avoidKeyboard, the first child is the backdrop Pressable directly.
+    const modalChild = (tree as any).children[0];
+    // The KAV wrapper has a style array with flex:1 and paddingBottom
+    const style = modalChild.props.style;
+    expect(Array.isArray(style)).toBe(true);
+    expect(style).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ flex: 1 }),
+        expect.objectContaining({ paddingBottom: expect.any(Number) }),
+      ]),
+    );
+  });
 });

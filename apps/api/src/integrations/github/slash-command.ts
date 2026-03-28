@@ -12,7 +12,7 @@ import { getTestPayload, TEST_EVENT_NAMES } from "./test-mode";
 import { createMessage } from "../../messages/service";
 import { setMessageActions } from "../../bots/service";
 import { addChannelMember, isChannelMember } from "../../channels/service";
-import { getIO } from "../../socket/io";
+import { emitToChannel } from "../../lib/emit";
 
 function makeEphemeral(channelId: string, text: string): EphemeralMessage {
   return {
@@ -184,7 +184,7 @@ async function handleTest(
 
   // Emit Socket.IO event
   try {
-    getIO().to(`channel:${channelId}`).emit("message:new", result);
+    emitToChannel(asChannelId(channelId), "message:new", result);
   } catch {
     // Socket.IO may not be initialized in test contexts
   }

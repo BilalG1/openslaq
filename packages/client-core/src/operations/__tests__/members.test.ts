@@ -105,13 +105,12 @@ describe("operations/members", () => {
       await expect(updateMemberRole(deps, "ws", "u-1", "admin")).resolves.toBeUndefined();
     });
 
-    it("calls onAuthRequired and returns on 401", async () => {
+    it("calls onAuthRequired and throws on 401", async () => {
       const { deps, getAuthRequiredCount } = makeApiDeps({
         rolePatch: () => Promise.resolve(new Response(null, { status: 401 })),
       });
 
-      // updateMemberRole returns void on auth error (does not rethrow)
-      await expect(updateMemberRole(deps, "ws", "u-1", "admin")).resolves.toBeUndefined();
+      await expect(updateMemberRole(deps, "ws", "u-1", "admin")).rejects.toThrow(AuthError);
       expect(getAuthRequiredCount()).toBe(1);
     });
   });
@@ -125,12 +124,12 @@ describe("operations/members", () => {
       await expect(removeMember(deps, "ws", "u-1")).resolves.toBeUndefined();
     });
 
-    it("calls onAuthRequired and returns on 401", async () => {
+    it("calls onAuthRequired and throws on 401", async () => {
       const { deps, getAuthRequiredCount } = makeApiDeps({
         memberDelete: () => Promise.resolve(new Response(null, { status: 401 })),
       });
 
-      await expect(removeMember(deps, "ws", "u-1")).resolves.toBeUndefined();
+      await expect(removeMember(deps, "ws", "u-1")).rejects.toThrow(AuthError);
       expect(getAuthRequiredCount()).toBe(1);
     });
   });
@@ -144,12 +143,12 @@ describe("operations/members", () => {
       await expect(deleteWorkspace(deps, "ws")).resolves.toBeUndefined();
     });
 
-    it("calls onAuthRequired and returns on 401", async () => {
+    it("calls onAuthRequired and throws on 401", async () => {
       const { deps, getAuthRequiredCount } = makeApiDeps({
         workspaceDelete: () => Promise.resolve(new Response(null, { status: 401 })),
       });
 
-      await expect(deleteWorkspace(deps, "ws")).resolves.toBeUndefined();
+      await expect(deleteWorkspace(deps, "ws")).rejects.toThrow(AuthError);
       expect(getAuthRequiredCount()).toBe(1);
     });
   });

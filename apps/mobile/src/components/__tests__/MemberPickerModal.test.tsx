@@ -118,7 +118,7 @@ describe("MemberPickerModal", () => {
       expect(screen.getByTestId("member-picker-error")).toBeTruthy();
     });
 
-    expect(screen.getByText("Failed to load members")).toBeTruthy();
+    expect(screen.getByText("An error occurred")).toBeTruthy();
   });
 
   it("handleSelect calls onSelect and closes", async () => {

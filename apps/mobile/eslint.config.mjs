@@ -27,8 +27,6 @@ export default [
   {
     files: ["src/**/*.{ts,tsx}", "app/**/*.{ts,tsx}"],
     plugins: {
-      // react-hooks registered only so inline eslint-disable comments don't error;
-      // the actual enforcement is done by oxlint.
       "react-hooks": reactHooksPlugin,
       "react-native": reactNativePlugin,
       "react-native-a11y": reactNativeA11yPlugin,
@@ -61,7 +59,8 @@ export default [
     },
     rules: {
       // react-native recommended rules
-      "react-native/no-unused-styles": "error",
+      // Disabled: can't statically trace styles through makeStyles() factory functions
+      "react-native/no-unused-styles": "off",
       "react-native/no-inline-styles": "error",
       "react-native/no-color-literals": "error",
       "react-native/split-platform-components": "error",
@@ -80,6 +79,10 @@ export default [
       "react-native-a11y/has-valid-accessibility-traits": "error",
       "react-native-a11y/has-valid-accessibility-value": "error",
       "react-native-a11y/no-nested-touchables": "error",
+
+      // react-hooks
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "warn",
     },
   },
   // oxlint compatibility — must be last to disable rules oxlint already covers

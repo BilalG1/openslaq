@@ -1,5 +1,6 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import type { WorkspaceMemberEnv } from "../workspaces/role-middleware";
+import { BEARER_SECURITY, jsonBody, jsonContent } from "../lib/openapi-helpers";
 import { requireRole } from "../workspaces/role-middleware";
 import { ROLES } from "@openslaq/shared";
 import type { BotEventType, BotScope } from "@openslaq/shared";
@@ -16,6 +17,8 @@ import {
   toggleBotEnabled,
 } from "./service";
 import { eq, and } from "drizzle-orm";
+import { NotFoundError, BadRequestError } from "../errors";
+import { getWorkspaceMemberContext } from "../lib/context";
 import { db } from "../db";
 import { botSlashCommands } from "../commands/slash-command-schema";
 
@@ -23,6 +26,7 @@ const BOT_SCOPES = [
   "chat:write",
   "chat:read",
   "channels:read",
+  "channels:join",
   "channels:write",
   "reactions:write",
   "reactions:read",
@@ -91,10 +95,10 @@ const listBotsRoute = createRoute({
   tags: ["Bots"],
   summary: "List bots",
   description: "Lists all bot apps in the workspace.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlRead, requireRole(ROLES.ADMIN)] as const,
   responses: {
-    200: { content: { "application/json": { schema: z.array(botAppSchema) } }, description: "List of bots" },
+    200: jsonContent(z.array(botAppSchema), "List of bots"),
   },
 });
 
@@ -104,24 +108,14 @@ const createBotRoute = createRoute({
   tags: ["Bots"],
   summary: "Create bot app",
   description: "Creates a new bot app. Returns the API token once.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMemberManage, requireRole(ROLES.ADMIN)] as const,
   request: {
-    body: { content: { "application/json": { schema: createBotSchema } } },
+    body: jsonBody(createBotSchema),
   },
   responses: {
-    201: {
-      content: {
-        "application/json": {
-          schema: z.object({ bot: botAppSchema, apiToken: z.string() }),
-        },
-      },
-      description: "Created bot with API token",
-    },
-    400: {
-      content: { "application/json": { schema: errorSchema } },
-      description: "Quota exceeded",
-    },
+    201: jsonContent(z.object({ bot: botAppSchema, apiToken: z.string() }), "Created bot with API token"),
+    400: jsonContent(errorSchema, "Quota exceeded"),
   },
 });
 
@@ -131,12 +125,12 @@ const getBotRoute = createRoute({
   tags: ["Bots"],
   summary: "Get bot details",
   description: "Returns details of a bot app.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlRead, requireRole(ROLES.ADMIN)] as const,
   request: { params: botIdParam },
   responses: {
-    200: { content: { "application/json": { schema: botAppSchema } }, description: "Bot details" },
-    404: { content: { "application/json": { schema: errorSchema } }, description: "Bot not found" },
+    200: jsonContent(botAppSchema, "Bot details"),
+    404: jsonContent(errorSchema, "Bot not found"),
   },
 });
 
@@ -146,15 +140,15 @@ const updateBotRoute = createRoute({
   tags: ["Bots"],
   summary: "Update bot config",
   description: "Updates a bot app configuration.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMemberManage, requireRole(ROLES.ADMIN)] as const,
   request: {
     params: botIdParam,
-    body: { content: { "application/json": { schema: updateBotSchema } } },
+    body: jsonBody(updateBotSchema),
   },
   responses: {
-    200: { content: { "application/json": { schema: botAppSchema } }, description: "Updated bot" },
-    404: { content: { "application/json": { schema: errorSchema } }, description: "Bot not found" },
+    200: jsonContent(botAppSchema, "Updated bot"),
+    404: jsonContent(errorSchema, "Bot not found"),
   },
 });
 
@@ -164,12 +158,12 @@ const deleteBotRoute = createRoute({
   tags: ["Bots"],
   summary: "Delete bot",
   description: "Deletes a bot app and its associated user.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMemberManage, requireRole(ROLES.ADMIN)] as const,
   request: { params: botIdParam },
   responses: {
-    200: { content: { "application/json": { schema: okSchema } }, description: "Bot deleted" },
-    404: { content: { "application/json": { schema: errorSchema } }, description: "Bot not found" },
+    200: jsonContent(okSchema, "Bot deleted"),
+    404: jsonContent(errorSchema, "Bot not found"),
   },
 });
 
@@ -179,19 +173,12 @@ const regenerateTokenRoute = createRoute({
   tags: ["Bots"],
   summary: "Regenerate API token",
   description: "Regenerates the bot's API token. Returns the new token once.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMemberManage, requireRole(ROLES.ADMIN)] as const,
   request: { params: botIdParam },
   responses: {
-    200: {
-      content: {
-        "application/json": {
-          schema: z.object({ apiToken: z.string(), apiTokenPrefix: z.string() }),
-        },
-      },
-      description: "New API token",
-    },
-    404: { content: { "application/json": { schema: errorSchema } }, description: "Bot not found" },
+    200: jsonContent(z.object({ apiToken: z.string(), apiTokenPrefix: z.string() }), "New API token"),
+    404: jsonContent(errorSchema, "Bot not found"),
   },
 });
 
@@ -201,21 +188,15 @@ const toggleBotRoute = createRoute({
   tags: ["Bots"],
   summary: "Enable/disable bot",
   description: "Toggles a bot app's enabled state.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMemberManage, requireRole(ROLES.ADMIN)] as const,
   request: {
     params: botIdParam,
-    body: {
-      content: {
-        "application/json": {
-          schema: z.object({ enabled: z.boolean() }),
-        },
-      },
-    },
+    body: jsonBody(z.object({ enabled: z.boolean() })),
   },
   responses: {
-    200: { content: { "application/json": { schema: okSchema } }, description: "Toggled" },
-    404: { content: { "application/json": { schema: errorSchema } }, description: "Bot not found" },
+    200: jsonContent(okSchema, "Toggled"),
+    404: jsonContent(errorSchema, "Bot not found"),
   },
 });
 
@@ -242,12 +223,12 @@ const listBotCommandsRoute = createRoute({
   path: "/bots/:botId/commands",
   tags: ["Bots"],
   summary: "List bot slash commands",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlRead, requireRole(ROLES.ADMIN)] as const,
   request: { params: botIdParam },
   responses: {
-    200: { content: { "application/json": { schema: z.array(botCommandSchema) } }, description: "Bot commands" },
-    404: { content: { "application/json": { schema: errorSchema } }, description: "Bot not found" },
+    200: jsonContent(z.array(botCommandSchema), "Bot commands"),
+    404: jsonContent(errorSchema, "Bot not found"),
   },
 });
 
@@ -256,15 +237,15 @@ const createBotCommandRoute = createRoute({
   path: "/bots/:botId/commands",
   tags: ["Bots"],
   summary: "Register a bot slash command",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMemberManage, requireRole(ROLES.ADMIN)] as const,
   request: {
     params: botIdParam,
-    body: { content: { "application/json": { schema: createBotCommandSchema } } },
+    body: jsonBody(createBotCommandSchema),
   },
   responses: {
-    201: { content: { "application/json": { schema: botCommandSchema } }, description: "Created command" },
-    404: { content: { "application/json": { schema: errorSchema } }, description: "Bot not found" },
+    201: jsonContent(botCommandSchema, "Created command"),
+    404: jsonContent(errorSchema, "Bot not found"),
   },
 });
 
@@ -273,7 +254,7 @@ const deleteBotCommandRoute = createRoute({
   path: "/bots/:botId/commands/:commandId",
   tags: ["Bots"],
   summary: "Delete a bot slash command",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMemberManage, requireRole(ROLES.ADMIN)] as const,
   request: {
     params: z.object({
@@ -282,8 +263,8 @@ const deleteBotCommandRoute = createRoute({
     }),
   },
   responses: {
-    200: { content: { "application/json": { schema: okSchema } }, description: "Command deleted" },
-    404: { content: { "application/json": { schema: errorSchema } }, description: "Not found" },
+    200: jsonContent(okSchema, "Command deleted"),
+    404: jsonContent(errorSchema, "Not found"),
   },
 });
 
@@ -294,14 +275,13 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     return jsonResponse(c, bots, 200);
   })
   .openapi(createBotRoute, async (c) => {
-    const workspace = c.get("workspace");
-    const user = c.get("user");
+    const { user, workspace } = getWorkspaceMemberContext(c);
     const body = c.req.valid("json");
 
     // Cap bots per workspace
     const existingBots = await listBotApps(workspace.id);
     if (existingBots.length >= 25) {
-      return c.json({ error: "Maximum 25 bots per workspace" }, 400);
+      throw new BadRequestError("Maximum 25 bots per workspace");
     }
 
     const result = await createBotApp(
@@ -320,7 +300,7 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     const workspace = c.get("workspace");
     const botId = c.req.valid("param").botId;
     const bot = await getBotAppById(botId, workspace.id);
-    if (!bot) return c.json({ error: "Bot not found" }, 404);
+    if (!bot) throw new NotFoundError("Bot");
     return jsonResponse(c, bot, 200);
   })
   .openapi(updateBotRoute, async (c) => {
@@ -335,21 +315,21 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
       scopes: body.scopes as BotScope[] | undefined,
       subscribedEvents: body.subscribedEvents as BotEventType[] | undefined,
     });
-    if (!updated) return c.json({ error: "Bot not found" }, 404);
+    if (!updated) throw new NotFoundError("Bot");
     return jsonResponse(c, updated, 200);
   })
   .openapi(deleteBotRoute, async (c) => {
     const workspace = c.get("workspace");
     const botId = c.req.valid("param").botId;
     const deleted = await deleteBotApp(botId, workspace.id);
-    if (!deleted) return c.json({ error: "Bot not found" }, 404);
+    if (!deleted) throw new NotFoundError("Bot");
     return c.json({ ok: true as const }, 200);
   })
   .openapi(regenerateTokenRoute, async (c) => {
     const workspace = c.get("workspace");
     const botId = c.req.valid("param").botId;
     const result = await regenerateToken(botId, workspace.id);
-    if (!result) return c.json({ error: "Bot not found" }, 404);
+    if (!result) throw new NotFoundError("Bot");
     return jsonResponse(c, result, 200);
   })
   .openapi(toggleBotRoute, async (c) => {
@@ -357,14 +337,14 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     const botId = c.req.valid("param").botId;
     const { enabled } = c.req.valid("json");
     const ok = await toggleBotEnabled(botId, workspace.id, enabled);
-    if (!ok) return c.json({ error: "Bot not found" }, 404);
+    if (!ok) throw new NotFoundError("Bot");
     return c.json({ ok: true as const }, 200);
   })
   .openapi(listBotCommandsRoute, async (c) => {
     const workspace = c.get("workspace");
     const botId = c.req.valid("param").botId;
     const bot = await getBotAppById(botId, workspace.id);
-    if (!bot) return c.json({ error: "Bot not found" }, 404);
+    if (!bot) throw new NotFoundError("Bot");
     const commands = await db
       .select()
       .from(botSlashCommands)
@@ -388,7 +368,7 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     const workspace = c.get("workspace");
     const botId = c.req.valid("param").botId;
     const bot = await getBotAppById(botId, workspace.id);
-    if (!bot) return c.json({ error: "Bot not found" }, 404);
+    if (!bot) throw new NotFoundError("Bot");
     const body = c.req.valid("json");
     const [row] = await db
       .insert(botSlashCommands)
@@ -418,7 +398,7 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     const { botId, commandId } = c.req.valid("param");
     // Verify bot belongs to workspace
     const bot = await getBotAppById(botId, workspace.id);
-    if (!bot) return c.json({ error: "Bot not found" }, 404);
+    if (!bot) throw new NotFoundError("Bot");
     const deleted = await db
       .delete(botSlashCommands)
       .where(
@@ -428,7 +408,7 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
         ),
       )
       .returning();
-    if (deleted.length === 0) return c.json({ error: "Command not found" }, 404);
+    if (deleted.length === 0) throw new NotFoundError("Command");
     return c.json({ ok: true as const }, 200);
   });
 

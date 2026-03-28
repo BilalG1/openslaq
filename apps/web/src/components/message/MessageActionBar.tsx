@@ -38,6 +38,7 @@ export function MessageActionBar({
 }: MessageActionBarProps) {
   const [showPicker, setShowPicker] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const emojiButtonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -243,7 +244,7 @@ export function MessageActionBar({
                   data-testid="delete-message-action"
                   onClick={() => {
                     setShowMenu(false);
-                    onDeleteMessage();
+                    setShowDeleteConfirm(true);
                   }}
                   className="w-full text-left px-3 py-1.5 text-sm text-danger-text hover:bg-surface-secondary cursor-pointer bg-transparent border-none flex items-center gap-2"
                 >
@@ -253,6 +254,34 @@ export function MessageActionBar({
               )}
             </div>
           )}
+        </div>
+      )}
+      {showDeleteConfirm && (
+        <div
+          data-testid="delete-confirm-dialog"
+          className="absolute right-0 top-full mt-1 bg-surface border border-border-default rounded-md shadow-lg p-3 z-50 min-w-[220px]"
+        >
+          <p className="text-sm text-primary mb-2">Delete this message?</p>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(false)}
+              className="px-3 py-1 text-sm rounded bg-transparent border border-border-default cursor-pointer text-primary hover:bg-surface-secondary"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              data-testid="confirm-delete-button"
+              onClick={() => {
+                setShowDeleteConfirm(false);
+                onDeleteMessage?.();
+              }}
+              className="px-3 py-1 text-sm rounded bg-red-600 text-white border-none cursor-pointer hover:bg-red-700"
+            >
+              Delete
+            </button>
+          </div>
         </div>
       )}
     </div>

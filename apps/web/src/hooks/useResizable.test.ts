@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { describe, expect, test, beforeEach, afterEach } from "vitest";
 import { renderHook, act, cleanup } from "../test-utils";
 import { useResizable } from "./useResizable";
 

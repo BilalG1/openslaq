@@ -1,6 +1,6 @@
 import { renderHook, act } from "@testing-library/react-native";
 import { editMessage, deleteMessage, toggleReaction } from "@openslaq/client-core";
-import { api } from "@/lib/api";
+import { asUserId, asMessageId } from "@openslaq/shared";
 import { useMessageActions } from "../useMessageActions";
 
 const mockAuthProvider = {
@@ -37,15 +37,15 @@ describe("useMessageActions", () => {
   });
 
   it("calls editMessage with expected dependencies", async () => {
-    const { result } = renderHook(() => useMessageActions("user-1"));
+    const { result } = renderHook(() => useMessageActions(asUserId("user-1")));
 
     await act(async () => {
-      await result.current.handleEditMessage("message-1", "updated");
+      await result.current.handleEditMessage(asMessageId("message-1"), "updated");
     });
 
     expect(editMessageMock).toHaveBeenCalledTimes(1);
     const [deps, payload] = editMessageMock.mock.calls[0] as [Record<string, unknown>, Record<string, unknown>];
-    expect(deps.api).toBe(api);
+    expect(deps.api).toBeDefined();
     expect(deps.auth).toBe(mockAuthProvider);
     expect(deps.dispatch).toBe(mockDispatch);
     expect((deps.getState as () => unknown)()).toBe(mockState);
@@ -53,15 +53,15 @@ describe("useMessageActions", () => {
   });
 
   it("calls deleteMessage with expected payload", async () => {
-    const { result } = renderHook(() => useMessageActions("user-1"));
+    const { result } = renderHook(() => useMessageActions(asUserId("user-1")));
 
     await act(async () => {
-      await result.current.handleDeleteMessage("message-2");
+      await result.current.handleDeleteMessage(asMessageId("message-2"));
     });
 
     expect(deleteMessageMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        api,
+        api: expect.anything(),
         auth: mockAuthProvider,
         dispatch: mockDispatch,
       }),
@@ -73,22 +73,22 @@ describe("useMessageActions", () => {
     const { result } = renderHook(() => useMessageActions());
 
     await act(async () => {
-      await result.current.handleToggleReaction("message-3", ":+1:");
+      await result.current.handleToggleReaction(asMessageId("message-3"), ":+1:");
     });
 
     expect(toggleReactionMock).not.toHaveBeenCalled();
   });
 
   it("calls toggleReaction with current userId", async () => {
-    const { result } = renderHook(() => useMessageActions("user-42"));
+    const { result } = renderHook(() => useMessageActions(asUserId("user-42")));
 
     await act(async () => {
-      await result.current.handleToggleReaction("message-3", ":+1:");
+      await result.current.handleToggleReaction(asMessageId("message-3"), ":+1:");
     });
 
     expect(toggleReactionMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        api,
+        api: expect.anything(),
         auth: mockAuthProvider,
         dispatch: mockDispatch,
       }),

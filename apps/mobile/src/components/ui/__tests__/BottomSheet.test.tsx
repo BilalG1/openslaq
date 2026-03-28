@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react-native";
+import { render, screen, fireEvent, act } from "@testing-library/react-native";
 import { Text } from "react-native";
 import { BottomSheet } from "../BottomSheet";
 
@@ -9,6 +9,7 @@ jest.mock("@/theme/ThemeProvider", () => ({
       colors: {
         surface: "#fff",
         textPrimary: "#000",
+        textFaint: "#999",
       },
     },
   }),
@@ -49,7 +50,9 @@ describe("BottomSheet", () => {
         <Text>Content</Text>
       </BottomSheet>,
     );
-    fireEvent.press(screen.getByTestId("sheet-backdrop"));
+    act(() => {
+      fireEvent.press(screen.getByTestId("sheet-backdrop"));
+    });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -60,5 +63,14 @@ describe("BottomSheet", () => {
       </BottomSheet>,
     );
     expect(screen.getByText("Content")).toBeTruthy();
+  });
+
+  it("renders drag handle", () => {
+    render(
+      <BottomSheet visible onClose={jest.fn()} testID="sheet">
+        <Text>Content</Text>
+      </BottomSheet>,
+    );
+    expect(screen.getByTestId("drag-handle")).toBeTruthy();
   });
 });

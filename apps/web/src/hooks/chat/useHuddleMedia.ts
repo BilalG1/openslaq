@@ -5,20 +5,72 @@ import { useChatStore } from "../../state/chat-store";
 import { useCurrentUser } from "../useCurrentUser";
 import { authorizedHeaders } from "../../lib/api-client";
 import { env } from "../../env";
-
 const API_URL = env.VITE_API_URL;
 
-interface UseHuddleMediaReturn {
+// ── Error classification ──────────────────────────────────────
+
+export interface PermissionAlert {
+  title: string;
+  description: string;
+}
+
+type DeviceKind = "microphone" | "camera" | "screen";
+
+export function classifyMediaError(err: unknown, device: DeviceKind): PermissionAlert | null {
+  if (!(err instanceof DOMException)) {
+    // Generic error (e.g. device switch failure)
+    return {
+      title: "Could not switch device",
+      description: "The selected device is unavailable. Try a different one.",
+    };
+  }
+
+  // User cancelled the screen share picker — not an error
+  if (device === "screen" && err.name === "NotAllowedError") {
+    return null;
+  }
+
+  const deviceLabel = device === "screen" ? "Screen sharing" : device === "camera" ? "Camera" : "Microphone";
+
+  switch (err.name) {
+    case "NotAllowedError":
+      return {
+        title: `${deviceLabel} blocked`,
+        description: `Allow ${device} access in your browser settings, then try again.`,
+      };
+    case "NotFoundError":
+      return {
+        title: `No ${device} found`,
+        description: `Connect a ${device} and try again.`,
+      };
+    case "NotReadableError":
+      return {
+        title: `${deviceLabel} unavailable`,
+        description: `Your ${device} may be in use by another app. Close other apps and try again.`,
+      };
+    default:
+      return {
+        title: `${deviceLabel} blocked`,
+        description: "Your browser or system settings don't allow this. Check your settings and try again.",
+      };
+  }
+}
+
+// ── Hook ──────────────────────────────────────────────────────
+
+export interface UseHuddleMediaReturn {
   mediaState: HuddleMediaState | null;
   error: string | null;
   isMuted: boolean;
   isCameraOn: boolean;
   isScreenSharing: boolean;
+  permissionAlert: PermissionAlert | null;
   toggleMute: () => void;
   toggleCamera: () => void;
   toggleScreenShare: () => void;
   switchAudioDevice: (deviceId: string) => void;
   switchVideoDevice: (deviceId: string) => void;
+  dismissPermissionAlert: () => void;
 }
 
 export function useHuddleMedia(): UseHuddleMediaReturn {
@@ -28,6 +80,7 @@ export function useHuddleMedia(): UseHuddleMediaReturn {
   const prevChannelIdRef = useRef<string | null>(null);
   const [mediaState, setMediaState] = useState<HuddleMediaState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [permissionAlert, setPermissionAlert] = useState<PermissionAlert | null>(null);
   // Local optimistic state for mute/camera/screenshare — works even without LiveKit connection
   const [localMuted, setLocalMuted] = useState(false);
   const [localCameraOn, setLocalCameraOn] = useState(false);
@@ -106,18 +159,24 @@ export function useHuddleMedia(): UseHuddleMediaReturn {
         // Connect to LiveKit — if it fails, keep the huddle UI visible (degraded mode)
         try {
           await client.connect(wsUrl, token);
-          await client.enableMicrophone();
         } catch (connectErr) {
           console.warn("LiveKit connection failed, running in degraded mode:", connectErr);
         }
+
+        // Enable mic — if it fails (permission denied, no device, etc.), join muted
+        try {
+          await client.enableMicrophone();
+        } catch (micErr) {
+          console.warn("Microphone unavailable, joining muted:", micErr);
+          setLocalMuted(true);
+        }
+
         setError(null);
       } catch (err) {
         console.error("Failed to join huddle:", err);
-        const message = err instanceof DOMException && err.name === "NotAllowedError"
-          ? "Microphone permission denied"
-          : err instanceof Error
-            ? err.message
-            : "Failed to join huddle";
+        const message = err instanceof Error
+          ? err.message
+          : "Failed to join huddle";
         setError(message);
         // Leave the huddle since we can't even fetch the token
         dispatch({ type: "huddle/setCurrentChannel", channelId: null });
@@ -134,51 +193,78 @@ export function useHuddleMedia(): UseHuddleMediaReturn {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channelId, user?.id]);
 
-  const toggleMute = useCallback(() => {
-    setLocalMuted((prev) => !prev);
+  const toggleMute = useCallback(async () => {
     const client = clientRef.current;
     if (!client) return;
-    client.toggleMicrophone().catch((err) => {
-      console.error("Failed to toggle microphone:", err);
-    });
+    try {
+      await client.toggleMicrophone();
+      setLocalMuted((prev) => !prev);
+    } catch (err) {
+      const alert = classifyMediaError(err, "microphone");
+      if (alert) setPermissionAlert(alert);
+    }
   }, []);
 
-  const toggleCamera = useCallback(() => {
-    setLocalCameraOn((prev) => !prev);
+  const toggleCamera = useCallback(async () => {
     const client = clientRef.current;
     if (!client) return;
-    client.toggleCamera().catch((err) => {
-      console.error("Failed to toggle camera:", err);
-    });
+    try {
+      await client.toggleCamera();
+      setLocalCameraOn((prev) => !prev);
+    } catch (err) {
+      const alert = classifyMediaError(err, "camera");
+      if (alert) setPermissionAlert(alert);
+    }
   }, []);
 
-  const toggleScreenShare = useCallback(() => {
-    setLocalScreenSharing((prev) => !prev);
+  const toggleScreenShare = useCallback(async () => {
     const client = clientRef.current;
     if (!client) return;
     const s = client.getState();
     const isSharing = s.localParticipant?.isScreenSharing ?? false;
     if (isSharing) {
-      client.stopScreenShare().catch((err) => {
+      try {
+        await client.stopScreenShare();
+        setLocalScreenSharing(false);
+      } catch (err) {
         console.error("Failed to stop screen share:", err);
-      });
+      }
     } else {
-      client.startScreenShare().catch((err) => {
-        console.error("Failed to start screen share:", err);
+      try {
+        await client.startScreenShare();
+        setLocalScreenSharing(true);
+      } catch (err) {
+        const alert = classifyMediaError(err, "screen");
+        if (alert) setPermissionAlert(alert);
+        // If alert is null, user just cancelled the picker — no action needed
+      }
+    }
+  }, []);
+
+  const switchAudioDevice = useCallback(async (deviceId: string) => {
+    try {
+      await clientRef.current?.switchAudioDevice(deviceId);
+    } catch {
+      setPermissionAlert({
+        title: "Could not switch device",
+        description: "The selected device is unavailable. Try a different one.",
       });
     }
   }, []);
 
-  const switchAudioDevice = useCallback((deviceId: string) => {
-    clientRef.current?.switchAudioDevice(deviceId).catch((err) => {
-      console.error("Failed to switch audio device:", err);
-    });
+  const switchVideoDevice = useCallback(async (deviceId: string) => {
+    try {
+      await clientRef.current?.switchVideoDevice(deviceId);
+    } catch {
+      setPermissionAlert({
+        title: "Could not switch device",
+        description: "The selected device is unavailable. Try a different one.",
+      });
+    }
   }, []);
 
-  const switchVideoDevice = useCallback((deviceId: string) => {
-    clientRef.current?.switchVideoDevice(deviceId).catch((err) => {
-      console.error("Failed to switch video device:", err);
-    });
+  const dismissPermissionAlert = useCallback(() => {
+    setPermissionAlert(null);
   }, []);
 
   // Use LiveKit state when available, fall back to local optimistic state
@@ -198,10 +284,12 @@ export function useHuddleMedia(): UseHuddleMediaReturn {
     isMuted,
     isCameraOn,
     isScreenSharing,
+    permissionAlert,
     toggleMute,
     toggleCamera,
     toggleScreenShare,
     switchAudioDevice,
     switchVideoDevice,
+    dismissPermissionAlert,
   };
 }

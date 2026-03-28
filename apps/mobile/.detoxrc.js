@@ -34,9 +34,9 @@ module.exports = {
   devices: {
     simulator: {
       type: "ios.simulator",
-      device: {
-        type: "iPhone 17",
-      },
+      device: process.env.DTX_DEVICE_UDID
+        ? { id: process.env.DTX_DEVICE_UDID }
+        : { type: "iPhone 17" },
     },
   },
   configurations: {

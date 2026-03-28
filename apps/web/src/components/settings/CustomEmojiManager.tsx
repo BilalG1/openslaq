@@ -4,7 +4,7 @@ import { uploadCustomEmoji, deleteCustomEmoji } from "@openslaq/client-core";
 import { api as apiClient } from "../../api";
 import { useAuthProvider } from "../../lib/api-client";
 import { useChatStore } from "../../state/chat-store";
-import { Button, Input } from "../ui";
+import { Button, Input, useConfirm } from "../ui";
 import { getErrorMessage } from "../../lib/errors";
 
 interface CustomEmojiManagerProps {
@@ -20,6 +20,7 @@ export function CustomEmojiManager({ workspaceSlug }: CustomEmojiManagerProps) {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { confirm, dialog: confirmDialog } = useConfirm();
 
   const emojis = state.customEmojis;
   const filteredEmojis = search
@@ -44,7 +45,8 @@ export function CustomEmojiManager({ workspaceSlug }: CustomEmojiManagerProps) {
   };
 
   const handleDelete = async (emoji: CustomEmoji) => {
-    if (!confirm(`Delete :${emoji.name}:?`)) return;
+    const ok = await confirm({ title: "Delete emoji", description: `Delete :${emoji.name}:?`, confirmLabel: "Delete", variant: "danger" });
+    if (!ok) return;
     try {
       const deps = { api: apiClient, auth, dispatch, getState: () => state };
       await deleteCustomEmoji(deps, { workspaceSlug, emojiId: emoji.id });
@@ -154,6 +156,7 @@ export function CustomEmojiManager({ workspaceSlug }: CustomEmojiManagerProps) {
       ) : (
         <div className="text-muted text-sm text-center py-4">No custom emoji yet. Upload one above!</div>
       )}
+      {confirmDialog}
     </div>
   );
 }

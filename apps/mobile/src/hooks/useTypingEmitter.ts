@@ -1,10 +1,10 @@
 import { useCallback, useRef } from "react";
-import { asChannelId } from "@openslaq/shared";
+import { asChannelId, type ChannelId } from "@openslaq/shared";
 import { useSocket } from "@/contexts/SocketProvider";
 
 const DEBOUNCE_MS = 2500;
 
-export function useTypingEmitter(channelId: string | undefined) {
+export function useTypingEmitter(channelId: ChannelId | undefined) {
   const { socket } = useSocket();
   const lastEmitRef = useRef(0);
 

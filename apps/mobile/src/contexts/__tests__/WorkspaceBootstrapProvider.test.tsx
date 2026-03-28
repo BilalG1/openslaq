@@ -82,7 +82,7 @@ describe("WorkspaceBootstrapProvider", () => {
 
     useAuthMock.mockReturnValue({ authProvider, user });
     useChatStoreMock.mockReturnValue({ state: baseState, dispatch });
-    useSocketMock.mockReturnValue({ socket });
+    useSocketMock.mockReturnValue({ socket, status: "connected" });
     useSocketEventMock.mockImplementation(
       (event: string, handler: (...args: unknown[]) => void) => {
         eventHandlers.set(event, handler);
@@ -176,6 +176,40 @@ describe("WorkspaceBootstrapProvider", () => {
       },
     );
     expect(dispatch).toHaveBeenCalledWith({ type: "messages/unread" });
+  });
+
+  it("marks channel as read when new message arrives in active channel", () => {
+    render(
+      <WorkspaceBootstrapProvider workspaceSlug="acme">
+        <></>
+      </WorkspaceBootstrapProvider>,
+    );
+
+    // Clear the initial mark-as-read call from mount
+    markChannelAsReadMock.mockClear();
+
+    const message = { id: "message-1", channelId: "channel-1" };
+    eventHandlers.get("message:new")?.(message);
+
+    expect(markChannelAsReadMock).toHaveBeenCalledWith(
+      expect.objectContaining({ auth: authProvider, dispatch }),
+      { workspaceSlug: "acme", channelId: "channel-1" },
+    );
+  });
+
+  it("does not mark as read when new message arrives in a different channel", () => {
+    render(
+      <WorkspaceBootstrapProvider workspaceSlug="acme">
+        <></>
+      </WorkspaceBootstrapProvider>,
+    );
+
+    markChannelAsReadMock.mockClear();
+
+    const message = { id: "message-2", channelId: "channel-other" };
+    eventHandlers.get("message:new")?.(message);
+
+    expect(markChannelAsReadMock).not.toHaveBeenCalled();
   });
 
   it("skips unread tracking when no authenticated user exists", () => {
@@ -307,5 +341,65 @@ describe("WorkspaceBootstrapProvider", () => {
     );
 
     expect(queryByText("child content")).toBeNull();
+  });
+
+  it("re-bootstraps when socket reconnects after disconnection", () => {
+    useSocketMock.mockReturnValue({ socket, status: "reconnecting" });
+
+    const { rerender } = render(
+      <WorkspaceBootstrapProvider workspaceSlug="acme">
+        <></>
+      </WorkspaceBootstrapProvider>,
+    );
+
+    bootstrapWorkspaceMock.mockClear();
+
+    // Transition from reconnecting → connected
+    useSocketMock.mockReturnValue({ socket, status: "connected" });
+    rerender(
+      <WorkspaceBootstrapProvider workspaceSlug="acme">
+        <></>
+      </WorkspaceBootstrapProvider>,
+    );
+
+    expect(bootstrapWorkspaceMock).toHaveBeenCalledWith(
+      expect.objectContaining({ auth: authProvider, dispatch }),
+      { workspaceSlug: "acme" },
+    );
+  });
+
+  it("does not re-bootstrap on initial connected status", () => {
+    // Initial render with connected — bootstrap runs once from mount effect, not from reconnect
+    useSocketMock.mockReturnValue({ socket, status: "connected" });
+
+    render(
+      <WorkspaceBootstrapProvider workspaceSlug="acme">
+        <></>
+      </WorkspaceBootstrapProvider>,
+    );
+
+    // Should only have been called once (from the mount effect, not the reconnect effect)
+    expect(bootstrapWorkspaceMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-bootstraps when socket recovers from error state", () => {
+    useSocketMock.mockReturnValue({ socket, status: "error" });
+
+    const { rerender } = render(
+      <WorkspaceBootstrapProvider workspaceSlug="acme">
+        <></>
+      </WorkspaceBootstrapProvider>,
+    );
+
+    bootstrapWorkspaceMock.mockClear();
+
+    useSocketMock.mockReturnValue({ socket, status: "connected" });
+    rerender(
+      <WorkspaceBootstrapProvider workspaceSlug="acme">
+        <></>
+      </WorkspaceBootstrapProvider>,
+    );
+
+    expect(bootstrapWorkspaceMock).toHaveBeenCalledTimes(1);
   });
 });

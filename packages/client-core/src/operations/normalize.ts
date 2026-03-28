@@ -5,7 +5,7 @@ import {
   asUserId,
   asWorkspaceId,
 } from "@openslaq/shared";
-import type { Channel, Message, Role } from "@openslaq/shared";
+import type { Channel, ChannelEventMetadata, HuddleMessageMetadata, Message, MessageActionButton, Role } from "@openslaq/shared";
 import type { DmConversation, GroupDmConversation, GroupDmMember, WorkspaceInfo } from "../chat-reducer";
 
 interface RawWorkspaceInfo {
@@ -37,9 +37,11 @@ interface RawDmConversation {
     displayName: string;
     avatarUrl: string | null;
   };
+  lastMessageContent?: string | null;
+  lastMessageAt?: string | null;
 }
 
-interface RawMessage {
+export interface RawMessage {
   id: string;
   channelId: string;
   userId: string;
@@ -48,10 +50,10 @@ interface RawMessage {
   replyCount: number;
   latestReplyAt: string | null;
   type?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: HuddleMessageMetadata | ChannelEventMetadata | Record<string, unknown>;
   isBot?: boolean;
   botAppId?: string;
-  actions?: Array<{ label: string; value: string; style?: string }>;
+  actions?: MessageActionButton[];
   isPinned?: boolean;
   pinnedBy?: string | null;
   pinnedAt?: string | null;
@@ -130,6 +132,8 @@ export function normalizeDmConversation(dm: RawDmConversation): DmConversation {
   return {
     channel: normalizeChannel(dm.channel),
     otherUser: dm.otherUser,
+    lastMessageContent: dm.lastMessageContent ?? null,
+    lastMessageAt: dm.lastMessageAt ?? null,
   };
 }
 
@@ -145,9 +149,8 @@ export function normalizeGroupDmConversation(gdm: RawGroupDmConversation): Group
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function normalizeMessage(raw: RawMessage | Record<string, any>): Message {
-  const message = raw as RawMessage;
+export function normalizeMessage(raw: RawMessage): Message {
+  const message = raw;
   const base = {
     id: asMessageId(message.id),
     channelId: asChannelId(message.channelId),
@@ -207,26 +210,41 @@ export function normalizeMessage(raw: RawMessage | Record<string, any>): Message
       isBot: true,
       botAppId: message.botAppId,
       actions: message.actions ?? [],
-    } as Message;
+      type: undefined,
+      metadata: undefined,
+    };
   }
 
   if (message.type === "huddle" && message.metadata) {
     return {
       ...base,
-      type: "huddle",
-      metadata: message.metadata,
-    } as unknown as Message;
+      isBot: undefined,
+      botAppId: undefined,
+      actions: undefined,
+      type: "huddle" as const,
+      metadata: message.metadata as HuddleMessageMetadata,
+    };
   }
 
   if (message.type === "channel_event" && message.metadata) {
     return {
       ...base,
-      type: "channel_event",
-      metadata: message.metadata,
-    } as unknown as Message;
+      isBot: undefined,
+      botAppId: undefined,
+      actions: undefined,
+      type: "channel_event" as const,
+      metadata: message.metadata as ChannelEventMetadata,
+    };
   }
 
-  return base as Message;
+  return {
+    ...base,
+    isBot: undefined,
+    botAppId: undefined,
+    actions: undefined,
+    type: undefined,
+    metadata: undefined,
+  };
 }
 
 export function normalizeCursor(cursor: string | null | undefined): string | null {

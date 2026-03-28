@@ -1,5 +1,6 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { Hono } from "hono";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { cors } from "hono/cors";
 import { apiReference } from "@scalar/hono-api-reference";
 import { env } from "./env";
@@ -23,17 +24,25 @@ import pushRoutes from "./push/routes";
 import marketplaceRoutes from "./marketplace/routes";
 import marketplaceTokenRoutes from "./marketplace/token-routes";
 import apiKeyRoutes from "./api-keys/routes";
+import serverInfoRoutes from "./server-info/routes";
+import builtinAuthRoutes from "./auth/builtin-routes";
 import { INTEGRATION_PLUGINS } from "./integrations/registry";
+import { AppError } from "./errors";
 
 const app = new OpenAPIHono();
 
 app.onError((err, c) => {
+  if (err instanceof AppError) {
+    if (err.status >= 500) Sentry.captureException(err);
+    return c.json({ error: err.message }, err.status as ContentfulStatusCode);
+  }
   Sentry.captureException(err);
   return c.json({ error: "Internal Server Error" }, 500);
 });
 
 app.get("/health", (c) => c.json({ status: "ok" }));
 app.post("/health", (c) => c.json({ status: "ok" }));
+
 
 app.use("/api/*", artificialDelay);
 
@@ -99,7 +108,9 @@ const routes = app
   .route("/api", pushRoutes)
   .route("/api/marketplace", marketplaceRoutes)
   .route("/api/marketplace/oauth", marketplaceTokenRoutes)
-  .route("/api/api-keys", apiKeyRoutes);
+  .route("/api/api-keys", apiKeyRoutes)
+  .route("/api", serverInfoRoutes)
+  .route("/api/auth", env.AUTH_MODE === "builtin" ? builtinAuthRoutes : new Hono());
 
 // Mount integration plugin webhook routes
 for (const plugin of INTEGRATION_PLUGINS) {

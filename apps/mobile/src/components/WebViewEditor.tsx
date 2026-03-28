@@ -5,10 +5,12 @@ import {
   useImperativeHandle,
   useRef,
 } from "react";
-import { View } from "react-native";
+import { View, StyleSheet } from "react-native";
 import WebView from "react-native-webview";
 import type { WebViewMessageEvent } from "react-native-webview";
 import { MOBILE_EDITOR_HTML } from "@openslaq/editor/mobile-html";
+
+import { TRANSPARENT } from "@/theme/constants";
 
 export interface FormattingState {
   bold: boolean;
@@ -24,6 +26,7 @@ export interface WebViewEditorRef {
   setContent(markdown: string): void;
   clearContent(): void;
   focus(position?: "end" | "start"): void;
+  blur(): void;
   getMarkdown(): Promise<string>;
   toggleBold(): void;
   toggleItalic(): void;
@@ -34,12 +37,23 @@ export interface WebViewEditorRef {
   toggleOrderedList(): void;
   setLink(url: string): void;
   unsetLink(): void;
+  insertLink(text: string, url: string): void;
   insertMention(id: string, label: string): void;
   insertSlashCommand(name: string): void;
 }
 
+export interface EditorThemeColors {
+  "text-primary": string;
+  "text-muted": string;
+  "text-faint": string;
+  "border-strong": string;
+  "surface-tertiary": string;
+  "brand-primary": string;
+}
+
 interface WebViewEditorProps {
   placeholder?: string;
+  themeColors?: EditorThemeColors;
   onContentChange?: (info: {
     markdown: string;
     text: string;
@@ -58,6 +72,7 @@ export const WebViewEditor = forwardRef<WebViewEditorRef, WebViewEditorProps>(
   function WebViewEditor(
     {
       placeholder,
+      themeColors,
       onContentChange,
       onHeightChange,
       onFormattingState,
@@ -81,6 +96,15 @@ export const WebViewEditor = forwardRef<WebViewEditorRef, WebViewEditorProps>(
       };
     }, []);
 
+    const isReadyRef = useRef(false);
+
+    // Send theme colors when they change (and editor is ready)
+    useEffect(() => {
+      if (isReadyRef.current && themeColors) {
+        sendCommand({ type: "set-theme", colors: themeColors });
+      }
+    }, [themeColors]);
+
     const sendCommand = useCallback(
       (msg: Record<string, unknown>) => {
         webViewRef.current?.injectJavaScript(
@@ -101,6 +125,9 @@ export const WebViewEditor = forwardRef<WebViewEditorRef, WebViewEditorProps>(
         },
         focus(position?: "end" | "start") {
           sendCommand({ type: "focus", position: position ?? "end" });
+        },
+        blur() {
+          sendCommand({ type: "blur" });
         },
         getMarkdown() {
           return new Promise<string>((resolve) => {
@@ -136,6 +163,9 @@ export const WebViewEditor = forwardRef<WebViewEditorRef, WebViewEditorProps>(
         unsetLink() {
           sendCommand({ type: "unset-link" });
         },
+        insertLink(text: string, url: string) {
+          sendCommand({ type: "insert-link", text, url });
+        },
         insertMention(id: string, label: string) {
           sendCommand({ type: "insert-mention", id, label });
         },
@@ -152,8 +182,12 @@ export const WebViewEditor = forwardRef<WebViewEditorRef, WebViewEditorProps>(
           const data = JSON.parse(event.nativeEvent.data);
           switch (data.type) {
             case "ready":
+              isReadyRef.current = true;
               if (placeholder) {
                 sendCommand({ type: "set-placeholder", text: placeholder });
+              }
+              if (themeColors) {
+                sendCommand({ type: "set-theme", colors: themeColors });
               }
               onReady?.();
               break;
@@ -191,6 +225,7 @@ export const WebViewEditor = forwardRef<WebViewEditorRef, WebViewEditorProps>(
       },
       [
         placeholder,
+        themeColors,
         sendCommand,
         onContentChange,
         onHeightChange,
@@ -202,15 +237,12 @@ export const WebViewEditor = forwardRef<WebViewEditorRef, WebViewEditorProps>(
     );
 
     return (
-      <View testID="webview-editor-container" style={{ flex: 1 }}>
+      <View testID="webview-editor-container" style={staticStyles.container}>
         <WebView
           ref={webViewRef}
           testID="webview-editor"
           source={{ html: MOBILE_EDITOR_HTML }}
-          style={{
-            flex: 1,
-            backgroundColor: "transparent",
-          }}
+          style={staticStyles.webview}
           scrollEnabled={false}
           keyboardDisplayRequiresUserAction={false}
           hideKeyboardAccessoryView
@@ -220,3 +252,13 @@ export const WebViewEditor = forwardRef<WebViewEditorRef, WebViewEditorProps>(
     );
   },
 );
+
+const staticStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  webview: {
+    flex: 1,
+    backgroundColor: TRANSPARENT,
+  },
+});

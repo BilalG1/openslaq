@@ -39,8 +39,8 @@ describe("Vercel Bot", () => {
     const chRes = await adminClient.api.workspaces[":slug"].channels.$get({
       param: { slug: workspaceSlug },
     });
-    const channels = (await chRes.json()) as any[];
-    channelId = channels.find((c: any) => c.name === "general")?.id;
+    const channels = (await chRes.json()) as Array<{ id: string; name: string }>;
+    channelId = channels.find((c: { id: string; name: string }) => c.name === "general")?.id ?? "";
     expect(channelId).toBeTruthy();
 
     // Get vercel-bot listing ID
@@ -81,10 +81,10 @@ describe("Vercel Bot", () => {
       json: { command: "vercel", args: "", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
     expect(result.ephemeralMessages).toHaveLength(1);
-    expect(result.ephemeralMessages[0].text).toContain("Vercel Bot Commands");
+    expect(result.ephemeralMessages[0]!.text).toContain("Vercel Bot Commands");
   });
 
   test("/vercel subscribe creates subscription", async () => {
@@ -93,9 +93,9 @@ describe("Vercel Bot", () => {
       json: { command: "vercel", args: "subscribe my-app", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Subscribed to **my-app**");
+    expect(result.ephemeralMessages[0]!.text).toContain("Subscribed to **my-app**");
   });
 
   test("/vercel subscribe with specific events", async () => {
@@ -104,9 +104,9 @@ describe("Vercel Bot", () => {
       json: { command: "vercel", args: "subscribe api-service deployments,alerts", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("deployments, alerts");
+    expect(result.ephemeralMessages[0]!.text).toContain("deployments, alerts");
   });
 
   test("/vercel subscribe with invalid events returns error", async () => {
@@ -115,9 +115,9 @@ describe("Vercel Bot", () => {
       json: { command: "vercel", args: "subscribe backend bogus,invalid", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Unknown events");
+    expect(result.ephemeralMessages[0]!.text).toContain("Unknown events");
   });
 
   test("/vercel subscribe without project name returns usage", async () => {
@@ -126,9 +126,9 @@ describe("Vercel Bot", () => {
       json: { command: "vercel", args: "subscribe", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Usage:");
+    expect(result.ephemeralMessages[0]!.text).toContain("Usage:");
   });
 
   test("/vercel subscribe rejects duplicate", async () => {
@@ -137,9 +137,9 @@ describe("Vercel Bot", () => {
       json: { command: "vercel", args: "subscribe my-app", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Already subscribed");
+    expect(result.ephemeralMessages[0]!.text).toContain("Already subscribed");
   });
 
   test("/vercel list shows subscriptions", async () => {
@@ -148,10 +148,10 @@ describe("Vercel Bot", () => {
       json: { command: "vercel", args: "list", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("my-app");
-    expect(result.ephemeralMessages[0].text).toContain("api-service");
+    expect(result.ephemeralMessages[0]!.text).toContain("my-app");
+    expect(result.ephemeralMessages[0]!.text).toContain("api-service");
   });
 
   // Test ALL event types via /vercel test to cover event-handlers + message-formatter
@@ -177,9 +177,9 @@ describe("Vercel Bot", () => {
           json: { command: "vercel", args: `test ${name}`, channelId },
         });
         expect(res.status).toBe(200);
-        const result = (await res.json()) as any;
+        const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
         expect(result.ok).toBe(true);
-        expect(result.ephemeralMessages[0].text).toContain(`Test event "${name}" posted`);
+        expect(result.ephemeralMessages[0]!.text).toContain(`Test event "${name}" posted`);
       });
     }
   });
@@ -190,9 +190,9 @@ describe("Vercel Bot", () => {
       json: { command: "vercel", args: "test", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Usage:");
+    expect(result.ephemeralMessages[0]!.text).toContain("Usage:");
   });
 
   test("/vercel test unknown event returns error", async () => {
@@ -201,9 +201,9 @@ describe("Vercel Bot", () => {
       json: { command: "vercel", args: "test nonexistent", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Unknown test event");
+    expect(result.ephemeralMessages[0]!.text).toContain("Unknown test event");
   });
 
   test("/vercel unknown subcommand returns usage", async () => {
@@ -212,9 +212,9 @@ describe("Vercel Bot", () => {
       json: { command: "vercel", args: "foobar", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Vercel Bot Commands");
+    expect(result.ephemeralMessages[0]!.text).toContain("Vercel Bot Commands");
   });
 
   test("/vercel unsubscribe without project name returns usage", async () => {
@@ -223,9 +223,9 @@ describe("Vercel Bot", () => {
       json: { command: "vercel", args: "unsubscribe", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Usage:");
+    expect(result.ephemeralMessages[0]!.text).toContain("Usage:");
   });
 
   test("/vercel unsubscribe removes subscription", async () => {
@@ -234,9 +234,9 @@ describe("Vercel Bot", () => {
       json: { command: "vercel", args: "unsubscribe my-app", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Unsubscribed from **my-app**");
+    expect(result.ephemeralMessages[0]!.text).toContain("Unsubscribed from **my-app**");
   });
 
   test("/vercel unsubscribe nonexistent returns not found", async () => {
@@ -245,9 +245,9 @@ describe("Vercel Bot", () => {
       json: { command: "vercel", args: "unsubscribe nope", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("No subscription");
+    expect(result.ephemeralMessages[0]!.text).toContain("No subscription");
   });
 
   test("/vercel list after unsubscribe shows remaining", async () => {
@@ -256,11 +256,11 @@ describe("Vercel Bot", () => {
       json: { command: "vercel", args: "list", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
     // my-app was unsubscribed, api-service should remain
-    expect(result.ephemeralMessages[0].text).toContain("api-service");
-    expect(result.ephemeralMessages[0].text).not.toContain("my-app");
+    expect(result.ephemeralMessages[0]!.text).toContain("api-service");
+    expect(result.ephemeralMessages[0]!.text).not.toContain("my-app");
   });
 
   // Unsubscribe remaining so list returns empty
@@ -274,9 +274,9 @@ describe("Vercel Bot", () => {
       json: { command: "vercel", args: "list", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("No Vercel subscriptions");
+    expect(result.ephemeralMessages[0]!.text).toContain("No Vercel subscriptions");
   });
 
   test("uninstall vercel-bot", async () => {
@@ -299,7 +299,7 @@ describe("Vercel Bot", () => {
       json: { command: "vercel", args: "subscribe my-app", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(false);
     expect(result.error).toContain("Unknown command");
   });
@@ -310,7 +310,7 @@ describe("Vercel Bot", () => {
       json: { command: "vercel", args: "test deployment_created", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(false);
   });
 
@@ -399,8 +399,8 @@ describe("Vercel Bot", () => {
       const chRes = await admin2.client.api.workspaces[":slug"].channels.$get({
         param: { slug: wsSlug2 },
       });
-      const channels = (await chRes.json()) as any[];
-      const ch = channels.find((c: any) => c.name === "general");
+      const channels = (await chRes.json()) as Array<{ id: string; name: string }>;
+      const ch = channels.find((c: { id: string; name: string }) => c.name === "general")!;
 
       await admin2.client.api.workspaces[":slug"].commands.execute.$post({
         param: { slug: wsSlug2 },

@@ -188,6 +188,25 @@ describe("operations/bootstrap", () => {
     expect(actions.some((a) => a.type === "workspace/selectChannel")).toBe(false);
   });
 
+  it("dispatches channelNotFound when URL channel is not in active channels", async () => {
+    const { deps, actions } = makeDeps({
+      channels: () => jsonResponse(200, baseChannels),
+      workspaces: () => jsonResponse(200, baseWorkspaces),
+      dms: () => jsonResponse(200, baseDms),
+      unread: () => jsonResponse(200, {}),
+      presence: () => jsonResponse(200, []),
+    });
+
+    await bootstrapWorkspace(deps, { workspaceSlug: "ws", urlChannelId: "ch-archived-gone" });
+
+    const lastAction = actions[actions.length - 1];
+    expect(lastAction).toEqual({
+      type: "workspace/channelNotFound",
+      requestedChannelId: "ch-archived-gone",
+      fallbackChannelId: "ch-general",
+    });
+  });
+
   it("triggers auth required on 401 and skips error action", async () => {
     const { deps, actions, getAuthRequiredCount } = makeDeps({
       channels: () => Promise.resolve(new Response(null, { status: 401 })),

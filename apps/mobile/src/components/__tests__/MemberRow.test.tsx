@@ -1,6 +1,7 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react-native";
 import { MemberRow } from "../workspace/MemberRow";
+import { asUserId } from "@openslaq/shared";
 
 jest.mock("@/theme/ThemeProvider", () => ({
   useMobileTheme: () => ({
@@ -19,7 +20,7 @@ jest.mock("@/theme/ThemeProvider", () => ({
 }));
 
 const defaultProps = {
-  id: "u-1",
+  id: asUserId("u-1"),
   displayName: "Alice Smith",
   email: "alice@example.com",
   avatarUrl: null,

@@ -48,7 +48,7 @@ while IFS= read -r file; do
   type="$(classify_type "$file")"
 
   test_count="$(
-    rg --pcre2 -o '(?<![A-Za-z0-9_$.])(it|test)(?:\.(only|skip|todo|concurrent|serial|failing))*\s*\(' "$file" 2>/dev/null | wc -l | tr -d ' '
+    rg --pcre2 -o '(?<![A-Za-z0-9_$.])(it|test)(?:\.(only|skip|todo|concurrent|serial|failing))*\s*\(' "$file" 2>/dev/null | wc -l | tr -d ' ' || true
   )"
 
   if [[ "$test_count" -gt 0 ]]; then

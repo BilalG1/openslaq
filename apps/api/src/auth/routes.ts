@@ -2,22 +2,23 @@ import { Hono } from "hono";
 import * as jose from "jose";
 import { env } from "../env";
 import { e2eTestSecret } from "./jwt";
+import { AppError, UnauthorizedError, BadRequestError } from "../errors";
 
 const authRoutes = new Hono();
 
 // Dev-only endpoint: mint a self-signed JWT for quick sign-in (mobile, CLI, etc.)
 authRoutes.post("/dev-sign-in", async (c) => {
   if (process.env.NODE_ENV === "production") {
-    return c.json({ error: "Not found" }, 404);
+    throw new AppError(404, "Not found");
   }
 
   const body = await c.req.json<{ secret: string }>();
 
   if (!e2eTestSecret || body.secret !== env.E2E_TEST_SECRET) {
-    return c.json({ error: "Unauthorized" }, 401);
+    throw new UnauthorizedError();
   }
 
-  const projectId = env.VITE_STACK_PROJECT_ID;
+  const projectId = env.VITE_STACK_PROJECT_ID ?? "dev";
   const issuer = `https://api.stack-auth.com/api/v1/projects/${projectId}`;
 
   const n = Math.floor(Math.random() * 10000);
@@ -56,7 +57,7 @@ authRoutes.get("/mobile-oauth-callback", (c) => {
   const errorDescription = c.req.query("error_description");
 
   if (!code && !error) {
-    return c.json({ error: "Missing code or error parameter" }, 400);
+    throw new BadRequestError("Missing code or error parameter");
   }
 
   // Decode app redirect URI from state (base64-encoded JSON with nonce + redirect).

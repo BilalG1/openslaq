@@ -1,20 +1,22 @@
 import { useMemo, useState } from "react";
 import { Pressable } from "react-native";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { ChevronLeft } from "lucide-react-native";
-import type { Channel } from "@openslaq/shared";
+import type { Channel, UserId } from "@openslaq/shared";
 import { useAuth } from "@/contexts/AuthContext";
 import { useChatStore } from "@/contexts/ChatStoreProvider";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { CreateChannelModal } from "@/components/CreateChannelModal";
 import { NewDmModal } from "@/components/NewDmModal";
 import { HomeActionsProvider } from "@/contexts/HomeActionsContext";
-import { api } from "@/lib/api";
+import { useWorkspaceParams } from "@/hooks/useRouteParams";
+import { useServer } from "@/contexts/ServerContext";
 import { routes } from "@/lib/routes";
 
 export default function ChannelsLayout() {
-  const { workspaceSlug: urlSlug } = useLocalSearchParams<{ workspaceSlug: string }>();
+  const { workspaceSlug: urlSlug } = useWorkspaceParams();
   const { authProvider, user } = useAuth();
+  const { apiClient: api } = useServer();
   const { state, dispatch } = useChatStore();
   const router = useRouter();
   const { theme } = useMobileTheme();
@@ -55,7 +57,13 @@ export default function ChannelsLayout() {
 
   return (
     <HomeActionsProvider value={homeActions}>
-      <Stack screenOptions={{ headerBackButtonDisplayMode: "minimal" }}>
+      <Stack screenOptions={{
+        headerBackButtonDisplayMode: "minimal",
+        contentStyle: { backgroundColor: theme.colors.surface },
+        headerStyle: { backgroundColor: theme.colors.surface },
+        headerTintColor: theme.colors.textPrimary,
+        headerTitleStyle: { color: theme.colors.textPrimary },
+      }}>
         <Stack.Screen
           name="index"
           options={{ headerShown: false, title: "Home" }}
@@ -69,7 +77,6 @@ export default function ChannelsLayout() {
           options={{
             title: "",
             headerLeft: backButton,
-            headerTitleContainerStyle: { justifyContent: "center" },
           }}
         />
         <Stack.Screen
@@ -93,7 +100,7 @@ export default function ChannelsLayout() {
         visible={showNewDm}
         onClose={() => setShowNewDm(false)}
         workspaceSlug={workspaceSlug}
-        currentUserId={user?.id ?? ""}
+        currentUserId={(user?.id ?? "") as UserId}
         deps={deps}
         onCreated={handleDmCreated}
         onChannelSelected={(channelId) => {

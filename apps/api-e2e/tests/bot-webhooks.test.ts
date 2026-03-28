@@ -31,7 +31,7 @@ async function createBotInWorkspace(
     },
   });
   expect(res.status).toBe(201);
-  return (await res.json()) as { bot: any; apiToken: string };
+  return (await res.json()) as unknown as { bot: { id: string; appId: string; userId: string }; apiToken: string };
 }
 
 async function addBotToChannel(client: TestApiClient, slug: string, channelId: string, botUserId: string) {
@@ -45,10 +45,10 @@ async function getWebhookDeliveries(botAppId: string) {
   const res = await fetch(`${getApiUrl()}/api/test/webhook-deliveries/${botAppId}`, {
     headers: { Authorization: `Bearer ${getTestSecret()}` },
   });
-  return (await res.json()) as any[];
+  return (await res.json()) as Record<string, unknown>[];
 }
 
-async function waitForDeliveries(botAppId: string, minCount: number, timeoutMs = 5000): Promise<any[]> {
+async function waitForDeliveries(botAppId: string, minCount: number, timeoutMs = 5000): Promise<Record<string, unknown>[]> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     const deliveries = await getWebhookDeliveries(botAppId);
@@ -97,9 +97,9 @@ describe("webhook dispatcher", () => {
     // Wait for async delivery
     const deliveries = await waitForDeliveries(bot.id, 1);
     expect(deliveries.length).toBeGreaterThanOrEqual(1);
-    expect(deliveries[0].eventType).toBe("message:new");
-    expect(deliveries[0].statusCode).toBe("200");
-    expect(Number(deliveries[0].attempts)).toBe(1);
+    expect(deliveries[0]!.eventType).toBe("message:new");
+    expect(deliveries[0]!.statusCode).toBe("200");
+    expect(Number(deliveries[0]!.attempts)).toBe(1);
   });
 
   test("bot without required scope does not receive webhook", async () => {
@@ -185,8 +185,8 @@ describe("webhook dispatcher", () => {
     // Wait for retries (3 attempts — fast backoff in test mode)
     const deliveries = await waitForDeliveries(bot.id, 1);
     expect(deliveries.length).toBeGreaterThanOrEqual(1);
-    expect(deliveries[0].statusCode).toBe("error");
-    expect(Number(deliveries[0].attempts)).toBe(3); // max retries
+    expect(deliveries[0]!.statusCode).toBe("error");
+    expect(Number(deliveries[0]!.attempts)).toBe(3); // max retries
   });
 
   test("bot's own message excluded via excludeBotUserId", async () => {
@@ -453,8 +453,8 @@ describe("webhook dispatcher", () => {
       param: { slug: ws.slug, id: channel.id },
       query: {},
     });
-    const data = (await msgsRes.json()) as { messages: any[] };
-    const updated = data.messages.find((m: any) => m.id === msg.id);
+    const data = (await msgsRes.json()) as { messages: Array<{ id: string; content?: string; actions?: Array<{ label: string }> }> };
+    const updated = data.messages.find((m: { id: string }) => m.id === msg.id);
     expect(updated).toBeDefined();
     expect(updated!.content).toBe("Updated by webhook");
   });
@@ -567,7 +567,7 @@ describe("webhook dispatcher", () => {
     const deliveries = await waitForDeliveries(bot.id, 1);
     expect(deliveries.length).toBeGreaterThanOrEqual(1);
     // 401 is not res.ok so it should retry and log failure
-    expect(deliveries[0].statusCode).toBe("401");
-    expect(Number(deliveries[0].attempts)).toBe(3);
+    expect(deliveries[0]!.statusCode).toBe("401");
+    expect(Number(deliveries[0]!.attempts)).toBe(3);
   });
 });

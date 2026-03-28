@@ -7,18 +7,22 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  StyleSheet,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { createWorkspace } from "@openslaq/client-core";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMobileTheme } from "@/theme/ThemeProvider";
-import { api } from "@/lib/api";
+import { useServer } from "@/contexts/ServerContext";
 import { routes } from "@/lib/routes";
+import type { MobileTheme } from "@openslaq/shared";
 
 export default function CreateWorkspaceScreen() {
   const { authProvider } = useAuth();
+  const { apiClient: api } = useServer();
   const { theme } = useMobileTheme();
   const router = useRouter();
+  const styles = makeStyles(theme);
 
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
@@ -43,21 +47,11 @@ export default function CreateWorkspaceScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: theme.colors.surface }}
+      style={styles.kav}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <View
-        testID="create-workspace-screen"
-        style={{ flex: 1, padding: 24, justifyContent: "flex-start", paddingTop: 32 }}
-      >
-        <Text
-          style={{
-            color: theme.colors.textSecondary,
-            fontSize: 13,
-            fontWeight: "600",
-            marginBottom: 6,
-          }}
-        >
+      <View testID="create-workspace-screen" style={styles.inner}>
+        <Text style={styles.label}>
           Workspace Name
         </Text>
         <TextInput
@@ -67,24 +61,13 @@ export default function CreateWorkspaceScreen() {
           placeholder="e.g. Acme Corp"
           placeholderTextColor={theme.colors.textFaint}
           autoFocus
-          style={{
-            backgroundColor: theme.colors.surfaceSecondary,
-            color: theme.colors.textPrimary,
-            borderRadius: 8,
-            paddingHorizontal: 12,
-            paddingVertical: 10,
-            fontSize: 16,
-            borderWidth: 1,
-            borderColor: theme.colors.borderDefault,
-            marginBottom: 16,
-          }}
+          style={styles.input}
+          accessibilityLabel="Workspace name"
+          accessibilityHint="Enter a name for your new workspace"
         />
 
         {error && (
-          <Text
-            testID="create-workspace-error"
-            style={{ color: theme.colors.dangerText, marginBottom: 12, fontSize: 14 }}
-          >
+          <Text testID="create-workspace-error" style={styles.errorText}>
             {error}
           </Text>
         )}
@@ -93,6 +76,9 @@ export default function CreateWorkspaceScreen() {
           testID="create-workspace-submit"
           onPress={handleCreate}
           disabled={!name.trim() || loading}
+          accessibilityRole="button"
+          accessibilityLabel="Create Workspace"
+          accessibilityHint="Creates a new workspace"
           style={({ pressed }) => ({
             opacity: pressed ? 0.8 : 1,
             backgroundColor:
@@ -105,9 +91,9 @@ export default function CreateWorkspaceScreen() {
           })}
         >
           {loading ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={theme.colors.headerText} />
           ) : (
-            <Text style={{ color: "#fff", fontWeight: "600", fontSize: 16 }}>
+            <Text style={styles.submitText}>
               Create Workspace
             </Text>
           )}
@@ -116,3 +102,44 @@ export default function CreateWorkspaceScreen() {
     </KeyboardAvoidingView>
   );
 }
+
+const makeStyles = (theme: MobileTheme) =>
+  StyleSheet.create({
+    kav: {
+      flex: 1,
+      backgroundColor: theme.colors.surface,
+    },
+    inner: {
+      flex: 1,
+      padding: 24,
+      justifyContent: "flex-start",
+      paddingTop: 32,
+    },
+    label: {
+      color: theme.colors.textSecondary,
+      fontSize: 13,
+      fontWeight: "600",
+      marginBottom: 6,
+    },
+    input: {
+      backgroundColor: theme.colors.surfaceSecondary,
+      color: theme.colors.textPrimary,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 16,
+      borderWidth: 1,
+      borderColor: theme.colors.borderDefault,
+      marginBottom: 16,
+    },
+    errorText: {
+      color: theme.colors.dangerText,
+      marginBottom: 12,
+      fontSize: 14,
+    },
+    submitText: {
+      color: theme.colors.headerText,
+      fontWeight: "600",
+      fontSize: 16,
+    },
+  });

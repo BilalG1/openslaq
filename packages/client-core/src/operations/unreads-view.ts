@@ -1,5 +1,4 @@
 import type { AllUnreadsResponse } from "@openslaq/shared";
-import { AuthError } from "../api/errors";
 import { authorizedRequest } from "../api/api-client";
 import type { OperationDeps } from "./types";
 
@@ -22,16 +21,11 @@ export async function markAllAsRead(
   params: { workspaceSlug: string },
 ): Promise<void> {
   const { api, auth, dispatch } = deps;
-  try {
-    await authorizedRequest(auth, (headers) =>
-      api.api.workspaces[":slug"].unreads["mark-all-read"].$post(
-        { param: { slug: params.workspaceSlug } },
-        { headers },
-      ),
-    );
-    dispatch({ type: "unread/setCounts", counts: {} });
-  } catch (err) {
-    if (err instanceof AuthError) auth.onAuthRequired();
-    throw err;
-  }
+  await authorizedRequest(auth, (headers) =>
+    api.api.workspaces[":slug"].unreads["mark-all-read"].$post(
+      { param: { slug: params.workspaceSlug } },
+      { headers },
+    ),
+  );
+  dispatch({ type: "unread/setCounts", counts: {} });
 }

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { parseDeepLinkUrl } from "./deep-link";
 
 describe("parseDeepLinkUrl", () => {
@@ -33,6 +33,24 @@ describe("parseDeepLinkUrl", () => {
       channelId: "ch_123",
       messageId: "msg_789",
     });
+  });
+
+  test("parses invite URL", () => {
+    expect(parseDeepLinkUrl("openslaq://invite/abc123")).toEqual({
+      type: "invite",
+      code: "abc123",
+    });
+  });
+
+  test("parses invite URL with trailing slash", () => {
+    expect(parseDeepLinkUrl("openslaq://invite/abc123/")).toEqual({
+      type: "invite",
+      code: "abc123",
+    });
+  });
+
+  test("falls back to open for invite with no code", () => {
+    expect(parseDeepLinkUrl("openslaq://invite/")).toEqual({ type: "open" });
   });
 
   test("falls back to open for unrecognized paths", () => {

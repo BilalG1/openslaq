@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import {
   listChannelMembers as coreListChannelMembers,
   addChannelMember,
+  addChannelMembersBulk,
   removeChannelMember,
   type ChannelMember,
 } from "@openslaq/client-core";
@@ -38,11 +39,17 @@ export function useChannelMembersApi() {
     [auth],
   );
 
+  const addMembersBulk = useCallback(
+    (workspaceSlug: string, channelId: string, userIds: string[]) =>
+      addChannelMembersBulk({ api, auth }, workspaceSlug, channelId, userIds),
+    [auth],
+  );
+
   const removeMember = useCallback(
     (workspaceSlug: string, channelId: string, userId: string) =>
       removeChannelMember({ api, auth }, workspaceSlug, channelId, userId),
     [auth],
   );
 
-  return { listChannelMembers, addMember, removeMember };
+  return { listChannelMembers, addMember, addMembersBulk, removeMember };
 }

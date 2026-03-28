@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { getCurrentUser, type UserProfile } from "@openslaq/client-core";
 import { useAuth } from "@/contexts/AuthContext";
-import { api } from "@/lib/api";
+import { useServer } from "@/contexts/ServerContext";
 
 export function useCurrentUserProfile() {
   const { authProvider } = useAuth();
+  const { apiClient: api } = useServer();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 

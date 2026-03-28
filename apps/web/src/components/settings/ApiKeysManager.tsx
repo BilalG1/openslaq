@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import type { ApiKey, BotScope } from "@openslaq/shared";
 import { useApiKeysApi } from "../../hooks/api/useApiKeysApi";
 import { getErrorMessage } from "../../lib/errors";
-import { Button, Input, Badge, Switch } from "../ui";
+import { Button, Input, Badge, Switch, useConfirm } from "../ui";
 import clsx from "clsx";
 
 type ScopeCategory = {
@@ -36,18 +36,15 @@ export function ApiKeysManager() {
   // Create form state
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState("");
-  const [selectedScopes, setSelectedScopes] = useState<Set<string>>(new Set());
+  const [selectedScopes, setSelectedScopes] = useState<Set<BotScope>>(new Set());
   const [creating, setCreating] = useState(false);
 
   // Newly created token (shown once)
   const [newToken, setNewToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const { confirm, dialog: confirmDialog } = useConfirm();
 
-  useEffect(() => {
-    loadKeys();
-  }, []);
-
-  async function loadKeys() {
+  const loadKeys = useCallback(async () => {
     setLoading(true);
     try {
       const result = await listApiKeys();
@@ -57,9 +54,13 @@ export function ApiKeysManager() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [listApiKeys]);
 
-  const toggleScope = (scope: string, enabled: boolean) => {
+  useEffect(() => {
+    loadKeys();
+  }, [loadKeys]);
+
+  const toggleScope = (scope: BotScope, enabled: boolean) => {
     setSelectedScopes((prev) => {
       const next = new Set(prev);
       if (enabled) {
@@ -115,7 +116,8 @@ export function ApiKeysManager() {
   };
 
   const handleDelete = async (key: ApiKey) => {
-    if (!confirm(`Delete API key "${key.name}"? This cannot be undone.`)) return;
+    const ok = await confirm({ title: "Delete API key", description: `Delete API key "${key.name}"? This cannot be undone.`, confirmLabel: "Delete", variant: "danger" });
+    if (!ok) return;
     try {
       await deleteApiKey(String(key.id));
       setKeys((prev) => prev.filter((k) => k.id !== key.id));
@@ -350,6 +352,7 @@ export function ApiKeysManager() {
           ))}
         </div>
       )}
+      {confirmDialog}
     </div>
   );
 }

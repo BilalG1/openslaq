@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { Message } from "@openslaq/shared";
 import { pinMessageOp, unpinMessageOp, fetchPinnedMessages, fetchPinnedMessageCount } from "@openslaq/client-core";
 import { useChatSelectors, useChatStore } from "../../state/chat-store";
@@ -65,20 +65,28 @@ export function usePinnedMessages(workspaceSlug: string | undefined) {
 
   const jumpToPinnedMessage = useCallback(
     (messageId: string) => {
+      if (!activeChannel) return;
       dispatch({
         type: "navigation/setScrollTarget",
-        scrollTarget: { messageId, highlightMessageId: messageId },
+        scrollTarget: {
+          channelId: activeChannel.id,
+          messageId,
+          highlightMessageId: messageId,
+          parentMessageId: null,
+        },
       });
     },
-    [dispatch],
+    [activeChannel, dispatch],
   );
 
   // Reset when channel changes
-  useEffect(() => {
+  const prevChannelIdRef = useRef(activeChannel?.id);
+  if (prevChannelIdRef.current !== activeChannel?.id) {
+    prevChannelIdRef.current = activeChannel?.id;
     setPinsOpen(false);
     setPinnedMessages([]);
     if (!activeChannel) setPinnedCount(0);
-  }, [activeChannel?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }
 
   // Fetch lightweight count when channel changes (not full messages)
   useAsyncEffect(

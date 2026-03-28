@@ -25,6 +25,8 @@
   --color-danger-border: var(--danger-border);
   --color-danger-text: var(--danger-text);
 
+  --color-warning-bg: var(--warning-bg);
+  --color-warning-text: var(--warning-text);
   --color-code-inline-bg: var(--code-inline-bg);
   --color-mark-bg: var(--mark-bg);
   --color-avatar-fallback-bg: var(--avatar-fallback-bg);

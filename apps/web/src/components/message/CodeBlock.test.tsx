@@ -1,14 +1,14 @@
-import { describe, test, expect, afterEach, jest, beforeEach } from "bun:test";
+import { describe, test, expect, afterEach, vi, beforeEach } from "vitest";
 import { render, screen, cleanup, act } from "../../test-utils";
 import { fireEvent } from "@testing-library/react";
 import React from "react";
 import { CodeBlock } from "./CodeBlock";
 
 describe("CodeBlock", () => {
-  let writeTextMock: ReturnType<typeof jest.fn>;
+  let writeTextMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    writeTextMock = jest.fn(() => Promise.resolve());
+    writeTextMock = vi.fn(() => Promise.resolve());
     Object.defineProperty(navigator, "clipboard", {
       value: { writeText: writeTextMock },
       configurable: true,

@@ -1,5 +1,6 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import type { WorkspaceMemberEnv } from "../workspaces/role-middleware";
+import { BEARER_SECURITY, jsonBody, jsonContent } from "../lib/openapi-helpers";
 import { requireRole } from "../workspaces/role-middleware";
 import { ROLES } from "@openslaq/shared";
 import { rlMemberManage, rlRead } from "../rate-limit";
@@ -16,6 +17,8 @@ import { db } from "../db";
 import { marketplaceListings } from "./schema";
 import { eq } from "drizzle-orm";
 import { validateWebhookUrl } from "../bots/validate-url";
+import { NotFoundError, ForbiddenError, ConflictError, BadRequestError, AppError } from "../errors";
+import { getWorkspaceMemberContext } from "../lib/context";
 
 const installRoute = createRoute({
   method: "post",
@@ -23,40 +26,19 @@ const installRoute = createRoute({
   tags: ["Marketplace"],
   summary: "Install marketplace bot",
   description: "Installs a marketplace bot into the workspace.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMemberManage, requireRole(ROLES.ADMIN)] as const,
   request: {
-    body: {
-      content: {
-        "application/json": {
-          schema: z.object({
-            listingId: z.string().describe("Marketplace listing ID"),
-          }),
-        },
-      },
-    },
+    body: jsonBody(z.object({
+      listingId: z.string().describe("Marketplace listing ID"),
+    })),
   },
   responses: {
-    200: {
-      content: { "application/json": { schema: okSchema } },
-      description: "Installation initiated",
-    },
-    400: {
-      content: { "application/json": { schema: errorSchema } },
-      description: "Bad request",
-    },
-    404: {
-      content: { "application/json": { schema: errorSchema } },
-      description: "Listing not found",
-    },
-    403: {
-      content: { "application/json": { schema: errorSchema } },
-      description: "Insufficient permissions",
-    },
-    409: {
-      content: { "application/json": { schema: errorSchema } },
-      description: "Already installed",
-    },
+    200: jsonContent(okSchema, "Installation initiated"),
+    400: jsonContent(errorSchema, "Bad request"),
+    404: jsonContent(errorSchema, "Listing not found"),
+    403: jsonContent(errorSchema, "Insufficient permissions"),
+    409: jsonContent(errorSchema, "Already installed"),
   },
 });
 
@@ -66,20 +48,14 @@ const uninstallRoute = createRoute({
   tags: ["Marketplace"],
   summary: "Uninstall marketplace bot",
   description: "Removes a marketplace bot from the workspace.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMemberManage, requireRole(ROLES.ADMIN)] as const,
   request: {
     params: z.object({ listingId: z.string() }),
   },
   responses: {
-    200: {
-      content: { "application/json": { schema: okSchema } },
-      description: "Uninstalled",
-    },
-    404: {
-      content: { "application/json": { schema: errorSchema } },
-      description: "Not found",
-    },
+    200: jsonContent(okSchema, "Uninstalled"),
+    404: jsonContent(errorSchema, "Not found"),
   },
 });
 
@@ -89,24 +65,16 @@ const installedRoute = createRoute({
   tags: ["Marketplace"],
   summary: "List installed marketplace bots",
   description: "Returns listing IDs of installed marketplace bots in this workspace.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlRead] as const,
   responses: {
-    200: {
-      content: {
-        "application/json": {
-          schema: z.object({ installedListingIds: z.array(z.string()) }),
-        },
-      },
-      description: "Installed listing IDs",
-    },
+    200: jsonContent(z.object({ installedListingIds: z.array(z.string()) }), "Installed listing IDs"),
   },
 });
 
 const app = new OpenAPIHono<WorkspaceMemberEnv>()
   .openapi(installRoute, async (c) => {
-    const workspace = c.get("workspace");
-    const user = c.get("user");
+    const { user, workspace } = getWorkspaceMemberContext(c);
     const { listingId } = c.req.valid("json");
 
     // Validate listing exists & is published
@@ -114,7 +82,7 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
       where: eq(marketplaceListings.id, listingId),
     });
     if (!listing || !listing.published) {
-      return c.json({ error: "Listing not found" }, 404);
+      throw new NotFoundError("Listing");
     }
 
     // Check feature flag for gated integrations
@@ -122,14 +90,14 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     if (listing.slug in PLUGIN_SLUG_TO_FLAG) {
       const enabled = await isIntegrationEnabled(workspace.id, listing.slug);
       if (!enabled) {
-        return c.json({ error: "This integration is not enabled for this workspace" }, 403);
+        throw new ForbiddenError("This integration is not enabled for this workspace");
       }
     }
 
     // Check not already installed
     const alreadyInstalled = await isInstalledInWorkspace(listingId, workspace.id);
     if (alreadyInstalled) {
-      return c.json({ error: "Already installed" }, 409);
+      throw new ConflictError("Already installed");
     }
 
     // Internal bots (like github-bot) skip the OAuth dance
@@ -145,7 +113,7 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     // Validate redirect URI against SSRF before fetching
     const urlCheck = validateWebhookUrl(listing.redirectUri);
     if (!urlCheck.ok) {
-      return c.json({ error: `Invalid redirect URI: ${urlCheck.reason}` }, 400);
+      throw new BadRequestError(`Invalid redirect URI: ${urlCheck.reason}`);
     }
 
     // Server-to-server: POST auth code to bot's callback in the background
@@ -165,7 +133,7 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     const workspace = c.get("workspace");
     const { listingId } = c.req.valid("param");
     const removed = await uninstallListing(listingId, workspace.id);
-    if (!removed) return c.json({ error: "Not found" }, 404);
+    if (!removed) throw new AppError(404, "Not found");
     return c.json({ ok: true as const }, 200);
   })
   .openapi(installedRoute, async (c) => {

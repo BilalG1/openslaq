@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react-native";
+import { render, screen, fireEvent } from "@testing-library/react-native";
 import NoWorkspacesScreen from "../../../app/(app)/no-workspaces";
 
 const mockReplace = jest.fn();
@@ -8,37 +8,15 @@ jest.mock("expo-router", () => ({
   useRouter: () => ({ replace: mockReplace, push: mockPush }),
 }));
 
-let mockGetInviteResult: { workspaceName: string; workspaceSlug: string } | Error = {
-  workspaceName: "Acme Corp",
-  workspaceSlug: "acme-corp",
-};
-let mockAcceptInviteResult: { slug: string } | Error = { slug: "acme-corp" };
-
-jest.mock("@openslaq/client-core", () => ({
-  getInvite: jest.fn(() =>
-    mockGetInviteResult instanceof Error
-      ? Promise.reject(mockGetInviteResult)
-      : Promise.resolve(mockGetInviteResult),
-  ),
-  acceptInvite: jest.fn(() =>
-    mockAcceptInviteResult instanceof Error
-      ? Promise.reject(mockAcceptInviteResult)
-      : Promise.resolve(mockAcceptInviteResult),
-  ),
-}));
-
-jest.mock("@/contexts/AuthContext", () => ({
-  useAuth: () => ({
-    authProvider: {
-      getAccessToken: async () => "token",
-      requireAccessToken: async () => "token",
-      onAuthRequired: jest.fn(),
-    },
-  }),
-}));
-
-jest.mock("@/lib/api", () => ({
-  api: {},
+jest.mock("@/components/workspace/JoinWorkspaceForm", () => ({
+  JoinWorkspaceForm: ({ onJoined }: { onJoined: (slug: string) => void }) => {
+    const { Pressable, Text } = require("react-native");
+    return (
+      <Pressable testID="mock-join-form" onPress={() => onJoined("test-ws")}>
+        <Text>JoinWorkspaceForm</Text>
+      </Pressable>
+    );
+  },
 }));
 
 jest.mock("@/theme/ThemeProvider", () => ({
@@ -62,17 +40,14 @@ jest.mock("@/theme/ThemeProvider", () => ({
 describe("NoWorkspacesScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetInviteResult = { workspaceName: "Acme Corp", workspaceSlug: "acme-corp" };
-    mockAcceptInviteResult = { slug: "acme-corp" };
   });
 
-  it("renders welcome screen with invite input and create button", () => {
+  it("renders welcome screen with join form and create button", () => {
     render(<NoWorkspacesScreen />);
 
     expect(screen.getByTestId("no-workspaces-screen")).toBeTruthy();
     expect(screen.getByText("Welcome to OpenSlaq")).toBeTruthy();
-    expect(screen.getByTestId("invite-link-input")).toBeTruthy();
-    expect(screen.getByTestId("invite-lookup-button")).toBeTruthy();
+    expect(screen.getByText("JoinWorkspaceForm")).toBeTruthy();
     expect(screen.getByTestId("create-workspace-button")).toBeTruthy();
   });
 
@@ -84,85 +59,11 @@ describe("NoWorkspacesScreen", () => {
     expect(mockPush).toHaveBeenCalledWith("/(app)/create-workspace");
   });
 
-  it("previews invite and accepts it", async () => {
+  it("navigates to workspace channels when join form succeeds", () => {
     render(<NoWorkspacesScreen />);
 
-    fireEvent.changeText(screen.getByTestId("invite-link-input"), "abc123");
-    fireEvent.press(screen.getByTestId("invite-lookup-button"));
+    fireEvent.press(screen.getByTestId("mock-join-form"));
 
-    await waitFor(() => {
-      expect(screen.getByText("Acme Corp")).toBeTruthy();
-      expect(screen.getByTestId("invite-accept-button")).toBeTruthy();
-    });
-
-    fireEvent.press(screen.getByTestId("invite-accept-button"));
-
-    await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith("/(app)/acme-corp/(channels)");
-    });
-  });
-
-  it("extracts invite code from full URL", async () => {
-    const { getInvite } = require("@openslaq/client-core");
-
-    render(<NoWorkspacesScreen />);
-
-    fireEvent.changeText(
-      screen.getByTestId("invite-link-input"),
-      "https://openslaq.com/invite/xyz789",
-    );
-    fireEvent.press(screen.getByTestId("invite-lookup-button"));
-
-    await waitFor(() => {
-      expect(getInvite).toHaveBeenCalledWith(expect.anything(), "xyz789");
-    });
-  });
-
-  it("shows error for invalid invite", async () => {
-    mockGetInviteResult = new Error("Not found");
-
-    render(<NoWorkspacesScreen />);
-
-    fireEvent.changeText(screen.getByTestId("invite-link-input"), "bad-code");
-    fireEvent.press(screen.getByTestId("invite-lookup-button"));
-
-    await waitFor(() => {
-      expect(screen.getByTestId("no-workspaces-error")).toBeTruthy();
-      expect(screen.getByText("Invalid or expired invite link")).toBeTruthy();
-    });
-  });
-
-  it("shows error when accept fails", async () => {
-    mockAcceptInviteResult = new Error("Failed");
-
-    render(<NoWorkspacesScreen />);
-
-    fireEvent.changeText(screen.getByTestId("invite-link-input"), "abc123");
-    fireEvent.press(screen.getByTestId("invite-lookup-button"));
-
-    await waitFor(() => {
-      expect(screen.getByTestId("invite-accept-button")).toBeTruthy();
-    });
-
-    fireEvent.press(screen.getByTestId("invite-accept-button"));
-
-    await waitFor(() => {
-      expect(screen.getByText("Failed to join workspace")).toBeTruthy();
-    });
-  });
-
-  it("can cancel invite preview and go back to input", async () => {
-    render(<NoWorkspacesScreen />);
-
-    fireEvent.changeText(screen.getByTestId("invite-link-input"), "abc123");
-    fireEvent.press(screen.getByTestId("invite-lookup-button"));
-
-    await waitFor(() => {
-      expect(screen.getByTestId("invite-cancel-button")).toBeTruthy();
-    });
-
-    fireEvent.press(screen.getByTestId("invite-cancel-button"));
-
-    expect(screen.getByTestId("invite-link-input")).toBeTruthy();
+    expect(mockReplace).toHaveBeenCalledWith("/(app)/test-ws/(tabs)/(channels)");
   });
 });

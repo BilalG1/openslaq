@@ -1,59 +1,63 @@
-import { describe, test, expect, afterEach, jest, mock, beforeEach } from "bun:test";
+import { describe, test, expect, afterEach, vi, beforeEach } from "vitest";
 import { render, screen, cleanup } from "../../test-utils";
 import { fireEvent, waitFor } from "@testing-library/react";
 import type { BrowseChannel } from "@openslaq/client-core";
 import { asChannelId, asWorkspaceId } from "@openslaq/shared";
 
-const _realClientCore = require("@openslaq/client-core");
-const mockBrowseChannels = jest.fn<() => Promise<BrowseChannel[]>>();
-const mockJoinChannel = jest.fn<() => Promise<void>>();
-const mockLeaveChannel = jest.fn<() => Promise<void>>();
-const mockArchiveChannel = jest.fn<() => Promise<void>>();
+const mockBrowseChannels = vi.fn<() => Promise<BrowseChannel[]>>();
+const mockJoinChannel = vi.fn<() => Promise<void>>();
+const mockLeaveChannel = vi.fn<() => Promise<void>>();
+const mockArchiveChannel = vi.fn<() => Promise<void>>();
+const mockUnarchiveChannel = vi.fn<() => Promise<void>>();
 
-mock.module("@openslaq/client-core", () => ({
-  ..._realClientCore,
-  browseChannels: (...args: unknown[]) => mockBrowseChannels(...(args as [])),
-  joinChannel: (...args: unknown[]) => mockJoinChannel(...(args as [])),
-  leaveChannel: (...args: unknown[]) => mockLeaveChannel(...(args as [])),
-  archiveChannel: (...args: unknown[]) => mockArchiveChannel(...(args as [])),
-}));
+vi.mock("@openslaq/client-core", async (importOriginal) => {
+  const mod = await importOriginal<Record<string, unknown>>();
+  return {
+    ...mod,
+    browseChannels: (...args: unknown[]) => mockBrowseChannels(...(args as [])),
+    joinChannel: (...args: unknown[]) => mockJoinChannel(...(args as [])),
+    leaveChannel: (...args: unknown[]) => mockLeaveChannel(...(args as [])),
+    archiveChannel: (...args: unknown[]) => mockArchiveChannel(...(args as [])),
+    unarchiveChannel: (...args: unknown[]) => mockUnarchiveChannel(...(args as [])),
+  };
+});
 
 const stableDeps = {
   api: {},
   auth: {},
-  dispatch: jest.fn(),
+  dispatch: vi.fn(),
   getState: () => ({}),
 };
-mock.module("../../hooks/chat/useOperationDeps", () => ({
+vi.mock("../../hooks/chat/useOperationDeps", () => ({
   useOperationDeps: () => stableDeps,
 }));
 
-mock.module("../../hooks/useSocket", () => ({
+vi.mock("../../hooks/useSocket", () => ({
   useSocket: () => ({ socket: null, status: "disconnected", lastError: null }),
 }));
 
-mock.module("../../hooks/useCurrentUser", () => ({
+vi.mock("../../hooks/useCurrentUser", () => ({
   useCurrentUser: () => ({ id: "user-1", displayName: "Test User" }),
 }));
 
-mock.module("../../gallery/gallery-context", () => ({
+vi.mock("../../gallery/gallery-context", () => ({
   useGalleryMode: () => false,
 }));
 
-mock.module("../../state/chat-store", () => ({
-  useChatStore: () => ({ state: { workspaces: [] }, dispatch: jest.fn() }),
+vi.mock("../../state/chat-store", () => ({
+  useChatStore: () => ({ state: { workspaces: [] }, dispatch: vi.fn() }),
 }));
 
-const { BrowseChannelsDialog } = await import("./BrowseChannelsDialog");
+import { BrowseChannelsDialog } from "./BrowseChannelsDialog";
 
-const makeChannel = (overrides: { id: string; name: string; description?: string | null; memberCount?: number; isMember?: boolean; type?: "public" | "private" }): BrowseChannel => ({
+const makeChannel = (overrides: { id: string; name: string; description?: string | null; memberCount?: number; isMember?: boolean; type?: "public" | "private"; isArchived?: boolean }): BrowseChannel => ({
   id: asChannelId(overrides.id),
   workspaceId: asWorkspaceId("ws-1"),
   name: overrides.name,
   type: overrides.type ?? "public",
   description: overrides.description ?? null,
   displayName: null,
-  isArchived: false,
+  isArchived: overrides.isArchived ?? false,
   createdBy: null,
   createdAt: "2025-01-01T00:00:00Z",
   memberCount: overrides.memberCount ?? 5,
@@ -72,18 +76,19 @@ describe("BrowseChannelsDialog", () => {
     mockJoinChannel.mockResolvedValue(undefined);
     mockLeaveChannel.mockResolvedValue(undefined);
     mockArchiveChannel.mockResolvedValue(undefined);
+    mockUnarchiveChannel.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
     cleanup();
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   test("renders channel list from fetched data", async () => {
     render(
       <BrowseChannelsDialog
         open={true}
-        onClose={jest.fn()}
+        onClose={vi.fn()}
         workspaceSlug="default"
       />,
     );
@@ -101,7 +106,7 @@ describe("BrowseChannelsDialog", () => {
     render(
       <BrowseChannelsDialog
         open={true}
-        onClose={jest.fn()}
+        onClose={vi.fn()}
         workspaceSlug="default"
       />,
     );
@@ -118,7 +123,7 @@ describe("BrowseChannelsDialog", () => {
     render(
       <BrowseChannelsDialog
         open={true}
-        onClose={jest.fn()}
+        onClose={vi.fn()}
         workspaceSlug="default"
       />,
     );
@@ -139,7 +144,7 @@ describe("BrowseChannelsDialog", () => {
     render(
       <BrowseChannelsDialog
         open={true}
-        onClose={jest.fn()}
+        onClose={vi.fn()}
         workspaceSlug="default"
       />,
     );
@@ -160,11 +165,11 @@ describe("BrowseChannelsDialog", () => {
   });
 
   test("calls onChannelJoined callback after join", async () => {
-    const onChannelJoined = jest.fn();
+    const onChannelJoined = vi.fn();
     render(
       <BrowseChannelsDialog
         open={true}
-        onClose={jest.fn()}
+        onClose={vi.fn()}
         workspaceSlug="default"
         onChannelJoined={onChannelJoined}
       />,
@@ -185,7 +190,7 @@ describe("BrowseChannelsDialog", () => {
     render(
       <BrowseChannelsDialog
         open={true}
-        onClose={jest.fn()}
+        onClose={vi.fn()}
         workspaceSlug="default"
       />,
     );
@@ -204,7 +209,7 @@ describe("BrowseChannelsDialog", () => {
     render(
       <BrowseChannelsDialog
         open={true}
-        onClose={jest.fn()}
+        onClose={vi.fn()}
         workspaceSlug="default"
       />,
     );
@@ -222,7 +227,7 @@ describe("BrowseChannelsDialog", () => {
     render(
       <BrowseChannelsDialog
         open={true}
-        onClose={jest.fn()}
+        onClose={vi.fn()}
         workspaceSlug="default"
         isAdmin={true}
       />,
@@ -251,7 +256,7 @@ describe("BrowseChannelsDialog", () => {
     render(
       <BrowseChannelsDialog
         open={true}
-        onClose={jest.fn()}
+        onClose={vi.fn()}
         workspaceSlug="default"
       />,
     );
@@ -265,13 +270,174 @@ describe("BrowseChannelsDialog", () => {
     render(
       <BrowseChannelsDialog
         open={true}
-        onClose={jest.fn()}
+        onClose={vi.fn()}
         workspaceSlug="default"
       />,
     );
 
     await waitFor(() => {
       expect(screen.getByTestId("browse-create-channel-btn")).toBeTruthy();
+    });
+  });
+
+  test("shows '1 member' (singular) when memberCount is 1", async () => {
+    mockBrowseChannels.mockResolvedValue([
+      makeChannel({ id: "ch-solo", name: "solo", memberCount: 1 }),
+    ]);
+
+    render(
+      <BrowseChannelsDialog
+        open={true}
+        onClose={vi.fn()}
+        workspaceSlug="default"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("browse-channels-list")).toBeTruthy();
+    });
+
+    expect(screen.getByText("1 member")).toBeTruthy();
+    expect(screen.queryByText("1 members")).toBeNull();
+  });
+
+  test("shows '5 members' (plural) when memberCount > 1", async () => {
+    mockBrowseChannels.mockResolvedValue([
+      makeChannel({ id: "ch-many", name: "many", memberCount: 5 }),
+    ]);
+
+    render(
+      <BrowseChannelsDialog
+        open={true}
+        onClose={vi.fn()}
+        workspaceSlug="default"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("browse-channels-list")).toBeTruthy();
+    });
+
+    expect(screen.getByText("5 members")).toBeTruthy();
+  });
+
+  test("shows 'Show archived' toggle that fetches archived channels", async () => {
+    const archivedChannels = [
+      ...channels,
+      makeChannel({ id: "ch-archived", name: "old-project", isArchived: true }),
+    ];
+    // First call returns active only, second returns with archived
+    mockBrowseChannels
+      .mockResolvedValueOnce(channels)
+      .mockResolvedValueOnce(archivedChannels);
+
+    render(
+      <BrowseChannelsDialog
+        open={true}
+        onClose={vi.fn()}
+        workspaceSlug="default"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("browse-channels-list")).toBeTruthy();
+    });
+
+    // Should not show archived channel initially
+    expect(screen.queryByTestId("browse-channel-row-ch-archived")).toBeNull();
+
+    // Toggle "Show archived"
+    const toggle = screen.getByTestId("browse-show-archived-toggle");
+    fireEvent.click(toggle);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("browse-channel-row-ch-archived")).toBeTruthy();
+    });
+
+    // browseChannels should have been called with includeArchived=true
+    expect(mockBrowseChannels).toHaveBeenLastCalledWith(expect.anything(), "default", true);
+  });
+
+  test("archived channels show 'Archived' badge", async () => {
+    const archivedChannels = [
+      makeChannel({ id: "ch-archived", name: "old-project", isArchived: true }),
+    ];
+    mockBrowseChannels.mockResolvedValue(archivedChannels);
+
+    render(
+      <BrowseChannelsDialog
+        open={true}
+        onClose={vi.fn()}
+        workspaceSlug="default"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("browse-channel-row-ch-archived")).toBeTruthy();
+    });
+
+    expect(screen.getByTestId("browse-channel-archived-ch-archived")).toBeTruthy();
+  });
+
+  test("archived channels show 'Unarchive' option in kebab menu for admin", async () => {
+    const archivedChannels = [
+      makeChannel({ id: "ch-archived", name: "old-project", isArchived: true }),
+    ];
+    mockBrowseChannels.mockResolvedValue(archivedChannels);
+
+    render(
+      <BrowseChannelsDialog
+        open={true}
+        onClose={vi.fn()}
+        workspaceSlug="default"
+        isAdmin={true}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("browse-channel-row-ch-archived")).toBeTruthy();
+    });
+
+    fireEvent.pointerDown(screen.getByTestId("browse-channel-menu-ch-archived"), { button: 0, pointerType: "mouse" });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("browse-channel-menu-unarchive-ch-archived")).toBeTruthy();
+    });
+  });
+
+  test("unarchive removes archived badge from channel", async () => {
+    const archivedChannels = [
+      makeChannel({ id: "ch-archived", name: "old-project", isArchived: true }),
+    ];
+    mockBrowseChannels.mockResolvedValue(archivedChannels);
+
+    render(
+      <BrowseChannelsDialog
+        open={true}
+        onClose={vi.fn()}
+        workspaceSlug="default"
+        isAdmin={true}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("browse-channel-row-ch-archived")).toBeTruthy();
+    });
+
+    fireEvent.pointerDown(screen.getByTestId("browse-channel-menu-ch-archived"), { button: 0, pointerType: "mouse" });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("browse-channel-menu-unarchive-ch-archived")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId("browse-channel-menu-unarchive-ch-archived"));
+
+    await waitFor(() => {
+      expect(mockUnarchiveChannel).toHaveBeenCalledTimes(1);
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("browse-channel-archived-ch-archived")).toBeNull();
     });
   });
 
@@ -287,7 +453,7 @@ describe("BrowseChannelsDialog", () => {
     render(
       <BrowseChannelsDialog
         open={true}
-        onClose={jest.fn()}
+        onClose={vi.fn()}
         workspaceSlug="default"
       />,
     );

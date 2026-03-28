@@ -54,12 +54,12 @@ describe("operations/invites", () => {
   describe("getInvite", () => {
     it("returns invite data on success", async () => {
       const { deps } = makeApiDeps({
-        inviteGet: () => jsonResponse({ workspaceName: "My Workspace", workspaceSlug: "my-ws" }),
+        inviteGet: () => jsonResponse({ workspaceName: "My Workspace", workspaceSlug: "my-ws", alreadyMember: false }),
       });
 
       const result = await getInvite(deps, "abc123");
 
-      expect(result).toEqual({ workspaceName: "My Workspace", workspaceSlug: "my-ws" });
+      expect(result).toEqual({ workspaceName: "My Workspace", workspaceSlug: "my-ws", alreadyMember: false });
     });
 
     it("calls onAuthRequired and rethrows on 401", async () => {

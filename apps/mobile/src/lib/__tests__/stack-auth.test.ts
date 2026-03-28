@@ -1,4 +1,4 @@
-const ORIGINAL_ENV = process.env;
+import type { StackAuthConfig } from "../auth-strategies";
 
 function loadStackAuthModule() {
   jest.resetModules();
@@ -12,22 +12,21 @@ function fakeJwt(payload: Record<string, unknown>): string {
   return `${header}.${body}.`;
 }
 
+const testConfig: StackAuthConfig = {
+  projectId: "proj_test",
+  publishableKey: "pck_test",
+};
+
 describe("stack-auth oauth", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    process.env = { ...ORIGINAL_ENV };
-    process.env.EXPO_PUBLIC_STACK_PROJECT_ID = "proj_test";
-    process.env.EXPO_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY = "pck_test";
     global.fetch = jest.fn() as unknown as typeof fetch;
-  });
-
-  afterAll(() => {
-    process.env = ORIGINAL_ENV;
   });
 
   it("builds authorize URL with required Stack Auth query params", () => {
     const { getOAuthAuthorizeUrl } = loadStackAuthModule();
     const url = getOAuthAuthorizeUrl(
+      testConfig,
       "Google",
       "openslaq://redirect",
       "challenge-123",
@@ -48,18 +47,11 @@ describe("stack-auth oauth", () => {
     expect(parsed.searchParams.get("type")).toBe("authenticate");
   });
 
-  it("throws when project ID is empty", () => {
-    process.env.EXPO_PUBLIC_STACK_PROJECT_ID = "";
-    const { getOAuthAuthorizeUrl } = loadStackAuthModule();
-    expect(() =>
-      getOAuthAuthorizeUrl("google", "openslaq://redirect", "c", "s"),
-    ).toThrow("EXPO_PUBLIC_STACK_PROJECT_ID is not set");
-  });
-
   it("uses public-client sentinel when publishable key is missing", () => {
-    process.env.EXPO_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY = "";
+    const configNoKey: StackAuthConfig = { projectId: "proj_test", publishableKey: "" };
     const { getOAuthAuthorizeUrl } = loadStackAuthModule();
     const url = getOAuthAuthorizeUrl(
+      configNoKey,
       "github",
       "openslaq://redirect",
       "challenge-123",
@@ -85,7 +77,7 @@ describe("stack-auth oauth", () => {
     });
 
     const { exchangeOAuthCode } = loadStackAuthModule();
-    await exchangeOAuthCode("code-123", "openslaq://redirect", "verifier-123");
+    await exchangeOAuthCode(testConfig, "code-123", "openslaq://redirect", "verifier-123");
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, options] = fetchMock.mock.calls[0] as [
@@ -120,7 +112,7 @@ describe("stack-auth oauth", () => {
     });
 
     const { exchangeOAuthCode } = loadStackAuthModule();
-    const result = await exchangeOAuthCode("code", "openslaq://redirect", "verifier");
+    const result = await exchangeOAuthCode(testConfig, "code", "openslaq://redirect", "verifier");
 
     expect(result).toEqual({
       access_token: jwt,
@@ -143,7 +135,7 @@ describe("stack-auth oauth", () => {
     });
 
     const { exchangeOAuthCode } = loadStackAuthModule();
-    const result = await exchangeOAuthCode("code", "openslaq://redirect", "verifier");
+    const result = await exchangeOAuthCode(testConfig, "code", "openslaq://redirect", "verifier");
 
     expect(result.user_id).toBe("explicit-user");
   });
@@ -161,7 +153,7 @@ describe("stack-auth oauth", () => {
     });
 
     const { refreshAccessToken } = loadStackAuthModule();
-    const result = await refreshAccessToken("old-refresh");
+    const result = await refreshAccessToken(testConfig, "old-refresh");
 
     expect(result).toEqual({
       access_token: jwt,
@@ -174,14 +166,7 @@ describe("stack-auth oauth", () => {
 describe("stack-auth OTP", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    process.env = { ...ORIGINAL_ENV };
-    process.env.EXPO_PUBLIC_STACK_PROJECT_ID = "proj_test";
-    process.env.EXPO_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY = "pck_test";
     global.fetch = jest.fn() as unknown as typeof fetch;
-  });
-
-  afterAll(() => {
-    process.env = ORIGINAL_ENV;
   });
 
   it("sendOtpCode posts email and callback_url, returns nonce", async () => {
@@ -192,7 +177,7 @@ describe("stack-auth OTP", () => {
     });
 
     const { sendOtpCode } = loadStackAuthModule();
-    const result = await sendOtpCode("test@test.com", "openslaq://auth/otp");
+    const result = await sendOtpCode(testConfig, "test@test.com", "openslaq://auth/otp");
 
     expect(result).toEqual({ nonce: "nonce-abc" });
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -223,7 +208,7 @@ describe("stack-auth OTP", () => {
     });
 
     const { verifyOtpCode } = loadStackAuthModule();
-    const result = await verifyOtpCode("123456", "nonce-xyz");
+    const result = await verifyOtpCode(testConfig, "123456", "nonce-xyz");
 
     expect(result).toEqual({
       access_token: "at",
@@ -248,7 +233,7 @@ describe("stack-auth OTP", () => {
 
     const { sendOtpCode } = loadStackAuthModule();
     await expect(
-      sendOtpCode("bad", "openslaq://auth/otp"),
+      sendOtpCode(testConfig, "bad", "openslaq://auth/otp"),
     ).rejects.toThrow("Invalid email");
   });
 });
@@ -256,14 +241,7 @@ describe("stack-auth OTP", () => {
 describe("stack-auth Apple native", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    process.env = { ...ORIGINAL_ENV };
-    process.env.EXPO_PUBLIC_STACK_PROJECT_ID = "proj_test";
-    process.env.EXPO_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY = "pck_test";
     global.fetch = jest.fn() as unknown as typeof fetch;
-  });
-
-  afterAll(() => {
-    process.env = ORIGINAL_ENV;
   });
 
   it("posts id_token and returns auth tokens", async () => {
@@ -279,7 +257,7 @@ describe("stack-auth Apple native", () => {
     });
 
     const { signInWithAppleNative } = loadStackAuthModule();
-    const result = await signInWithAppleNative("apple-id-token");
+    const result = await signInWithAppleNative(testConfig, "apple-id-token");
 
     expect(result).toEqual({
       access_token: "apple-at",
@@ -307,6 +285,6 @@ describe("stack-auth Apple native", () => {
     });
 
     const { signInWithAppleNative } = loadStackAuthModule();
-    await expect(signInWithAppleNative("bad")).rejects.toThrow("Invalid token");
+    await expect(signInWithAppleNative(testConfig, "bad")).rejects.toThrow("Invalid token");
   });
 });

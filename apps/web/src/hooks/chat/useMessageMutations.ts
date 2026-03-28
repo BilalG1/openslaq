@@ -144,7 +144,10 @@ export function useMessageMutations(user: AuthJsonUser | null | undefined) {
         workspaceSlug,
         content,
         attachmentIds,
+        pendingAttachments: attachments.map((a) => ({ id: a.id, filename: a.filename, mimeType: a.mimeType })),
         parentMessageId: parentMessageId ?? undefined,
+        userId: user.id,
+        senderDisplayName: "You",
       });
     },
     [auth, dispatch, isGallery, state, user],

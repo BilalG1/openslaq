@@ -1,5 +1,5 @@
 import { StackClientApp } from "@stackframe/react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { env } from "./env";
 
 // Stack Auth client configuration for React SPA

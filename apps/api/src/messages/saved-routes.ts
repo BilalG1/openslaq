@@ -4,6 +4,8 @@ import type { WorkspaceMemberEnv } from "../workspaces/role-middleware";
 import { rlRead } from "../rate-limit";
 import { messageSchema } from "../openapi/schemas";
 import { jsonResponse } from "../openapi/responses";
+import { BEARER_SECURITY, jsonContent } from "../lib/openapi-helpers";
+import { getWorkspaceMemberContext } from "../lib/context";
 
 const listSavedMessagesRoute = createRoute({
   method: "get",
@@ -11,25 +13,18 @@ const listSavedMessagesRoute = createRoute({
   tags: ["Saved Messages"],
   summary: "List saved messages",
   description: "Returns all saved messages for the current user in this workspace.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlRead] as const,
   responses: {
-    200: {
-      content: {
-        "application/json": {
-          schema: z.object({
-            messages: z.array(
-              z.object({
-                message: messageSchema,
-                channelName: z.string(),
-                savedAt: z.string(),
-              }),
-            ),
-          }),
-        },
-      },
-      description: "Saved messages",
-    },
+    200: jsonContent(z.object({
+      messages: z.array(
+        z.object({
+          message: messageSchema,
+          channelName: z.string(),
+          savedAt: z.string(),
+        }),
+      ),
+    }), "Saved messages"),
   },
 });
 
@@ -39,29 +34,21 @@ const listSavedIdsRoute = createRoute({
   tags: ["Saved Messages"],
   summary: "List saved message IDs",
   description: "Returns IDs of all saved messages for the current user.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlRead] as const,
   responses: {
-    200: {
-      content: {
-        "application/json": {
-          schema: z.object({ messageIds: z.array(z.string()) }),
-        },
-      },
-      description: "Saved message IDs",
-    },
+    200: jsonContent(z.object({ messageIds: z.array(z.string()) }), "Saved message IDs"),
   },
 });
 
 const app = new OpenAPIHono<WorkspaceMemberEnv>()
   .openapi(listSavedMessagesRoute, async (c) => {
-    const user = c.get("user");
-    const workspace = c.get("workspace");
+    const { user, workspace } = getWorkspaceMemberContext(c);
     const items = await getSavedMessages(user.id, workspace.id);
     return jsonResponse(c, { messages: items }, 200);
   })
   .openapi(listSavedIdsRoute, async (c) => {
-    const user = c.get("user");
+    const { user } = getWorkspaceMemberContext(c);
     const messageIds = await getSavedMessageIds(user.id);
     return jsonResponse(c, { messageIds }, 200);
   });

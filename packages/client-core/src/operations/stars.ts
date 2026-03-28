@@ -13,7 +13,7 @@ export async function fetchStarredChannels(
       { headers },
     ),
   );
-  const ids = (await res.json()) as string[];
+  const ids = await res.json();
   dispatch({ type: "stars/set", channelIds: ids });
   return ids;
 }

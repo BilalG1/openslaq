@@ -48,6 +48,8 @@ const dms: DmConversation[] = [
   {
     channel: makeChannel({ id: asChannelId("dm-1"), name: "dm-bob", type: "dm" }),
     otherUser: { id: "user-bob", displayName: "Bob", avatarUrl: null },
+    lastMessageContent: null,
+    lastMessageAt: null,
   },
 ];
 

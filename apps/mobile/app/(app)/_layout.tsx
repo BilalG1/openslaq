@@ -4,11 +4,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ChatStoreProvider, useChatStore } from "@/contexts/ChatStoreProvider";
 import { HuddleProvider } from "@/contexts/HuddleProvider";
 import { SocketProvider } from "@/contexts/SocketProvider";
+import { ConnectionStatusBanner } from "@/components/ui/ConnectionStatusBanner";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
-import { api } from "@/lib/api";
+import { useServer } from "@/contexts/ServerContext";
 
 function PushNotificationSetup() {
   const { authProvider } = useAuth();
+  const { apiClient: api } = useServer();
   const { state } = useChatStore();
   const params = useGlobalSearchParams<{ workspaceSlug?: string }>();
 
@@ -34,8 +36,10 @@ export default function AppLayout() {
       <SocketProvider>
         <HuddleProvider>
           <PushNotificationSetup />
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="create-workspace" options={{ headerShown: true, title: "Create Workspace", headerBackTitle: "" }} />
+          <ConnectionStatusBanner />
+          <Stack screenOptions={{ headerShown: false, headerBackButtonDisplayMode: "minimal" }}>
+            <Stack.Screen name="create-workspace" options={{ headerShown: true, title: "Create Workspace" }} />
+            <Stack.Screen name="join-workspace" options={{ headerShown: true, title: "Join Workspace" }} />
           </Stack>
         </HuddleProvider>
       </SocketProvider>

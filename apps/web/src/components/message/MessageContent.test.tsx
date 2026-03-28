@@ -1,4 +1,4 @@
-import { describe, expect, test, afterEach, jest } from "bun:test";
+import { describe, expect, test, afterEach, vi } from "vitest";
 import { render, cleanup } from "../../test-utils";
 import { MessageContent } from "./MessageContent";
 import type { Mention, UserId, CustomEmoji } from "@openslaq/shared";
@@ -134,7 +134,7 @@ describe("MessageContent", () => {
   });
 
   test("calls onOpenProfile when user mention is clicked", () => {
-    const onOpenProfile = jest.fn();
+    const onOpenProfile = vi.fn();
     const { container } = render(
       <MessageContent
         content="Hey <@u-1>"

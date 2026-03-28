@@ -25,6 +25,14 @@ module.exports = {
     "!src/types/**",
     "!src/global.css",
   ],
+  coverageThreshold: {
+    global: {
+      branches: 50,
+      functions: 50,
+      lines: 60,
+      statements: 60,
+    },
+  },
   setupFiles: ["./jest.setup.js"],
   testPathIgnorePatterns: ["/node_modules/", "/e2e/", "\\.spec\\.ts$"],
 };

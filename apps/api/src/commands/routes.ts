@@ -1,10 +1,12 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import type { WorkspaceMemberEnv } from "../workspaces/role-middleware";
+import { BEARER_SECURITY, jsonBody, jsonContent } from "../lib/openapi-helpers";
 import { rlRead } from "../rate-limit";
 import { listCommandsForWorkspace } from "./registry";
 import { executeCommand } from "./execute";
 import { jsonResponse } from "../openapi/responses";
 import { errorSchema } from "../openapi/schemas";
+import { getWorkspaceMemberContext } from "../lib/context";
 
 const slashCommandDefSchema = z.object({
   name: z.string(),
@@ -31,13 +33,10 @@ const listCommandsRoute = createRoute({
   tags: ["Commands"],
   summary: "List available slash commands",
   description: "Returns all available slash commands (built-in + bot-registered) for the workspace.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlRead] as const,
   responses: {
-    200: {
-      content: { "application/json": { schema: z.array(slashCommandDefSchema) } },
-      description: "List of commands",
-    },
+    200: jsonContent(z.array(slashCommandDefSchema), "List of commands"),
   },
 });
 
@@ -47,37 +46,21 @@ const executeCommandRoute = createRoute({
   tags: ["Commands"],
   summary: "Execute a slash command",
   description: "Executes a slash command and returns ephemeral response messages.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   request: {
-    body: {
-      content: {
-        "application/json": {
-          schema: z.object({
-            command: z.string().min(1),
-            args: z.string().default(""),
-            channelId: z.string().uuid(),
-          }),
-        },
-      },
-    },
+    body: jsonBody(z.object({
+      command: z.string().min(1),
+      args: z.string().default(""),
+      channelId: z.string().uuid(),
+    })),
   },
   responses: {
-    200: {
-      content: {
-        "application/json": {
-          schema: z.object({
-            ok: z.boolean(),
-            ephemeralMessages: z.array(ephemeralMessageSchema).optional(),
-            error: z.string().optional(),
-          }),
-        },
-      },
-      description: "Command execution result",
-    },
-    400: {
-      content: { "application/json": { schema: errorSchema } },
-      description: "Invalid request",
-    },
+    200: jsonContent(z.object({
+      ok: z.boolean(),
+      ephemeralMessages: z.array(ephemeralMessageSchema).optional(),
+      error: z.string().optional(),
+    }), "Command execution result"),
+    400: jsonContent(errorSchema, "Invalid request"),
   },
 });
 
@@ -88,8 +71,7 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     return jsonResponse(c, commands, 200);
   })
   .openapi(executeCommandRoute, async (c) => {
-    const workspace = c.get("workspace");
-    const user = c.get("user");
+    const { user, workspace } = getWorkspaceMemberContext(c);
     const { command, args, channelId } = c.req.valid("json");
     const result = await executeCommand(command, args, user.id, workspace.id, channelId);
     return jsonResponse(c, result, 200);

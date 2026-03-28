@@ -12,9 +12,11 @@
       "bundleIdentifier": "com.openslaq.mobile",
       "supportsTablet": true,
       "icon": "./assets/icon.png",
+      "associatedDomains": ["applinks:openslaq.com"],
       "infoPlist": {
         "UIBackgroundModes": ["audio", "remote-notification", "voip"],
-        "NSMicrophoneUsageDescription": "OpenSlaq needs microphone access to record voice messages",
+        "NSMicrophoneUsageDescription": "OpenSlaq needs microphone access for huddles and voice messages",
+        "NSCameraUsageDescription": "OpenSlaq needs camera access for video in huddles",
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
         }

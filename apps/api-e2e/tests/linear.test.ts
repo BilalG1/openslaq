@@ -40,8 +40,8 @@ describe("Linear Bot", () => {
     const chRes = await adminClient.api.workspaces[":slug"].channels.$get({
       param: { slug: workspaceSlug },
     });
-    const channels = (await chRes.json()) as any[];
-    channelId = channels.find((c: any) => c.name === "general")?.id;
+    const channels = (await chRes.json()) as Array<{ id: string; name: string }>;
+    channelId = channels.find((c: { id: string; name: string }) => c.name === "general")?.id ?? "";
     expect(channelId).toBeTruthy();
 
     // Get linear-bot listing ID
@@ -82,10 +82,10 @@ describe("Linear Bot", () => {
       json: { command: "linear", args: "", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
     expect(result.ephemeralMessages).toHaveLength(1);
-    expect(result.ephemeralMessages[0].text).toContain("Linear Bot Commands");
+    expect(result.ephemeralMessages[0]!.text).toContain("Linear Bot Commands");
   });
 
   test("/linear subscribe creates subscription", async () => {
@@ -94,9 +94,9 @@ describe("Linear Bot", () => {
       json: { command: "linear", args: "subscribe BAC", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Subscribed to **BAC**");
+    expect(result.ephemeralMessages[0]!.text).toContain("Subscribed to **BAC**");
   });
 
   test("/linear subscribe with specific events", async () => {
@@ -105,9 +105,9 @@ describe("Linear Bot", () => {
       json: { command: "linear", args: "subscribe ENG issues,comments", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("issues, comments");
+    expect(result.ephemeralMessages[0]!.text).toContain("issues, comments");
   });
 
   test("/linear subscribe with invalid events returns error", async () => {
@@ -116,9 +116,9 @@ describe("Linear Bot", () => {
       json: { command: "linear", args: "subscribe FRO bogus,invalid", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Unknown events");
+    expect(result.ephemeralMessages[0]!.text).toContain("Unknown events");
   });
 
   test("/linear subscribe without team key returns usage", async () => {
@@ -127,9 +127,9 @@ describe("Linear Bot", () => {
       json: { command: "linear", args: "subscribe", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Usage:");
+    expect(result.ephemeralMessages[0]!.text).toContain("Usage:");
   });
 
   test("/linear subscribe rejects duplicate", async () => {
@@ -138,9 +138,9 @@ describe("Linear Bot", () => {
       json: { command: "linear", args: "subscribe BAC", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Already subscribed");
+    expect(result.ephemeralMessages[0]!.text).toContain("Already subscribed");
   });
 
   test("/linear list shows subscriptions", async () => {
@@ -149,10 +149,10 @@ describe("Linear Bot", () => {
       json: { command: "linear", args: "list", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("BAC");
-    expect(result.ephemeralMessages[0].text).toContain("ENG");
+    expect(result.ephemeralMessages[0]!.text).toContain("BAC");
+    expect(result.ephemeralMessages[0]!.text).toContain("ENG");
   });
 
   // Test ALL event types via /linear test to cover event-handlers + message-formatter
@@ -174,9 +174,9 @@ describe("Linear Bot", () => {
           json: { command: "linear", args: `test ${name}`, channelId },
         });
         expect(res.status).toBe(200);
-        const result = (await res.json()) as any;
+        const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
         expect(result.ok).toBe(true);
-        expect(result.ephemeralMessages[0].text).toContain(`Test event "${expectedFragment}" posted`);
+        expect(result.ephemeralMessages[0]!.text).toContain(`Test event "${expectedFragment}" posted`);
       });
     }
   });
@@ -187,9 +187,9 @@ describe("Linear Bot", () => {
       json: { command: "linear", args: "test", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Usage:");
+    expect(result.ephemeralMessages[0]!.text).toContain("Usage:");
   });
 
   test("/linear test unknown event returns error", async () => {
@@ -198,9 +198,9 @@ describe("Linear Bot", () => {
       json: { command: "linear", args: "test nonexistent", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Unknown test event");
+    expect(result.ephemeralMessages[0]!.text).toContain("Unknown test event");
   });
 
   test("/linear unknown subcommand returns usage", async () => {
@@ -209,9 +209,9 @@ describe("Linear Bot", () => {
       json: { command: "linear", args: "foobar", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Linear Bot Commands");
+    expect(result.ephemeralMessages[0]!.text).toContain("Linear Bot Commands");
   });
 
   test("/linear unsubscribe without team key returns usage", async () => {
@@ -220,9 +220,9 @@ describe("Linear Bot", () => {
       json: { command: "linear", args: "unsubscribe", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Usage:");
+    expect(result.ephemeralMessages[0]!.text).toContain("Usage:");
   });
 
   test("/linear unsubscribe removes subscription", async () => {
@@ -231,9 +231,9 @@ describe("Linear Bot", () => {
       json: { command: "linear", args: "unsubscribe BAC", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Unsubscribed from **BAC**");
+    expect(result.ephemeralMessages[0]!.text).toContain("Unsubscribed from **BAC**");
   });
 
   test("/linear unsubscribe nonexistent returns not found", async () => {
@@ -242,9 +242,9 @@ describe("Linear Bot", () => {
       json: { command: "linear", args: "unsubscribe NOPE", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("No subscription");
+    expect(result.ephemeralMessages[0]!.text).toContain("No subscription");
   });
 
   test("/linear list after unsubscribe shows remaining", async () => {
@@ -253,11 +253,11 @@ describe("Linear Bot", () => {
       json: { command: "linear", args: "list", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
     // BAC was unsubscribed, ENG should remain
-    expect(result.ephemeralMessages[0].text).toContain("ENG");
-    expect(result.ephemeralMessages[0].text).not.toContain("BAC");
+    expect(result.ephemeralMessages[0]!.text).toContain("ENG");
+    expect(result.ephemeralMessages[0]!.text).not.toContain("BAC");
   });
 
   // Unsubscribe remaining so list returns empty
@@ -271,9 +271,9 @@ describe("Linear Bot", () => {
       json: { command: "linear", args: "list", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("No Linear subscriptions");
+    expect(result.ephemeralMessages[0]!.text).toContain("No Linear subscriptions");
   });
 
   test("uninstall linear-bot", async () => {
@@ -296,7 +296,7 @@ describe("Linear Bot", () => {
       json: { command: "linear", args: "subscribe test/repo", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(false);
     expect(result.error).toContain("Unknown command");
   });
@@ -313,7 +313,7 @@ describe("Linear Bot", () => {
       json: { command: "linear", args: "test issue_created", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(false);
   });
 
@@ -406,8 +406,8 @@ describe("Linear Bot", () => {
       const chRes = await admin2.client.api.workspaces[":slug"].channels.$get({
         param: { slug: wsSlug2 },
       });
-      const channels = (await chRes.json()) as any[];
-      const ch = channels.find((c: any) => c.name === "general");
+      const channels = (await chRes.json()) as Array<{ id: string; name: string }>;
+      const ch = channels.find((c: { id: string; name: string }) => c.name === "general")!;
       _channelId2 = ch.id;
 
       await admin2.client.api.workspaces[":slug"].commands.execute.$post({

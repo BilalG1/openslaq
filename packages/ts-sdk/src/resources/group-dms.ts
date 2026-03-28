@@ -1,4 +1,5 @@
-import type { HttpClient } from "../http";
+import type { RpcClient } from "../rpc";
+import { checked } from "../rpc";
 import type { Channel, GroupDmAddMemberResponse, GroupDmChannel } from "../types";
 
 export interface CreateGroupDmOptions {
@@ -6,30 +7,55 @@ export interface CreateGroupDmOptions {
 }
 
 export class GroupDms {
-  constructor(private readonly http: HttpClient) {}
+  constructor(
+    private readonly rpc: RpcClient,
+    private readonly slug: string,
+  ) {}
 
   async create(options: CreateGroupDmOptions): Promise<GroupDmChannel> {
-    const path = this.http.workspacePath("/group-dm");
-    return this.http.post<GroupDmChannel>(path, { memberIds: options.memberIds });
+    const res = await checked(
+      await this.rpc.api.workspaces[":slug"]["group-dm"].$post({
+        param: { slug: this.slug },
+        json: { memberIds: options.memberIds },
+      }),
+    );
+    return await res.json();
   }
 
   async list(): Promise<GroupDmChannel[]> {
-    const path = this.http.workspacePath("/group-dm");
-    return this.http.get<GroupDmChannel[]>(path);
+    const res = await checked(
+      await this.rpc.api.workspaces[":slug"]["group-dm"].$get({
+        param: { slug: this.slug },
+      }),
+    );
+    return await res.json();
   }
 
   async addMember(channelId: string, userId: string): Promise<GroupDmAddMemberResponse> {
-    const path = this.http.workspacePath(`/group-dm/${channelId}/members`);
-    return this.http.post<GroupDmAddMemberResponse>(path, { userId });
+    const res = await checked(
+      await this.rpc.api.workspaces[":slug"]["group-dm"][":channelId"].members.$post({
+        param: { slug: this.slug, channelId },
+        json: { userId },
+      }),
+    );
+    return await res.json();
   }
 
   async leave(channelId: string): Promise<void> {
-    const path = this.http.workspacePath(`/group-dm/${channelId}/members/me`);
-    await this.http.del(path);
+    await checked(
+      await this.rpc.api.workspaces[":slug"]["group-dm"][":channelId"].members.me.$delete({
+        param: { slug: this.slug, channelId },
+      }),
+    );
   }
 
   async rename(channelId: string, displayName: string): Promise<{ channel: Channel }> {
-    const path = this.http.workspacePath(`/group-dm/${channelId}`);
-    return this.http.patch<{ channel: Channel }>(path, { displayName });
+    const res = await checked(
+      await this.rpc.api.workspaces[":slug"]["group-dm"][":channelId"].$patch({
+        param: { slug: this.slug, channelId },
+        json: { displayName },
+      }),
+    );
+    return await res.json();
   }
 }

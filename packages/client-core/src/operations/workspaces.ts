@@ -1,5 +1,4 @@
 import type { Workspace, Role } from "@openslaq/shared";
-import { AuthError } from "../api/errors";
 import { authorizedRequest } from "../api/api-client";
 import type { ApiDeps } from "./types";
 
@@ -11,17 +10,10 @@ export interface WorkspaceListItem extends Workspace {
 export async function listWorkspaces(deps: ApiDeps): Promise<WorkspaceListItem[]> {
   const { api, auth } = deps;
 
-  try {
-    const response = await authorizedRequest(auth, (headers) =>
-      api.api.workspaces.$get({}, { headers }),
-    );
-    return (await response.json()) as WorkspaceListItem[];
-  } catch (err) {
-    if (err instanceof AuthError) {
-      auth.onAuthRequired();
-    }
-    throw err;
-  }
+  const response = await authorizedRequest(auth, (headers) =>
+    api.api.workspaces.$get({}, { headers }),
+  );
+  return (await response.json()) as WorkspaceListItem[];
 }
 
 export async function createWorkspace(
@@ -37,10 +29,6 @@ export async function createWorkspace(
     const data = (await response.json()) as { slug: string };
     return { ok: true, slug: data.slug };
   } catch (err) {
-    if (err instanceof AuthError) {
-      auth.onAuthRequired();
-      return { ok: false, error: "Authentication required" };
-    }
     if (err instanceof Error) {
       return { ok: false, error: err.message };
     }

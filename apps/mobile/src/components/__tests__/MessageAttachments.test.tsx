@@ -28,10 +28,11 @@ jest.mock("react-native-image-viewing", () => {
 import { MessageAttachments } from "../MessageAttachments";
 
 jest.mock("@/lib/env", () => ({
-  env: { EXPO_PUBLIC_API_URL: "http://api.test" },
+  env: { EXPO_PUBLIC_API_URL: "http://localhost:3001" },
 }));
 
 function makeAttachment(overrides: Partial<Attachment> = {}): Attachment {
+  const id = (overrides.id ?? "att-1") as string;
   return {
     id: "att-1" as Attachment["id"],
     messageId: "msg-1" as Attachment["messageId"],
@@ -40,7 +41,7 @@ function makeAttachment(overrides: Partial<Attachment> = {}): Attachment {
     size: 1024,
     uploadedBy: "user-1" as Attachment["uploadedBy"],
     createdAt: "2025-01-01T00:00:00Z",
-    downloadUrl: "http://api.test/api/uploads/att-1/download",
+    downloadUrl: `http://localhost:3001/api/uploads/${id}/download`,
     ...overrides,
   };
 }
@@ -101,7 +102,7 @@ describe("MessageAttachments", () => {
 
     fireEvent.press(screen.getByTestId("attachment-video-att-vid"));
 
-    expect(spy).toHaveBeenCalledWith("http://api.test/api/uploads/att-vid/download");
+    expect(spy).toHaveBeenCalledWith("http://localhost:3001/api/uploads/att-vid/download");
     spy.mockRestore();
   });
 
@@ -116,7 +117,7 @@ describe("MessageAttachments", () => {
 
     fireEvent.press(screen.getByTestId("attachment-file-att-file"));
 
-    expect(spy).toHaveBeenCalledWith("http://api.test/api/uploads/att-file/download");
+    expect(spy).toHaveBeenCalledWith("http://localhost:3001/api/uploads/att-file/download");
     spy.mockRestore();
   });
 

@@ -1,5 +1,6 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { createHmac } from "node:crypto";
+import { BEARER_SECURITY, jsonContent } from "../lib/openapi-helpers";
 import { eq } from "drizzle-orm";
 import { asMessageId, asChannelId, asUserId, asBotAppId, asWorkspaceId } from "@openslaq/shared";
 import type { MessageActionButton, WebhookEventPayload } from "@openslaq/shared";
@@ -12,10 +13,11 @@ import { messages } from "../messages/schema";
 import { isChannelMember } from "../channels/service";
 import { editMessage, getMessageById } from "../messages/service";
 import { setMessageActions } from "./service";
-import { getIO } from "../socket/io";
+import { emitToChannel } from "../lib/emit";
 import { rlBotSend } from "../rate-limit";
 import { errorSchema, messageSchema } from "../openapi/schemas";
 import { jsonOk } from "../openapi/responses";
+import { NotFoundError, ForbiddenError, AppError } from "../errors";
 import { validateWebhookUrl } from "./validate-url";
 
 const interactionRoute = createRoute({
@@ -24,7 +26,7 @@ const interactionRoute = createRoute({
   tags: ["Bots"],
   summary: "Trigger bot action",
   description: "Handle a button click on a bot message. Sends interaction to bot webhook.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [auth, rlBotSend] as const,
   request: {
     params: z.object({
@@ -33,9 +35,9 @@ const interactionRoute = createRoute({
     }),
   },
   responses: {
-    200: { content: { "application/json": { schema: z.object({ ok: z.literal(true), message: messageSchema.optional() }) } }, description: "Action processed" },
-    404: { content: { "application/json": { schema: errorSchema } }, description: "Message or action not found" },
-    403: { content: { "application/json": { schema: errorSchema } }, description: "Not a channel member" },
+    200: jsonContent(z.object({ ok: z.literal(true), message: messageSchema.optional() }), "Action processed"),
+    404: jsonContent(errorSchema, "Message or action not found"),
+    403: jsonContent(errorSchema, "Not a channel member"),
   },
 });
 
@@ -49,13 +51,13 @@ const app = new OpenAPIHono<AuthEnv>().openapi(interactionRoute, async (c) => {
   });
 
   if (!actionRow) {
-    return c.json({ error: "No actions found for this message" }, 404);
+    throw new AppError(404, "No actions found for this message");
   }
 
   const actionsArray = actionRow.actions as MessageActionButton[];
   const action = actionsArray.find((a) => a.id === actionId);
   if (!action) {
-    return c.json({ error: "Action not found" }, 404);
+    throw new NotFoundError("Action");
   }
 
   // Get the message to verify channel membership
@@ -63,12 +65,12 @@ const app = new OpenAPIHono<AuthEnv>().openapi(interactionRoute, async (c) => {
     where: eq(messages.id, messageId),
   });
   if (!message) {
-    return c.json({ error: "Message not found" }, 404);
+    throw new NotFoundError("Message");
   }
 
   const isMember = await isChannelMember(asChannelId(message.channelId), user.id);
   if (!isMember) {
-    return c.json({ error: "Not a channel member" }, 403);
+    throw new ForbiddenError("Not a channel member");
   }
 
   // Get bot's webhook URL
@@ -76,13 +78,13 @@ const app = new OpenAPIHono<AuthEnv>().openapi(interactionRoute, async (c) => {
     where: eq(botApps.id, actionRow.botAppId),
   });
   if (!bot || !bot.enabled) {
-    return c.json({ error: "Bot not available" }, 404);
+    throw new AppError(404, "Bot not available");
   }
 
   // Validate webhook URL before fetching
   const urlCheck = validateWebhookUrl(bot.webhookUrl);
   if (!urlCheck.ok) {
-    return c.json({ error: "Bot webhook URL is invalid" }, 404);
+    throw new AppError(404, "Bot webhook URL is invalid");
   }
 
   // POST interaction to bot webhook
@@ -155,8 +157,7 @@ const app = new OpenAPIHono<AuthEnv>().openapi(interactionRoute, async (c) => {
         // Re-fetch the full message and emit
         const updatedMessage = await getMessageById(asMessageId(messageId));
         if (updatedMessage) {
-          const io = getIO();
-          io.to(`channel:${message.channelId}`).emit("message:updated", updatedMessage);
+          emitToChannel(asChannelId(message.channelId), "message:updated", updatedMessage);
         }
 
         return jsonOk(c, 200);

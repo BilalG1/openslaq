@@ -1,179 +1,246 @@
-import { View, Text, FlatList } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useState } from "react";
+import { View, Text, FlatList, ActivityIndicator, Pressable, StyleSheet } from "react-native";
+import { useRouter } from "expo-router";
 import { useChatStore } from "@/contexts/ChatStoreProvider";
-import { Users } from "lucide-react-native";
+import { useAuth } from "@/contexts/AuthContext";
 import { useMobileTheme } from "@/theme/ThemeProvider";
-import { ListRow } from "@/components/ui/ListRow";
-import { UnreadBadge } from "@/components/ui/UnreadBadge";
-import type { DmConversation, GroupDmConversation } from "@openslaq/client-core";
+import { NewDmModal } from "@/components/NewDmModal";
+import { formatRelativeTime } from "@/lib/time";
+import { useServer } from "@/contexts/ServerContext";
+import { useWorkspaceParams } from "@/hooks/useRouteParams";
 import { routes } from "@/lib/routes";
+import type { MobileTheme, UserId } from "@openslaq/shared";
 
-type DmItem =
-  | { kind: "dm"; dm: DmConversation }
-  | { kind: "groupDm"; groupDm: GroupDmConversation };
-
-export default function DmsScreen() {
+export default function DmListScreen() {
   const router = useRouter();
-  const { workspaceSlug } = useLocalSearchParams<{ workspaceSlug: string }>();
-  const { state } = useChatStore();
+  const { workspaceSlug: urlSlug } = useWorkspaceParams();
+  const { authProvider, user } = useAuth();
+  const { apiClient: api } = useServer();
+  const { state, dispatch } = useChatStore();
+  const workspaceSlug = urlSlug || state.workspaceSlug || "";
   const { theme } = useMobileTheme();
+  const [showNewDm, setShowNewDm] = useState(false);
+  const deps = { api, auth: authProvider, dispatch, getState: () => state };
+  const s = makeStyles(theme);
 
-  const items: DmItem[] = [
-    ...state.dms.map((dm) => ({ kind: "dm" as const, dm })),
-    ...state.groupDms.map((groupDm) => ({ kind: "groupDm" as const, groupDm })),
-  ];
-
-  const getItemKey = (item: DmItem): string => {
-    return item.kind === "dm" ? item.dm.channel.id : item.groupDm.channel.id;
-  };
-
-  const getGroupDmLabel = (groupDm: GroupDmConversation): string => {
-    return groupDm.channel.displayName ?? groupDm.members.map((m) => m.displayName).join(", ");
-  };
-
-  if (items.length === 0) {
+  if (state.ui.bootstrapLoading) {
     return (
-      <View
-        testID="dms-screen"
-        style={{
-          flex: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: theme.colors.surface,
-        }}
-      >
-        <Text style={{ color: theme.colors.textFaint }}>No conversations yet</Text>
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor: theme.colors.surface }}>
+        <ActivityIndicator size="large" color={theme.brand.primary} />
       </View>
     );
   }
 
   return (
-    <View testID="dms-screen" style={{ flex: 1, backgroundColor: theme.colors.surface }}>
+    <View className="flex-1" style={{ backgroundColor: theme.colors.surface }}>
       <FlatList
-        data={items}
-        keyExtractor={(item) => getItemKey(item)}
+        data={state.dms}
+        keyExtractor={(item) => item.channel.id}
+        style={{ backgroundColor: theme.colors.surface }}
+        contentContainerStyle={s.contentContainer}
+        ItemSeparatorComponent={() => (
+          <View className="ml-[60px]" style={[s.separator, { backgroundColor: theme.colors.borderSecondary }]} />
+        )}
         renderItem={({ item }) => {
-          if (item.kind === "groupDm") {
-            const { groupDm } = item;
-            const unread = state.unreadCounts[groupDm.channel.id] ?? 0;
-            return (
-              <ListRow
-                testID={`group-dm-row-${groupDm.channel.id}`}
-                onPress={() =>
-                  router.push(routes.dm(workspaceSlug, groupDm.channel.id))
-                }
-              >
-                <View style={{ marginRight: 12 }}>
-                  <View
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 16,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor: theme.colors.avatarFallbackBg,
-                    }}
-                  >
-                    <Users size={16} color={theme.colors.textMuted} />
-                  </View>
-                </View>
-                <Text
-                  numberOfLines={1}
-                  style={{
-                    flex: 1,
-                    fontSize: 16,
-                    fontWeight: unread > 0 ? "700" : "400",
-                    color: unread > 0 ? theme.colors.textPrimary : theme.colors.textSecondary,
-                  }}
-                >
-                  {getGroupDmLabel(groupDm)}
-                </Text>
-                <UnreadBadge count={unread} />
-              </ListRow>
-            );
-          }
-
-          const { dm } = item;
-          if (!dm.otherUser) {
-            return (
-              <ListRow testID={`dm-row-unknown-${dm.channel.id}`}>
-                <View style={{ marginRight: 12 }}>
-                  <View
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 16,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor: theme.colors.avatarFallbackBg,
-                    }}
-                  >
-                    <Text style={{ fontWeight: "500", color: theme.colors.avatarFallbackText }}>?</Text>
-                  </View>
-                </View>
-                <Text style={{ flex: 1, fontSize: 16, color: theme.colors.textFaint }}>
-                  Unknown user
-                </Text>
-              </ListRow>
-            );
-          }
-          const unread = state.unreadCounts[dm.channel.id] ?? 0;
-          const presence = state.presence[dm.otherUser.id];
+          const unread = state.unreadCounts[item.channel.id] ?? 0;
+          const presence = state.presence[item.otherUser.id];
           const isOnline = presence?.online === true;
+          const displayName = item.otherUser.displayName ?? "Unknown";
+
+          // Get last message: prefer loaded messages, fall back to bootstrap preview
+          const messageIds = state.channelMessageIds[item.channel.id];
+          const lastMsgId = messageIds?.[messageIds.length - 1];
+          const loadedMsg = lastMsgId ? state.messagesById[lastMsgId] : undefined;
+          const lastMsgContent = loadedMsg?.content ?? item.lastMessageContent;
+          const lastMsgTime = loadedMsg?.createdAt ?? item.lastMessageAt;
 
           return (
-            <ListRow
-              testID={`dm-row-${dm.channel.id}`}
+            <Pressable
+              accessibilityLabel={`Direct message with ${displayName}`}
+              accessibilityHint="Opens conversation"
               onPress={() =>
-                router.push(routes.dm(workspaceSlug, dm.channel.id))
+                router.push(routes.dm(workspaceSlug, item.channel.id))
               }
+              style={({ pressed }) => ({
+                paddingHorizontal: 16,
+                paddingVertical: 10,
+                backgroundColor: pressed ? theme.colors.surfaceHover : theme.colors.surface,
+              })}
             >
-              <View style={{ position: "relative", marginRight: 12 }}>
-                <View
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 16,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    backgroundColor: theme.colors.avatarFallbackBg,
-                  }}
-                >
-                  <Text style={{ fontWeight: "500", color: theme.colors.avatarFallbackText }}>
-                    {dm.otherUser.displayName?.charAt(0)?.toUpperCase() ?? "?"}
-                  </Text>
-                </View>
-                {isOnline && (
+              <View style={s.row}>
+                {/* Avatar */}
+                <View style={s.avatarWrapper}>
                   <View
-                    style={{
-                      position: "absolute",
-                      bottom: -2,
-                      right: -2,
-                      width: 12,
-                      height: 12,
-                      borderRadius: 6,
-                      borderWidth: 2,
-                      backgroundColor: theme.brand.success,
-                      borderColor: theme.colors.surface,
-                    }}
-                  />
-                )}
+                    style={[s.avatar, { backgroundColor: theme.colors.avatarFallbackBg }]}
+                  >
+                    <Text className="text-base font-semibold" style={{ color: theme.colors.avatarFallbackText }}>
+                      {displayName.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                  {isOnline && (
+                    <View
+                      style={[s.presenceDot, {
+                        backgroundColor: theme.brand.success,
+                        borderColor: theme.colors.surface,
+                      }]}
+                    />
+                  )}
+                </View>
+
+                {/* Name + snippet */}
+                <View style={s.textWrapper}>
+                  <View style={s.nameRow}>
+                    <Text
+                      className={`text-[15px] ${unread > 0 ? "font-bold" : "font-medium"}`}
+                      style={[s.nameText, { color: theme.colors.textPrimary }]}
+                      numberOfLines={1}
+                    >
+                      {displayName}
+                    </Text>
+                    {lastMsgTime && (
+                      <Text className="text-xs" style={{ color: theme.colors.textFaint }}>
+                        {formatRelativeTime(lastMsgTime)}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={s.snippetRow}>
+                    <Text
+                      className={`text-[13px] ${unread > 0 ? "font-medium" : ""}`}
+                      style={[s.snippetText, { color: unread > 0 ? theme.colors.textSecondary : theme.colors.textMuted }]}
+                      numberOfLines={1}
+                    >
+                      {lastMsgContent ?? "No messages yet"}
+                    </Text>
+                    {unread > 0 && (
+                      <View
+                        style={[s.badge, { backgroundColor: theme.interaction.badgeUnreadBg }]}
+                      >
+                        <Text className="text-[11px] font-bold" style={{ color: theme.interaction.badgeUnreadText }}>
+                          {unread > 99 ? "99+" : unread}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
               </View>
-              <Text
-                style={{
-                  flex: 1,
-                  fontSize: 16,
-                  fontWeight: unread > 0 ? "700" : "400",
-                  color: unread > 0 ? theme.colors.textPrimary : theme.colors.textSecondary,
-                }}
-              >
-                {dm.otherUser.displayName ?? "Unknown"}
-              </Text>
-              <UnreadBadge count={unread} />
-            </ListRow>
+            </Pressable>
           );
+        }}
+        ListFooterComponent={
+          <Pressable accessibilityRole="button"
+            testID="new-dm-row"
+            onPress={() => setShowNewDm(true)}
+            style={({ pressed }) => ({
+              paddingHorizontal: 16,
+              paddingVertical: 10,
+              backgroundColor: pressed ? theme.colors.surfaceHover : theme.colors.surface,
+            })}
+          >
+            <View style={s.row}>
+              <View
+                style={[s.newDmIcon, { backgroundColor: theme.brand.primary + "12" }]}
+              >
+                <Text className="text-lg" style={{ color: theme.brand.primary }}>+</Text>
+              </View>
+              <Text className="text-[15px]" style={{ color: theme.brand.primary }}>
+                Start a new message
+              </Text>
+            </View>
+          </Pressable>
+        }
+        ListEmptyComponent={
+          <View className="items-center justify-center py-12">
+            <Text style={{ color: theme.colors.textFaint }}>No conversations yet</Text>
+          </View>
+        }
+      />
+      <NewDmModal
+        visible={showNewDm}
+        onClose={() => setShowNewDm(false)}
+        workspaceSlug={workspaceSlug}
+        currentUserId={(user?.id ?? "") as UserId}
+        deps={deps}
+        onCreated={(channelId) => {
+          setShowNewDm(false);
+          router.push(routes.dm(workspaceSlug, channelId));
+        }}
+        onChannelSelected={(channelId) => {
+          setShowNewDm(false);
+          router.push(routes.channel(workspaceSlug, channelId));
         }}
       />
     </View>
   );
 }
+
+const makeStyles = (theme: MobileTheme) =>
+  StyleSheet.create({
+    contentContainer: {
+      flexGrow: 1,
+    },
+    separator: {
+      height: 1,
+    },
+    row: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    avatarWrapper: {
+      width: 40,
+      marginRight: 12,
+    },
+    avatar: {
+      width: 40,
+      height: 40,
+      borderRadius: 8,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    presenceDot: {
+      position: "absolute",
+      bottom: -2,
+      right: -2,
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+      borderWidth: 2,
+    },
+    textWrapper: {
+      flex: 1,
+      marginRight: 8,
+    },
+    nameRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    nameText: {
+      flex: 1,
+      marginRight: 8,
+    },
+    snippetRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginTop: 2,
+    },
+    snippetText: {
+      flex: 1,
+    },
+    badge: {
+      borderRadius: 10,
+      minWidth: 20,
+      height: 20,
+      paddingHorizontal: 6,
+      alignItems: "center",
+      justifyContent: "center",
+      marginLeft: 8,
+    },
+    newDmIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 8,
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: 12,
+    },
+  });

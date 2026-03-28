@@ -27,6 +27,7 @@ async function fetchUnreadChannelMessages(userId: UserId, workspaceId: Workspace
     type: string | null;
     metadata: unknown;
     parent_message_id: string | null;
+    shared_message_id: string | null;
     created_at: Date;
     updated_at: Date;
     channel_name: string;
@@ -36,7 +37,7 @@ async function fetchUnreadChannelMessages(userId: UserId, workspaceId: Workspace
     SELECT sub.* FROM (
       SELECT
         m.id, m.channel_id, m.user_id, m.content, m.type, m.metadata,
-        m.parent_message_id, m.created_at, m.updated_at,
+        m.parent_message_id, m.shared_message_id, m.created_at, m.updated_at,
         c.name AS channel_name, c.type AS channel_type,
         ROW_NUMBER() OVER (PARTITION BY m.channel_id ORDER BY m.created_at DESC) AS rn
       FROM messages m
@@ -65,6 +66,7 @@ async function fetchUnreadChannelMessages(userId: UserId, workspaceId: Workspace
     type: r.type,
     metadata: r.metadata,
     parentMessageId: r.parent_message_id,
+    sharedMessageId: r.shared_message_id,
     createdAt: new Date(r.created_at),
     updatedAt: new Date(r.updated_at),
   }));
@@ -102,11 +104,12 @@ async function fetchUnreadThreadMentions(userId: UserId, workspaceId: WorkspaceI
     type: string | null;
     metadata: unknown;
     parent_message_id: string | null;
+    shared_message_id: string | null;
     created_at: Date;
     updated_at: Date;
   }>(sql`
     SELECT DISTINCT m.id, m.channel_id, m.user_id, m.content, m.type, m.metadata,
-      m.parent_message_id, m.created_at, m.updated_at
+      m.parent_message_id, m.shared_message_id, m.created_at, m.updated_at
     FROM messages m
     INNER JOIN message_mentions mm ON mm.message_id = m.id AND mm.user_id = ${userId}
     INNER JOIN channel_members cm ON cm.channel_id = m.channel_id AND cm.user_id = ${userId}
@@ -131,6 +134,7 @@ async function fetchUnreadThreadMentions(userId: UserId, workspaceId: WorkspaceI
     type: r.type,
     metadata: r.metadata,
     parentMessageId: r.parent_message_id,
+    sharedMessageId: r.shared_message_id,
     createdAt: new Date(r.created_at),
     updatedAt: new Date(r.updated_at),
   }));

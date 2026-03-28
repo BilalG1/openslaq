@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-import { createContext, useCallback, useContext, useEffect } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef } from "react";
 import { useRouter } from "expo-router";
-import type { Channel, ChannelId, CustomEmoji, HuddleState, Message, MessageId, UserId } from "@openslaq/shared";
+import type { SocketStatus } from "@openslaq/client-core";
+import type { Channel, ChannelId, CustomEmoji, EmojiId, HuddleState, Message, MessageId, UserId } from "@openslaq/shared";
 import {
   bootstrapWorkspace,
   handlePresenceSync,
@@ -41,7 +42,7 @@ export function WorkspaceBootstrapProvider({
   const { authProvider, user } = useAuth();
   const { state, dispatch } = useChatStore();
   const deps = useOperationDeps();
-  const { socket } = useSocket();
+  const { socket, status: socketStatus } = useSocket();
   const router = useRouter();
 
   // Bootstrap workspace on mount
@@ -49,6 +50,21 @@ export function WorkspaceBootstrapProvider({
     if (!workspaceSlug) return;
     void bootstrapWorkspace(deps, { workspaceSlug });
   }, [dispatch, authProvider, workspaceSlug]);
+
+  // Re-bootstrap when socket reconnects to sync missed data
+  const prevSocketStatus = useRef<SocketStatus>(socketStatus);
+  useEffect(() => {
+    const prev = prevSocketStatus.current;
+    prevSocketStatus.current = socketStatus;
+
+    if (
+      socketStatus === "connected" &&
+      (prev === "reconnecting" || prev === "error" || prev === "disconnected") &&
+      workspaceSlug
+    ) {
+      void bootstrapWorkspace(deps, { workspaceSlug });
+    }
+  }, [socketStatus, workspaceSlug, deps]);
 
   // Redirect to workspace list when bootstrap fails (e.g. invalid workspace slug)
   const bootstrapError = state.ui.bootstrapError;
@@ -70,7 +86,7 @@ export function WorkspaceBootstrapProvider({
   const onPresenceSync = useCallback(
     (payload: {
       users: Array<{
-        userId: string;
+        userId: UserId;
         status: "online" | "offline";
         lastSeenAt: string | null;
       }>;
@@ -82,7 +98,7 @@ export function WorkspaceBootstrapProvider({
 
   const onPresenceUpdated = useCallback(
     (payload: {
-      userId: string;
+      userId: UserId;
       status: "online" | "offline";
       lastSeenAt: string | null;
     }) => {
@@ -98,6 +114,11 @@ export function WorkspaceBootstrapProvider({
   const onNewMessage = useCallback(
     (message: Message) => {
       if (!user) return;
+      const activeId = state.activeChannelId ?? state.activeDmId ?? state.activeGroupDmId;
+      // If viewing this channel, mark as read so the server cancels the pending push
+      if (activeId && message.channelId === activeId && workspaceSlug) {
+        void markChannelAsRead(deps, { workspaceSlug, channelId: activeId });
+      }
       const action = handleNewMessageUnread(message, {
         currentUserId: user.id,
         activeChannelId: state.activeChannelId,
@@ -106,7 +127,7 @@ export function WorkspaceBootstrapProvider({
       });
       if (action) dispatch(action);
     },
-    [state.activeChannelId, state.activeDmId, state.activeGroupDmId, dispatch, user],
+    [state.activeChannelId, state.activeDmId, state.activeGroupDmId, dispatch, user, workspaceSlug, deps],
   );
 
   useSocketEvent("message:new", onNewMessage);
@@ -131,7 +152,7 @@ export function WorkspaceBootstrapProvider({
         workspaceSlug,
       });
     },
-    [authProvider, dispatch, socket, state, user, workspaceSlug],
+    [authProvider, dispatch, socket, user, workspaceSlug],
   );
 
   const onMemberRemoved = useCallback(
@@ -255,7 +276,7 @@ export function WorkspaceBootstrapProvider({
   );
 
   const onEmojiDeleted = useCallback(
-    (payload: { emojiId: string }) => {
+    (payload: { emojiId: EmojiId }) => {
       dispatch({ type: "emoji/remove", emojiId: payload.emojiId });
     },
     [dispatch],

@@ -26,13 +26,11 @@ const mockDeps = {
 };
 
 // Track registered listeners
-let notificationReceivedCallback: ((n: any) => void) | null = null;
 let notificationResponseCallback: ((r: any) => void) | null = null;
 let appStateCallback: ((state: string) => void) | null = null;
 
 beforeEach(() => {
   jest.clearAllMocks();
-  notificationReceivedCallback = null;
   notificationResponseCallback = null;
   appStateCallback = null;
 
@@ -49,16 +47,6 @@ beforeEach(() => {
   });
 
   (Notifications.setBadgeCountAsync as jest.Mock).mockResolvedValue(true);
-  (Notifications.dismissNotificationAsync as jest.Mock).mockResolvedValue(
-    undefined,
-  );
-
-  (
-    Notifications.addNotificationReceivedListener as jest.Mock
-  ).mockImplementation((cb: (n: any) => void) => {
-    notificationReceivedCallback = cb;
-    return { remove: jest.fn() };
-  });
 
   (
     Notifications.addNotificationResponseReceivedListener as jest.Mock
@@ -92,8 +80,46 @@ describe("usePushNotifications", () => {
     });
   });
 
+  it("requests permission when not yet granted and registers on approval", async () => {
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({
+      status: "undetermined",
+      granted: false,
+      canAskAgain: true,
+      expires: "never",
+    });
+    (Notifications.requestPermissionsAsync as jest.Mock).mockResolvedValue({
+      status: "granted",
+      granted: true,
+      canAskAgain: true,
+      expires: "never",
+    });
+
+    renderHook(() =>
+      usePushNotifications({
+        deps: mockDeps,
+        activeChannelId: null,
+        workspaceSlug: "default",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(Notifications.requestPermissionsAsync).toHaveBeenCalled();
+      expect(mockRegisterPushToken).toHaveBeenCalledWith(
+        mockDeps,
+        "test-apns-token-123",
+        "ios",
+      );
+    });
+  });
+
   it("skips registration when permission denied", async () => {
     (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({
+      status: "denied",
+      granted: false,
+      canAskAgain: false,
+      expires: "never",
+    });
+    (Notifications.requestPermissionsAsync as jest.Mock).mockResolvedValue({
       status: "denied",
       granted: false,
       canAskAgain: false,
@@ -245,32 +271,6 @@ describe("usePushNotifications", () => {
     });
 
     expect(router.push).not.toHaveBeenCalled();
-  });
-
-  it("suppresses foreground notification when in same channel", () => {
-    renderHook(() =>
-      usePushNotifications({
-        deps: mockDeps,
-        activeChannelId: "channel-abc" as ChannelId,
-        workspaceSlug: "default",
-      }),
-    );
-
-    expect(notificationReceivedCallback).toBeTruthy();
-    act(() => {
-      notificationReceivedCallback!({
-        request: {
-          identifier: "notif-1",
-          content: {
-            data: { channelId: "channel-abc" },
-          },
-        },
-      });
-    });
-
-    expect(Notifications.dismissNotificationAsync).toHaveBeenCalledWith(
-      "notif-1",
-    );
   });
 
   it("unregisters token on cleanup call", async () => {

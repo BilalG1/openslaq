@@ -58,7 +58,7 @@ export function ScheduleMessageDialog({ open, onOpenChange, onSchedule }: Schedu
       { label: "Tomorrow 9 AM", time: tomorrow },
       { label: "Next Monday 9 AM", time: nextMonday },
     ];
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handlePreset = useCallback(
     (time: Date) => {
@@ -71,12 +71,12 @@ export function ScheduleMessageDialog({ open, onOpenChange, onSchedule }: Schedu
   const handleCustomSubmit = useCallback(() => {
     if (!customDate || !customTime) return;
     const date = new Date(`${customDate}T${customTime}`);
-    if (date.getTime() <= Date.now() + 60_000) return;
+    if (isNaN(date.getTime()) || date.getTime() <= Date.now() + 60_000) return;
     onSchedule(date);
     onOpenChange(false);
   }, [customDate, customTime, onSchedule, onOpenChange]);
 
-  const minDate = useMemo(() => new Date().toISOString().split("T")[0]!, [open]);
+  const minDate = useMemo(() => new Date().toISOString().split("T")[0]!, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

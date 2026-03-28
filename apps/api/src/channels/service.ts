@@ -3,8 +3,9 @@ import { db } from "../db";
 import { channels, channelMembers } from "./schema";
 import { users } from "../users/schema";
 import type { Channel, ChannelId, ChannelType, WorkspaceId, UserId } from "@openslaq/shared";
-import { CHANNEL_TYPES } from "@openslaq/shared";
+import { asChannelId, CHANNEL_TYPES } from "@openslaq/shared";
 import { toChannel } from "./to-channel";
+import { initializeReadPositions } from "./read-positions-service";
 
 export async function listChannels(workspaceId: WorkspaceId, userId: UserId): Promise<Channel[]> {
   const memberSubquery = db
@@ -66,6 +67,7 @@ export async function createChannel(
     channelId: channel.id,
     userId,
   });
+  await initializeReadPositions(asChannelId(channel.id), [userId]);
 
   return toChannel(channel, 1);
 }
@@ -75,6 +77,7 @@ export async function joinChannel(channelId: ChannelId, userId: UserId): Promise
     .insert(channelMembers)
     .values({ channelId, userId })
     .onConflictDoNothing();
+  await initializeReadPositions(channelId, [userId]);
 }
 
 export async function getChannelById(channelId: ChannelId): Promise<Channel | null> {
@@ -114,6 +117,16 @@ export async function addChannelMember(channelId: ChannelId, userId: UserId): Pr
     .insert(channelMembers)
     .values({ channelId, userId })
     .onConflictDoNothing();
+  await initializeReadPositions(channelId, [userId]);
+}
+
+export async function addChannelMembersBulk(channelId: ChannelId, userIds: UserId[]): Promise<void> {
+  if (userIds.length === 0) return;
+  await db
+    .insert(channelMembers)
+    .values(userIds.map((userId) => ({ channelId, userId })))
+    .onConflictDoNothing();
+  await initializeReadPositions(channelId, userIds);
 }
 
 export async function removeChannelMember(channelId: ChannelId, userId: UserId): Promise<void> {
@@ -137,7 +150,13 @@ export async function updateChannel(
     .where(eq(channels.id, channelId))
     .returning();
   if (!updated) throw new Error("Channel not found");
-  return toChannel(updated);
+
+  const [memberCountRow] = await db
+    .select({ count: count(channelMembers.channelId) })
+    .from(channelMembers)
+    .where(eq(channelMembers.channelId, channelId));
+
+  return toChannel(updated, memberCountRow?.count ?? 0);
 }
 
 export async function browsePublicChannels(workspaceId: WorkspaceId, userId: UserId, includeArchived = false) {

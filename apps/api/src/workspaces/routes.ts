@@ -5,6 +5,9 @@ import { createWorkspace, getWorkspacesForUser, getOwnedWorkspaceCount, quotas }
 import { rlWorkspaceCreate, rlRead } from "../rate-limit";
 import { workspaceWithRoleSchema, workspaceSchema, errorSchema } from "../openapi/schemas";
 import { jsonResponse } from "../openapi/responses";
+import { BEARER_SECURITY, jsonBody, jsonContent } from "../lib/openapi-helpers";
+import { BadRequestError } from "../errors";
+import { getAuthContext } from "../lib/context";
 
 const listWorkspacesRoute = createRoute({
   method: "get",
@@ -12,13 +15,10 @@ const listWorkspacesRoute = createRoute({
   tags: ["Workspaces"],
   summary: "List workspaces",
   description: "Returns all workspaces the authenticated user is a member of.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [auth, rlRead] as const,
   responses: {
-    200: {
-      content: { "application/json": { schema: z.array(workspaceWithRoleSchema) } },
-      description: "List of workspaces with user roles",
-    },
+    200: jsonContent(z.array(workspaceWithRoleSchema), "List of workspaces with user roles"),
   },
 });
 
@@ -28,36 +28,30 @@ const createWorkspaceRoute = createRoute({
   tags: ["Workspaces"],
   summary: "Create workspace",
   description: "Creates a new workspace and makes the authenticated user the owner.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [auth, rlWorkspaceCreate] as const,
   request: {
-    body: { content: { "application/json": { schema: createWorkspaceSchema } } },
+    body: jsonBody(createWorkspaceSchema),
   },
   responses: {
-    201: {
-      content: { "application/json": { schema: workspaceSchema } },
-      description: "Created workspace",
-    },
-    400: {
-      content: { "application/json": { schema: errorSchema } },
-      description: "Quota exceeded",
-    },
+    201: jsonContent(workspaceSchema, "Created workspace"),
+    400: jsonContent(errorSchema, "Quota exceeded"),
   },
 });
 
 const app = new OpenAPIHono()
   .openapi(listWorkspacesRoute, async (c) => {
-    const user = c.get("user");
+    const { user } = getAuthContext(c);
     const workspaces = await getWorkspacesForUser(user.id);
     return jsonResponse(c, workspaces, 200);
   })
   .openapi(createWorkspaceRoute, async (c) => {
-    const user = c.get("user");
+    const { user } = getAuthContext(c);
     const { name } = c.req.valid("json");
 
     const ownedCount = await getOwnedWorkspaceCount(user.id);
     if (ownedCount >= quotas.maxWorkspacesPerUser) {
-      return c.json({ error: `Maximum ${quotas.maxWorkspacesPerUser} workspaces per user` }, 400);
+      throw new BadRequestError(`Maximum ${quotas.maxWorkspacesPerUser} workspaces per user`);
     }
 
     const result = await createWorkspace(name, user.id);

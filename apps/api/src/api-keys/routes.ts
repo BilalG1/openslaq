@@ -2,17 +2,20 @@ import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { auth } from "../auth/middleware";
 import { rlRead, rlMemberManage } from "../rate-limit";
 import { errorSchema, okSchema } from "../openapi/schemas";
+import { BEARER_SECURITY, jsonBody, jsonContent } from "../lib/openapi-helpers";
 import { jsonResponse } from "../openapi/responses";
 import { db } from "../db";
 import { apiKeys } from "./schema";
 import { generateUserApiKey } from "./token";
 import { eq, and } from "drizzle-orm";
 import type { BotScope } from "@openslaq/shared";
+import { NotFoundError } from "../errors";
 
 const BOT_SCOPES = [
   "chat:write",
   "chat:read",
   "channels:read",
+  "channels:join",
   "channels:write",
   "reactions:write",
   "reactions:read",
@@ -54,21 +57,14 @@ const createKeyRoute = createRoute({
   tags: ["API Keys"],
   summary: "Create API key",
   description: "Creates a new user API key. Returns the full token once.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [auth, rlMemberManage] as const,
   request: {
-    body: { content: { "application/json": { schema: createKeySchema } } },
+    body: jsonBody(createKeySchema),
   },
   responses: {
-    201: {
-      content: {
-        "application/json": {
-          schema: apiKeySchema.extend({ token: z.string() }),
-        },
-      },
-      description: "Created API key with token",
-    },
-    400: { content: { "application/json": { schema: errorSchema } }, description: "Validation error" },
+    201: jsonContent(apiKeySchema.extend({ token: z.string() }), "Created API key with token"),
+    400: jsonContent(errorSchema, "Validation error"),
   },
 });
 
@@ -78,17 +74,10 @@ const listKeysRoute = createRoute({
   tags: ["API Keys"],
   summary: "List API keys",
   description: "Lists all API keys for the current user.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [auth, rlRead] as const,
   responses: {
-    200: {
-      content: {
-        "application/json": {
-          schema: z.object({ keys: z.array(apiKeySchema) }),
-        },
-      },
-      description: "List of API keys",
-    },
+    200: jsonContent(z.object({ keys: z.array(apiKeySchema) }), "List of API keys"),
   },
 });
 
@@ -98,12 +87,12 @@ const getKeyRoute = createRoute({
   tags: ["API Keys"],
   summary: "Get API key",
   description: "Returns metadata for a single API key.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [auth, rlRead] as const,
   request: { params: keyIdParam },
   responses: {
-    200: { content: { "application/json": { schema: apiKeySchema } }, description: "API key metadata" },
-    404: { content: { "application/json": { schema: errorSchema } }, description: "Key not found" },
+    200: jsonContent(apiKeySchema, "API key metadata"),
+    404: jsonContent(errorSchema, "Key not found"),
   },
 });
 
@@ -113,15 +102,15 @@ const updateKeyRoute = createRoute({
   tags: ["API Keys"],
   summary: "Update API key",
   description: "Updates an API key's name or scopes.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [auth, rlMemberManage] as const,
   request: {
     params: keyIdParam,
-    body: { content: { "application/json": { schema: updateKeySchema } } },
+    body: jsonBody(updateKeySchema),
   },
   responses: {
-    200: { content: { "application/json": { schema: apiKeySchema } }, description: "Updated API key" },
-    404: { content: { "application/json": { schema: errorSchema } }, description: "Key not found" },
+    200: jsonContent(apiKeySchema, "Updated API key"),
+    404: jsonContent(errorSchema, "Key not found"),
   },
 });
 
@@ -131,12 +120,12 @@ const deleteKeyRoute = createRoute({
   tags: ["API Keys"],
   summary: "Delete API key",
   description: "Revokes and deletes an API key.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [auth, rlMemberManage] as const,
   request: { params: keyIdParam },
   responses: {
-    200: { content: { "application/json": { schema: okSchema } }, description: "Key deleted" },
-    404: { content: { "application/json": { schema: errorSchema } }, description: "Key not found" },
+    200: jsonContent(okSchema, "Key deleted"),
+    404: jsonContent(errorSchema, "Key not found"),
   },
 });
 
@@ -191,7 +180,7 @@ const app = new OpenAPIHono()
       .select()
       .from(apiKeys)
       .where(and(eq(apiKeys.id, id), eq(apiKeys.userId, user.id)));
-    if (!row) return c.json({ error: "API key not found" }, 404);
+    if (!row) throw new NotFoundError("API key");
     return jsonResponse(c, toApiKeyResponse(row), 200);
   })
   .openapi(updateKeyRoute, async (c) => {
@@ -208,7 +197,7 @@ const app = new OpenAPIHono()
       .set(updates)
       .where(and(eq(apiKeys.id, id), eq(apiKeys.userId, user.id)))
       .returning();
-    if (!row) return c.json({ error: "API key not found" }, 404);
+    if (!row) throw new NotFoundError("API key");
     return jsonResponse(c, toApiKeyResponse(row), 200);
   })
   .openapi(deleteKeyRoute, async (c) => {
@@ -218,7 +207,7 @@ const app = new OpenAPIHono()
       .delete(apiKeys)
       .where(and(eq(apiKeys.id, id), eq(apiKeys.userId, user.id)))
       .returning();
-    if (deleted.length === 0) return c.json({ error: "API key not found" }, 404);
+    if (deleted.length === 0) throw new NotFoundError("API key");
     return c.json({ ok: true as const }, 200);
   });
 

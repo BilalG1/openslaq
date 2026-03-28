@@ -1,4 +1,4 @@
-import { describe, test, expect, afterEach, jest } from "bun:test";
+import { describe, test, expect, afterEach, vi } from "vitest";
 import { render, screen, cleanup } from "../../test-utils";
 import { BookmarksBar } from "./BookmarksBar";
 import type { ChannelBookmark } from "@openslaq/shared";
@@ -88,7 +88,7 @@ describe("BookmarksBar", () => {
   });
 
   test("calls onRemoveBookmark when remove button clicked", () => {
-    const onRemove = jest.fn();
+    const onRemove = vi.fn();
     const bookmarks = [mockBookmark({ id: asBookmarkId("bm-1") })];
 
     render(
@@ -105,7 +105,7 @@ describe("BookmarksBar", () => {
   });
 
   test("calls onAddBookmark when add button clicked", () => {
-    const onAdd = jest.fn();
+    const onAdd = vi.fn();
 
     render(
       <BookmarksBar

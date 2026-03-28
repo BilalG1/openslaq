@@ -9,7 +9,7 @@ interface CreateGroupDmParams {
   memberIds: string[];
 }
 
-export async function createGroupDm(
+async function findOrCreateGroupDmCore(
   deps: OperationDeps,
   params: CreateGroupDmParams,
 ): Promise<GroupDmConversation | null> {
@@ -33,14 +33,32 @@ export async function createGroupDm(
     const { channel, members } = data;
     const newGroupDm = normalizeGroupDmConversation({ channel, members });
     dispatch({ type: "workspace/addGroupDm", groupDm: newGroupDm });
-    dispatch({ type: "workspace/selectGroupDm", channelId: data.channel.id });
     return newGroupDm;
   } catch (err) {
-    if (err instanceof AuthError) {
-      auth.onAuthRequired();
-      return null;
-    }
+    if (err instanceof AuthError) return null;
     dispatch({ type: "mutations/error", error: getErrorMessage(err, "Failed to create group DM") });
     return null;
   }
+}
+
+export async function createGroupDm(
+  deps: OperationDeps,
+  params: CreateGroupDmParams,
+): Promise<GroupDmConversation | null> {
+  const groupDm = await findOrCreateGroupDmCore(deps, params);
+  if (groupDm) {
+    deps.dispatch({ type: "workspace/selectGroupDm", channelId: groupDm.channel.id });
+  }
+  return groupDm;
+}
+
+export async function findOrCreateGroupDmForCompose(
+  deps: OperationDeps,
+  params: CreateGroupDmParams,
+): Promise<GroupDmConversation | null> {
+  const groupDm = await findOrCreateGroupDmCore(deps, params);
+  if (groupDm) {
+    deps.dispatch({ type: "compose/setPreviewChannel", channelId: groupDm.channel.id });
+  }
+  return groupDm;
 }

@@ -39,8 +39,8 @@ describe("GitHub Bot", () => {
     const chRes = await adminClient.api.workspaces[":slug"].channels.$get({
       param: { slug: workspaceSlug },
     });
-    const channels = (await chRes.json()) as any[];
-    channelId = channels.find((c: any) => c.name === "general")?.id;
+    const channels = (await chRes.json()) as Array<{ id: string; name: string }>;
+    channelId = channels.find((c: { id: string; name: string }) => c.name === "general")?.id ?? "";
     expect(channelId).toBeTruthy();
 
     // Get github-bot listing ID
@@ -81,10 +81,10 @@ describe("GitHub Bot", () => {
       json: { command: "github", args: "", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
     expect(result.ephemeralMessages).toHaveLength(1);
-    expect(result.ephemeralMessages[0].text).toContain("GitHub Bot Commands");
+    expect(result.ephemeralMessages[0]!.text).toContain("GitHub Bot Commands");
   });
 
   test("/github subscribe creates subscription", async () => {
@@ -93,9 +93,9 @@ describe("GitHub Bot", () => {
       json: { command: "github", args: "subscribe acme/widget", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Subscribed to **acme/widget**");
+    expect(result.ephemeralMessages[0]!.text).toContain("Subscribed to **acme/widget**");
   });
 
   test("/github subscribe with specific events", async () => {
@@ -104,9 +104,9 @@ describe("GitHub Bot", () => {
       json: { command: "github", args: "subscribe acme/other pulls,checks", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("pulls, checks");
+    expect(result.ephemeralMessages[0]!.text).toContain("pulls, checks");
   });
 
   test("/github subscribe rejects duplicate", async () => {
@@ -115,9 +115,9 @@ describe("GitHub Bot", () => {
       json: { command: "github", args: "subscribe acme/widget", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Already subscribed");
+    expect(result.ephemeralMessages[0]!.text).toContain("Already subscribed");
   });
 
   test("/github list shows subscriptions", async () => {
@@ -126,10 +126,10 @@ describe("GitHub Bot", () => {
       json: { command: "github", args: "list", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("acme/widget");
-    expect(result.ephemeralMessages[0].text).toContain("acme/other");
+    expect(result.ephemeralMessages[0]!.text).toContain("acme/widget");
+    expect(result.ephemeralMessages[0]!.text).toContain("acme/other");
   });
 
   test("/github test pr_opened posts message", async () => {
@@ -138,9 +138,9 @@ describe("GitHub Bot", () => {
       json: { command: "github", args: "test pr_opened", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain('Test event "pr_opened" posted');
+    expect(result.ephemeralMessages[0]!.text).toContain('Test event "pr_opened" posted');
   });
 
   test("/github test unknown event returns error", async () => {
@@ -149,9 +149,9 @@ describe("GitHub Bot", () => {
       json: { command: "github", args: "test nonexistent", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Unknown test event");
+    expect(result.ephemeralMessages[0]!.text).toContain("Unknown test event");
   });
 
   test("/github unsubscribe removes subscription", async () => {
@@ -160,9 +160,9 @@ describe("GitHub Bot", () => {
       json: { command: "github", args: "unsubscribe acme/widget", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Unsubscribed from **acme/widget**");
+    expect(result.ephemeralMessages[0]!.text).toContain("Unsubscribed from **acme/widget**");
   });
 
   test("/github unsubscribe nonexistent returns not found", async () => {
@@ -171,9 +171,9 @@ describe("GitHub Bot", () => {
       json: { command: "github", args: "unsubscribe nonexistent/repo", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("No subscription");
+    expect(result.ephemeralMessages[0]!.text).toContain("No subscription");
   });
 
   test("/github list after unsubscribe shows remaining", async () => {
@@ -182,11 +182,11 @@ describe("GitHub Bot", () => {
       json: { command: "github", args: "list", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
     // acme/widget was unsubscribed, acme/other should remain
-    expect(result.ephemeralMessages[0].text).toContain("acme/other");
-    expect(result.ephemeralMessages[0].text).not.toContain("acme/widget");
+    expect(result.ephemeralMessages[0]!.text).toContain("acme/other");
+    expect(result.ephemeralMessages[0]!.text).not.toContain("acme/widget");
   });
 
   test("POST /api/github/webhook with ping returns ok", async () => {
@@ -240,7 +240,7 @@ describe("GitHub Bot", () => {
       json: { command: "github", args: "subscribe test/repo", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(false);
     expect(result.error).toContain("Unknown command");
   });
@@ -330,8 +330,8 @@ describe("GitHub Bot", () => {
       const chRes = await admin2.client.api.workspaces[":slug"].channels.$get({
         param: { slug: wsSlug2 },
       });
-      const channels = (await chRes.json()) as any[];
-      const ch = channels.find((c: any) => c.name === "general");
+      const channels = (await chRes.json()) as Array<{ id: string; name: string }>;
+      const ch = channels.find((c: { id: string; name: string }) => c.name === "general")!;
 
       await admin2.client.api.workspaces[":slug"].commands.execute.$post({
         param: { slug: wsSlug2 },

@@ -1,8 +1,9 @@
+import type { ReactNode } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import clsx from "clsx";
 
 const errorStateVariants = cva(
-  "flex items-center justify-center text-danger-text",
+  "flex flex-col items-center justify-center text-danger-text",
   {
     variants: {
       size: {
@@ -16,13 +17,15 @@ const errorStateVariants = cva(
 
 interface ErrorStateProps extends VariantProps<typeof errorStateVariants> {
   message: string;
+  action?: ReactNode;
   className?: string;
 }
 
-function ErrorState({ message, size, className }: ErrorStateProps) {
+function ErrorState({ message, action, size, className }: ErrorStateProps) {
   return (
     <div className={clsx(errorStateVariants({ size }), className)}>
       {message}
+      {action && <div className="mt-4">{action}</div>}
     </div>
   );
 }

@@ -1,6 +1,5 @@
 import { env } from "./env";
-import { storeTokens } from "./token-store";
-import { setAuthToken } from "./auth-provider";
+import { setServerSession, serverIdFromUrl } from "./server-store";
 
 export interface DevSignInResult {
   userId: string;
@@ -11,7 +10,8 @@ export async function performDevQuickSignIn(): Promise<DevSignInResult> {
   const secret = env.EXPO_PUBLIC_E2E_TEST_SECRET;
   if (!secret) throw new Error("EXPO_PUBLIC_E2E_TEST_SECRET is not set");
 
-  const res = await fetch(`${env.EXPO_PUBLIC_API_URL}/api/auth/dev-sign-in`, {
+  const apiUrl = env.EXPO_PUBLIC_API_URL;
+  const res = await fetch(`${apiUrl}/api/auth/dev-sign-in`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ secret }),
@@ -23,12 +23,11 @@ export async function performDevQuickSignIn(): Promise<DevSignInResult> {
 
   const { userId, accessToken } = (await res.json()) as DevSignInResult;
 
-  await storeTokens({
+  const serverId = serverIdFromUrl(apiUrl);
+  await setServerSession(serverId, {
     accessToken,
     refreshToken: `dev-refresh-${userId}`,
     userId,
   });
-  setAuthToken(accessToken);
-
   return { userId, accessToken };
 }

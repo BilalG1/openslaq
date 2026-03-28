@@ -1,4 +1,4 @@
-import { describe, expect, test, afterEach } from "bun:test";
+import { describe, expect, test, afterEach } from "vitest";
 import { renderHook, act, cleanup } from "../test-utils";
 import { useWindowFocused } from "./useWindowFocused";
 

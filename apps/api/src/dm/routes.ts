@@ -1,11 +1,14 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { asUserId } from "@openslaq/shared";
 import { createDmSchema } from "./validation";
+import { BEARER_SECURITY, jsonBody, jsonContent } from "../lib/openapi-helpers";
 import { getOrCreateDm, listDms } from "./service";
 import type { WorkspaceMemberEnv } from "../workspaces/role-middleware";
 import { rlRead } from "../rate-limit";
 import { dmChannelResponseSchema, dmListItemSchema, errorSchema } from "../openapi/schemas";
 import { jsonResponse } from "../openapi/responses";
+import { BadRequestError } from "../errors";
+import { getWorkspaceMemberContext } from "../lib/context";
 
 const createDmRoute = createRoute({
   method: "post",
@@ -13,24 +16,15 @@ const createDmRoute = createRoute({
   tags: ["DMs"],
   summary: "Get or create DM channel",
   description: "Gets an existing DM channel with the specified user, or creates one.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlRead] as const,
   request: {
-    body: { content: { "application/json": { schema: createDmSchema } } },
+    body: jsonBody(createDmSchema),
   },
   responses: {
-    200: {
-      content: { "application/json": { schema: dmChannelResponseSchema } },
-      description: "Existing DM channel",
-    },
-    201: {
-      content: { "application/json": { schema: dmChannelResponseSchema } },
-      description: "Newly created DM channel",
-    },
-    400: {
-      content: { "application/json": { schema: errorSchema } },
-      description: "User is not a workspace member",
-    },
+    200: jsonContent(dmChannelResponseSchema, "Existing DM channel"),
+    201: jsonContent(dmChannelResponseSchema, "Newly created DM channel"),
+    400: jsonContent(errorSchema, "User is not a workspace member"),
   },
 });
 
@@ -40,25 +34,21 @@ const listDmsRoute = createRoute({
   tags: ["DMs"],
   summary: "List DM channels",
   description: "Returns all DM channels for the authenticated user in this workspace.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlRead] as const,
   responses: {
-    200: {
-      content: { "application/json": { schema: z.array(dmListItemSchema) } },
-      description: "List of DM channels",
-    },
+    200: jsonContent(z.array(dmListItemSchema), "List of DM channels"),
   },
 });
 
 const app = new OpenAPIHono<WorkspaceMemberEnv>()
   .openapi(createDmRoute, async (c) => {
-    const user = c.get("user");
-    const workspace = c.get("workspace");
+    const { user, workspace } = getWorkspaceMemberContext(c);
     const { userId: targetUserId } = c.req.valid("json");
 
     const result = await getOrCreateDm(workspace.id, user.id, asUserId(targetUserId));
     if (!result) {
-      return c.json({ error: "User is not a member of this workspace" }, 400);
+      throw new BadRequestError("User is not a member of this workspace");
     }
 
     const body = { channel: result.channel, otherUser: result.otherUser };
@@ -68,8 +58,7 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     return jsonResponse(c, body, 200);
   })
   .openapi(listDmsRoute, async (c) => {
-    const user = c.get("user");
-    const workspace = c.get("workspace");
+    const { user, workspace } = getWorkspaceMemberContext(c);
     const dms = await listDms(workspace.id, user.id);
     return jsonResponse(c, dms, 200);
   });

@@ -1,6 +1,6 @@
 import { AuthError, getErrorMessage } from "../api/errors";
 import { authorizedRequest } from "../api/api-client";
-import { normalizeCursor, normalizeMessage } from "./normalize";
+import { normalizeCursor, normalizeMessage, type RawMessage } from "./normalize";
 import type { OperationDeps } from "./types";
 
 interface LoadThreadMessagesParams {
@@ -40,20 +40,17 @@ export async function loadThreadMessages(
     }
 
     // API returns newest-first (direction=older default) — reverse to chronological for display
-    const replies = repliesData.messages.map(normalizeMessage).reverse();
+    const replies = repliesData.messages.map((m) => normalizeMessage(m as RawMessage)).reverse();
 
     dispatch({
       type: "thread/setData",
-      parent: normalizeMessage(parentData),
+      parent: normalizeMessage(parentData as RawMessage),
       replies,
       olderCursor: normalizeCursor(repliesData.nextCursor),
       hasOlder: normalizeCursor(repliesData.nextCursor) !== null,
     });
   } catch (err) {
-    if (err instanceof AuthError) {
-      auth.onAuthRequired();
-      return;
-    }
+    if (err instanceof AuthError) return;
     dispatch({
       type: "thread/loadError",
       parentMessageId,
@@ -93,12 +90,14 @@ export async function loadOlderReplies(
     dispatch({
       type: "thread/prependReplies",
       parentMessageId,
-      replies: data.messages.map(normalizeMessage).reverse(),
+      replies: data.messages.map((m) => normalizeMessage(m as RawMessage)).reverse(),
       olderCursor: normalizeCursor(data.nextCursor),
       hasOlder: normalizeCursor(data.nextCursor) !== null,
     });
-  } catch {
+  } catch (err) {
     dispatch({ type: "thread/setLoadingOlder", parentMessageId, loading: false });
+    if (err instanceof AuthError) return;
+    dispatch({ type: "mutations/error", error: getErrorMessage(err, "Failed to load older replies") });
   }
 }
 
@@ -123,9 +122,9 @@ export async function fetchUserThreads(
       { headers },
     ),
   );
-  const data = (await res.json()) as { threads: Array<{ message: unknown; channelName: string }> };
+  const data = (await res.json()) as { threads: Array<{ message: RawMessage; channelName: string }> };
   return data.threads.map((item) => ({
-    message: normalizeMessage(item.message as Parameters<typeof normalizeMessage>[0]),
+    message: normalizeMessage(item.message),
     channelName: item.channelName,
   }));
 }

@@ -4,8 +4,10 @@ import { db } from "../db";
 import { workspaceInvites } from "./invite-schema";
 import { workspaceMembers, workspaces } from "./schema";
 import { channels, channelMembers } from "../channels/schema";
+import { channelReadPositions } from "../channels/read-positions-schema";
 import { DEFAULT_CHANNELS, CHANNEL_TYPES } from "@openslaq/shared";
 import { dmChannelName } from "../dm/service";
+import { NotFoundError, GoneError } from "../errors";
 
 export async function createInvite(
   workspaceId: string,
@@ -63,7 +65,7 @@ export async function revokeInvite(inviteId: string, workspaceId: string) {
 
 export async function acceptInvite(code: string, userId: string) {
   const invite = await getInviteByCode(code);
-  if (!invite) return { error: "Invite not found" as const };
+  if (!invite) throw new NotFoundError("Invite");
 
   return db.transaction(async (tx) => {
     // Check if user is already a workspace member — if yes, return success (no useCount bump)
@@ -78,9 +80,7 @@ export async function acceptInvite(code: string, userId: string) {
       const workspace = await tx.query.workspaces.findFirst({
         where: eq(workspaces.id, invite.workspaceId),
       });
-      if (!workspace) {
-        return { error: "Workspace not found" as const };
-      }
+      if (!workspace) throw new NotFoundError("Workspace");
       return { workspace };
     }
 
@@ -100,10 +100,10 @@ export async function acceptInvite(code: string, userId: string) {
 
     if (!updated) {
       // Determine the specific error
-      if (invite.revokedAt) return { error: "Invite has been revoked" as const };
+      if (invite.revokedAt) throw new GoneError("Invite has been revoked");
       if (invite.expiresAt && invite.expiresAt < new Date())
-        return { error: "Invite has expired" as const };
-      return { error: "Invite has reached maximum uses" as const };
+        throw new GoneError("Invite has expired");
+      throw new GoneError("Invite has reached maximum uses");
     }
 
     // Insert workspace membership
@@ -123,6 +123,10 @@ export async function acceptInvite(code: string, userId: string) {
         .insert(channelMembers)
         .values({ channelId: generalChannel.id, userId })
         .onConflictDoNothing();
+      await tx
+        .insert(channelReadPositions)
+        .values({ userId, channelId: generalChannel.id, lastReadAt: sql`now()` })
+        .onConflictDoNothing();
     }
 
     // Auto-create self-DM
@@ -138,15 +142,17 @@ export async function acceptInvite(code: string, userId: string) {
       .returning();
     if (selfDm) {
       await tx.insert(channelMembers).values({ channelId: selfDm.id, userId });
+      await tx
+        .insert(channelReadPositions)
+        .values({ userId, channelId: selfDm.id, lastReadAt: sql`now()` })
+        .onConflictDoNothing();
     }
 
     const workspace = await tx.query.workspaces.findFirst({
       where: eq(workspaces.id, invite.workspaceId),
     });
 
-    if (!workspace) {
-      return { error: "Workspace not found" as const };
-    }
+    if (!workspace) throw new NotFoundError("Workspace");
     return { workspace };
   });
 }

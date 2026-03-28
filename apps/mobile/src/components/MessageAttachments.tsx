@@ -1,19 +1,15 @@
-import { useState } from "react";
-import { View, Text, Image, Pressable } from "react-native";
+import { useMemo, useState } from "react";
+import { View, Text, Image, Pressable, StyleSheet } from "react-native";
 import { Film, Paperclip } from "lucide-react-native";
 import type { Attachment } from "@openslaq/shared";
+import type { MobileTheme } from "@openslaq/shared";
 import { useMobileTheme } from "@/theme/ThemeProvider";
-import { env } from "@/lib/env";
 import { openSafeUrl } from "@/utils/url-validation";
 import { AudioPlayer } from "./AudioPlayer";
 import { ImageGalleryViewer } from "./ImageGalleryViewer";
 
 interface Props {
   attachments: Attachment[];
-}
-
-function getDownloadUrl(id: string): string {
-  return `${env.EXPO_PUBLIC_API_URL}/api/uploads/${id}/download`;
 }
 
 function formatSize(bytes: number): string {
@@ -29,20 +25,17 @@ function ImageAttachment({
   attachment: Attachment;
   onPress: () => void;
 }) {
-  const url = getDownloadUrl(attachment.id);
-
   return (
     <Pressable
       testID={`attachment-image-${attachment.id}`}
       onPress={onPress}
+      accessibilityRole="image"
+      accessibilityLabel={`Image: ${attachment.filename}`}
+      accessibilityHint="Opens the image in full screen"
     >
       <Image
-        source={{ uri: url }}
-        style={{
-          maxWidth: 240,
-          height: 160,
-          borderRadius: 8,
-        }}
+        source={{ uri: attachment.downloadUrl }}
+        style={staticStyles.imageAttachment}
         resizeMode="cover"
       />
     </Pressable>
@@ -51,23 +44,26 @@ function ImageAttachment({
 
 function VideoAttachment({ attachment }: { attachment: Attachment }) {
   const { theme } = useMobileTheme();
-  const url = getDownloadUrl(attachment.id);
+  const styles = useMemo(() => makeStyles(theme), [theme]);
 
   return (
     <Pressable
       testID={`attachment-video-${attachment.id}`}
-      onPress={() => openSafeUrl(url)}
-      style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: theme.colors.surfaceTertiary }}
+      onPress={() => openSafeUrl(attachment.downloadUrl)}
+      style={styles.fileRow}
+      accessibilityRole="button"
+      accessibilityLabel={`Video: ${attachment.filename}`}
+      accessibilityHint="Opens the video for playback"
     >
-      <Film size={16} color={theme.colors.textMuted} style={{ marginRight: 8 }} />
-      <View style={{ flex: 1 }}>
+      <Film size={16} color={theme.colors.textMuted} style={staticStyles.fileIcon} />
+      <View style={staticStyles.fileContent}>
         <Text
-          style={{ fontSize: 14, color: theme.brand.primary }}
+          style={styles.fileName}
           numberOfLines={1}
         >
           {attachment.filename}
         </Text>
-        <Text style={{ fontSize: 12, color: theme.colors.textMuted }}>
+        <Text style={styles.fileSize}>
           {formatSize(attachment.size)}
         </Text>
       </View>
@@ -77,23 +73,26 @@ function VideoAttachment({ attachment }: { attachment: Attachment }) {
 
 function FileAttachment({ attachment }: { attachment: Attachment }) {
   const { theme } = useMobileTheme();
-  const url = getDownloadUrl(attachment.id);
+  const styles = useMemo(() => makeStyles(theme), [theme]);
 
   return (
     <Pressable
       testID={`attachment-file-${attachment.id}`}
-      onPress={() => openSafeUrl(url)}
-      style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: theme.colors.surfaceTertiary }}
+      onPress={() => openSafeUrl(attachment.downloadUrl)}
+      style={styles.fileRow}
+      accessibilityRole="button"
+      accessibilityLabel={`File: ${attachment.filename}`}
+      accessibilityHint="Opens the file for download"
     >
-      <Paperclip size={16} color={theme.colors.textMuted} style={{ marginRight: 8 }} />
-      <View style={{ flex: 1 }}>
+      <Paperclip size={16} color={theme.colors.textMuted} style={staticStyles.fileIcon} />
+      <View style={staticStyles.fileContent}>
         <Text
-          style={{ fontSize: 14, color: theme.brand.primary }}
+          style={styles.fileName}
           numberOfLines={1}
         >
           {attachment.filename}
         </Text>
-        <Text style={{ fontSize: 12, color: theme.colors.textMuted }}>
+        <Text style={styles.fileSize}>
           {formatSize(attachment.size)}
         </Text>
       </View>
@@ -109,14 +108,14 @@ export function MessageAttachments({ attachments }: Props) {
 
   const imageAttachments = attachments.filter((a) => a.mimeType.startsWith("image/"));
   const galleryImages = imageAttachments.map((a) => ({
-    uri: getDownloadUrl(a.id),
+    uri: a.downloadUrl,
     filename: a.filename,
   }));
 
   let imageIndex = 0;
 
   return (
-    <View testID="message-attachments" style={{ marginTop: 4, gap: 6 }}>
+    <View testID="message-attachments" style={staticStyles.container}>
       {attachments.map((att) => {
         if (att.mimeType.startsWith("image/")) {
           const idx = imageIndex++;
@@ -132,7 +131,7 @@ export function MessageAttachments({ attachments }: Props) {
           );
         }
         if (att.mimeType.startsWith("audio/")) {
-          return <AudioPlayer key={att.id} uri={getDownloadUrl(att.id)} filename={att.filename} />;
+          return <AudioPlayer key={att.id} uri={att.downloadUrl} filename={att.filename} />;
         }
         if (att.mimeType.startsWith("video/")) {
           return <VideoAttachment key={att.id} attachment={att} />;
@@ -150,3 +149,41 @@ export function MessageAttachments({ attachments }: Props) {
     </View>
   );
 }
+
+const staticStyles = StyleSheet.create({
+  container: {
+    marginTop: 4,
+    gap: 6,
+  },
+  imageAttachment: {
+    width: 240,
+    height: 160,
+    borderRadius: 8,
+  },
+  fileIcon: {
+    marginRight: 8,
+  },
+  fileContent: {
+    flex: 1,
+  },
+});
+
+const makeStyles = (theme: MobileTheme) =>
+  StyleSheet.create({
+    fileRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      backgroundColor: theme.colors.surfaceTertiary,
+    },
+    fileName: {
+      fontSize: 14,
+      color: theme.brand.primary,
+    },
+    fileSize: {
+      fontSize: 12,
+      color: theme.colors.textMuted,
+    },
+  });

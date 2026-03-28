@@ -1,5 +1,12 @@
+import React from "react";
 import { renderHook, act } from "@testing-library/react-native";
-import { useChannelModals } from "../useChannelModals";
+import {
+  ChannelModalsProvider,
+  useChannelModals,
+  channelModalsReducer,
+  initialChannelModalsState,
+} from "@/contexts/ChannelModalsContext";
+import type { ChannelModalsAction } from "@/contexts/ChannelModalsContext";
 import type { Message, EphemeralMessage } from "@openslaq/shared";
 import { asUserId, asMessageId, asChannelId } from "@openslaq/shared";
 
@@ -20,121 +27,82 @@ const makeMessage = (overrides: Partial<Message> = {}): Message => ({
   ...overrides,
 } as Message);
 
-describe("useChannelModals", () => {
-  it("returns all modal state with correct initial values", () => {
-    const { result } = renderHook(() => useChannelModals());
+function wrapper({ children }: { children: React.ReactNode }) {
+  return React.createElement(ChannelModalsProvider, null, children);
+}
 
-    expect(result.current.editingMessage).toBeNull();
-    expect(result.current.actionSheetMessage).toBeNull();
-    expect(result.current.showEmojiPicker).toBe(false);
-    expect(result.current.emojiPickerMessageId).toBeNull();
-    expect(result.current.showTopicEdit).toBe(false);
-    expect(result.current.showPinnedSheet).toBe(false);
-    expect(result.current.pinnedMessages).toEqual([]);
-    expect(result.current.pinnedLoading).toBe(false);
-    expect(result.current.shareMessage).toBeNull();
-    expect(result.current.ephemeralMessages).toEqual([]);
-    expect(result.current.showNotificationSheet).toBe(false);
-    expect(result.current.showChannelInfo).toBe(false);
+describe("channelModalsReducer", () => {
+  it("handles setEditingMessage", () => {
+    const editing = { id: asMessageId("msg-1"), content: "hello" };
+    const result = channelModalsReducer(initialChannelModalsState, { type: "setEditingMessage", message: editing });
+    expect(result.editingMessage).toEqual(editing);
+
+    const cleared = channelModalsReducer(result, { type: "setEditingMessage", message: null });
+    expect(cleared.editingMessage).toBeNull();
   });
 
-  it("sets and clears editingMessage", () => {
-    const { result } = renderHook(() => useChannelModals());
-
-    act(() => {
-      result.current.setEditingMessage({ id: "msg-1", content: "hello" });
-    });
-    expect(result.current.editingMessage).toEqual({ id: "msg-1", content: "hello" });
-
-    act(() => {
-      result.current.setEditingMessage(null);
-    });
-    expect(result.current.editingMessage).toBeNull();
-  });
-
-  it("sets and clears actionSheetMessage", () => {
-    const { result } = renderHook(() => useChannelModals());
+  it("handles showActionSheet/closeActionSheet", () => {
     const msg = makeMessage();
+    const result = channelModalsReducer(initialChannelModalsState, { type: "showActionSheet", message: msg });
+    expect(result.actionSheetMessage).toBe(msg);
 
-    act(() => {
-      result.current.setActionSheetMessage(msg);
-    });
-    expect(result.current.actionSheetMessage).toBe(msg);
-
-    act(() => {
-      result.current.setActionSheetMessage(null);
-    });
-    expect(result.current.actionSheetMessage).toBeNull();
+    const closed = channelModalsReducer(result, { type: "closeActionSheet" });
+    expect(closed.actionSheetMessage).toBeNull();
   });
 
-  it("toggles showEmojiPicker", () => {
-    const { result } = renderHook(() => useChannelModals());
+  it("handles showEmojiPicker/closeEmojiPicker", () => {
+    const result = channelModalsReducer(initialChannelModalsState, { type: "showEmojiPicker", messageId: asMessageId("msg-42") });
+    expect(result.showEmojiPicker).toBe(true);
+    expect(result.emojiPickerMessageId).toBe(asMessageId("msg-42"));
 
-    act(() => {
-      result.current.setShowEmojiPicker(true);
-    });
-    expect(result.current.showEmojiPicker).toBe(true);
-
-    act(() => {
-      result.current.setShowEmojiPicker(false);
-    });
-    expect(result.current.showEmojiPicker).toBe(false);
+    const closed = channelModalsReducer(result, { type: "closeEmojiPicker" });
+    expect(closed.showEmojiPicker).toBe(false);
+    expect(closed.emojiPickerMessageId).toBeNull();
   });
 
-  it("sets emojiPickerMessageId", () => {
-    const { result } = renderHook(() => useChannelModals());
+  it("handles showTopicEdit/closeTopicEdit", () => {
+    const result = channelModalsReducer(initialChannelModalsState, { type: "showTopicEdit" });
+    expect(result.showTopicEdit).toBe(true);
 
-    act(() => {
-      result.current.setEmojiPickerMessageId("msg-42");
-    });
-    expect(result.current.emojiPickerMessageId).toBe("msg-42");
+    const closed = channelModalsReducer(result, { type: "closeTopicEdit" });
+    expect(closed.showTopicEdit).toBe(false);
   });
 
-  it("toggles showTopicEdit", () => {
-    const { result } = renderHook(() => useChannelModals());
+  it("handles pinned messages state", () => {
+    let s = channelModalsReducer(initialChannelModalsState, { type: "showPinnedSheet" });
+    expect(s.showPinnedSheet).toBe(true);
 
-    act(() => {
-      result.current.setShowTopicEdit(true);
-    });
-    expect(result.current.showTopicEdit).toBe(true);
-  });
+    s = channelModalsReducer(s, { type: "setPinnedLoading", loading: true });
+    expect(s.pinnedLoading).toBe(true);
 
-  it("manages pinned messages state", () => {
-    const { result } = renderHook(() => useChannelModals());
     const msgs = [makeMessage({ id: asMessageId("p1") }), makeMessage({ id: asMessageId("p2") })];
+    s = channelModalsReducer(s, { type: "setPinnedMessages", messages: msgs });
+    expect(s.pinnedMessages).toEqual(msgs);
 
-    act(() => {
-      result.current.setShowPinnedSheet(true);
-      result.current.setPinnedLoading(true);
-    });
-    expect(result.current.showPinnedSheet).toBe(true);
-    expect(result.current.pinnedLoading).toBe(true);
-
-    act(() => {
-      result.current.setPinnedMessages(msgs);
-      result.current.setPinnedLoading(false);
-    });
-    expect(result.current.pinnedMessages).toEqual(msgs);
-    expect(result.current.pinnedLoading).toBe(false);
+    s = channelModalsReducer(s, { type: "setPinnedLoading", loading: false });
+    expect(s.pinnedLoading).toBe(false);
   });
 
-  it("sets and clears shareMessage", () => {
-    const { result } = renderHook(() => useChannelModals());
+  it("handles removePinnedMessage", () => {
+    const msgs = [makeMessage({ id: asMessageId("p1") }), makeMessage({ id: asMessageId("p2") })];
+    let s = channelModalsReducer(initialChannelModalsState, { type: "setPinnedMessages", messages: msgs });
+    expect(s.pinnedMessages).toHaveLength(2);
+
+    s = channelModalsReducer(s, { type: "removePinnedMessage", messageId: asMessageId("p1") });
+    expect(s.pinnedMessages).toHaveLength(1);
+    expect(s.pinnedMessages[0]!.id).toBe("p2");
+  });
+
+  it("handles showShareMessage/closeShareMessage", () => {
     const msg = makeMessage();
+    const result = channelModalsReducer(initialChannelModalsState, { type: "showShareMessage", message: msg });
+    expect(result.shareMessage).toBe(msg);
 
-    act(() => {
-      result.current.setShareMessage(msg);
-    });
-    expect(result.current.shareMessage).toBe(msg);
-
-    act(() => {
-      result.current.setShareMessage(null);
-    });
-    expect(result.current.shareMessage).toBeNull();
+    const closed = channelModalsReducer(result, { type: "closeShareMessage" });
+    expect(closed.shareMessage).toBeNull();
   });
 
-  it("manages ephemeral messages with functional updates", () => {
-    const { result } = renderHook(() => useChannelModals());
+  it("handles addEphemeralMessages", () => {
     const ephemeral: EphemeralMessage = {
       id: "eph-1",
       channelId: asChannelId("ch-1"),
@@ -145,49 +113,90 @@ describe("useChannelModals", () => {
       ephemeral: true,
     };
 
-    act(() => {
-      result.current.setEphemeralMessages((prev) => [...prev, ephemeral]);
+    const result = channelModalsReducer(initialChannelModalsState, {
+      type: "addEphemeralMessages",
+      messages: [ephemeral],
     });
-    expect(result.current.ephemeralMessages).toHaveLength(1);
-    expect(result.current.ephemeralMessages[0].id).toBe("eph-1");
+    expect(result.ephemeralMessages).toHaveLength(1);
+    expect(result.ephemeralMessages[0]!.id).toBe("eph-1");
   });
 
-  it("toggles showNotificationSheet", () => {
-    const { result } = renderHook(() => useChannelModals());
+  it("handles showNotificationSheet/closeNotificationSheet", () => {
+    const result = channelModalsReducer(initialChannelModalsState, { type: "showNotificationSheet" });
+    expect(result.showNotificationSheet).toBe(true);
 
-    act(() => {
-      result.current.setShowNotificationSheet(true);
-    });
-    expect(result.current.showNotificationSheet).toBe(true);
+    const closed = channelModalsReducer(result, { type: "closeNotificationSheet" });
+    expect(closed.showNotificationSheet).toBe(false);
   });
 
-  it("toggles showChannelInfo", () => {
-    const { result } = renderHook(() => useChannelModals());
+  it("handles showChannelInfo/closeChannelInfo", () => {
+    const result = channelModalsReducer(initialChannelModalsState, { type: "showChannelInfo" });
+    expect(result.showChannelInfo).toBe(true);
 
-    act(() => {
-      result.current.setShowChannelInfo(true);
-    });
-    expect(result.current.showChannelInfo).toBe(true);
-
-    act(() => {
-      result.current.setShowChannelInfo(false);
-    });
-    expect(result.current.showChannelInfo).toBe(false);
+    const closed = channelModalsReducer(result, { type: "closeChannelInfo" });
+    expect(closed.showChannelInfo).toBe(false);
   });
 
-  it("setPinnedMessages supports functional updates for filtering", () => {
-    const { result } = renderHook(() => useChannelModals());
-    const msgs = [makeMessage({ id: asMessageId("p1") }), makeMessage({ id: asMessageId("p2") })];
+  it("handles closeAll preserving ephemeral messages", () => {
+    const ephemeral: EphemeralMessage = {
+      id: "eph-1",
+      channelId: asChannelId("ch-1"),
+      text: "keep me",
+      senderName: "Slaqbot",
+      senderAvatarUrl: null,
+      createdAt: new Date().toISOString(),
+      ephemeral: true,
+    };
+
+    let s = channelModalsReducer(initialChannelModalsState, { type: "addEphemeralMessages", messages: [ephemeral] });
+    s = channelModalsReducer(s, { type: "showTopicEdit" });
+    s = channelModalsReducer(s, { type: "showChannelInfo" });
+
+    const closed = channelModalsReducer(s, { type: "closeAll" });
+    expect(closed.showTopicEdit).toBe(false);
+    expect(closed.showChannelInfo).toBe(false);
+    expect(closed.ephemeralMessages).toHaveLength(0);
+  });
+});
+
+describe("useChannelModals (context hook)", () => {
+  it("returns initial state from context", () => {
+    const { result } = renderHook(() => useChannelModals(), { wrapper });
+
+    expect(result.current.state.editingMessage).toBeNull();
+    expect(result.current.state.actionSheetMessage).toBeNull();
+    expect(result.current.state.showEmojiPicker).toBe(false);
+    expect(result.current.state.emojiPickerMessageId).toBeNull();
+    expect(result.current.state.showTopicEdit).toBe(false);
+    expect(result.current.state.showPinnedSheet).toBe(false);
+    expect(result.current.state.pinnedMessages).toEqual([]);
+    expect(result.current.state.pinnedLoading).toBe(false);
+    expect(result.current.state.shareMessage).toBeNull();
+    expect(result.current.state.ephemeralMessages).toEqual([]);
+    expect(result.current.state.showNotificationSheet).toBe(false);
+    expect(result.current.state.showChannelInfo).toBe(false);
+  });
+
+  it("dispatches actions and updates state via context", () => {
+    const { result } = renderHook(() => useChannelModals(), { wrapper });
+    const msg = makeMessage();
 
     act(() => {
-      result.current.setPinnedMessages(msgs);
+      result.current.dispatch({ type: "showActionSheet", message: msg });
     });
-    expect(result.current.pinnedMessages).toHaveLength(2);
+    expect(result.current.state.actionSheetMessage).toBe(msg);
 
     act(() => {
-      result.current.setPinnedMessages((prev) => prev.filter((m) => m.id !== "p1"));
+      result.current.dispatch({ type: "closeActionSheet" });
     });
-    expect(result.current.pinnedMessages).toHaveLength(1);
-    expect(result.current.pinnedMessages[0].id).toBe("p2");
+    expect(result.current.state.actionSheetMessage).toBeNull();
+  });
+
+  it("throws when used outside provider", () => {
+    const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    expect(() => {
+      renderHook(() => useChannelModals());
+    }).toThrow("useChannelModalsState must be used within ChannelModalsProvider");
+    consoleSpy.mockRestore();
   });
 });

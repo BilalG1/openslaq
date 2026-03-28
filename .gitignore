@@ -1,4 +1,5 @@
 node_modules
+*.p8
 dist
 .env
 .vite

@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import {
   View,
   ActivityIndicator,
@@ -9,8 +9,9 @@ import {
   Alert,
   StyleSheet,
 } from "react-native";
-import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import type { Message, ChannelId, SlashCommandDefinition } from "@openslaq/shared";
+import { useNavigation, useRouter } from "expo-router";
+import type { Message, ChannelId, UserId, SlashCommandDefinition } from "@openslaq/shared";
+import { asUserId, asMessageId } from "@openslaq/shared";
 import type { MobileTheme } from "@openslaq/shared";
 import {
   loadChannelMessages,
@@ -48,21 +49,25 @@ import { useTypingTracking } from "@/hooks/useTypingTracking";
 import { useChannelSocketEvents } from "@/hooks/useChannelSocketEvents";
 import { useFileUpload, type PendingFile } from "@/hooks/useFileUpload";
 import { ChannelMessageList } from "@/components/ChannelMessageList";
+import type { ChannelMessageListRef } from "@/components/ChannelMessageList";
 import { MessageInput } from "@/components/MessageInput";
+import type { MessageInputRef } from "@/components/MessageInput";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { MessageActionSheet } from "@/components/MessageActionSheet";
 import { EmojiPickerSheet } from "@/components/EmojiPickerSheet";
-import { EditTopicModal } from "@/components/EditTopicModal";
 import { PinnedMessagesSheet } from "@/components/PinnedMessagesSheet";
 import { ShareMessageModal } from "@/components/ShareMessageModal";
 import { NotificationLevelSheet } from "@/components/NotificationLevelSheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Pin, ChevronDown } from "lucide-react-native";
+import { haptics } from "@/utils/haptics";
+import { ChevronDown, Lock } from "lucide-react-native";
 import { HuddleHeaderButton } from "@/components/huddle/HuddleHeaderButton";
 import { ChannelInfoPanel } from "@/components/ChannelInfoPanel.variant-a";
+import { ReactionDetailsSheet } from "@/components/ReactionDetailsSheet";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { routes } from "@/lib/routes";
 import { env } from "@/lib/env";
+import { useChannelParams } from "@/hooks/useRouteParams";
 import {
   ChannelModalsProvider,
   useChannelModalsState,
@@ -78,21 +83,20 @@ export default function ChannelScreen() {
 }
 
 function ChannelScreenInner() {
-  const { workspaceSlug, channelId, showInfo } = useLocalSearchParams<{
-    workspaceSlug: string;
-    channelId: string;
-    showInfo?: string;
-  }>();
+  const { workspaceSlug, channelId, showInfo } = useChannelParams();
   const { authProvider, user } = useAuth();
   const { state, dispatch } = useChatStore();
   const deps = useOperationDeps();
   const { socket } = useSocket();
+  const currentUserId = user?.id ? asUserId(user.id) : undefined;
   const { joinChannel, leaveChannel } = useChannelSocketEvents(channelId);
   const navigation = useNavigation();
   const router = useRouter();
   const { theme } = useMobileTheme();
   const insets = useSafeAreaInsets();
-  const { handleEditMessage, handleDeleteMessage, handleToggleReaction } = useMessageActions(user?.id);
+  const { handleEditMessage, handleDeleteMessage, handleToggleReaction } = useMessageActions(currentUserId);
+  const messageListRef = useRef<ChannelMessageListRef>(null);
+  const messageInputRef = useRef<MessageInputRef>(null);
   const styles = makeStyles(theme);
 
   const modalsState = useChannelModalsState();
@@ -100,7 +104,7 @@ function ChannelScreenInner() {
 
   // Open channel info panel when navigated with ?showInfo=true
   useEffect(() => {
-    if (showInfo === "true") {
+    if (showInfo) {
       modalsDispatch({ type: "showChannelInfo" });
     }
   }, [showInfo, modalsDispatch]);
@@ -108,7 +112,7 @@ function ChannelScreenInner() {
   const { data: members } = useFetchData({
     fetchFn: async () => {
       const result = await listWorkspaceMembers(deps, workspaceSlug!);
-      return result.map((m: { id: string; displayName: string }) => ({ id: m.id, displayName: m.displayName }));
+      return result.map((m) => ({ id: m.id, displayName: m.displayName }));
     },
     deps: [workspaceSlug, authProvider],
     enabled: !!workspaceSlug,
@@ -123,10 +127,21 @@ function ChannelScreenInner() {
   });
 
   const { emitTyping } = useTypingEmitter(channelId);
-  const typingUsers = useTypingTracking(channelId, user?.id, members);
+  const typingUsers = useTypingTracking(channelId, currentUserId, members as { id: UserId; displayName: string }[]);
   const fileUpload = useFileUpload();
 
   const channel = state.channels.find((c) => c.id === channelId);
+  const prevChannelRef = useRef(channel);
+  if (channel) prevChannelRef.current = channel;
+
+  useEffect(() => {
+    if (!channel && prevChannelRef.current) {
+      const name = prevChannelRef.current.name;
+      router.back();
+      Alert.alert("Removed from channel", `You are no longer a member of #${name}.`);
+    }
+  }, [channel, router]);
+
   const customEmojis = state.customEmojis;
   const scrollTarget = state.scrollTarget;
   const workspace = state.workspaces.find((item) => item.slug === workspaceSlug);
@@ -142,37 +157,37 @@ function ChannelScreenInner() {
         onPress: async () => {
           await coreLeaveChannel(deps, {
             workspaceSlug,
-            channelId: channelId as ChannelId,
+            channelId: channelId!,
             socket,
           });
           router.back();
         },
       },
     ]);
-  }, [authProvider, channelId, dispatch, router, socket, state, workspaceSlug]);
+  }, [authProvider, channelId, dispatch, router, socket, workspaceSlug]);
 
 
   const handleNotificationSelect = useCallback(
     (level: ChannelNotifyLevel) => {
       void setChannelNotificationPref(deps, {
-        slug: workspaceSlug,
-        channelId,
+        slug: workspaceSlug!,
+        channelId: channelId!,
         level,
       });
       modalsDispatch({ type: "closeNotificationSheet" });
     },
-    [authProvider, channelId, dispatch, modalsDispatch, state, workspaceSlug],
+    [authProvider, channelId, dispatch, modalsDispatch, workspaceSlug],
   );
 
-  const isStarred = state.starredChannelIds.includes(channelId);
+  const isStarred = channelId ? state.starredChannelIds.includes(channelId) : false;
 
   const handleToggleStar = useCallback(() => {
     if (isStarred) {
-      void unstarChannelOp(deps, { slug: workspaceSlug, channelId });
+      void unstarChannelOp(deps, { slug: workspaceSlug!, channelId: channelId! });
     } else {
-      void starChannelOp(deps, { slug: workspaceSlug, channelId });
+      void starChannelOp(deps, { slug: workspaceSlug!, channelId: channelId! });
     }
-  }, [authProvider, channelId, dispatch, isStarred, state, workspaceSlug]);
+  }, [authProvider, channelId, dispatch, isStarred, workspaceSlug]);
 
   const handleArchiveChannel = useCallback(() => {
     if (!workspaceSlug || !channelId || !channel) return;
@@ -185,7 +200,7 @@ function ChannelScreenInner() {
           text: "Archive",
           style: "destructive",
           onPress: () => {
-            void archiveChannel(deps, { workspaceSlug, channelId: channelId as ChannelId });
+            void archiveChannel(deps, { workspaceSlug, channelId: channelId! });
           },
         },
       ],
@@ -225,7 +240,7 @@ function ChannelScreenInner() {
           type: "addEphemeralMessages",
           messages: [{
             id: `error-${Date.now()}`,
-            channelId: channelId as ChannelId,
+            channelId: channelId!,
             text: `Command /${command} failed. Please try again.`,
             senderName: "Slaqbot",
             senderAvatarUrl: null,
@@ -235,15 +250,15 @@ function ChannelScreenInner() {
         });
       }
     },
-    [authProvider, channelId, dispatch, modalsDispatch, state, workspaceSlug],
+    [authProvider, channelId, dispatch, modalsDispatch, workspaceSlug],
   );
 
   // Join/leave socket room
   useEffect(() => {
     if (!channelId) return;
-    joinChannel(channelId as Parameters<typeof joinChannel>[0]);
+    joinChannel(channelId!);
     return () => {
-      leaveChannel(channelId as Parameters<typeof leaveChannel>[0]);
+      leaveChannel(channelId!);
     };
   }, [channelId, joinChannel, leaveChannel]);
 
@@ -267,23 +282,23 @@ function ChannelScreenInner() {
     } finally {
       modalsDispatch({ type: "setPinnedLoading", loading: false });
     }
-  }, [authProvider, channelId, dispatch, modalsDispatch, state, workspaceSlug]);
+  }, [authProvider, channelId, dispatch, modalsDispatch, workspaceSlug]);
 
   const handlePinMessage = useCallback(
     async (messageId: string) => {
       if (!workspaceSlug) return;
-      await pinMessageOp(deps, { workspaceSlug, channelId, messageId });
+      await pinMessageOp(deps, { workspaceSlug: workspaceSlug!, channelId: channelId!, messageId });
     },
-    [authProvider, channelId, dispatch, state, workspaceSlug],
+    [authProvider, channelId, dispatch, workspaceSlug],
   );
 
   const handleUnpinMessage = useCallback(
     async (messageId: string) => {
       if (!workspaceSlug) return;
-      await unpinMessageOp(deps, { workspaceSlug, channelId, messageId });
-      modalsDispatch({ type: "removePinnedMessage", messageId });
+      await unpinMessageOp(deps, { workspaceSlug: workspaceSlug!, channelId: channelId!, messageId });
+      modalsDispatch({ type: "removePinnedMessage", messageId: asMessageId(messageId) });
     },
-    [authProvider, channelId, dispatch, modalsDispatch, state, workspaceSlug],
+    [authProvider, channelId, dispatch, modalsDispatch, workspaceSlug],
   );
 
   const handleSaveMessage = useCallback(
@@ -291,7 +306,7 @@ function ChannelScreenInner() {
       if (!workspaceSlug || !channelId) return;
       await saveMessageOp(deps, { workspaceSlug, channelId, messageId });
     },
-    [authProvider, channelId, dispatch, state, workspaceSlug],
+    [authProvider, channelId, dispatch, workspaceSlug],
   );
 
   const handleUnsaveMessage = useCallback(
@@ -299,7 +314,7 @@ function ChannelScreenInner() {
       if (!workspaceSlug || !channelId) return;
       await unsaveMessageOp(deps, { workspaceSlug, channelId, messageId });
     },
-    [authProvider, channelId, dispatch, state, workspaceSlug],
+    [authProvider, channelId, dispatch, workspaceSlug],
   );
 
   const handleCopyText = useCallback(
@@ -312,7 +327,7 @@ function ChannelScreenInner() {
 
   const handleCopyLink = useCallback(
     (message: Message) => {
-      const link = `openslaq://${workspaceSlug}/c/${channelId}/p/${message.id}`;
+      const link = routes.messageDeepLink(workspaceSlug!, channelId!, message.id);
       void Clipboard.setStringAsync(link);
       Alert.alert("Copied", "Message link copied to clipboard");
     },
@@ -324,7 +339,7 @@ function ChannelScreenInner() {
       if (!workspaceSlug || !channelId) return;
       await markChannelAsUnread(deps, { workspaceSlug, channelId, messageId });
     },
-    [authProvider, channelId, dispatch, state, workspaceSlug],
+    [authProvider, channelId, dispatch, workspaceSlug],
   );
 
   const handleShareMessage = useCallback((message: Message) => {
@@ -347,24 +362,28 @@ function ChannelScreenInner() {
       }
       modalsDispatch({ type: "closeShareMessage" });
     },
-    [authProvider, dispatch, modalsDispatch, modalsState.shareMessage, state, workspaceSlug],
+    [authProvider, dispatch, modalsDispatch, modalsState.shareMessage, workspaceSlug],
   );
 
-  const currentNotifLevel = state.channelNotificationPrefs[channelId] ?? "all";
+  const currentNotifLevel = channelId ? state.channelNotificationPrefs[channelId] ?? "all" : "all";
 
   const handleOpenChannelInfo = useCallback(() => {
+    messageInputRef.current?.dismissKeyboard();
+    haptics.light();
     modalsDispatch({ type: "showChannelInfo" });
   }, [modalsDispatch]);
 
   useEffect(() => {
     if (channel) {
       const isMuted = currentNotifLevel === "muted";
-      const titleText = isMuted ? `# ${channel.name} \u{1F507}` : `# ${channel.name}`;
+      const isPrivate = channel.type === "private";
+      const prefix = isPrivate ? <Lock size={14} color={theme.colors.textPrimary} testID="channel-header-lock-icon" /> : <Text style={styles.headerTitleText}># </Text>;
+      const mutedSuffix = isMuted ? " \u{1F507}" : "";
       navigation.setOptions({
         headerTitle: () => (
-          <Pressable testID="channel-title-button" onPress={handleOpenChannelInfo} hitSlop={12} style={styles.headerTitleTouchable} accessibilityRole="button" accessibilityLabel={`Channel ${channel.name}`} accessibilityHint="Opens channel info">
+          <Pressable testID="channel-title-button" onPress={handleOpenChannelInfo} hitSlop={12} style={styles.headerTitleTouchable} accessibilityRole="button" accessibilityLabel={`${isPrivate ? "Private channel" : "Channel"} ${channel.name}`} accessibilityHint="Opens channel info">
             <View style={styles.headerTitlePill}>
-              <Text style={styles.headerTitleText}>{titleText}</Text>
+              {prefix}<Text style={styles.headerTitleText}>{channel.name}{mutedSuffix}</Text>
               <ChevronDown size={14} color={theme.colors.textMuted} />
             </View>
           </Pressable>
@@ -372,17 +391,11 @@ function ChannelScreenInner() {
         headerRight: () => (
           <View style={styles.headerRight}>
             <HuddleHeaderButton channelId={channel.id} />
-            {pinCount > 0 && (
-              <Pressable testID="pinned-messages-button" onPress={handleOpenPinnedMessages} hitSlop={8} style={styles.pinnedButton} accessibilityRole="button" accessibilityLabel={`${pinCount} pinned messages`} accessibilityHint="Opens pinned messages">
-                <Pin size={14} color={theme.brand.primary} />
-                <Text style={styles.pinnedCount}>{pinCount}</Text>
-              </Pressable>
-            )}
           </View>
         ),
       });
     }
-  }, [channel, currentNotifLevel, handleOpenChannelInfo, handleOpenPinnedMessages, navigation, pinCount, theme.brand.primary, theme.colors.textMuted, theme.colors.textPrimary, theme.colors.surfaceTertiary]);
+  }, [channel, currentNotifLevel, handleOpenChannelInfo, navigation, theme.colors.textMuted, theme.colors.textPrimary, theme.colors.surfaceTertiary]);
 
   const isLoading = channelId
     ? state.ui.channelMessagesLoading[channelId]
@@ -390,14 +403,14 @@ function ChannelScreenInner() {
 
   const handlePressThread = useCallback(
     (messageId: string) => {
-      router.push(routes.thread(workspaceSlug, messageId));
+      router.push(routes.thread(workspaceSlug!, messageId));
     },
     [router, workspaceSlug],
   );
 
   const handlePressSender = useCallback(
     (userId: string) => {
-      router.push(routes.profile(workspaceSlug, userId));
+      router.push(routes.profile(workspaceSlug!, userId));
     },
     [router, workspaceSlug],
   );
@@ -414,10 +427,10 @@ function ChannelScreenInner() {
       };
       fileUpload.addFile(file);
       const attachmentIds = await fileUpload.uploadAll(() => authProvider.requireAccessToken());
-      await coreSendMessage(deps, { channelId, workspaceSlug, content: "", attachmentIds });
+      await coreSendMessage(deps, { channelId, workspaceSlug, content: "", attachmentIds, userId: user?.id });
       fileUpload.reset();
     },
-    [authProvider, channelId, dispatch, fileUpload, state, workspaceSlug],
+    [authProvider, channelId, dispatch, fileUpload, workspaceSlug],
   );
 
   const handleAddAttachment = useCallback(() => {
@@ -432,20 +445,35 @@ function ChannelScreenInner() {
   const handleSend = useCallback(
     async (content: string): Promise<boolean> => {
       if (!workspaceSlug || !channelId) return false;
-      let attachmentIds: string[] = [];
-      if (fileUpload.hasFiles) {
-        attachmentIds = await fileUpload.uploadAll(() => authProvider.requireAccessToken());
+      try {
+        let attachmentIds: string[] = [];
+        const pendingAttachments = fileUpload.pendingFiles.map((f) => ({
+          id: f.id,
+          filename: f.name,
+          mimeType: f.mimeType,
+        }));
+        if (fileUpload.hasFiles) {
+          attachmentIds = await fileUpload.uploadAll(() => authProvider.requireAccessToken());
+        }
+        const ok = await coreSendMessage(deps, {
+          channelId,
+          workspaceSlug,
+          content,
+          attachmentIds,
+          pendingAttachments,
+          userId: user?.id,
+        });
+        if (ok) {
+          fileUpload.reset();
+          messageListRef.current?.scrollToBottom();
+        }
+        return ok;
+      } catch {
+        Alert.alert("Error", "Failed to send message. Please try again.");
+        return false;
       }
-      const ok = await coreSendMessage(deps, {
-        channelId,
-        workspaceSlug,
-        content,
-        attachmentIds,
-      });
-      if (ok) fileUpload.reset();
-      return ok;
     },
-    [authProvider, channelId, dispatch, fileUpload, state, workspaceSlug],
+    [authProvider, channelId, dispatch, fileUpload, workspaceSlug],
   );
 
   const handleStartEdit = useCallback((message: Message) => {
@@ -458,14 +486,27 @@ function ChannelScreenInner() {
 
   const handleSaveEdit = useCallback(
     async (messageId: string, content: string) => {
-      await handleEditMessage(messageId, content);
+      await handleEditMessage(asMessageId(messageId), content);
       modalsDispatch({ type: "setEditingMessage", message: null });
     },
     [handleEditMessage, modalsDispatch],
   );
 
   const handleLongPress = useCallback((message: Message) => {
+    messageInputRef.current?.dismissKeyboard();
     modalsDispatch({ type: "showActionSheet", message });
+  }, [modalsDispatch]);
+
+  const handleAddReaction = useCallback((message: Message) => {
+    messageInputRef.current?.dismissKeyboard();
+    modalsDispatch({ type: "showEmojiPicker", messageId: message.id });
+  }, [modalsDispatch]);
+
+  const handleLongPressReaction = useCallback((message: Message, emoji: string) => {
+    messageInputRef.current?.dismissKeyboard();
+    const reaction = message.reactions?.find((r) => r.emoji === emoji);
+    if (!reaction) return;
+    modalsDispatch({ type: "showReactionDetails", emoji, userIds: reaction.userIds, messageId: message.id });
   }, [modalsDispatch]);
 
   const handleOpenEmojiPicker = useCallback(() => {
@@ -506,7 +547,7 @@ function ChannelScreenInner() {
         Alert.alert("Error", "Failed to schedule message.");
       }
     },
-    [authProvider, channelId, dispatch, fileUpload, state, workspaceSlug],
+    [authProvider, channelId, dispatch, fileUpload, workspaceSlug],
   );
 
   const handleSaveTopic = useCallback(
@@ -514,11 +555,11 @@ function ChannelScreenInner() {
       if (!workspaceSlug || !channelId) return;
       await updateChannelDescription(deps, {
         workspaceSlug,
-        channelId: channelId as ChannelId,
+        channelId: channelId!,
         description,
       });
     },
-    [authProvider, channelId, dispatch, state, workspaceSlug],
+    [authProvider, channelId, dispatch, workspaceSlug],
   );
 
   const pagination = channelId ? state.channelPagination[channelId] : undefined;
@@ -527,7 +568,7 @@ function ChannelScreenInner() {
     if (!pagination?.hasOlder || pagination.loadingOlder || !pagination.olderCursor) return;
     if (!workspaceSlug || !channelId) return;
     void loadOlderMessages(deps, { workspaceSlug, channelId, cursor: pagination.olderCursor });
-  }, [authProvider, channelId, dispatch, pagination, state, workspaceSlug]);
+  }, [authProvider, channelId, dispatch, pagination, workspaceSlug]);
 
   const handleBotAction = useCallback(
     async (messageId: string, actionId: string) => {
@@ -574,46 +615,59 @@ function ChannelScreenInner() {
         </View>
       ) : (
         <ChannelMessageList
-          channelId={channelId}
+          ref={messageListRef}
+          channelId={channelId!}
           messages={messages}
           customEmojis={customEmojis}
-          currentUserId={user?.id}
+          currentUserId={currentUserId}
           ephemeralMessages={modalsState.ephemeralMessages}
           scrollTarget={scrollTarget}
           isLoading={isLoading ?? false}
           pagination={pagination}
           onPressThread={handlePressThread}
           onPressSender={handlePressSender}
-          onToggleReaction={handleToggleReaction}
+          onToggleReaction={(messageId, emoji) => {
+            handleToggleReaction(messageId, emoji);
+            messageListRef.current?.scrollToBottom();
+          }}
           onLongPress={handleLongPress}
+          onAddReaction={handleAddReaction}
+          onLongPressReaction={handleLongPressReaction}
           onLoadOlder={handleLoadOlder}
           onBotAction={handleBotAction}
         />
       )}
       <TypingIndicator typingUsers={typingUsers} />
-      <MessageInput
-        onSend={handleSend}
-        placeholder={channel ? `Message #${channel.name}` : "Message"}
-        draftKey={channelId}
-        editingMessage={modalsState.editingMessage}
-        onCancelEdit={handleCancelEdit}
-        onSaveEdit={handleSaveEdit}
-        members={members}
-        onTyping={emitTyping}
-        pendingFiles={fileUpload.pendingFiles}
-        onAddAttachment={handleAddAttachment}
-        onRemoveFile={fileUpload.removeFile}
-        uploading={fileUpload.uploading}
-        slashCommands={slashCommands}
-        onSlashCommand={handleSlashCommand}
-        onScheduleSend={handleScheduleSend}
-        onSendVoiceMessage={handleSendVoiceMessage}
-      />
+      {channel.isArchived ? (
+        <View style={styles.archivedBanner} testID="archived-banner">
+          <Text style={styles.archivedText}>This channel has been archived</Text>
+        </View>
+      ) : (
+        <MessageInput
+          ref={messageInputRef}
+          onSend={handleSend}
+          placeholder={channel ? `Message #${channel.name}` : "Message"}
+          draftKey={channelId}
+          editingMessage={modalsState.editingMessage}
+          onCancelEdit={handleCancelEdit}
+          onSaveEdit={handleSaveEdit}
+          members={members}
+          onTyping={emitTyping}
+          pendingFiles={fileUpload.pendingFiles}
+          onAddAttachment={handleAddAttachment}
+          onRemoveFile={fileUpload.removeFile}
+          uploading={fileUpload.uploading}
+          slashCommands={slashCommands}
+          onSlashCommand={handleSlashCommand}
+          onScheduleSend={handleScheduleSend}
+          onSendVoiceMessage={handleSendVoiceMessage}
+        />
+      )}
       {modalsState.actionSheetMessage && (
         <MessageActionSheet
           visible
           message={modalsState.actionSheetMessage}
-          currentUserId={user?.id}
+          currentUserId={currentUserId}
           isSaved={state.savedMessageIds.includes(modalsState.actionSheetMessage.id)}
           onReaction={handleToggleReaction}
           onOpenEmojiPicker={handleOpenEmojiPicker}
@@ -637,14 +691,6 @@ function ChannelScreenInner() {
           onSelect={handleEmojiSelect}
           onClose={() => modalsDispatch({ type: "closeEmojiPicker" })}
           customEmojis={customEmojis}
-        />
-      )}
-      {modalsState.showTopicEdit && (
-        <EditTopicModal
-          visible
-          onClose={() => modalsDispatch({ type: "closeTopicEdit" })}
-          currentDescription={channel?.description}
-          onSave={handleSaveTopic}
         />
       )}
       {modalsState.showPinnedSheet && (
@@ -683,12 +729,15 @@ function ChannelScreenInner() {
           notificationLevel={currentNotifLevel}
           pinCount={pinCount}
           onToggleStar={handleToggleStar}
-          onNotificationPress={() => modalsDispatch({ type: "showNotificationSheet" })}
+          onNotificationPress={() => {
+            modalsDispatch({ type: "closeChannelInfo" });
+            modalsDispatch({ type: "showNotificationSheet" });
+          }}
           onViewMembers={() => {
             modalsDispatch({ type: "closeChannelInfo" });
             router.push({
               pathname: "/(app)/[workspaceSlug]/(tabs)/(channels)/channel-members",
-              params: { workspaceSlug, channelId },
+              params: { workspaceSlug: workspaceSlug!, channelId: channelId! },
             });
           }}
           onViewPinned={() => {
@@ -700,7 +749,21 @@ function ChannelScreenInner() {
           }}
           onEditTopic={() => {
             modalsDispatch({ type: "closeChannelInfo" });
-            modalsDispatch({ type: "showTopicEdit" });
+            Alert.prompt(
+              "Edit Topic",
+              "Set a topic for this channel",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Save",
+                  onPress: (text?: string) => {
+                    void handleSaveTopic(text?.trim() || null);
+                  },
+                },
+              ],
+              "plain-text",
+              channel?.description ?? "",
+            );
           }}
           onLeaveChannel={() => {
             modalsDispatch({ type: "closeChannelInfo" });
@@ -711,6 +774,15 @@ function ChannelScreenInner() {
             handleArchiveChannel();
           } : undefined}
           onClose={() => modalsDispatch({ type: "closeChannelInfo" })}
+        />
+      )}
+      {modalsState.reactionDetails && (
+        <ReactionDetailsSheet
+          visible
+          emoji={modalsState.reactionDetails.emoji}
+          userIds={modalsState.reactionDetails.userIds}
+          members={members as { id: import("@openslaq/shared").UserId; displayName: string }[]}
+          onClose={() => modalsDispatch({ type: "closeReactionDetails" })}
         />
       )}
     </KeyboardAvoidingView>
@@ -735,7 +807,6 @@ const makeStyles = (theme: MobileTheme) =>
       justifyContent: "center",
     },
     headerTitleTouchable: {
-      minHeight: 44,
       justifyContent: "center",
     },
     headerTitlePill: {
@@ -757,13 +828,16 @@ const makeStyles = (theme: MobileTheme) =>
       alignItems: "center",
       gap: 4,
     },
-    pinnedButton: {
-      flexDirection: "row",
+    archivedBanner: {
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      backgroundColor: theme.colors.surfaceSecondary,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.borderDefault,
       alignItems: "center",
-      gap: 2,
     },
-    pinnedCount: {
-      color: theme.brand.primary,
+    archivedText: {
       fontSize: 14,
+      color: theme.colors.textSecondary,
     },
   });

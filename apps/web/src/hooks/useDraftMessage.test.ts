@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach, mock, jest } from "bun:test";
+import { describe, expect, test, beforeEach, afterEach, vi } from "vitest";
 import { renderHook, act, cleanup } from "../test-utils";
 
 const PREFIX = "openslaq-draft-";
@@ -8,32 +8,36 @@ function sleep(ms: number) {
 }
 
 // Mock external dependencies used by useDraftMessage
-const _realClientCore = require("@openslaq/client-core");
-mock.module("@openslaq/client-core", () => ({
-  ..._realClientCore,
-  upsertDraftOp: jest.fn(async () => ({})),
-  deleteDraftByKeyOp: jest.fn(async () => {}),
-  fetchDraftForChannel: jest.fn(async () => null),
-}));
+vi.mock("@openslaq/client-core", async (importOriginal) => {
+  const mod = await importOriginal<Record<string, unknown>>();
+  return {
+    ...mod,
+  upsertDraftOp: vi.fn(async () => ({})),
+  deleteDraftByKeyOp: vi.fn(async () => {}),
+  fetchDraftForChannel: vi.fn(async () => null),
+  };
+});
 
-mock.module("../state/chat-store", () => ({
+vi.mock("../state/chat-store", () => ({
   useChatStore: () => ({
     state: { activeView: "channel" },
-    dispatch: jest.fn(),
+    dispatch: vi.fn(),
   }),
 }));
 
-const _realApiClient = require("../lib/api-client");
-mock.module("../lib/api-client", () => ({
-  ..._realApiClient,
+vi.mock("../lib/api-client", async (importOriginal) => {
+  const mod = await importOriginal<Record<string, unknown>>();
+  return {
+    ...mod,
   useAuthProvider: () => ({ getToken: async () => "test-token" }),
-}));
+  };
+});
 
-mock.module("../api", () => ({
+vi.mock("../api", () => ({
   api: {},
 }));
 
-const { useDraftMessage } = await import("./useDraftMessage");
+import { useDraftMessage } from "./useDraftMessage";
 
 describe("useDraftMessage", () => {
   beforeEach(() => {

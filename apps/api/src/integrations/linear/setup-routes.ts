@@ -1,12 +1,15 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import type { WorkspaceMemberEnv } from "../../workspaces/role-middleware";
+import { BEARER_SECURITY, jsonBody, jsonContent } from "../../lib/openapi-helpers";
 import { requireRole } from "../../workspaces/role-middleware";
 import { ROLES } from "@openslaq/shared";
 import { rlMemberManage } from "../../rate-limit";
 import { okSchema, errorSchema } from "../../openapi/schemas";
 import { env } from "../../env";
+import { ServiceUnavailableError, ConflictError, BadRequestError } from "../../errors";
 import { createConnection, getConnectionForWorkspace } from "./service";
 import { getOrganization } from "./linear-api";
+import { getWorkspaceMemberContext } from "../../lib/context";
 
 const oauthUrlRoute = createRoute({
   method: "get",
@@ -14,21 +17,11 @@ const oauthUrlRoute = createRoute({
   tags: ["Linear"],
   summary: "Get Linear OAuth authorization URL",
   description: "Returns the URL to start the Linear OAuth flow.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMemberManage, requireRole(ROLES.ADMIN)] as const,
   responses: {
-    200: {
-      content: {
-        "application/json": {
-          schema: z.object({ url: z.string() }),
-        },
-      },
-      description: "OAuth URL",
-    },
-    503: {
-      content: { "application/json": { schema: errorSchema } },
-      description: "Linear integration not configured",
-    },
+    200: jsonContent(z.object({ url: z.string() }), "OAuth URL"),
+    503: jsonContent(errorSchema, "Linear integration not configured"),
   },
 });
 
@@ -38,37 +31,19 @@ const connectRoute = createRoute({
   tags: ["Linear"],
   summary: "Exchange OAuth code for Linear access token",
   description: "Exchanges an OAuth authorization code for an access token and stores the connection.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMemberManage, requireRole(ROLES.ADMIN)] as const,
   request: {
-    body: {
-      content: {
-        "application/json": {
-          schema: z.object({
-            code: z.string().describe("OAuth authorization code"),
-            redirectUri: z.string().describe("Redirect URI used in the OAuth flow"),
-          }),
-        },
-      },
-    },
+    body: jsonBody(z.object({
+      code: z.string().describe("OAuth authorization code"),
+      redirectUri: z.string().describe("Redirect URI used in the OAuth flow"),
+    })),
   },
   responses: {
-    200: {
-      content: { "application/json": { schema: okSchema } },
-      description: "Connection established",
-    },
-    400: {
-      content: { "application/json": { schema: errorSchema } },
-      description: "Bad request",
-    },
-    409: {
-      content: { "application/json": { schema: errorSchema } },
-      description: "Already connected",
-    },
-    503: {
-      content: { "application/json": { schema: errorSchema } },
-      description: "Linear integration not configured",
-    },
+    200: jsonContent(okSchema, "Connection established"),
+    400: jsonContent(errorSchema, "Bad request"),
+    409: jsonContent(errorSchema, "Already connected"),
+    503: jsonContent(errorSchema, "Linear integration not configured"),
   },
 });
 
@@ -78,32 +53,25 @@ const getConnectionRoute = createRoute({
   tags: ["Linear"],
   summary: "Get Linear connection info",
   description: "Returns the Linear organization connected to this workspace.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMemberManage] as const,
   responses: {
-    200: {
-      content: {
-        "application/json": {
-          schema: z.object({
-            connection: z
-              .object({
-                id: z.string(),
-                linearOrganizationId: z.string(),
-                linearOrganizationName: z.string(),
-              })
-              .nullable(),
-          }),
-        },
-      },
-      description: "Connection info",
-    },
+    200: jsonContent(z.object({
+      connection: z
+        .object({
+          id: z.string(),
+          linearOrganizationId: z.string(),
+          linearOrganizationName: z.string(),
+        })
+        .nullable(),
+    }), "Connection info"),
   },
 });
 
 const app = new OpenAPIHono<WorkspaceMemberEnv>()
   .openapi(oauthUrlRoute, async (c) => {
     if (!env.LINEAR_CLIENT_ID) {
-      return c.json({ error: "Linear integration is not configured" }, 503);
+      throw new ServiceUnavailableError("Linear integration is not configured");
     }
 
     const redirectUri = `${c.req.url.split("/api/")[0]}/api/integrations/linear-bot/oauth/callback`;
@@ -119,17 +87,16 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
   })
   .openapi(connectRoute, async (c) => {
     if (!env.LINEAR_CLIENT_ID || !env.LINEAR_CLIENT_SECRET) {
-      return c.json({ error: "Linear integration is not configured" }, 503);
+      throw new ServiceUnavailableError("Linear integration is not configured");
     }
 
-    const workspace = c.get("workspace");
-    const user = c.get("user");
+    const { user, workspace } = getWorkspaceMemberContext(c);
     const { code, redirectUri } = c.req.valid("json");
 
     // Check if already connected
     const existing = await getConnectionForWorkspace(workspace.id);
     if (existing) {
-      return c.json({ error: "A Linear organization is already connected to this workspace" }, 409);
+      throw new ConflictError("A Linear organization is already connected to this workspace");
     }
 
     // Exchange code for access token
@@ -146,7 +113,7 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     });
 
     if (!tokenRes.ok) {
-      return c.json({ error: "Failed to exchange authorization code" }, 400);
+      throw new BadRequestError("Failed to exchange authorization code");
     }
 
     const tokenData = (await tokenRes.json()) as { access_token: string };

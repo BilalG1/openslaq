@@ -34,4 +34,22 @@ describe("HeadlineRenderer", () => {
     const { toJSON } = render(<HeadlineRenderer headline="" />);
     expect(toJSON()).toBeTruthy();
   });
+
+  it("decodes HTML entities in headline text", () => {
+    render(<HeadlineRenderer headline="a &amp; b &lt;c&gt; <mark>d &amp; e</mark>" />);
+
+    const marks = screen.getAllByTestId("headline-mark");
+    expect(marks[0].props.children).toBe("d & e");
+
+    const text = screen.getByTestId("headline-text");
+    // The full rendered text should contain decoded entities
+    const allText = text.props.children
+      .map((c: { props?: { children?: string } } | string) =>
+        typeof c === "string" ? c : c?.props?.children ?? "",
+      )
+      .join("");
+    expect(allText).toContain("a & b <c>");
+    expect(allText).toContain("d & e");
+  });
+
 });

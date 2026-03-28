@@ -1,5 +1,6 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import type { WorkspaceMemberEnv } from "../workspaces/role-middleware";
+import { jsonContent } from "../lib/openapi-helpers";
 import {
   listCustomEmojis,
   createCustomEmoji,
@@ -9,10 +10,12 @@ import {
   isImageMimeType,
   MAX_EMOJI_SIZE,
 } from "./service";
-import { getIO } from "../socket/io";
+import { emitToWorkspace } from "../lib/emit";
 import { errorSchema } from "../openapi/schemas";
 import type { CustomEmoji } from "@openslaq/shared";
 import { asEmojiId } from "@openslaq/shared";
+import { BadRequestError, ConflictError, NotFoundError } from "../errors";
+import { getWorkspaceMemberContext } from "../lib/context";
 
 const listRoute = createRoute({
   method: "get",
@@ -20,23 +23,16 @@ const listRoute = createRoute({
   tags: ["Custom Emoji"],
   summary: "List custom emoji",
   responses: {
-    200: {
-      content: {
-        "application/json": {
-          schema: z.object({
-            emojis: z.array(z.object({
-              id: z.string(),
-              workspaceId: z.string(),
-              name: z.string(),
-              url: z.string(),
-              uploadedBy: z.string(),
-              createdAt: z.string(),
-            })),
-          }),
-        },
-      },
-      description: "Custom emoji list",
-    },
+    200: jsonContent(z.object({
+      emojis: z.array(z.object({
+        id: z.string(),
+        workspaceId: z.string(),
+        name: z.string(),
+        url: z.string(),
+        uploadedBy: z.string(),
+        createdAt: z.string(),
+      })),
+    }), "Custom emoji list"),
   },
 });
 
@@ -58,31 +54,18 @@ const uploadRoute = createRoute({
     },
   },
   responses: {
-    201: {
-      content: {
-        "application/json": {
-          schema: z.object({
-            emoji: z.object({
-              id: z.string(),
-              workspaceId: z.string(),
-              name: z.string(),
-              url: z.string(),
-              uploadedBy: z.string(),
-              createdAt: z.string(),
-            }),
-          }),
-        },
-      },
-      description: "Created emoji",
-    },
-    400: {
-      content: { "application/json": { schema: errorSchema } },
-      description: "Validation error",
-    },
-    409: {
-      content: { "application/json": { schema: errorSchema } },
-      description: "Emoji name already exists",
-    },
+    201: jsonContent(z.object({
+      emoji: z.object({
+        id: z.string(),
+        workspaceId: z.string(),
+        name: z.string(),
+        url: z.string(),
+        uploadedBy: z.string(),
+        createdAt: z.string(),
+      }),
+    }), "Created emoji"),
+    400: jsonContent(errorSchema, "Validation error"),
+    409: jsonContent(errorSchema, "Emoji name already exists"),
   },
 });
 
@@ -95,14 +78,8 @@ const deleteRoute = createRoute({
     params: z.object({ emojiId: z.string() }),
   },
   responses: {
-    200: {
-      content: { "application/json": { schema: z.object({ ok: z.literal(true) }) } },
-      description: "Emoji deleted",
-    },
-    404: {
-      content: { "application/json": { schema: errorSchema } },
-      description: "Emoji not found",
-    },
+    200: jsonContent(z.object({ ok: z.literal(true) }), "Emoji deleted"),
+    404: jsonContent(errorSchema, "Emoji not found"),
   },
 });
 
@@ -113,44 +90,42 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     return c.json({ emojis }, 200);
   })
   .openapi(uploadRoute, async (c) => {
-    const workspace = c.get("workspace");
-    const user = c.get("user");
+    const { user, workspace } = getWorkspaceMemberContext(c);
     const body = await c.req.parseBody();
 
     const name = body["name"];
     const file = body["file"];
 
     if (typeof name !== "string" || !name) {
-      return c.json({ error: "Name is required" }, 400);
+      throw new BadRequestError("Name is required");
     }
 
     if (!isValidEmojiName(name)) {
-      return c.json({ error: "Invalid emoji name. Use 2-32 lowercase alphanumeric characters, hyphens, or underscores." }, 400);
+      throw new BadRequestError("Invalid emoji name. Use 2-32 lowercase alphanumeric characters, hyphens, or underscores.");
     }
 
     if (!(file instanceof File)) {
-      return c.json({ error: "File is required" }, 400);
+      throw new BadRequestError("File is required");
     }
 
     if (!isImageMimeType(file.type)) {
-      return c.json({ error: "Only image files are allowed" }, 400);
+      throw new BadRequestError("Only image files are allowed");
     }
 
     if (file.size > MAX_EMOJI_SIZE) {
-      return c.json({ error: "File size must be under 512KB" }, 400);
+      throw new BadRequestError("File size must be under 512KB");
     }
 
     // Check for duplicate name
     const existing = await getCustomEmojiByName(workspace.id, name);
     if (existing) {
-      return c.json({ error: `Emoji :${name}: already exists` }, 409);
+      throw new ConflictError(`Emoji :${name}: already exists`);
     }
 
     const bytes = new Uint8Array(await file.arrayBuffer());
     const emoji = await createCustomEmoji(workspace.id, name, { bytes, type: file.type }, user.id);
 
-    const io = getIO();
-    io.to(`workspace:${workspace.id}`).emit("emoji:added", { emoji: emoji as CustomEmoji });
+    emitToWorkspace(workspace.id, "emoji:added", { emoji: emoji as CustomEmoji });
 
     return c.json({ emoji }, 201);
   })
@@ -160,11 +135,10 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
 
     const deleted = await deleteCustomEmoji(workspace.id, emojiId);
     if (!deleted) {
-      return c.json({ error: "Emoji not found" }, 404);
+      throw new NotFoundError("Emoji");
     }
 
-    const io = getIO();
-    io.to(`workspace:${workspace.id}`).emit("emoji:deleted", { emojiId: asEmojiId(emojiId) });
+    emitToWorkspace(workspace.id, "emoji:deleted", { emojiId: asEmojiId(emojiId) });
 
     return c.json({ ok: true as const }, 200);
   });

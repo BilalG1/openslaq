@@ -4,13 +4,17 @@ import { db } from "../db";
 import { workspaceMembers } from "./schema";
 import { users } from "../users/schema";
 import { requireRole, type WorkspaceMemberEnv } from "./role-middleware";
+import { requireScope } from "../auth/scope-middleware";
 import { getWorkspaceMember, updateMemberRole, removeMember } from "./service";
 import { ROLES } from "@openslaq/shared";
 import type { UserId } from "@openslaq/shared";
 import { rlRead } from "../rate-limit";
 import { workspaceMemberSchema, okSchema, errorSchema } from "../openapi/schemas";
 import { jsonResponse } from "../openapi/responses";
+import { BEARER_SECURITY, jsonBody, jsonContent } from "../lib/openapi-helpers";
 import { escapeLike } from "../lib/escape-like";
+import { BadRequestError, ForbiddenError, NotFoundError } from "../errors";
+import { getWorkspaceMemberContext } from "../lib/context";
 
 const updateRoleSchema = z.object({
   role: z.enum(["admin", "member"]).describe("New role"),
@@ -22,18 +26,15 @@ const listMembersRoute = createRoute({
   tags: ["Workspaces"],
   summary: "List workspace members",
   description: "Returns all members of the workspace with their roles. Optionally filter by display name.",
-  security: [{ Bearer: [] }],
-  middleware: [rlRead] as const,
+  security: BEARER_SECURITY,
+  middleware: [rlRead, requireScope("users:read")] as const,
   request: {
     query: z.object({
       q: z.string().optional().describe("Filter by display name (case-insensitive prefix match)"),
     }),
   },
   responses: {
-    200: {
-      content: { "application/json": { schema: z.array(workspaceMemberSchema) } },
-      description: "Workspace members",
-    },
+    200: jsonContent(z.array(workspaceMemberSchema), "Workspace members"),
   },
 });
 
@@ -43,20 +44,34 @@ const updateRoleRoute = createRoute({
   tags: ["Workspaces"],
   summary: "Update member role",
   description: "Updates a workspace member's role. Requires admin permissions.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlRead, requireRole(ROLES.ADMIN)] as const,
   request: {
     params: z.object({ userId: z.string().describe("Target user ID") }),
-    body: { content: { "application/json": { schema: updateRoleSchema } } },
+    body: jsonBody(updateRoleSchema),
   },
   responses: {
-    200: {
-      content: { "application/json": { schema: workspaceMemberSchema } },
-      description: "Updated member",
-    },
-    400: { content: { "application/json": { schema: errorSchema } }, description: "Cannot change own role" },
-    403: { content: { "application/json": { schema: errorSchema } }, description: "Insufficient permissions" },
-    404: { content: { "application/json": { schema: errorSchema } }, description: "Member not found" },
+    200: jsonContent(workspaceMemberSchema, "Updated member"),
+    400: jsonContent(errorSchema, "Cannot change own role"),
+    403: jsonContent(errorSchema, "Insufficient permissions"),
+    404: jsonContent(errorSchema, "Member not found"),
+  },
+});
+
+const getMemberRoute = createRoute({
+  method: "get",
+  path: "/:userId",
+  tags: ["Workspaces"],
+  summary: "Get workspace member",
+  description: "Returns a single workspace member by user ID.",
+  security: BEARER_SECURITY,
+  middleware: [rlRead, requireScope("users:read")] as const,
+  request: {
+    params: z.object({ userId: z.string().describe("User ID") }),
+  },
+  responses: {
+    200: jsonContent(workspaceMemberSchema, "Workspace member"),
+    404: jsonContent(errorSchema, "Member not found"),
   },
 });
 
@@ -66,16 +81,30 @@ const removeMemberRoute = createRoute({
   tags: ["Workspaces"],
   summary: "Remove member",
   description: "Removes a member from the workspace. Requires admin permissions.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlRead, requireRole(ROLES.ADMIN)] as const,
   request: {
     params: z.object({ userId: z.string().describe("Target user ID") }),
   },
   responses: {
-    200: { content: { "application/json": { schema: okSchema } }, description: "Member removed" },
-    400: { content: { "application/json": { schema: errorSchema } }, description: "Cannot remove yourself" },
-    403: { content: { "application/json": { schema: errorSchema } }, description: "Insufficient permissions" },
-    404: { content: { "application/json": { schema: errorSchema } }, description: "Member not found" },
+    200: jsonContent(okSchema, "Member removed"),
+    400: jsonContent(errorSchema, "Cannot remove yourself"),
+    403: jsonContent(errorSchema, "Insufficient permissions"),
+    404: jsonContent(errorSchema, "Member not found"),
+  },
+});
+
+const leaveWorkspaceRoute = createRoute({
+  method: "post",
+  path: "/leave",
+  tags: ["Workspaces"],
+  summary: "Leave workspace",
+  description: "Allows the current user to leave the workspace. Owners cannot leave.",
+  security: BEARER_SECURITY,
+  middleware: [rlRead] as const,
+  responses: {
+    200: jsonContent(okSchema, "Left workspace"),
+    400: jsonContent(errorSchema, "Owner cannot leave"),
   },
 });
 
@@ -107,7 +136,7 @@ async function getMemberResponse(workspaceId: string, userId: string) {
 
 const app = new OpenAPIHono<WorkspaceMemberEnv>()
   .openapi(listMembersRoute, async (c) => {
-    const workspace = c.get("workspace");
+    const { workspace } = getWorkspaceMemberContext(c);
     const { q } = c.req.valid("query");
 
     const conditions = [eq(workspaceMembers.workspaceId, workspace.id)];
@@ -135,61 +164,76 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
       joinedAt: member.joinedAt.toISOString(),
     })), 200);
   })
+  .openapi(getMemberRoute, async (c) => {
+    const { workspace } = getWorkspaceMemberContext(c);
+    const targetUserId = c.req.valid("param").userId;
+    const member = await getMemberResponse(workspace.id, targetUserId);
+    if (!member) {
+      throw new NotFoundError("Member");
+    }
+    return jsonResponse(c, member, 200);
+  })
   .openapi(updateRoleRoute, async (c) => {
-    const workspace = c.get("workspace");
-    const user = c.get("user");
+    const { workspace, user, memberRole } = getWorkspaceMemberContext(c);
     const targetUserId = c.req.valid("param").userId as UserId;
     const { role: newRole } = c.req.valid("json");
 
     if (targetUserId === user.id) {
-      return c.json({ error: "Cannot change your own role" }, 400);
+      throw new BadRequestError("Cannot change your own role");
     }
 
     const targetMember = await getWorkspaceMember(workspace.id, targetUserId);
     if (!targetMember) {
-      return c.json({ error: "Member not found" }, 404);
+      throw new NotFoundError("Member");
     }
 
     if (targetMember.role === ROLES.OWNER) {
-      return c.json({ error: "Cannot change the owner's role" }, 403);
+      throw new ForbiddenError("Cannot change the owner's role");
     }
 
-    const memberRole = c.get("memberRole");
     if (memberRole === ROLES.ADMIN && targetMember.role === ROLES.ADMIN) {
-      return c.json({ error: "Admins cannot change other admins' roles" }, 403);
+      throw new ForbiddenError("Admins cannot change other admins' roles");
     }
 
     await updateMemberRole(workspace.id, targetUserId, newRole);
     const updated = await getMemberResponse(workspace.id, targetUserId);
     if (!updated) {
-      return c.json({ error: "Member not found" }, 404);
+      throw new NotFoundError("Member");
     }
     return jsonResponse(c, updated, 200);
   })
   .openapi(removeMemberRoute, async (c) => {
-    const workspace = c.get("workspace");
-    const user = c.get("user");
+    const { workspace, user, memberRole } = getWorkspaceMemberContext(c);
     const targetUserId = c.req.valid("param").userId as UserId;
 
     if (targetUserId === user.id) {
-      return c.json({ error: "Cannot remove yourself" }, 400);
+      throw new BadRequestError("Cannot remove yourself");
     }
 
     const targetMember = await getWorkspaceMember(workspace.id, targetUserId);
     if (!targetMember) {
-      return c.json({ error: "Member not found" }, 404);
+      throw new NotFoundError("Member");
     }
 
     if (targetMember.role === ROLES.OWNER) {
-      return c.json({ error: "Cannot remove the owner" }, 403);
+      throw new ForbiddenError("Cannot remove the owner");
     }
 
-    const memberRole = c.get("memberRole");
     if (memberRole === ROLES.ADMIN && targetMember.role === ROLES.ADMIN) {
-      return c.json({ error: "Admins cannot remove other admins" }, 403);
+      throw new ForbiddenError("Admins cannot remove other admins");
     }
 
     await removeMember(workspace.id, targetUserId);
+    return c.json({ ok: true as const }, 200);
+  })
+  .openapi(leaveWorkspaceRoute, async (c) => {
+    const { workspace, user, memberRole } = getWorkspaceMemberContext(c);
+
+    if (memberRole === ROLES.OWNER) {
+      throw new BadRequestError("Workspace owner cannot leave. Transfer ownership or delete the workspace.");
+    }
+
+    await removeMember(workspace.id, user.id);
     return c.json({ ok: true as const }, 200);
   });
 

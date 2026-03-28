@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { handlePresenceSync, handlePresenceUpdate, handleUserStatusUpdated } from "@openslaq/client-core";
+import { handlePresenceSync, handlePresenceUpdate, handleUserStatusUpdated, handleUserProfileUpdated } from "@openslaq/client-core";
 import { useSocketEvent } from "../useSocketEvent";
 import { useChatStore } from "../../state/chat-store";
 
@@ -45,7 +45,19 @@ export function usePresenceTracking() {
     [dispatch],
   );
 
+  const onProfileUpdated = useCallback(
+    (payload: {
+      userId: string;
+      displayName: string;
+      avatarUrl: string | null;
+    }) => {
+      dispatch(handleUserProfileUpdated(payload));
+    },
+    [dispatch],
+  );
+
   useSocketEvent("presence:sync", onSync);
   useSocketEvent("presence:updated", onUpdated);
   useSocketEvent("user:statusUpdated", onStatusUpdated);
+  useSocketEvent("user:profileUpdated", onProfileUpdated);
 }

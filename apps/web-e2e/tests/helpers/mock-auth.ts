@@ -77,7 +77,6 @@ export async function setupMockAuth(
   });
 
   // Set Stack Auth cookies before navigating
-  // Cookie names from SDK source: on HTTP localhost, no __Host- prefix
   await page.context().addCookies([
     {
       name: `stack-refresh-${PROJECT_ID}--default`,
@@ -112,13 +111,11 @@ export async function setupMockAuth(
     const url = route.request().url();
     const method = route.request().method();
 
-    // Token refresh / OAuth token exchange endpoints
     if (
       (url.includes("/auth/sessions/current/refresh") ||
         url.includes("/auth/oauth/token")) &&
       method === "POST"
     ) {
-      // oauth4webapi requires a proper OAuth2 token response
       return route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -131,7 +128,6 @@ export async function setupMockAuth(
       });
     }
 
-    // Current user endpoint
     if (url.includes("/users/me") && method === "GET") {
       return route.fulfill({
         status: 200,
@@ -140,7 +136,6 @@ export async function setupMockAuth(
       });
     }
 
-    // User profile update endpoint used by user settings tests
     if (url.includes("/users/me") && method === "PATCH") {
       return route.fulfill({
         status: 200,
@@ -149,7 +144,6 @@ export async function setupMockAuth(
       });
     }
 
-    // Project config endpoint
     if (url.includes("/projects/current") && method === "GET") {
       return route.fulfill({
         status: 200,
@@ -158,7 +152,6 @@ export async function setupMockAuth(
       });
     }
 
-    // Session management endpoints used by Stack SDK to decide auth state
     if (url.includes("/auth/sessions/current") && method === "GET") {
       return route.fulfill({
         status: 200,
@@ -174,7 +167,6 @@ export async function setupMockAuth(
       });
     }
 
-    // Catch-all: return 200 with empty object
     console.warn(`[mock-auth] Unhandled Stack Auth request: ${method} ${url}`);
     return route.fulfill({
       status: 200,

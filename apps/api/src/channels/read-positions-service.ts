@@ -91,6 +91,17 @@ export async function markChannelAsUnread(
   return { unreadCount: result?.count ?? 0 };
 }
 
+export async function initializeReadPositions(
+  channelId: ChannelId,
+  userIds: UserId[],
+): Promise<void> {
+  if (userIds.length === 0) return;
+  await db
+    .insert(channelReadPositions)
+    .values(userIds.map((userId) => ({ userId, channelId, lastReadAt: sql`now()` })))
+    .onConflictDoNothing();
+}
+
 export async function markAllChannelsAsRead(userId: UserId, workspaceId: WorkspaceId): Promise<void> {
   await db.execute(sql`
     INSERT INTO channel_read_positions (user_id, channel_id, last_read_at)

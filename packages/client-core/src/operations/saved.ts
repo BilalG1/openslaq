@@ -1,5 +1,5 @@
 import { authorizedRequest } from "../api/api-client";
-import { normalizeMessage } from "./normalize";
+import { normalizeMessage, type RawMessage } from "./normalize";
 import type { Message } from "@openslaq/shared";
 import type { OperationDeps } from "./types";
 
@@ -74,9 +74,9 @@ export async function fetchSavedMessages(
       { headers },
     ),
   );
-  const data = (await res.json()) as { messages: Array<{ message: unknown; channelName: string; savedAt: string }> };
+  const data = (await res.json()) as { messages: Array<{ message: RawMessage; channelName: string; savedAt: string }> };
   return data.messages.map((item) => ({
-    message: normalizeMessage(item.message as Parameters<typeof normalizeMessage>[0]),
+    message: normalizeMessage(item.message),
     channelName: item.channelName,
     savedAt: item.savedAt,
   }));

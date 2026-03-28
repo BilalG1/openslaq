@@ -1,42 +1,39 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
   Pressable,
   Text,
+  StyleSheet,
 } from "react-native";
-import { listWorkspaceMembers, getErrorMessage } from "@openslaq/client-core";
+import { listWorkspaceMembers } from "@openslaq/client-core";
+import { asUserId, type UserId } from "@openslaq/shared";
 import type { WorkspaceMember } from "@openslaq/client-core";
 import { useMobileTheme } from "@/theme/ThemeProvider";
-import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { useServer } from "@/contexts/ServerContext";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { Input } from "@/components/ui/Input";
+import { useFetchData } from "@/hooks/useFetchData";
 
 interface Props {
   visible: boolean;
   onClose: () => void;
-  onSelect: (userId: string, displayName: string) => void;
+  onSelect: (userId: UserId, displayName: string) => void;
   workspaceSlug: string;
 }
 
 export function MemberPickerModal({ visible, onClose, onSelect, workspaceSlug }: Props) {
   const { theme } = useMobileTheme();
   const { authProvider } = useAuth();
+  const { apiClient: api } = useServer();
   const [filterText, setFilterText] = useState("");
-  const [members, setMembers] = useState<WorkspaceMember[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!visible) return;
-    setLoading(true);
-    setError(null);
-    listWorkspaceMembers({ api, auth: authProvider }, workspaceSlug)
-      .then(setMembers)
-      .catch((err) => setError(getErrorMessage(err, "Failed to load members")))
-      .finally(() => setLoading(false));
-  }, [visible, authProvider, workspaceSlug]);
+  const { data: members, loading, error } = useFetchData({
+    fetchFn: () => listWorkspaceMembers({ api, auth: authProvider }, workspaceSlug),
+    deps: [authProvider, workspaceSlug],
+    enabled: visible,
+    initialValue: [] as WorkspaceMember[],
+  });
 
   const filtered = filterText
     ? members.filter((m) => m.displayName.toLowerCase().includes(filterText.toLowerCase()))
@@ -44,7 +41,7 @@ export function MemberPickerModal({ visible, onClose, onSelect, workspaceSlug }:
 
   const handleSelect = (member: WorkspaceMember) => {
     setFilterText("");
-    onSelect(member.id, member.displayName);
+    onSelect(asUserId(member.id), member.displayName);
   };
 
   const handleClose = () => {
@@ -62,22 +59,19 @@ export function MemberPickerModal({ visible, onClose, onSelect, workspaceSlug }:
         onChangeText={setFilterText}
         autoCapitalize="none"
         autoCorrect={false}
-        style={{
-          marginHorizontal: 16,
-          marginBottom: 8,
-        }}
+        style={styles.filterInput}
       />
       {loading && (
         <ActivityIndicator
           testID="member-picker-loading"
-          style={{ marginVertical: 20 }}
+          style={styles.loadingIndicator}
           color={theme.brand.primary}
         />
       )}
       {error && (
         <Text
           testID="member-picker-error"
-          style={{ color: theme.colors.dangerText, paddingHorizontal: 16, marginBottom: 8 }}
+          style={[styles.errorText, { color: theme.colors.dangerText }]}
         >
           {error}
         </Text>
@@ -91,6 +85,9 @@ export function MemberPickerModal({ visible, onClose, onSelect, workspaceSlug }:
           renderItem={({ item }) => (
             <Pressable
               testID={`member-picker-item-${item.id}`}
+              accessibilityRole="button"
+              accessibilityLabel={`Select ${item.displayName}`}
+              accessibilityHint="Selects this person as a filter"
               onPress={() => handleSelect(item)}
               style={({ pressed }) => ({
                 opacity: pressed ? 0.7 : 1,
@@ -99,7 +96,7 @@ export function MemberPickerModal({ visible, onClose, onSelect, workspaceSlug }:
               })}
             >
               <Text
-                style={{ fontSize: 16, color: theme.colors.textPrimary }}
+                style={[styles.memberName, { color: theme.colors.textPrimary }]}
                 numberOfLines={1}
               >
                 {item.displayName}
@@ -111,3 +108,20 @@ export function MemberPickerModal({ visible, onClose, onSelect, workspaceSlug }:
     </BottomSheet>
   );
 }
+
+const styles = StyleSheet.create({
+  filterInput: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+  },
+  loadingIndicator: {
+    marginVertical: 20,
+  },
+  errorText: {
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  memberName: {
+    fontSize: 16,
+  },
+});

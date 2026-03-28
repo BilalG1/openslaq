@@ -47,10 +47,8 @@ export async function removeBookmarkOp(
   dispatch({ type: "bookmarks/remove", channelId, bookmarkId });
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const bookmarksClient = api.api.workspaces[":slug"].channels[":id"].bookmarks as any;
     await authorizedRequest(auth, (headers) =>
-      bookmarksClient[":bookmarkId"].$delete(
+      api.api.workspaces[":slug"].channels[":id"].bookmarks[":bookmarkId"].$delete(
         { param: { slug: workspaceSlug, id: channelId, bookmarkId } },
         { headers },
       ),

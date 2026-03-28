@@ -1,5 +1,6 @@
 import { OpenSlaqError } from "./errors";
 import { HttpClient } from "./http";
+import { createRpcClient } from "./rpc";
 import { Channels } from "./resources/channels";
 import { Dms } from "./resources/dms";
 import { Files } from "./resources/files";
@@ -33,21 +34,28 @@ export class OpenSlaq {
       throw new OpenSlaqError("API key must start with 'osk_'");
     }
 
+    const baseUrl = options.baseUrl ?? "https://api.openslaq.com";
+    const slug = options.workspaceSlug ?? "default";
+    const customFetch = options.fetch ?? globalThis.fetch;
+
+    const rpc = createRpcClient(baseUrl, options.apiKey, customFetch);
+
+    // Keep HttpClient for FormData upload and redirect (not covered by Hono RPC)
     const http = new HttpClient({
       apiKey: options.apiKey,
-      baseUrl: options.baseUrl ?? "https://api.openslaq.com",
-      workspaceSlug: options.workspaceSlug ?? "default",
-      fetch: options.fetch ?? globalThis.fetch,
+      baseUrl,
+      workspaceSlug: slug,
+      fetch: customFetch,
     });
 
-    this.channels = new Channels(http);
-    this.dms = new Dms(http);
-    this.files = new Files(http);
-    this.groupDms = new GroupDms(http);
-    this.messages = new Messages(http);
-    this.presence = new Presence(http);
-    this.scheduledMessages = new ScheduledMessages(http);
-    this.search = new Search(http);
-    this.users = new Users(http);
+    this.channels = new Channels(rpc, slug);
+    this.dms = new Dms(rpc, slug);
+    this.files = new Files(rpc, slug, http);
+    this.groupDms = new GroupDms(rpc, slug);
+    this.messages = new Messages(rpc, slug);
+    this.presence = new Presence(rpc, slug);
+    this.scheduledMessages = new ScheduledMessages(rpc, slug);
+    this.search = new Search(rpc, slug);
+    this.users = new Users(rpc);
   }
 }

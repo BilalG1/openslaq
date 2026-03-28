@@ -20,6 +20,7 @@ export async function authorizedRequest<TResponse extends ResponseLike>(
   const response = await request(headers);
 
   if (response.status === 401) {
+    auth.onAuthRequired();
     throw new AuthError();
   }
 
@@ -37,4 +38,35 @@ export async function authorizedRequest<TResponse extends ResponseLike>(
   }
 
   return response;
+}
+
+const RETRYABLE_STATUS_CODES = new Set([502, 503, 504]);
+
+function isRetryable(err: unknown): boolean {
+  if (err instanceof AuthError) return false;
+  if (err instanceof ApiError) return RETRYABLE_STATUS_CODES.has(err.status);
+  if (err instanceof TypeError) return true; // network error (fetch failure)
+  return false;
+}
+
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  options?: { maxRetries?: number; baseDelay?: number },
+): Promise<T> {
+  const maxRetries = options?.maxRetries ?? 2;
+  const baseDelay = options?.baseDelay ?? 500;
+
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      if (!isRetryable(err) || attempt === maxRetries) {
+        throw err;
+      }
+      await new Promise((resolve) => setTimeout(resolve, baseDelay * 2 ** attempt));
+    }
+  }
+  throw lastError;
 }

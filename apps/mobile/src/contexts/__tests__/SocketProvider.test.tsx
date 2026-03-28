@@ -13,6 +13,11 @@ jest.mock("../AuthContext", () => ({
   useAuth: jest.fn(),
 }));
 
+const mockNetworkState = { isConnected: true, isInternetReachable: true };
+jest.mock("../../hooks/useNetworkMonitor", () => ({
+  useNetworkMonitor: () => mockNetworkState,
+}));
+
 jest.mock("../../lib/env", () => ({
   env: {
     EXPO_PUBLIC_API_URL: "http://api.local",
@@ -29,11 +34,12 @@ type MockSocketSnapshot = {
 };
 
 function Probe() {
-  const { status, joinChannel, leaveChannel } = useSocket();
+  const { status, isNetworkOffline, joinChannel, leaveChannel } = useSocket();
 
   return (
     <>
       <Text testID="status">{status}</Text>
+      <Text testID="offline">{String(isNetworkOffline)}</Text>
       <TouchableOpacity
         testID="join"
         onPress={() => joinChannel("channel-1" as never)}
@@ -174,5 +180,58 @@ describe("SocketProvider", () => {
 
     expect(unsubscribe).toHaveBeenCalledTimes(1);
     expect(manager.destroy).toHaveBeenCalledTimes(1);
+  });
+
+  it("exposes isNetworkOffline based on network state", () => {
+    useAuthMock.mockReturnValue({
+      isAuthenticated: false,
+      authProvider: { getAccessToken: jest.fn() },
+    });
+
+    mockNetworkState.isConnected = false;
+
+    render(
+      <SocketProvider>
+        <Probe />
+      </SocketProvider>,
+    );
+
+    expect(screen.getByTestId("offline").children.join("")).toBe("true");
+
+    // Reset for other tests
+    mockNetworkState.isConnected = true;
+  });
+
+  it("triggers reconnect when network comes back online", async () => {
+    const getAccessToken = jest.fn(() => Promise.resolve("token"));
+    useAuthMock.mockReturnValue({
+      isAuthenticated: true,
+      authProvider: { getAccessToken },
+    });
+
+    // Start offline
+    mockNetworkState.isConnected = false;
+
+    const { rerender } = render(
+      <SocketProvider>
+        <Probe />
+      </SocketProvider>,
+    );
+
+    // connect called once from auth effect
+    expect(manager.connect).toHaveBeenCalledTimes(1);
+
+    // Network comes back
+    mockNetworkState.isConnected = true;
+    rerender(
+      <SocketProvider>
+        <Probe />
+      </SocketProvider>,
+    );
+
+    await waitFor(() => {
+      // Called again from network recovery
+      expect(manager.connect).toHaveBeenCalledTimes(2);
+    });
   });
 });

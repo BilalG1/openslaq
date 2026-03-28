@@ -1,90 +1,93 @@
-import { Pressable, Text, View, StyleSheet } from "react-native";
+import { Alert, Pressable, Text, View, StyleSheet } from "react-native";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { Headphones } from "lucide-react-native";
+import type { ChannelId } from "@openslaq/shared";
 import { useHuddle } from "@/contexts/HuddleProvider";
 import { useHuddleForChannel } from "@/hooks/useHuddleForChannel";
 import { useMobileTheme } from "@/theme/ThemeProvider";
+import { routes } from "@/lib/routes";
 
-const GREEN = "#22c55e";
+import { GREEN, WHITE } from "@/theme/constants";
 
 interface HuddleHeaderButtonProps {
-  channelId: string;
+  channelId: ChannelId;
 }
 
 export function HuddleHeaderButton({ channelId }: HuddleHeaderButtonProps) {
   const { joinHuddle } = useHuddle();
   const { activeHuddle, isUserInHuddle } = useHuddleForChannel(channelId);
   const { theme } = useMobileTheme();
+  const router = useRouter();
+  const { workspaceSlug } = useLocalSearchParams<{ workspaceSlug: string }>();
 
-  if (isUserInHuddle) {
-    return (
-      <View testID="huddle-in-progress" style={styles.inHuddleBadge}>
-        <View style={styles.pulseDot} />
-        <Text style={styles.inHuddleText}>In huddle</Text>
-      </View>
-    );
-  }
+  const participantCount = activeHuddle?.participants.length ?? 0;
+  const hasActiveHuddle = !!activeHuddle;
 
-  if (activeHuddle) {
-    return (
-      <Pressable
-        testID="huddle-join-button"
-        onPress={() => joinHuddle(channelId)}
-        style={[styles.joinButton, { borderColor: GREEN }]}
-      >
-        <View style={styles.pulseDot} />
-        <Text style={styles.joinText}>
-          Join ({activeHuddle.participants.length})
-        </Text>
-      </Pressable>
-    );
-  }
+  const joinAndNavigate = (id: ChannelId) => {
+    joinHuddle(id);
+    if (workspaceSlug) {
+      router.push(routes.huddle(workspaceSlug));
+    }
+  };
+
+  const handlePress = () => {
+    if (isUserInHuddle) return;
+
+    if (hasActiveHuddle) {
+      joinAndNavigate(channelId);
+    } else {
+      Alert.alert("Start a huddle?", "This will start a live audio huddle in this channel.", [
+        { text: "Cancel", style: "cancel" },
+        { text: "Start", onPress: () => joinAndNavigate(channelId) },
+      ]);
+    }
+  };
 
   return (
     <Pressable
-      testID="huddle-start-button"
-      onPress={() => joinHuddle(channelId)}
-      style={styles.startButton}
+      testID={isUserInHuddle ? "huddle-in-progress" : hasActiveHuddle ? "huddle-join-button" : "huddle-start-button"}
+      accessibilityRole="button"
+      accessibilityLabel={
+        isUserInHuddle
+          ? `In huddle with ${participantCount} participants`
+          : hasActiveHuddle
+            ? `Join huddle with ${participantCount} participants`
+            : "Start huddle"
+      }
+      accessibilityHint={
+        isUserInHuddle
+          ? "You are currently in this huddle"
+          : hasActiveHuddle
+            ? "Joins the active huddle in this channel"
+            : "Opens a dialog to start a new huddle"
+      }
+      onPress={handlePress}
+      style={[styles.button, hasActiveHuddle && styles.buttonActive]}
       hitSlop={8}
     >
-      <Headphones size={18} color={theme.brand.primary} />
+      <Headphones size={18} color={hasActiveHuddle ? WHITE : theme.brand.primary} />
+      {hasActiveHuddle && (
+        <Text style={styles.participantCount}>{participantCount}</Text>
+      )}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  inHuddleBadge: {
+  button: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
   },
-  pulseDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  buttonActive: {
     backgroundColor: GREEN,
   },
-  inHuddleText: {
-    color: GREEN,
-    fontSize: 13,
-    fontWeight: "500",
-  },
-  joinButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  joinText: {
-    color: GREEN,
+  participantCount: {
+    color: WHITE,
     fontSize: 13,
     fontWeight: "600",
-  },
-  startButton: {
-    paddingHorizontal: 4,
   },
 });

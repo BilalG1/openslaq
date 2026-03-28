@@ -4,17 +4,20 @@ import {
   updateChannelDescription,
   archiveChannel,
   unarchiveChannel,
+  leaveChannel,
   starChannelOp,
   unstarChannelOp,
   setChannelNotificationPrefOp,
 } from "@openslaq/client-core";
 import { useChatSelectors, useChatStore } from "../../state/chat-store";
 import { useOperationDeps } from "./useOperationDeps";
+import { useSocket } from "../useSocket";
 
 export function useChannelActions(workspaceSlug: string | undefined) {
   const deps = useOperationDeps();
   const { state, dispatch } = useChatStore();
   const { activeChannel } = useChatSelectors();
+  const { socket } = useSocket();
 
   const updateDescription = useCallback(
     (description: string | null) => {
@@ -62,6 +65,15 @@ export function useChannelActions(workspaceSlug: string | undefined) {
     [deps, workspaceSlug],
   );
 
+  const leave = useCallback(() => {
+    if (!workspaceSlug || !activeChannel) return;
+    void leaveChannel(deps, {
+      workspaceSlug,
+      channelId: activeChannel.id as Parameters<typeof leaveChannel>[1]["channelId"],
+      socket,
+    });
+  }, [deps, workspaceSlug, activeChannel, socket]);
+
   const onChannelCreated = useCallback(
     (channel: Channel) => {
       dispatch({ type: "workspace/addChannel", channel });
@@ -70,5 +82,5 @@ export function useChannelActions(workspaceSlug: string | undefined) {
     [dispatch],
   );
 
-  return { updateDescription, archiveChannel: archive, unarchiveChannel: unarchive, toggleStar, setNotificationLevel, onChannelCreated };
+  return { updateDescription, archiveChannel: archive, unarchiveChannel: unarchive, leaveChannel: leave, toggleStar, setNotificationLevel, onChannelCreated };
 }

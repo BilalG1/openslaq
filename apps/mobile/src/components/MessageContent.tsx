@@ -1,17 +1,19 @@
 import { memo, useMemo } from "react";
-import { Text, Image } from "react-native";
+import { Text, Image, StyleSheet } from "react-native";
 import Markdown, { type RenderRules } from "@ronradtke/react-native-markdown-display";
-import type { Mention, CustomEmoji } from "@openslaq/shared";
+import type { Mention, UserId, CustomEmoji } from "@openslaq/shared";
 import { findCustomEmoji } from "@openslaq/client-core";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { MentionBadge } from "./MentionBadge";
 import { openSafeUrl } from "@/utils/url-validation";
 import { CodeBlock } from "./CodeBlock";
 
+import { TRANSPARENT } from "@/theme/constants";
+
 interface Props {
   content: string;
   mentions?: Mention[];
-  onPressMention?: (userId: string) => void;
+  onPressMention?: (userId: UserId) => void;
   customEmojis?: CustomEmoji[];
 }
 
@@ -38,9 +40,19 @@ function preprocessContent(content: string, mentions: Mention[]): string {
   return result;
 }
 
+const staticStyles = StyleSheet.create({
+  customEmojiInline: {
+    width: 20,
+    height: 20,
+  },
+  markdownImage: {
+    width: 200,
+    height: 200,
+  },
+});
+
 function MessageContentInner({ content, mentions = [], onPressMention, customEmojis = [] }: Props) {
-  const { theme, mode } = useMobileTheme();
-  const isDark = mode === "dark";
+  const { theme } = useMobileTheme();
 
   const processedContent = useMemo(
     () => preprocessContent(content, mentions),
@@ -70,7 +82,7 @@ function MessageContentInner({ content, mentions = [], onPressMention, customEmo
       },
       code_inline: {
         backgroundColor: theme.colors.codeInlineBg,
-        color: isDark ? "#e06c75" : "#c7254e",
+        color: theme.colors.codeInlineText,
         paddingHorizontal: 4,
         paddingVertical: 1,
         borderRadius: 3,
@@ -82,7 +94,7 @@ function MessageContentInner({ content, mentions = [], onPressMention, customEmo
         borderLeftColor: theme.colors.borderStrong,
         paddingLeft: 10,
         marginVertical: 4,
-        backgroundColor: "transparent",
+        backgroundColor: TRANSPARENT,
       },
       bullet_list: {
         marginVertical: 2,
@@ -102,7 +114,7 @@ function MessageContentInner({ content, mentions = [], onPressMention, customEmo
         display: "none" as const,
       },
     }),
-    [theme, isDark],
+    [theme],
   );
 
   const rules: RenderRules = useMemo(
@@ -151,8 +163,9 @@ function MessageContentInner({ content, mentions = [], onPressMention, customEmo
                 key={node.key}
                 testID={`custom-emoji-inline-${name}`}
                 source={{ uri: found.url }}
-                style={{ width: 20, height: 20 }}
+                style={staticStyles.customEmojiInline}
                 accessibilityLabel={name}
+                accessibilityHint={`Custom emoji: ${name}`}
               />
             );
           }
@@ -163,8 +176,9 @@ function MessageContentInner({ content, mentions = [], onPressMention, customEmo
             key={node.key}
             source={{ uri: src }}
             accessibilityLabel={alt}
+            accessibilityHint="Embedded image in message"
             resizeMode="contain"
-            style={{ width: 200, height: 200 }}
+            style={staticStyles.markdownImage}
           />
         );
       },

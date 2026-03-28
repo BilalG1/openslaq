@@ -1,7 +1,8 @@
-import { Text, Pressable, ScrollView } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { Text, Pressable, ScrollView, StyleSheet } from "react-native";
+import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMobileTheme } from "@/theme/ThemeProvider";
+import { useWorkspaceSlug } from "@/contexts/WorkspaceBootstrapProvider";
 import {
   FolderOpen,
   Bookmark,
@@ -10,6 +11,7 @@ import {
   ChevronRight,
 } from "lucide-react-native";
 import type { LucideIcon } from "lucide-react-native";
+import type { MobileTheme } from "@openslaq/shared";
 import { routes } from "@/lib/routes";
 
 interface MenuItem {
@@ -22,7 +24,8 @@ export default function MoreScreen() {
   const { theme } = useMobileTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { workspaceSlug } = useLocalSearchParams<{ workspaceSlug: string }>();
+  const workspaceSlug = useWorkspaceSlug();
+  const styles = makeStyles(theme);
 
   const items: MenuItem[] = [
     {
@@ -50,18 +53,10 @@ export default function MoreScreen() {
   return (
     <ScrollView
       testID="more-screen"
-      style={{ flex: 1, backgroundColor: theme.colors.surface }}
-      contentContainerStyle={{ paddingTop: insets.top + 16, paddingBottom: 40 }}
+      style={styles.container}
+      contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 16 }]}
     >
-      <Text
-        style={{
-          fontSize: 22,
-          fontWeight: "700",
-          color: theme.colors.textPrimary,
-          paddingHorizontal: 16,
-          marginBottom: 16,
-        }}
-      >
+      <Text style={styles.heading}>
         More
       </Text>
       {items.map((item) => {
@@ -70,6 +65,9 @@ export default function MoreScreen() {
           <Pressable
             key={item.label}
             onPress={item.onPress}
+            accessibilityRole="button"
+            accessibilityLabel={item.label}
+            accessibilityHint={`Navigates to ${item.label}`}
             style={({ pressed }) => ({
               flexDirection: "row",
               alignItems: "center",
@@ -81,14 +79,7 @@ export default function MoreScreen() {
             })}
           >
             <Icon size={20} color={theme.colors.textSecondary} />
-            <Text
-              style={{
-                fontSize: 16,
-                color: theme.colors.textPrimary,
-                flex: 1,
-                marginLeft: 12,
-              }}
-            >
+            <Text accessible={false} style={styles.itemLabel}>
               {item.label}
             </Text>
             <ChevronRight size={18} color={theme.colors.textSecondary} />
@@ -98,3 +89,27 @@ export default function MoreScreen() {
     </ScrollView>
   );
 }
+
+const makeStyles = (theme: MobileTheme) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.surface,
+    },
+    scrollContent: {
+      paddingBottom: 40,
+    },
+    heading: {
+      fontSize: 22,
+      fontWeight: "700",
+      color: theme.colors.textPrimary,
+      paddingHorizontal: 16,
+      marginBottom: 16,
+    },
+    itemLabel: {
+      fontSize: 16,
+      color: theme.colors.textPrimary,
+      flex: 1,
+      marginLeft: 12,
+    },
+  });

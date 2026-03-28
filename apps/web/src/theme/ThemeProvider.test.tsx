@@ -1,15 +1,17 @@
-import { describe, test, expect, afterEach, beforeEach, mock } from "bun:test";
+import { describe, test, expect, afterEach, beforeEach, vi } from "vitest";
 import { renderHook, act, cleanup } from "../test-utils";
-import * as shared from "@openslaq/shared";
 
-mock.module("@openslaq/shared", () => ({
-  ...shared,
-  getWebCssVariables: (mode: string) => ({
-    "--bg": mode === "dark" ? "#000" : "#fff",
-  }),
-}));
+vi.mock("@openslaq/shared", async (importOriginal) => {
+  const mod = await importOriginal<Record<string, unknown>>();
+  return {
+    ...mod,
+    getWebCssVariables: (mode: string) => ({
+      "--bg": mode === "dark" ? "#000" : "#fff",
+    }),
+  };
+});
 
-const { ThemeProvider, useTheme } = await import("./ThemeProvider");
+import {  ThemeProvider, useTheme  } from "./ThemeProvider";
 
 describe("ThemeProvider", () => {
   beforeEach(() => {

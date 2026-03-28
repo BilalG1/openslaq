@@ -3,21 +3,21 @@ import type { UserId, ChannelId } from "@openslaq/shared";
 import { useSocketEvent } from "./useSocketEvent";
 
 export interface TypingUser {
-  userId: string;
+  userId: UserId;
   displayName: string;
   expiresAt: number;
 }
 
 interface MemberInfo {
-  id: string;
+  id: UserId;
   displayName: string;
 }
 
 const EXPIRE_MS = 5000;
 
 export function useTypingTracking(
-  channelId: string | undefined,
-  currentUserId: string | undefined,
+  channelId: ChannelId | undefined,
+  currentUserId: UserId | undefined,
   members: MemberInfo[],
 ) {
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
@@ -79,7 +79,19 @@ export function useTypingTracking(
     [channelId, currentUserId, members],
   );
 
+  const onNewMessage = useCallback(
+    (message: { userId: UserId; channelId: ChannelId }) => {
+      if (message.channelId !== channelId) return;
+      setTypingUsers((prev) => {
+        const filtered = prev.filter((u) => u.userId !== message.userId);
+        return filtered.length === prev.length ? prev : filtered;
+      });
+    },
+    [channelId],
+  );
+
   useSocketEvent("user:typing", onUserTyping);
+  useSocketEvent("message:new", onNewMessage);
 
   return typingUsers;
 }

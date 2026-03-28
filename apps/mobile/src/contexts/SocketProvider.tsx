@@ -6,9 +6,11 @@ import {
   type SocketSnapshot,
 } from "@openslaq/client-core";
 import { useAuth } from "./AuthContext";
-import { env } from "../lib/env";
+import { useServer } from "./ServerContext";
+import { useNetworkMonitor } from "../hooks/useNetworkMonitor";
 
 export interface SocketContextValue extends SocketSnapshot {
+  isNetworkOffline: boolean;
   joinChannel: (channelId: ChannelId) => void;
   leaveChannel: (channelId: ChannelId) => void;
 }
@@ -21,19 +23,20 @@ const defaultSnapshot: SocketSnapshot = {
 
 const SocketContext = createContext<SocketContextValue>({
   ...defaultSnapshot,
+  isNetworkOffline: false,
   joinChannel: () => {},
   leaveChannel: () => {},
 });
 
 export function SocketProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, authProvider } = useAuth();
-  const managerRef = useRef<SocketManager | null>(null);
-  if (!managerRef.current) {
-    managerRef.current = new SocketManager({
-      apiUrl: env.EXPO_PUBLIC_API_URL,
-    });
-  }
-  const manager = managerRef.current;
+  const { apiUrl } = useServer();
+  const network = useNetworkMonitor();
+
+  const manager = useMemo(() => new SocketManager({ apiUrl }), [apiUrl]);
+
+  // Destroy old manager when apiUrl changes or on unmount
+  useEffect(() => () => { manager.destroy(); }, [manager]);
 
   const [snapshot, setSnapshot] = useState<SocketSnapshot>(defaultSnapshot);
 
@@ -48,22 +51,29 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     void manager.connect(() => authProvider.getAccessToken());
   }, [manager, isAuthenticated, authProvider]);
 
-  useEffect(
-    () => () => {
-      manager.destroy();
-    },
-    [manager],
-  );
+  // Proactively reconnect when network comes back online
+  const prevConnected = useRef(network.isConnected);
+  useEffect(() => {
+    const wasOffline = !prevConnected.current;
+    prevConnected.current = network.isConnected;
+
+    if (wasOffline && network.isConnected && isAuthenticated) {
+      void manager.connect(() => authProvider.getAccessToken());
+    }
+  }, [network.isConnected, manager, isAuthenticated, authProvider]);
+
+  const isNetworkOffline = !network.isConnected;
 
   const contextValue = useMemo(
     () => ({
       socket: snapshot.socket,
       status: snapshot.status,
       lastError: snapshot.lastError,
+      isNetworkOffline,
       joinChannel: (channelId: ChannelId) => manager.joinChannel(channelId),
       leaveChannel: (channelId: ChannelId) => manager.leaveChannel(channelId),
     }),
-    [manager, snapshot.lastError, snapshot.socket, snapshot.status],
+    [manager, snapshot.lastError, snapshot.socket, snapshot.status, isNetworkOffline],
   );
 
   return (

@@ -1,28 +1,28 @@
-import { describe, test, expect, afterEach, beforeEach, jest, mock } from "bun:test";
+import { describe, test, expect, afterEach, beforeEach, vi } from "vitest";
 import { render, screen, cleanup, act } from "../../test-utils";
 import { fireEvent } from "@testing-library/react";
 
-mock.module("./BotCreateDialog", () => ({
+vi.mock("./BotCreateDialog", () => ({
   BotCreateDialog: () => null,
 }));
-mock.module("./BotConfigDialog", () => ({
+vi.mock("./BotConfigDialog", () => ({
   BotConfigDialog: () => null,
 }));
-mock.module("./CustomEmojiManager", () => ({
+vi.mock("./CustomEmojiManager", () => ({
   CustomEmojiManager: () => null,
 }));
-mock.module("./IntegrationsTab", () => ({
+vi.mock("./IntegrationsTab", () => ({
   IntegrationsTab: () => null,
 }));
 
 // Must be a stable reference so effect deps don't loop
 const mockUser = { id: "user-1" };
-mock.module("../../hooks/useCurrentUser", () => ({
+vi.mock("../../hooks/useCurrentUser", () => ({
   useCurrentUser: () => mockUser,
 }));
 
 // Prevent @stripe/stripe-js side-effect script injection in happy-dom
-mock.module("@stripe/stripe-js", () => ({
+vi.mock("@stripe/stripe-js", () => ({
   loadStripe: async () => null,
 }));
 
@@ -33,42 +33,44 @@ const defaultMembers = [
   { id: "user-3", displayName: "Member", email: "member@test.com", avatarUrl: null, role: "member" },
 ];
 
-const mockListMembers = jest.fn(async () => [...defaultMembers]);
-const mockUpdateRole = jest.fn(async () => {});
-const mockRemoveMember = jest.fn(async () => {});
-const mockDeleteWorkspace = jest.fn(async () => {});
+const mockListMembers = vi.fn(async () => [...defaultMembers]);
+const mockUpdateRole = vi.fn(async () => {});
+const mockRemoveMember = vi.fn(async () => {});
+const mockLeaveWorkspace = vi.fn(async () => {});
+const mockDeleteWorkspace = vi.fn(async () => {});
 
-mock.module("../../hooks/api/useWorkspaceMembersApi", () => ({
+vi.mock("../../hooks/api/useWorkspaceMembersApi", () => ({
   useWorkspaceMembersApi: () => ({
     listMembers: mockListMembers,
     updateRole: mockUpdateRole,
     removeMember: mockRemoveMember,
+    leaveWorkspace: mockLeaveWorkspace,
     deleteWorkspace: mockDeleteWorkspace,
   }),
 }));
 
-const mockListWorkspaces = jest.fn(async () => [{ slug: "default", name: "Default Workspace" }]);
-mock.module("../../hooks/api/useWorkspacesApi", () => ({
+const mockListWorkspaces = vi.fn(async () => [{ slug: "default", name: "Default Workspace" }]);
+vi.mock("../../hooks/api/useWorkspacesApi", () => ({
   useWorkspacesApi: () => ({
     listWorkspaces: mockListWorkspaces,
   }),
 }));
 
-const defaultBots: any[] = [];
-const mockListBotApps = jest.fn(async () => [...defaultBots]);
-const mockToggleBotEnabled = jest.fn(async () => {});
-mock.module("../../hooks/api/useBotsApi", () => ({
+const defaultBots: unknown[] = [];
+const mockListBotApps = vi.fn(async () => [...defaultBots]);
+const mockToggleBotEnabled = vi.fn(async () => {});
+vi.mock("../../hooks/api/useBotsApi", () => ({
   useBotsApi: () => ({
     listBotApps: mockListBotApps,
     toggleBotEnabled: mockToggleBotEnabled,
   }),
 }));
 
-const mockListListings = jest.fn(async () => []);
-const mockInstallListing = jest.fn(async () => {});
-const mockUninstallListing = jest.fn(async () => {});
-const mockGetInstalled = jest.fn(async () => []);
-mock.module("../../hooks/api/useMarketplaceApi", () => ({
+const mockListListings = vi.fn(async () => []);
+const mockInstallListing = vi.fn(async () => {});
+const mockUninstallListing = vi.fn(async () => {});
+const mockGetInstalled = vi.fn(async () => []);
+vi.mock("../../hooks/api/useMarketplaceApi", () => ({
   useMarketplaceApi: () => ({
     listListings: mockListListings,
     install: mockInstallListing,
@@ -77,24 +79,24 @@ mock.module("../../hooks/api/useMarketplaceApi", () => ({
   }),
 }));
 
-const mockGetFeatureFlags = jest.fn(async () => ({
+const mockGetFeatureFlags = vi.fn(async () => ({
   integrationGithub: false,
   integrationLinear: false,
   integrationSentry: false,
   integrationVercel: false,
 }));
-mock.module("../../hooks/api/useFeatureFlagsApi", () => ({
+vi.mock("../../hooks/api/useFeatureFlagsApi", () => ({
   useFeatureFlagsApi: () => ({
     getFeatureFlags: mockGetFeatureFlags,
   }),
 }));
 
-const mockDispatch = jest.fn();
-mock.module("../../state/chat-store", () => ({
+const mockDispatch = vi.fn();
+vi.mock("../../state/chat-store", () => ({
   useChatStore: () => ({ state: {}, dispatch: mockDispatch }),
 }));
 
-const { WorkspaceSettingsDialog } = await import("./WorkspaceSettingsDialog");
+import { WorkspaceSettingsDialog } from "./WorkspaceSettingsDialog";
 
 async function renderDialog() {
   await act(async () => {
@@ -112,6 +114,7 @@ describe("WorkspaceSettingsDialog", () => {
     mockListBotApps.mockImplementation(async () => [...defaultBots]);
     mockUpdateRole.mockClear();
     mockRemoveMember.mockClear();
+    mockLeaveWorkspace.mockClear();
     mockDeleteWorkspace.mockClear();
     mockToggleBotEnabled.mockClear();
     mockDispatch.mockClear();
@@ -154,7 +157,7 @@ describe("WorkspaceSettingsDialog", () => {
   });
 
   test("clicking member name dispatches workspace/openProfile and closes dialog", async () => {
-    const onOpenChange = jest.fn();
+    const onOpenChange = vi.fn();
     await act(async () => {
       render(
         <WorkspaceSettingsDialog open={true} onOpenChange={onOpenChange} workspaceSlug="default" />,
@@ -212,25 +215,25 @@ describe("WorkspaceSettingsDialog", () => {
   });
 
   test("remove button calls removeMember after confirm", async () => {
-    // Mock window.confirm
-    const originalConfirm = globalThis.confirm;
-    globalThis.confirm = () => true;
-
     await renderDialog();
 
     await act(async () => {
       fireEvent.click(screen.getByTestId("remove-btn-user-3"));
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    // Confirm dialog should appear
+    expect(screen.getByTestId("confirm-dialog-confirm")).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("confirm-dialog-confirm"));
       await new Promise((r) => setTimeout(r, 50));
     });
 
     expect(mockRemoveMember).toHaveBeenCalledWith("default", "user-3");
-    globalThis.confirm = originalConfirm;
   });
 
   test("remove button does nothing when confirm is cancelled", async () => {
-    const originalConfirm = globalThis.confirm;
-    globalThis.confirm = () => false;
-
     await renderDialog();
 
     await act(async () => {
@@ -238,8 +241,12 @@ describe("WorkspaceSettingsDialog", () => {
       await new Promise((r) => setTimeout(r, 50));
     });
 
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("confirm-dialog-cancel"));
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
     expect(mockRemoveMember).not.toHaveBeenCalled();
-    globalThis.confirm = originalConfirm;
   });
 
   // ── Bot rows ───────────────────────────────────────────────────
@@ -319,14 +326,20 @@ describe("WorkspaceSettingsDialog", () => {
     expect(screen.getByTestId("delete-workspace-btn")).toBeTruthy();
   });
 
-  test("does NOT show delete section for non-owner", async () => {
+  test("non-owner sees Danger Zone with leave but not delete", async () => {
     mockListMembers.mockImplementation(async () => [
       { id: "user-1", displayName: "Me", email: "me@test.com", avatarUrl: null, role: "member" },
     ]);
 
     await renderDialog();
-    // Danger Zone tab should not be visible for non-owners
-    expect(screen.queryByText("Danger Zone")).toBeNull();
+    // Danger Zone tab should be visible for non-owners
+    expect(screen.queryByText("Danger Zone")).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(screen.getByText("Danger Zone"));
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    expect(screen.getByTestId("leave-workspace-btn")).toBeTruthy();
+    expect(screen.queryByTestId("delete-workspace-btn")).toBeNull();
   });
 
   test("delete button is disabled until input matches workspace name", async () => {
@@ -372,6 +385,77 @@ describe("WorkspaceSettingsDialog", () => {
       value: originalLocation,
       writable: true,
     });
+  });
+
+  // ── Leave workspace ──────────────────────────────────────────────
+
+  test("owner does NOT see leave workspace button", async () => {
+    await renderDialog();
+    await navigateToDangerTab();
+    expect(screen.queryByTestId("leave-workspace-btn")).toBeNull();
+    expect(screen.getByTestId("delete-workspace-btn")).toBeTruthy();
+  });
+
+  test("leave button shows confirm dialog and calls leaveWorkspace", async () => {
+    mockListMembers.mockImplementation(async () => [
+      { id: "user-1", displayName: "Me", email: "me@test.com", avatarUrl: null, role: "member" },
+    ]);
+
+    const originalLocation = window.location;
+    Object.defineProperty(window, "location", {
+      value: { href: "" },
+      writable: true,
+    });
+
+    await renderDialog();
+    await act(async () => {
+      fireEvent.click(screen.getByText("Danger Zone"));
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("leave-workspace-btn"));
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    // Confirm dialog should appear
+    expect(screen.getByTestId("confirm-dialog-confirm")).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("confirm-dialog-confirm"));
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    expect(mockLeaveWorkspace).toHaveBeenCalledWith("default");
+
+    Object.defineProperty(window, "location", {
+      value: originalLocation,
+      writable: true,
+    });
+  });
+
+  test("leave confirm cancel does not call leaveWorkspace", async () => {
+    mockListMembers.mockImplementation(async () => [
+      { id: "user-1", displayName: "Me", email: "me@test.com", avatarUrl: null, role: "member" },
+    ]);
+
+    await renderDialog();
+    await act(async () => {
+      fireEvent.click(screen.getByText("Danger Zone"));
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("leave-workspace-btn"));
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("confirm-dialog-cancel"));
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    expect(mockLeaveWorkspace).not.toHaveBeenCalled();
   });
 
   // ── Error states ───────────────────────────────────────────────

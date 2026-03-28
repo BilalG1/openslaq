@@ -6,6 +6,7 @@ const mockUpdateFilters = jest.fn();
 const mockReset = jest.fn();
 const mockLoadMore = jest.fn();
 const mockPush = jest.fn();
+const mockDispatch = jest.fn();
 
 let mockFilters = { q: "", channelId: undefined, userId: undefined, fromDate: undefined, toDate: undefined };
 let mockResults: any[] = [];
@@ -13,6 +14,7 @@ let mockTotal = 0;
 let mockLoading = false;
 let mockError: string | null = null;
 let mockHasMore = false;
+let mockRecentSearches: string[] = [];
 
 jest.mock("@/hooks/useSearch", () => ({
   useSearch: () => ({
@@ -25,6 +27,7 @@ jest.mock("@/hooks/useSearch", () => ({
     loadMore: mockLoadMore,
     hasMore: mockHasMore,
     reset: mockReset,
+    recentSearches: mockRecentSearches,
     channels: [],
     dms: [],
   }),
@@ -67,6 +70,10 @@ jest.mock("@/theme/ThemeProvider", () => ({
   }),
 }));
 
+jest.mock("@/contexts/ChatStoreProvider", () => ({
+  useChatStore: () => ({ dispatch: mockDispatch }),
+}));
+
 const mockBack = jest.fn();
 jest.mock("expo-router", () => ({
   useLocalSearchParams: () => ({ workspaceSlug: "test-ws" }),
@@ -104,6 +111,7 @@ describe("SearchScreen", () => {
     mockLoading = false;
     mockError = null;
     mockHasMore = false;
+    mockRecentSearches = [];
   });
 
   it("renders search input and empty state", () => {
@@ -196,6 +204,15 @@ describe("SearchScreen", () => {
 
     fireEvent.press(screen.getByTestId("search-result-msg-1"));
 
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: "navigation/setScrollTarget",
+      scrollTarget: {
+        channelId: "ch-1",
+        messageId: "msg-1",
+        highlightMessageId: "msg-1",
+        parentMessageId: "parent-1",
+      },
+    });
     expect(mockPush).toHaveBeenCalledWith("/(app)/test-ws/thread/parent-1");
   });
 
@@ -208,6 +225,15 @@ describe("SearchScreen", () => {
 
     fireEvent.press(screen.getByTestId("search-result-msg-1"));
 
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: "navigation/setScrollTarget",
+      scrollTarget: {
+        channelId: "dm-ch-1",
+        messageId: "msg-1",
+        highlightMessageId: "msg-1",
+        parentMessageId: null,
+      },
+    });
     expect(mockPush).toHaveBeenCalledWith("/(app)/test-ws/(tabs)/(channels)/dm/dm-ch-1");
   });
 
@@ -220,6 +246,15 @@ describe("SearchScreen", () => {
 
     fireEvent.press(screen.getByTestId("search-result-msg-1"));
 
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: "navigation/setScrollTarget",
+      scrollTarget: {
+        channelId: "ch-1",
+        messageId: "msg-1",
+        highlightMessageId: "msg-1",
+        parentMessageId: null,
+      },
+    });
     expect(mockPush).toHaveBeenCalledWith("/(app)/test-ws/(tabs)/(channels)/ch-1");
   });
 
@@ -259,5 +294,70 @@ describe("SearchScreen", () => {
     expect(screen.getByTestId("search-retry")).toBeTruthy();
     fireEvent.press(screen.getByTestId("search-retry"));
     expect(mockUpdateFilters).toHaveBeenCalledWith({ q: "test" });
+  });
+
+  it("does not show loading indicator when results already exist", () => {
+    mockFilters = { ...mockFilters, q: "test" };
+    mockLoading = true;
+    mockResults = [makeResult()];
+    mockTotal = 1;
+
+    render(<SearchScreen />);
+
+    expect(screen.queryByTestId("search-loading")).toBeNull();
+  });
+
+  it("renders multiple result items", () => {
+    mockFilters = { ...mockFilters, q: "hello" };
+    mockResults = Array.from({ length: 3 }, (_, i) => makeResult({ messageId: `msg-${i}` }));
+    mockTotal = 3;
+
+    render(<SearchScreen />);
+
+    expect(screen.getByTestId("search-result-msg-0")).toBeTruthy();
+    expect(screen.getByTestId("search-result-msg-1")).toBeTruthy();
+    expect(screen.getByTestId("search-result-msg-2")).toBeTruthy();
+  });
+
+  it("does not call loadMore when hasMore is false", () => {
+    mockFilters = { ...mockFilters, q: "hello" };
+    mockResults = [makeResult()];
+    mockTotal = 1;
+    mockHasMore = false;
+
+    render(<SearchScreen />);
+
+    const flatList = screen.getByTestId("search-results-list");
+    fireEvent(flatList, "onEndReached");
+
+    expect(mockLoadMore).not.toHaveBeenCalled();
+  });
+
+  it("shows placeholder when no recent searches exist", () => {
+    mockRecentSearches = [];
+
+    render(<SearchScreen />);
+
+    expect(screen.getByText("Try searching for messages")).toBeTruthy();
+  });
+
+  it("displays recent searches when they exist", () => {
+    mockRecentSearches = ["hello world", "react native"];
+
+    render(<SearchScreen />);
+
+    expect(screen.getByText("hello world")).toBeTruthy();
+    expect(screen.getByText("react native")).toBeTruthy();
+    expect(screen.queryByText("Try searching for messages")).toBeNull();
+  });
+
+  it("tapping a recent search populates the search input", () => {
+    mockRecentSearches = ["previous query"];
+
+    render(<SearchScreen />);
+
+    fireEvent.press(screen.getByTestId("recent-search-previous query"));
+
+    expect(mockUpdateFilters).toHaveBeenCalledWith({ q: "previous query" });
   });
 });

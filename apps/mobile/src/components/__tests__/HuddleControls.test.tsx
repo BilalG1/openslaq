@@ -37,27 +37,7 @@ describe("HuddleControls", () => {
 
     expect(screen.getByTestId("huddle-control-mute")).toBeTruthy();
     expect(screen.getByTestId("huddle-control-camera")).toBeTruthy();
-    expect(screen.getByTestId("huddle-control-screen-share")).toBeTruthy();
     expect(screen.getByTestId("huddle-control-leave")).toBeTruthy();
-  });
-
-  it("calls onToggleScreenShare when screen share button is pressed", () => {
-    render(<HuddleControls {...defaultProps} />);
-
-    fireEvent.press(screen.getByTestId("huddle-control-screen-share"));
-    expect(defaultProps.onToggleScreenShare).toHaveBeenCalledTimes(1);
-  });
-
-  it("renders screen share button with active state", () => {
-    render(<HuddleControls {...defaultProps} isScreenSharing />);
-
-    expect(screen.getByTestId("huddle-control-screen-share")).toBeTruthy();
-  });
-
-  it("renders screen share button with inactive state", () => {
-    render(<HuddleControls {...defaultProps} />);
-
-    expect(screen.getByTestId("huddle-control-screen-share")).toBeTruthy();
   });
 
   it("calls onToggleMute when mute button is pressed", () => {

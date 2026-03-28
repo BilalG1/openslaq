@@ -168,6 +168,8 @@ function SelectorsProbe() {
                   createdBy: null,
                 },
                 otherUser: { id: "u-alice", displayName: "Alice", avatarUrl: null },
+                lastMessageContent: null,
+                lastMessageAt: null,
               },
             ],
             groupDms: [],

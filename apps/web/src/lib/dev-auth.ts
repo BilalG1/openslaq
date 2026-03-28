@@ -3,6 +3,42 @@ import { env } from "../env";
 
 const STORAGE_KEY = "openslaq-dev-session";
 
+let version = 0;
+const listeners = new Set<() => void>();
+
+function notifyListeners() {
+  version++;
+  listeners.forEach((l) => l());
+}
+
+export function subscribeDevSession(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+export function getDevSessionVersion() {
+  return version;
+}
+
+let cachedSnapshot: DevSession | null | undefined;
+let cachedSnapshotVersion = -1;
+
+/** Snapshot function for useSyncExternalStore — returns the current DevSession or null. */
+export function getDevSessionSnapshot(): DevSession | null {
+  if (cachedSnapshotVersion !== version) {
+    cachedSnapshotVersion = version;
+    const raw = localStorage.getItem(STORAGE_KEY);
+    try {
+      cachedSnapshot = raw ? (JSON.parse(raw) as DevSession) : null;
+    } catch {
+      cachedSnapshot = null;
+    }
+  }
+  return cachedSnapshot ?? null;
+}
+
 const STACK_AUTH_BASE = "https://api.stack-auth.com/api/v1";
 
 export interface DevSession {
@@ -28,10 +64,12 @@ export function getDevSession(): DevSession | null {
 
 export function clearDevSession(): void {
   localStorage.removeItem(STORAGE_KEY);
+  notifyListeners();
 }
 
 function saveDevSession(session: DevSession): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+  notifyListeners();
 }
 
 async function signDevJwt(userId: string, email: string, displayName: string): Promise<string> {

@@ -4,6 +4,7 @@ import { MessageItem } from "../message/MessageItem";
 import { MessageActionsProvider } from "../message/MessageActionsContext";
 import { EmptyState, LoadingState, ErrorState } from "../ui";
 import { useAllUnreads } from "../../hooks/chat/useAllUnreads";
+import { useChatStore } from "../../state/chat-store";
 import type { UnreadChannelGroup } from "@openslaq/shared";
 
 interface AllUnreadsViewProps {
@@ -22,6 +23,15 @@ export function AllUnreadsView({
   onOpenProfile,
 }: AllUnreadsViewProps) {
   const { data, loading, error, markChannelRead, markAllRead } = useAllUnreads(workspaceSlug);
+  const { state } = useChatStore();
+
+  const dmNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const dm of state.dms) {
+      map.set(dm.channel.id, dm.otherUser.displayName);
+    }
+    return map;
+  }, [state.dms]);
 
   const handleMessageClick = useCallback(
     (channelId: string, messageId: string) => {
@@ -80,6 +90,7 @@ export function AllUnreadsView({
             <ChannelGroup
               key={group.channelId}
               group={group}
+              dmNameMap={dmNameMap}
               onMarkAsRead={() => void markChannelRead(group.channelId)}
               onMessageClick={(messageId) => handleMessageClick(group.channelId, messageId)}
             />
@@ -117,19 +128,23 @@ export function AllUnreadsView({
 
 function ChannelGroup({
   group,
+  dmNameMap,
   onMarkAsRead,
   onMessageClick,
 }: {
   group: UnreadChannelGroup;
+  dmNameMap: Map<string, string>;
   onMarkAsRead: () => void;
   onMessageClick: (messageId: string) => void;
 }) {
-  const channelPrefix = group.channelType === "dm" ? "" : "# ";
+  const isDm = group.channelType === "dm";
+  const channelPrefix = isDm ? "" : "# ";
+  const displayName = isDm ? (dmNameMap.get(group.channelId) ?? group.channelName) : group.channelName;
   return (
     <div data-testid={`unread-group-${group.channelId}`}>
       <div className="flex items-center justify-between px-4 py-2 border-b border-border-default bg-surface-raised">
         <span className="text-[13px] font-semibold text-secondary">
-          {channelPrefix}{group.channelName}
+          {channelPrefix}{displayName}
         </span>
         <button
           type="button"

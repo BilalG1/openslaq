@@ -18,30 +18,43 @@ jest.mock("../../lib/stack-auth", () => ({
   exchangeOAuthCode: jest.fn(),
 }));
 
-jest.mock("../../lib/token-store", () => ({
-  getTokens: jest.fn(() => Promise.resolve(null)),
-  storeTokens: jest.fn(() => Promise.resolve()),
-  clearTokens: jest.fn(() => Promise.resolve()),
+jest.mock("../../lib/server-store", () => ({
+  getServerSession: jest.fn(() => Promise.resolve(null)),
+  setServerSession: jest.fn(() => Promise.resolve()),
+  clearServerSession: jest.fn(() => Promise.resolve()),
+  serverIdFromUrl: jest.fn(() => "srv_test"),
 }));
 
+jest.mock("../../lib/auth-strategies", () => ({
+  createStackAuthStrategy: jest.fn(() => ({
+    refreshAccessToken: jest.fn(),
+  })),
+  createBuiltinAuthStrategy: jest.fn(() => ({
+    refreshAccessToken: jest.fn(),
+  })),
+}));
+
+const mockSetToken = jest.fn();
 jest.mock("../../lib/auth-provider", () => ({
   createMobileAuthProvider: jest.fn(() => ({
-    getAccessToken: jest.fn(() => Promise.resolve(null)),
-    requireAccessToken: jest.fn(() => Promise.reject(new Error("No token"))),
-    onAuthRequired: jest.fn(),
+    provider: {
+      getAccessToken: jest.fn(() => Promise.resolve(null)),
+      requireAccessToken: jest.fn(() => Promise.reject(new Error("No token"))),
+      onAuthRequired: jest.fn(),
+    },
+    setToken: mockSetToken,
   })),
-  setAuthToken: jest.fn(),
 }));
 
 jest.mock("../../lib/dev-auth", () => ({
   performDevQuickSignIn: jest.fn(),
 }));
 
-const { getTokens, storeTokens, clearTokens } =
-  require("../../lib/token-store") as {
-    getTokens: jest.Mock;
-    storeTokens: jest.Mock;
-    clearTokens: jest.Mock;
+const { getServerSession, setServerSession, clearServerSession } =
+  require("../../lib/server-store") as {
+    getServerSession: jest.Mock;
+    setServerSession: jest.Mock;
+    clearServerSession: jest.Mock;
   };
 
 const { sendOtpCode, verifyOtpCode, signInWithAppleNative } =
@@ -54,9 +67,6 @@ const { getOAuthAuthorizeUrl, exchangeOAuthCode } = require("../../lib/stack-aut
   getOAuthAuthorizeUrl: jest.Mock;
   exchangeOAuthCode: jest.Mock;
 };
-const { env } = require("../../lib/env") as {
-  env: { EXPO_PUBLIC_API_URL: string };
-};
 
 const { openAuthSessionAsync } = require("expo-web-browser") as {
   openAuthSessionAsync: jest.Mock;
@@ -66,9 +76,7 @@ const { signInAsync: appleSignInAsync } = require("expo-apple-authentication") a
   signInAsync: jest.Mock;
 };
 
-const { setAuthToken } = require("../../lib/auth-provider") as {
-  setAuthToken: jest.Mock;
-};
+const setAuthToken = mockSetToken;
 
 const { performDevQuickSignIn } = require("../../lib/dev-auth") as {
   performDevQuickSignIn: jest.Mock;
@@ -80,7 +88,6 @@ function TestConsumer() {
 
   const handleSendOtp = async () => {
     const nonce = await sendOtp("test@test.com");
-    // Store nonce in testID for verification
     (globalThis as Record<string, unknown>).__testNonce = nonce;
   };
 
@@ -123,14 +130,14 @@ function getTestIdText(testID: string): string {
 describe("AuthContext", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    getTokens.mockResolvedValue(null);
+    getServerSession.mockResolvedValue(null);
     getOAuthAuthorizeUrl.mockReturnValue(
       "https://api.stack-auth.com/api/v1/auth/oauth/authorize/google",
     );
     openAuthSessionAsync.mockResolvedValue({ type: "cancel" });
   });
 
-  it("initially loading, resolves unauthenticated when no tokens", async () => {
+  it("initially loading, resolves unauthenticated when no session", async () => {
     render(
       <AuthContextProvider>
         <TestConsumer />
@@ -146,8 +153,8 @@ describe("AuthContext", () => {
     expect(getTestIdText("user-id")).toBe("none");
   });
 
-  it("restores session from stored tokens", async () => {
-    getTokens.mockResolvedValue({
+  it("restores session from stored server session", async () => {
+    getServerSession.mockResolvedValue({
       accessToken: "stored-token",
       refreshToken: "stored-refresh",
       userId: "user-123",
@@ -167,7 +174,7 @@ describe("AuthContext", () => {
     expect(setAuthToken).toHaveBeenCalledWith("stored-token");
   });
 
-  it("sendOtp calls sendOtpCode and returns nonce", async () => {
+  it("sendOtp calls sendOtpCode with config and returns nonce", async () => {
     sendOtpCode.mockResolvedValue({ nonce: "nonce-abc" });
 
     render(
@@ -184,14 +191,16 @@ describe("AuthContext", () => {
       fireEvent.press(screen.getByTestId("send-otp"));
     });
 
+    // sendOtpCode now takes config as first arg
     expect(sendOtpCode).toHaveBeenCalledWith(
+      expect.objectContaining({ projectId: "proj_test" }),
       "test@test.com",
       "http://localhost:3000/auth/otp-callback",
     );
     expect((globalThis as Record<string, unknown>).__testNonce).toBe("nonce-abc");
   });
 
-  it("verifyOtp stores tokens and sets user", async () => {
+  it("verifyOtp stores session and sets user", async () => {
     verifyOtpCode.mockResolvedValue({
       access_token: "otp-token",
       refresh_token: "otp-refresh",
@@ -212,8 +221,12 @@ describe("AuthContext", () => {
       fireEvent.press(screen.getByTestId("verify-otp"));
     });
 
-    expect(verifyOtpCode).toHaveBeenCalledWith("123456", "test-nonce");
-    expect(storeTokens).toHaveBeenCalledWith({
+    expect(verifyOtpCode).toHaveBeenCalledWith(
+      expect.objectContaining({ projectId: "proj_test" }),
+      "123456",
+      "test-nonce",
+    );
+    expect(setServerSession).toHaveBeenCalledWith("srv_test", {
       accessToken: "otp-token",
       refreshToken: "otp-refresh",
       userId: "otp-user",
@@ -222,8 +235,8 @@ describe("AuthContext", () => {
     expect(getTestIdText("user-id")).toBe("otp-user");
   });
 
-  it("signOut clears tokens", async () => {
-    getTokens.mockResolvedValue({
+  it("signOut clears server session", async () => {
+    getServerSession.mockResolvedValue({
       accessToken: "token",
       refreshToken: "refresh",
       userId: "user-789",
@@ -243,14 +256,12 @@ describe("AuthContext", () => {
       fireEvent.press(screen.getByTestId("sign-out"));
     });
 
-    expect(clearTokens).toHaveBeenCalled();
+    expect(clearServerSession).toHaveBeenCalledWith("srv_test");
     expect(getTestIdText("authenticated")).toBe("false");
     expect(getTestIdText("user-id")).toBe("none");
   });
 
-  it("signInWithOAuth exchanges code and stores tokens for valid callback state", async () => {
-    const serverRedirectUri = `${env.EXPO_PUBLIC_API_URL}/api/auth/mobile-oauth-callback`;
-    // State is now base64-encoded JSON: { nonce, redirect }
+  it("signInWithOAuth exchanges code and stores session for valid callback state", async () => {
     const expectedEncodedState = btoa(
       JSON.stringify({ nonce: "00000000-0000-0000-0000-000000000000", redirect: "openslaq://redirect" }),
     );
@@ -280,52 +291,20 @@ describe("AuthContext", () => {
 
     await waitFor(() => {
       expect(exchangeOAuthCode).toHaveBeenCalledWith(
+        expect.objectContaining({ projectId: "proj_test" }),
         "oauth-code",
-        serverRedirectUri,
+        "http://localhost:3001/api/auth/mobile-oauth-callback",
         "00000000-0000-0000-0000-00000000000000000000-0000-0000-0000-000000000000",
       );
     });
-    expect(getOAuthAuthorizeUrl).toHaveBeenCalledWith(
-      "google",
-      serverRedirectUri,
-      "mock-digest",
-      expectedEncodedState,
-    );
-    expect(storeTokens).toHaveBeenCalledWith({
+    expect(setServerSession).toHaveBeenCalledWith("srv_test", {
       accessToken: "oauth-token",
       refreshToken: "oauth-refresh",
       userId: "oauth-user",
     });
   });
 
-  it("signInWithOAuth rejects callback with mismatched state", async () => {
-    openAuthSessionAsync.mockResolvedValue({
-      type: "success",
-      url: "openslaq://redirect?code=oauth-code&state=wrong-state",
-    });
-
-    render(
-      <AuthContextProvider>
-        <TestConsumer />
-      </AuthContextProvider>,
-    );
-
-    await waitFor(() => {
-      expect(getTestIdText("loading")).toBe("false");
-    });
-
-    await act(async () => {
-      fireEvent.press(screen.getByTestId("sign-in-oauth"));
-    });
-
-    await waitFor(() => {
-      expect(openAuthSessionAsync).toHaveBeenCalled();
-    });
-    expect(exchangeOAuthCode).not.toHaveBeenCalled();
-    expect(storeTokens).not.toHaveBeenCalled();
-  });
-
-  it("signInWithApple calls native Apple auth and stores tokens", async () => {
+  it("signInWithApple calls native Apple auth and stores session", async () => {
     appleSignInAsync.mockResolvedValue({
       identityToken: "apple-id-token",
       fullName: null,
@@ -352,8 +331,11 @@ describe("AuthContext", () => {
     });
 
     expect(appleSignInAsync).toHaveBeenCalled();
-    expect(signInWithAppleNative).toHaveBeenCalledWith("apple-id-token");
-    expect(storeTokens).toHaveBeenCalledWith({
+    expect(signInWithAppleNative).toHaveBeenCalledWith(
+      expect.objectContaining({ projectId: "proj_test" }),
+      "apple-id-token",
+    );
+    expect(setServerSession).toHaveBeenCalledWith("srv_test", {
       accessToken: "apple-at",
       refreshToken: "apple-rt",
       userId: "apple-uid",

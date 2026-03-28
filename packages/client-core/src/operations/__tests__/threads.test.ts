@@ -211,6 +211,7 @@ describe("operations/threads", () => {
     expect(actions).toEqual([
       { type: "thread/setLoadingOlder", parentMessageId: "m-parent", loading: true },
       { type: "thread/setLoadingOlder", parentMessageId: "m-parent", loading: false },
+      { type: "mutations/error", error: "network" },
     ]);
   });
 });

@@ -9,7 +9,7 @@ import type {
   Mention as SharedMention,
   LinkPreview,
   HuddleMessageMetadata,
-  SharedMessageInfo as SharedSharedMessageInfo,
+
   Channel as SharedChannel,
   User as SharedUser,
   FileBrowserItem as SharedFileBrowserItem,
@@ -36,7 +36,16 @@ export type Attachment = Unbrand<SharedAttachment>;
 export type ReactionGroup = Unbrand<SharedReactionGroup>;
 export type Mention = Unbrand<SharedMention>;
 export type { LinkPreview, HuddleMessageMetadata };
-export type SharedMessageInfo = Unbrand<SharedSharedMessageInfo>;
+export interface SharedMessageInfo {
+  id: string;
+  channelId: string;
+  channelName: string;
+  userId: string;
+  senderDisplayName: string;
+  senderAvatarUrl: string | null;
+  content: string;
+  createdAt: string;
+}
 export type Channel = Unbrand<SharedChannel>;
 export type User = Unbrand<SharedUser>;
 export type FileBrowserItem = Unbrand<SharedFileBrowserItem>;
@@ -47,9 +56,11 @@ export type { ChannelType, ChannelNotifyLevel, FileCategory };
 // --- SDK-only types (structural differences or SDK-specific) ---
 
 export interface MessageActionButton {
+  id: string;
+  type: "button";
   label: string;
-  value: string;
-  style?: "primary" | "danger";
+  value?: string;
+  style?: "primary" | "danger" | "default";
 }
 
 /** Flat message interface — union of all message variants. */
@@ -63,7 +74,6 @@ export interface Message {
   latestReplyAt: string | null;
   attachments: Attachment[];
   reactions: ReactionGroup[];
-  mentions: Mention[];
   senderDisplayName?: string;
   senderAvatarUrl?: string | null;
   isPinned?: boolean;
@@ -82,7 +92,8 @@ export interface Message {
 
 export interface MessageListResponse {
   messages: Message[];
-  nextCursor: string | null;
+  hasMore?: boolean;
+  nextCursor?: string | null;
 }
 
 export interface BrowseChannel extends Channel {
@@ -218,7 +229,7 @@ export interface PresenceEntry {
   userId: string;
   online: boolean;
   lastSeenAt: string | null;
-  statusEmoji: string | null;
-  statusText: string | null;
-  statusExpiresAt: string | null;
+  statusEmoji?: string | null;
+  statusText?: string | null;
+  statusExpiresAt?: string | null;
 }

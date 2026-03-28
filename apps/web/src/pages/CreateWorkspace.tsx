@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link } from "react-router";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useWorkspacesApi } from "../hooks/api/useWorkspacesApi";
 import { redirectToAuth } from "../lib/auth";

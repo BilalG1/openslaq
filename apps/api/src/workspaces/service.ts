@@ -1,8 +1,9 @@
-import { and, count, eq, inArray } from "drizzle-orm";
+import { and, count, eq, inArray, sql } from "drizzle-orm";
 import crypto from "node:crypto";
 import { db } from "../db";
 import { workspaces, workspaceMembers } from "./schema";
 import { channels, channelMembers } from "../channels/schema";
+import { channelReadPositions } from "../channels/read-positions-schema";
 import type { Workspace, WorkspaceId, UserId, Role } from "@openslaq/shared";
 import { asWorkspaceId, ROLES, DEFAULT_CHANNELS, CHANNEL_TYPES } from "@openslaq/shared";
 import { dmChannelName } from "../dm/service";
@@ -146,6 +147,10 @@ async function tryCreateWorkspace(
           channelId: generalChannel.id,
           userId,
         });
+        await tx
+          .insert(channelReadPositions)
+          .values({ userId, channelId: generalChannel.id, lastReadAt: sql`now()` })
+          .onConflictDoNothing();
       }
 
       // Auto-create self-DM
@@ -161,6 +166,10 @@ async function tryCreateWorkspace(
         .returning();
       if (selfDm) {
         await tx.insert(channelMembers).values({ channelId: selfDm.id, userId });
+        await tx
+          .insert(channelReadPositions)
+          .values({ userId, channelId: selfDm.id, lastReadAt: sql`now()` })
+          .onConflictDoNothing();
       }
 
       return toWorkspace(workspace);
@@ -188,6 +197,19 @@ export async function getWorkspaceMember(workspaceId: WorkspaceId, userId: UserI
     )
     .limit(1);
   return rows[0] ?? null;
+}
+
+export async function getWorkspaceMembersByIds(workspaceId: WorkspaceId, userIds: UserId[]) {
+  if (userIds.length === 0) return [];
+  return db
+    .select()
+    .from(workspaceMembers)
+    .where(
+      and(
+        eq(workspaceMembers.workspaceId, workspaceId),
+        inArray(workspaceMembers.userId, userIds),
+      ),
+    );
 }
 
 export async function updateMemberRole(workspaceId: WorkspaceId, targetUserId: UserId, newRole: Role) {

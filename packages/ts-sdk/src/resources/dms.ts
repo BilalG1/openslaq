@@ -1,16 +1,29 @@
-import type { HttpClient } from "../http";
+import type { RpcClient } from "../rpc";
+import { checked } from "../rpc";
 import type { DmChannel, OpenDmResponse } from "../types";
 
 export class Dms {
-  constructor(private readonly http: HttpClient) {}
+  constructor(
+    private readonly rpc: RpcClient,
+    private readonly slug: string,
+  ) {}
 
   async open(userId: string): Promise<OpenDmResponse> {
-    const path = this.http.workspacePath("/dm");
-    return this.http.post<OpenDmResponse>(path, { userId });
+    const res = await checked(
+      await this.rpc.api.workspaces[":slug"].dm.$post({
+        param: { slug: this.slug },
+        json: { userId },
+      }),
+    );
+    return await res.json();
   }
 
   async list(): Promise<DmChannel[]> {
-    const path = this.http.workspacePath("/dm");
-    return this.http.get<DmChannel[]>(path);
+    const res = await checked(
+      await this.rpc.api.workspaces[":slug"].dm.$get({
+        param: { slug: this.slug },
+      }),
+    );
+    return await res.json();
   }
 }

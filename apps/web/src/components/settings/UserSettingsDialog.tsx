@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import clsx from "clsx";
 import { api } from "../../api";
@@ -39,13 +39,15 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
   const [displayName, setDisplayName] = useState("");
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("profile");
+  const [prevOpen, setPrevOpen] = useState(false);
 
-  useEffect(() => {
-    if (open && user) {
-      setDisplayName(user.displayName ?? "");
-      setActiveTab("profile");
-    }
-  }, [open, user]);
+  if (open && !prevOpen && user) {
+    setDisplayName(user.displayName ?? "");
+    setActiveTab("profile");
+  }
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+  }
 
   if (!user) return null;
 

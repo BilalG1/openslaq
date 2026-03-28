@@ -1,10 +1,11 @@
 import { useMemo } from "react";
 import { Alert, Pressable, Text, View, StyleSheet } from "react-native";
-import type { Channel, ChannelNotifyLevel, MobileTheme } from "@openslaq/shared";
+import type { Channel, ChannelId, ChannelNotifyLevel, MobileTheme } from "@openslaq/shared";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { haptics } from "@/utils/haptics";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { confirmAction } from "@/lib/confirm";
+import { Star, StarOff, Bell, Info, LogOut, Archive } from "lucide-react-native";
 
 interface Props {
   visible: boolean;
@@ -13,12 +14,12 @@ interface Props {
   isMuted: boolean;
   notifyLevel: ChannelNotifyLevel;
   isAdmin: boolean;
-  onStar: (channelId: string) => void;
-  onUnstar: (channelId: string) => void;
-  onSetNotificationPref: (channelId: string, level: ChannelNotifyLevel) => void;
-  onArchive: (channelId: string) => void;
-  onChannelInfo: (channelId: string) => void;
-  onLeaveChannel: (channelId: string) => void;
+  onStar: (channelId: ChannelId) => void;
+  onUnstar: (channelId: ChannelId) => void;
+  onSetNotificationPref: (channelId: ChannelId, level: ChannelNotifyLevel) => void;
+  onArchive: (channelId: ChannelId) => void;
+  onChannelInfo: (channelId: ChannelId) => void;
+  onLeaveChannel: (channelId: ChannelId) => void;
   onClose: () => void;
 }
 
@@ -48,6 +49,11 @@ const makeStyles = (theme: MobileTheme) =>
       height: 1,
       backgroundColor: theme.colors.borderDefault,
       marginVertical: 8,
+    },
+    actionRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 12,
     },
     actionText: {
       fontSize: 16,
@@ -164,9 +170,12 @@ export function ChannelActionSheet({
         accessibilityHint={isStarred ? "Removes the channel from your starred list" : "Adds the channel to your starred list"}
         style={({ pressed }) => pressed ? styles.actionButtonPressed : styles.actionButtonDefault}
       >
-        <Text style={styles.actionText}>
-          {isStarred ? "Unstar Channel" : "Star Channel"}
-        </Text>
+        <View style={styles.actionRow}>
+          {isStarred ? <StarOff size={20} color={theme.colors.textPrimary} /> : <Star size={20} color={theme.colors.textPrimary} />}
+          <Text style={styles.actionText}>
+            {isStarred ? "Unstar Channel" : "Star Channel"}
+          </Text>
+        </View>
       </Pressable>
 
       {/* Notification preference */}
@@ -177,9 +186,12 @@ export function ChannelActionSheet({
         accessibilityHint="Opens notification preference options"
         style={({ pressed }) => pressed ? styles.actionButtonPressed : styles.actionButtonDefault}
       >
-        <Text style={styles.actionText}>
-          Notifications: {NOTIFY_LABELS[notifyLevel]}
-        </Text>
+        <View style={styles.actionRow}>
+          <Bell size={20} color={theme.colors.textPrimary} />
+          <Text style={styles.actionText}>
+            Notifications: {NOTIFY_LABELS[notifyLevel]}
+          </Text>
+        </View>
       </Pressable>
 
       {/* Channel Info */}
@@ -190,7 +202,10 @@ export function ChannelActionSheet({
         accessibilityHint="Opens channel information panel"
         style={({ pressed }) => pressed ? styles.actionButtonPressed : styles.actionButtonDefault}
       >
-        <Text style={styles.actionText}>Channel Info</Text>
+        <View style={styles.actionRow}>
+          <Info size={20} color={theme.colors.textPrimary} />
+          <Text style={styles.actionText}>Channel Info</Text>
+        </View>
       </Pressable>
 
       {/* Leave Channel */}
@@ -202,7 +217,10 @@ export function ChannelActionSheet({
         accessibilityHint="Leaves this channel"
         style={({ pressed }) => pressed ? styles.actionButtonPressed : styles.actionButtonDefault}
       >
-        <Text style={styles.dangerText}>Leave Channel</Text>
+        <View style={styles.actionRow}>
+          <LogOut size={20} color={theme.brand.danger} />
+          <Text style={styles.dangerText}>Leave Channel</Text>
+        </View>
       </Pressable>
 
       {/* Archive — admin only */}
@@ -216,7 +234,10 @@ export function ChannelActionSheet({
             accessibilityHint="Archives this channel permanently"
             style={({ pressed }) => pressed ? styles.actionButtonPressed : styles.actionButtonDefault}
           >
-            <Text style={styles.dangerText}>Archive Channel</Text>
+            <View style={styles.actionRow}>
+              <Archive size={20} color={theme.brand.danger} />
+              <Text style={styles.dangerText}>Archive Channel</Text>
+            </View>
           </Pressable>
         </>
       )}

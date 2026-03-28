@@ -22,10 +22,6 @@ export const SECOND_USER: ApiUser = {
   email: "second@openslaq.dev",
 };
 
-export const SHOWCASE_ALICE: ApiUser = { userId: "Alice Johnson", displayName: "Alice Johnson", email: "alice@openslaq.dev" };
-export const SHOWCASE_BOB: ApiUser = { userId: "Bob Martinez", displayName: "Bob Martinez", email: "bob@openslaq.dev" };
-export const SHOWCASE_CAROL: ApiUser = { userId: "Carol Chen", displayName: "Carol Chen", email: "carol@openslaq.dev" };
-
 function toTestUser(user: ApiUser): TestUser {
   return { id: user.userId, displayName: user.displayName, email: user.email, emailVerified: true };
 }
@@ -92,15 +88,6 @@ export class ApiHelper {
     return (await res.json()) as { id: string; name: string; description: string | null };
   }
 
-  async createPrivateChannel(name: string, description?: string) {
-    const client = await this.c();
-    const res = await client.api.workspaces[":slug"].channels.$post({
-      param: { slug: this.slug },
-      json: { name, description, type: "private" as const },
-    });
-    return (await res.json()) as { id: string; name: string; description: string | null };
-  }
-
   async addChannelMember(channelId: string, userId: string) {
     const client = await this.c();
     const res = await client.api.workspaces[":slug"].channels[":id"].members.$post({
@@ -108,14 +95,6 @@ export class ApiHelper {
       json: { userId },
     });
     if (!res.ok) throw new Error(`Failed to add channel member: ${res.status}`);
-  }
-
-  async removeChannelMember(channelId: string, userId: string) {
-    const client = await this.c();
-    const res = await client.api.workspaces[":slug"].channels[":id"].members[":userId"].$delete({
-      param: { slug: this.slug, id: channelId, userId },
-    });
-    if (!res.ok) throw new Error(`Failed to remove channel member: ${res.status}`);
   }
 
   async createMessage(channelId: string, content: string) {
@@ -128,15 +107,6 @@ export class ApiHelper {
     return (await res.json()) as { id: string; channelId: string; userId: string; content: string; createdAt: string; updatedAt: string };
   }
 
-  async getMessages(channelId: string, limit = 50) {
-    const client = await this.c();
-    const res = await client.api.workspaces[":slug"].channels[":id"].messages.$get({
-      param: { slug: this.slug, id: channelId },
-      query: { limit },
-    });
-    return (await res.json()) as { messages: { id: string; channelId: string; userId: string; content: string; createdAt: string; updatedAt: string }[]; nextCursor: string | null };
-  }
-
   async createThreadReply(channelId: string, parentMessageId: string, content: string) {
     const client = await this.c();
     const res = await client.api.workspaces[":slug"].channels[":id"].messages[":messageId"].replies.$post({
@@ -144,15 +114,6 @@ export class ApiHelper {
       json: { content },
     });
     return (await res.json()) as { id: string; channelId: string; userId: string; content: string; createdAt: string; updatedAt: string };
-  }
-
-  async toggleReaction(messageId: string, emoji: string) {
-    const client = await this.c();
-    const res = await client.api.messages[":id"].reactions.$post({
-      param: { id: messageId },
-      json: { emoji },
-    });
-    return (await res.json()) as { reactions: { emoji: string; count: number; userIds: string[] }[] };
   }
 
   async editMessage(messageId: string, content: string) {
@@ -172,48 +133,19 @@ export class ApiHelper {
     return (await res.json()) as { ok: boolean };
   }
 
-  async getChannelMembers(channelId: string) {
+  async searchMessages(q: string, options?: { channelId?: string; userId?: string; limit?: number; offset?: number }) {
     const client = await this.c();
-    const res = await client.api.workspaces[":slug"].channels[":id"].members.$get({
-      param: { slug: this.slug, id: channelId },
-    });
-    return (await res.json()) as { id: string; displayName: string; email: string; avatarUrl: string | null; joinedAt: string }[];
-  }
-
-  async getMembers() {
-    const client = await this.c();
-    const res = await client.api.workspaces[":slug"].members.$get({
+    const res = await client.api.workspaces[":slug"].search.$get({
       param: { slug: this.slug },
-      query: {},
+      query: {
+        q,
+        channelId: options?.channelId,
+        userId: options?.userId,
+        limit: options?.limit,
+        offset: options?.offset,
+      },
     });
-    return (await res.json()) as { id: string; displayName: string; email: string; avatarUrl: string | null }[];
-  }
-
-  async createDm(userId: string) {
-    const client = await this.c();
-    const res = await client.api.workspaces[":slug"].dm.$post({
-      param: { slug: this.slug },
-      json: { userId },
-    });
-    return (await res.json()) as { channel: { id: string; name: string; description: string | null; type: string }; otherUser: { id: string; displayName: string } };
-  }
-
-  async getDms() {
-    const client = await this.c();
-    const res = await client.api.workspaces[":slug"].dm.$get({
-      param: { slug: this.slug },
-    });
-    return (await res.json()) as { channel: { id: string; name: string; description: string | null; type: string }; otherUser: { id: string; displayName: string } }[];
-  }
-
-  async createGroupDm(memberIds: string[]) {
-    const client = await this.c();
-    const res = await client.api.workspaces[":slug"]["group-dm"].$post({
-      param: { slug: this.slug },
-      json: { memberIds },
-    });
-    if (!res.ok) throw new Error(`Failed to create group DM: ${res.status}`);
-    return (await res.json()) as { channel: { id: string; type: string; displayName: string | null }; members: { id: string; displayName: string }[] };
+    return (await res.json()) as { results: { messageId: string; headline: string; channelId: string }[]; total: number };
   }
 
   async createInvite() {
@@ -238,116 +170,6 @@ export class ApiHelper {
   async deleteWorkspace() {
     const client = await this.c();
     await client.api.workspaces[":slug"].$delete({ param: { slug: this.slug } });
-  }
-
-  async searchMessages(q: string, options?: { channelId?: string; userId?: string; limit?: number; offset?: number }) {
-    const client = await this.c();
-    const res = await client.api.workspaces[":slug"].search.$get({
-      param: { slug: this.slug },
-      query: {
-        q,
-        channelId: options?.channelId,
-        userId: options?.userId,
-        limit: options?.limit,
-        offset: options?.offset,
-      },
-    });
-    return (await res.json()) as { results: { messageId: string; headline: string; channelId: string }[]; total: number };
-  }
-
-  async archiveChannel(channelId: string) {
-    const client = await this.c();
-    const res = await client.api.workspaces[":slug"].channels[":id"].archive.$post({
-      param: { slug: this.slug, id: channelId },
-    });
-    if (!res.ok) throw new Error(`Failed to archive channel: ${res.status}`);
-    return (await res.json()) as { id: string; name: string; description: string | null };
-  }
-
-  async unarchiveChannel(channelId: string) {
-    const client = await this.c();
-    const res = await client.api.workspaces[":slug"].channels[":id"].unarchive.$post({
-      param: { slug: this.slug, id: channelId },
-    });
-    if (!res.ok) throw new Error(`Failed to unarchive channel: ${res.status}`);
-    return (await res.json()) as { id: string; name: string; description: string | null };
-  }
-
-  async updateChannelDescription(channelId: string, description: string | null) {
-    const client = await this.c();
-    const res = await client.api.workspaces[":slug"].channels[":id"].$patch({
-      param: { slug: this.slug, id: channelId },
-      json: { description },
-    });
-    return (await res.json()) as { id: string; name: string; description: string | null };
-  }
-
-  async getUnreadCounts() {
-    const client = await this.c();
-    const res = await client.api.workspaces[":slug"]["unread-counts"].$get({
-      param: { slug: this.slug },
-    });
-    return (await res.json()) as Record<string, number>;
-  }
-
-  async markChannelAsRead(channelId: string) {
-    const client = await this.c();
-    const res = await client.api.workspaces[":slug"].channels[":id"].read.$post({
-      param: { slug: this.slug, id: channelId },
-    });
-    return (await res.json()) as { ok: boolean };
-  }
-
-  async pinMessage(channelId: string, messageId: string) {
-    const client = await this.c();
-    const res = await client.api.workspaces[":slug"].channels[":id"].messages[":messageId"].pin.$post({
-      param: { slug: this.slug, id: channelId, messageId },
-    });
-    return (await res.json()) as { ok: boolean };
-  }
-
-  async unpinMessage(channelId: string, messageId: string) {
-    const client = await this.c();
-    const res = await client.api.workspaces[":slug"].channels[":id"].messages[":messageId"].pin.$delete({
-      param: { slug: this.slug, id: channelId, messageId },
-    });
-    return (await res.json()) as { ok: boolean };
-  }
-
-  async getPinnedCount(channelId: string) {
-    const client = await this.c();
-    const res = await client.api.workspaces[":slug"].channels[":id"]["pin-count"].$get({
-      param: { slug: this.slug, id: channelId },
-    });
-    return (await res.json()) as { count: number };
-  }
-
-  async shareMessage(destinationChannelId: string, sharedMessageId: string, comment = "") {
-    const client = await this.c();
-    const res = await client.api.workspaces[":slug"].channels[":id"].messages.share.$post({
-      param: { slug: this.slug, id: destinationChannelId },
-      json: { sharedMessageId, comment },
-    });
-    if (!res.ok) throw new Error(`Failed to share message: ${res.status}`);
-    return (await res.json()) as { id: string; channelId: string; content: string };
-  }
-
-  async uploadFile(name: string, content: string | Buffer, mimeType: string) {
-    const { token } = await this.rpc;
-    const blobContent = typeof content === "string" ? content : new Uint8Array(content);
-    const blob = new Blob([blobContent], { type: mimeType });
-    const file = new File([blob], name, { type: mimeType });
-    const form = new FormData();
-    form.append("files", file);
-
-    const res = await fetch(`${API_BASE}/api/uploads`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: form,
-    });
-    if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
-    const body = (await res.json()) as { attachments: { id: string; filename: string; mimeType: string; size: number }[] };
-    return body.attachments[0]!;
   }
 }
 

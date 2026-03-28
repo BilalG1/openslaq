@@ -49,7 +49,7 @@ describe("MessageActionSheet", () => {
       <MessageActionSheet
         {...defaultProps}
         message={makeMessage()}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
       />,
     );
 
@@ -67,7 +67,7 @@ describe("MessageActionSheet", () => {
       <MessageActionSheet
         {...defaultProps}
         message={makeMessage()}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
         onReaction={onReaction}
         onClose={onClose}
       />,
@@ -84,7 +84,7 @@ describe("MessageActionSheet", () => {
       <MessageActionSheet
         {...defaultProps}
         message={makeMessage({ userId: asUserId("user-1") })}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
       />,
     );
 
@@ -97,7 +97,7 @@ describe("MessageActionSheet", () => {
       <MessageActionSheet
         {...defaultProps}
         message={makeMessage({ userId: asUserId("other-user") })}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
       />,
     );
 
@@ -114,7 +114,7 @@ describe("MessageActionSheet", () => {
       <MessageActionSheet
         {...defaultProps}
         message={msg}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
         onEditMessage={onEditMessage}
         onClose={onClose}
       />,
@@ -134,7 +134,7 @@ describe("MessageActionSheet", () => {
       <MessageActionSheet
         {...defaultProps}
         message={makeMessage()}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
         onClose={onClose}
       />,
     );
@@ -159,7 +159,7 @@ describe("MessageActionSheet", () => {
       <MessageActionSheet
         {...defaultProps}
         message={makeMessage()}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
         onClose={onClose}
       />,
     );
@@ -174,7 +174,7 @@ describe("MessageActionSheet", () => {
       <MessageActionSheet
         {...defaultProps}
         message={null}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
       />,
     );
 
@@ -187,7 +187,7 @@ describe("MessageActionSheet", () => {
       <MessageActionSheet
         {...defaultProps}
         message={makeMessage({ isPinned: false })}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
       />,
     );
 
@@ -201,7 +201,7 @@ describe("MessageActionSheet", () => {
       <MessageActionSheet
         {...defaultProps}
         message={makeMessage({ isPinned: true })}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
       />,
     );
 
@@ -215,7 +215,7 @@ describe("MessageActionSheet", () => {
       <MessageActionSheet
         {...defaultProps}
         message={makeMessage({ userId: asUserId("other-user"), isPinned: false })}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
       />,
     );
 
@@ -230,7 +230,7 @@ describe("MessageActionSheet", () => {
       <MessageActionSheet
         {...defaultProps}
         message={makeMessage({ isPinned: false })}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
         onPinMessage={onPinMessage}
         onClose={onClose}
       />,
@@ -250,7 +250,7 @@ describe("MessageActionSheet", () => {
       <MessageActionSheet
         {...defaultProps}
         message={makeMessage({ isPinned: true })}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
         onUnpinMessage={onUnpinMessage}
         onClose={onClose}
       />,
@@ -268,7 +268,7 @@ describe("MessageActionSheet", () => {
       <MessageActionSheet
         {...defaultProps}
         message={makeMessage()}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
         isSaved={false}
       />,
     );
@@ -283,7 +283,7 @@ describe("MessageActionSheet", () => {
       <MessageActionSheet
         {...defaultProps}
         message={makeMessage()}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
         isSaved={true}
       />,
     );
@@ -301,7 +301,7 @@ describe("MessageActionSheet", () => {
       <MessageActionSheet
         {...defaultProps}
         message={makeMessage()}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
         isSaved={false}
         onSaveMessage={onSaveMessage}
         onClose={onClose}
@@ -322,7 +322,7 @@ describe("MessageActionSheet", () => {
       <MessageActionSheet
         {...defaultProps}
         message={makeMessage()}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
         isSaved={true}
         onUnsaveMessage={onUnsaveMessage}
         onClose={onClose}
@@ -345,7 +345,7 @@ describe("MessageActionSheet", () => {
       <MessageActionSheet
         {...defaultProps}
         message={msg}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
         onCopyText={onCopyText}
         onClose={onClose}
       />,
@@ -369,7 +369,7 @@ describe("MessageActionSheet", () => {
       <MessageActionSheet
         {...defaultProps}
         message={msg}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
         onCopyLink={onCopyLink}
         onClose={onClose}
       />,
@@ -390,7 +390,7 @@ describe("MessageActionSheet", () => {
       <MessageActionSheet
         {...defaultProps}
         message={makeMessage()}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
         onShareMessage={jest.fn()}
       />,
     );
@@ -404,7 +404,7 @@ describe("MessageActionSheet", () => {
       <MessageActionSheet
         {...defaultProps}
         message={makeMessage()}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
       />,
     );
 
@@ -417,7 +417,7 @@ describe("MessageActionSheet", () => {
       <MessageActionSheet
         {...defaultProps}
         message={makeMessage()}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
         onMarkAsUnread={jest.fn()}
       />,
     );
@@ -431,7 +431,7 @@ describe("MessageActionSheet", () => {
       <MessageActionSheet
         {...defaultProps}
         message={makeMessage()}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
       />,
     );
 
@@ -446,7 +446,7 @@ describe("MessageActionSheet", () => {
       <MessageActionSheet
         {...defaultProps}
         message={makeMessage()}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
         onMarkAsUnread={onMarkAsUnread}
         onClose={onClose}
       />,
@@ -464,7 +464,7 @@ describe("MessageActionSheet", () => {
       <MessageActionSheet
         {...defaultProps}
         message={makeMessage()}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
         onReplyInThread={jest.fn()}
       />,
     );
@@ -478,7 +478,7 @@ describe("MessageActionSheet", () => {
       <MessageActionSheet
         {...defaultProps}
         message={makeMessage()}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
       />,
     );
 
@@ -493,7 +493,7 @@ describe("MessageActionSheet", () => {
       <MessageActionSheet
         {...defaultProps}
         message={makeMessage()}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
         onReplyInThread={onReplyInThread}
         onClose={onClose}
       />,
@@ -512,7 +512,7 @@ describe("MessageActionSheet", () => {
       <MessageActionSheet
         {...defaultProps}
         message={makeMessage()}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
       />,
     );
 
@@ -530,7 +530,7 @@ describe("MessageActionSheet", () => {
       <MessageActionSheet
         {...defaultProps}
         message={msg}
-        currentUserId="user-1"
+        currentUserId={asUserId("user-1")}
         onShareMessage={onShareMessage}
         onClose={onClose}
       />,

@@ -1,4 +1,4 @@
-import { describe, test, expect, afterEach, jest } from "bun:test";
+import { describe, test, expect, afterEach, vi } from "vitest";
 import { render, screen, cleanup, act } from "../../test-utils";
 import { AddBookmarkDialog } from "./AddBookmarkDialog";
 import { fireEvent } from "@testing-library/react";
@@ -26,7 +26,7 @@ describe("AddBookmarkDialog", () => {
   });
 
   test("calls onAdd with URL and title on submit", () => {
-    const onAdd = jest.fn();
+    const onAdd = vi.fn();
 
     render(
       <AddBookmarkDialog open={true} onClose={() => {}} onAdd={onAdd} />,
@@ -49,7 +49,7 @@ describe("AddBookmarkDialog", () => {
   });
 
   test("uses URL as title when title is empty", () => {
-    const onAdd = jest.fn();
+    const onAdd = vi.fn();
 
     render(
       <AddBookmarkDialog open={true} onClose={() => {}} onAdd={onAdd} />,

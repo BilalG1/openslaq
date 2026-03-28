@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { getWebCssVariables } from "@openslaq/shared";
 
 export type ThemeMode = "light" | "dark";
@@ -33,21 +33,23 @@ function readStoredMode(): ThemeMode {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [mode, setModeState] = useState<ThemeMode>(readStoredMode);
-
-  useEffect(() => {
-    applyClass(mode);
-  }, [mode]);
+  const [mode, setModeState] = useState<ThemeMode>(() => {
+    const m = readStoredMode();
+    applyClass(m);
+    return m;
+  });
 
   const setMode = useCallback((next: ThemeMode) => {
     setModeState(next);
     localStorage.setItem(STORAGE_KEY, next);
+    applyClass(next);
   }, []);
 
   const cycle = useCallback(() => {
     setModeState((prev) => {
       const next: ThemeMode = prev === "light" ? "dark" : "light";
       localStorage.setItem(STORAGE_KEY, next);
+      applyClass(next);
       return next;
     });
   }, []);

@@ -5,6 +5,7 @@ import { workspaceMembers } from "./schema";
 import { hasMinimumRole } from "../auth/permissions";
 import type { Role } from "@openslaq/shared";
 import type { WorkspaceEnv } from "./types";
+import { ForbiddenError } from "../errors";
 
 export type WorkspaceMemberEnv = WorkspaceEnv & {
   Variables: WorkspaceEnv["Variables"] & {
@@ -28,12 +29,12 @@ export const resolveMemberRole = createMiddleware<WorkspaceMemberEnv>(async (c, 
     .limit(1);
 
   if (row.length === 0) {
-    return c.json({ error: "Not a workspace member" }, 403);
+    throw new ForbiddenError("Not a workspace member");
   }
 
   const [memberRow] = row;
   if (!memberRow) {
-    return c.json({ error: "Not a workspace member" }, 403);
+    throw new ForbiddenError("Not a workspace member");
   }
 
   c.set("memberRole", memberRow.role);
@@ -44,7 +45,7 @@ export function requireRole(minimumRole: Role) {
   return createMiddleware<WorkspaceMemberEnv>(async (c, next) => {
     const memberRole = c.get("memberRole");
     if (!hasMinimumRole(memberRole, minimumRole)) {
-      return c.json({ error: "Insufficient permissions" }, 403);
+      throw new ForbiddenError("Insufficient permissions");
     }
     await next();
   });

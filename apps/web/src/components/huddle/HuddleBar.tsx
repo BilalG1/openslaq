@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { HuddleState, Channel } from "@openslaq/shared";
+import { Headphones } from "lucide-react";
 import type { HuddleMediaState } from "@openslaq/huddle/client";
 import { Tooltip } from "../ui";
 import { DeviceSelector } from "./DeviceSelector";
@@ -64,9 +65,7 @@ export function HuddleBar({
               onClick={() => setExpanded((prev) => !prev)}
               className="flex items-center gap-1 bg-transparent border-none cursor-pointer p-0"
             >
-              <svg className="w-4 h-4 text-green-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072M12 12h.01M8.464 8.464a5 5 0 000 7.072M17.657 6.343a8 8 0 010 11.314M6.343 6.343a8 8 0 000 11.314" />
-              </svg>
+              <Headphones className="w-4 h-4 text-green-400 shrink-0" />
               <span className="text-green-400 text-xs font-medium">Huddle</span>
             </button>
             <span className="text-gray-300 text-xs truncate">{label}</span>

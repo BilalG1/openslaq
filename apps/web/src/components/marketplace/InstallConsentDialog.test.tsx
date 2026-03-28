@@ -1,12 +1,13 @@
-import { describe, test, expect, afterEach, jest, mock } from "bun:test";
+import { describe, test, expect, afterEach, vi } from "vitest";
 import { render, screen, cleanup, act } from "../../test-utils";
 import { fireEvent } from "@testing-library/react";
+import type { BotScope, BotEventType } from "@openslaq/shared";
 
-mock.module("@stripe/stripe-js", () => ({
+vi.mock("@stripe/stripe-js", () => ({
   loadStripe: async () => null,
 }));
 
-const { InstallConsentDialog } = await import("./InstallConsentDialog");
+import { InstallConsentDialog } from "./InstallConsentDialog";
 
 afterEach(cleanup);
 
@@ -18,8 +19,8 @@ const baseListing = {
   longDescription: null,
   avatarUrl: null,
   category: "productivity",
-  requestedScopes: ["chat:write", "chat:read"] as any[],
-  requestedEvents: ["message:new"] as any[],
+  requestedScopes: ["chat:write", "chat:read"] as BotScope[],
+  requestedEvents: ["message:new"] as BotEventType[],
   published: true,
 };
 
@@ -31,8 +32,8 @@ const multipleWorkspaces = [
 
 describe("InstallConsentDialog", () => {
   test("renders dialog with listing name, scopes, and buttons", async () => {
-    const onConfirm = jest.fn(async () => {});
-    const onOpenChange = jest.fn();
+    const onConfirm = vi.fn(async () => {});
+    const onOpenChange = vi.fn();
 
     await act(async () => {
       render(
@@ -58,10 +59,10 @@ describe("InstallConsentDialog", () => {
       render(
         <InstallConsentDialog
           open={true}
-          onOpenChange={jest.fn()}
+          onOpenChange={vi.fn()}
           listing={baseListing}
           workspaces={singleWorkspace}
-          onConfirm={jest.fn(async () => {})}
+          onConfirm={vi.fn(async () => {})}
         />,
       );
     });
@@ -74,10 +75,10 @@ describe("InstallConsentDialog", () => {
       render(
         <InstallConsentDialog
           open={true}
-          onOpenChange={jest.fn()}
+          onOpenChange={vi.fn()}
           listing={baseListing}
           workspaces={multipleWorkspaces}
-          onConfirm={jest.fn(async () => {})}
+          onConfirm={vi.fn(async () => {})}
         />,
       );
     });
@@ -90,10 +91,10 @@ describe("InstallConsentDialog", () => {
       render(
         <InstallConsentDialog
           open={true}
-          onOpenChange={jest.fn()}
+          onOpenChange={vi.fn()}
           listing={baseListing}
           workspaces={singleWorkspace}
-          onConfirm={jest.fn(async () => {})}
+          onConfirm={vi.fn(async () => {})}
         />,
       );
     });
@@ -103,16 +104,16 @@ describe("InstallConsentDialog", () => {
   });
 
   test("hides event subscriptions when requestedEvents is empty", async () => {
-    const listingNoEvents = { ...baseListing, requestedEvents: [] as any[] };
+    const listingNoEvents = { ...baseListing, requestedEvents: [] as BotEventType[] };
 
     await act(async () => {
       render(
         <InstallConsentDialog
           open={true}
-          onOpenChange={jest.fn()}
+          onOpenChange={vi.fn()}
           listing={listingNoEvents}
           workspaces={singleWorkspace}
-          onConfirm={jest.fn(async () => {})}
+          onConfirm={vi.fn(async () => {})}
         />,
       );
     });
@@ -122,10 +123,10 @@ describe("InstallConsentDialog", () => {
 
   test("calls onConfirm with selected workspace slug and shows Installing state", async () => {
     let resolveInstall!: () => void;
-    const onConfirm = jest.fn(
+    const onConfirm = vi.fn(
       () => new Promise<void>((resolve) => { resolveInstall = resolve; }),
     );
-    const onOpenChange = jest.fn();
+    const onOpenChange = vi.fn();
 
     await act(async () => {
       render(
@@ -154,7 +155,7 @@ describe("InstallConsentDialog", () => {
   });
 
   test("shows error message when onConfirm rejects", async () => {
-    const onConfirm = jest.fn(async () => {
+    const onConfirm = vi.fn(async () => {
       throw new Error("Network error");
     });
 
@@ -162,7 +163,7 @@ describe("InstallConsentDialog", () => {
       render(
         <InstallConsentDialog
           open={true}
-          onOpenChange={jest.fn()}
+          onOpenChange={vi.fn()}
           listing={baseListing}
           workspaces={singleWorkspace}
           onConfirm={onConfirm}
@@ -178,7 +179,7 @@ describe("InstallConsentDialog", () => {
   });
 
   test("cancel button calls onOpenChange(false)", async () => {
-    const onOpenChange = jest.fn();
+    const onOpenChange = vi.fn();
 
     await act(async () => {
       render(
@@ -187,7 +188,7 @@ describe("InstallConsentDialog", () => {
           onOpenChange={onOpenChange}
           listing={baseListing}
           workspaces={singleWorkspace}
-          onConfirm={jest.fn(async () => {})}
+          onConfirm={vi.fn(async () => {})}
         />,
       );
     });
@@ -201,7 +202,7 @@ describe("InstallConsentDialog", () => {
 
   test("confirm button disabled while installing", async () => {
     let resolveInstall!: () => void;
-    const onConfirm = jest.fn(
+    const onConfirm = vi.fn(
       () => new Promise<void>((resolve) => { resolveInstall = resolve; }),
     );
 
@@ -209,7 +210,7 @@ describe("InstallConsentDialog", () => {
       render(
         <InstallConsentDialog
           open={true}
-          onOpenChange={jest.fn()}
+          onOpenChange={vi.fn()}
           listing={baseListing}
           workspaces={singleWorkspace}
           onConfirm={onConfirm}

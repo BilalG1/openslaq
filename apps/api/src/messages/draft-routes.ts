@@ -2,6 +2,7 @@ import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import type { WorkspaceMemberEnv } from "../workspaces/role-middleware";
 import { rlRead, rlMessageSend } from "../rate-limit";
 import { jsonResponse } from "../openapi/responses";
+import { BEARER_SECURITY, jsonBody, jsonContent } from "../lib/openapi-helpers";
 import { errorSchema, okSchema } from "../openapi/schemas";
 import {
   upsertDraft,
@@ -10,6 +11,8 @@ import {
   deleteDraftByKey,
   getDraftForChannel,
 } from "./draft-service";
+import { NotFoundError } from "../errors";
+import { getWorkspaceMemberContext } from "../lib/context";
 
 const draftSchema = z.object({
   id: z.string(),
@@ -30,17 +33,10 @@ const listDraftsRoute = createRoute({
   path: "/",
   tags: ["Drafts"],
   summary: "List all user drafts",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlRead] as const,
   responses: {
-    200: {
-      content: {
-        "application/json": {
-          schema: z.object({ drafts: z.array(draftWithChannelSchema) }),
-        },
-      },
-      description: "List of drafts",
-    },
+    200: jsonContent(z.object({ drafts: z.array(draftWithChannelSchema) }), "List of drafts"),
   },
 });
 
@@ -49,30 +45,18 @@ const upsertDraftRoute = createRoute({
   path: "/",
   tags: ["Drafts"],
   summary: "Upsert a draft",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMessageSend] as const,
   request: {
-    body: {
-      content: {
-        "application/json": {
-          schema: z.object({
-            channelId: z.string().uuid(),
-            content: z.string().max(10000),
-            parentMessageId: z.string().uuid().optional(),
-          }),
-        },
-      },
-    },
+    body: jsonBody(z.object({
+      channelId: z.string().uuid(),
+      content: z.string().max(10000),
+      parentMessageId: z.string().uuid().optional(),
+    })),
   },
   responses: {
-    200: {
-      content: { "application/json": { schema: draftSchema } },
-      description: "Draft upserted",
-    },
-    400: {
-      content: { "application/json": { schema: errorSchema } },
-      description: "Validation error",
-    },
+    200: jsonContent(draftSchema, "Draft upserted"),
+    400: jsonContent(errorSchema, "Validation error"),
   },
 });
 
@@ -81,20 +65,14 @@ const deleteDraftByIdRoute = createRoute({
   path: "/:id",
   tags: ["Drafts"],
   summary: "Delete draft by ID",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMessageSend] as const,
   request: {
     params: z.object({ id: z.string().uuid() }),
   },
   responses: {
-    200: {
-      content: { "application/json": { schema: okSchema } },
-      description: "Deleted",
-    },
-    404: {
-      content: { "application/json": { schema: errorSchema } },
-      description: "Not found",
-    },
+    200: jsonContent(okSchema, "Deleted"),
+    404: jsonContent(errorSchema, "Not found"),
   },
 });
 
@@ -103,7 +81,7 @@ const deleteDraftByKeyRoute = createRoute({
   path: "/by-key",
   tags: ["Drafts"],
   summary: "Delete draft by channel/thread key",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMessageSend] as const,
   request: {
     query: z.object({
@@ -112,14 +90,8 @@ const deleteDraftByKeyRoute = createRoute({
     }),
   },
   responses: {
-    200: {
-      content: { "application/json": { schema: okSchema } },
-      description: "Deleted",
-    },
-    404: {
-      content: { "application/json": { schema: errorSchema } },
-      description: "Not found",
-    },
+    200: jsonContent(okSchema, "Deleted"),
+    404: jsonContent(errorSchema, "Not found"),
   },
 });
 
@@ -128,7 +100,7 @@ const getDraftForChannelRoute = createRoute({
   path: "/channel/:channelId",
   tags: ["Drafts"],
   summary: "Get draft for a channel or thread",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlRead] as const,
   request: {
     params: z.object({ channelId: z.string().uuid() }),
@@ -137,26 +109,18 @@ const getDraftForChannelRoute = createRoute({
     }),
   },
   responses: {
-    200: {
-      content: {
-        "application/json": {
-          schema: z.object({ draft: draftSchema.nullable() }),
-        },
-      },
-      description: "Draft for channel/thread",
-    },
+    200: jsonContent(z.object({ draft: draftSchema.nullable() }), "Draft for channel/thread"),
   },
 });
 
 const app = new OpenAPIHono<WorkspaceMemberEnv>()
   .openapi(listDraftsRoute, async (c) => {
-    const user = c.get("user");
-    const workspace = c.get("workspace");
+    const { user, workspace } = getWorkspaceMemberContext(c);
     const items = await getDraftsForUser(user.id, workspace.id);
     return jsonResponse(c, { drafts: items }, 200);
   })
   .openapi(upsertDraftRoute, async (c) => {
-    const user = c.get("user");
+    const { user } = getWorkspaceMemberContext(c);
     const body = c.req.valid("json");
     const draft = await upsertDraft(
       user.id,
@@ -167,25 +131,25 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     return jsonResponse(c, draft, 200);
   })
   .openapi(deleteDraftByKeyRoute, async (c) => {
-    const user = c.get("user");
+    const { user } = getWorkspaceMemberContext(c);
     const { channelId, parentMessageId } = c.req.valid("query");
     const deleted = await deleteDraftByKey(user.id, channelId, parentMessageId);
     if (!deleted) {
-      return c.json({ error: "Draft not found" }, 404);
+      throw new NotFoundError("Draft");
     }
     return jsonResponse(c, { ok: true as const }, 200);
   })
   .openapi(deleteDraftByIdRoute, async (c) => {
-    const user = c.get("user");
+    const { user } = getWorkspaceMemberContext(c);
     const { id } = c.req.valid("param");
     const deleted = await deleteDraft(id, user.id);
     if (!deleted) {
-      return c.json({ error: "Draft not found" }, 404);
+      throw new NotFoundError("Draft");
     }
     return jsonResponse(c, { ok: true as const }, 200);
   })
   .openapi(getDraftForChannelRoute, async (c) => {
-    const user = c.get("user");
+    const { user } = getWorkspaceMemberContext(c);
     const { channelId } = c.req.valid("param");
     const { parentMessageId } = c.req.valid("query");
     const draft = await getDraftForChannel(user.id, channelId, parentMessageId);

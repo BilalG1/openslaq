@@ -28,7 +28,7 @@ describe("api-keys command (integration)", () => {
       },
     });
     expect(res.status).toBe(201);
-    const data = (await res.json()) as any;
+    const data = (await res.json()) as { token: string; tokenPrefix: string; name: string; scopes: string[] };
     expect(data.token).toBeTruthy();
     expect(data.tokenPrefix).toBeTruthy();
     expect(data.name).toContain("test-key-");
@@ -44,7 +44,7 @@ describe("api-keys command (integration)", () => {
 
     const res = await client.api["api-keys"].$get();
     expect(res.status).toBe(200);
-    const data = (await res.json()) as { keys: any[] };
+    const data = (await res.json()) as { keys: { id: string; name: string; scopes: string[] }[] };
     const found = data.keys.find((k) => k.name === name);
     expect(found).toBeDefined();
   });
@@ -54,13 +54,13 @@ describe("api-keys command (integration)", () => {
     const createRes = await client.api["api-keys"].$post({
       json: { name, scopes: ["channels:read"] },
     });
-    const created = (await createRes.json()) as any;
+    const created = (await createRes.json()) as { id: string };
 
     const res = await client.api["api-keys"][":id"].$get({
       param: { id: created.id },
     });
     expect(res.status).toBe(200);
-    const key = (await res.json()) as any;
+    const key = (await res.json()) as { name: string; scopes: string[] };
     expect(key.name).toBe(name);
     expect(key.scopes).toContain("channels:read");
   });
@@ -69,7 +69,7 @@ describe("api-keys command (integration)", () => {
     const createRes = await client.api["api-keys"].$post({
       json: { name: `upd-orig-${testId()}`, scopes: ["chat:read"] },
     });
-    const created = (await createRes.json()) as any;
+    const created = (await createRes.json()) as { id: string };
 
     const newName = `upd-new-${testId()}`;
     const res = await client.api["api-keys"][":id"].$patch({
@@ -77,7 +77,7 @@ describe("api-keys command (integration)", () => {
       json: { name: newName, scopes: ["chat:write", "users:read"] },
     });
     expect(res.status).toBe(200);
-    const updated = (await res.json()) as any;
+    const updated = (await res.json()) as { name: string; scopes: string[] };
     expect(updated.name).toBe(newName);
     expect(updated.scopes).toContain("chat:write");
     expect(updated.scopes).toContain("users:read");
@@ -87,7 +87,7 @@ describe("api-keys command (integration)", () => {
     const createRes = await client.api["api-keys"].$post({
       json: { name: `del-test-${testId()}`, scopes: ["chat:read"] },
     });
-    const created = (await createRes.json()) as any;
+    const created = (await createRes.json()) as { id: string };
 
     const delRes = await client.api["api-keys"][":id"].$delete({
       param: { id: created.id },
@@ -96,7 +96,7 @@ describe("api-keys command (integration)", () => {
 
     // Verify no longer in list
     const listRes = await client.api["api-keys"].$get();
-    const data = (await listRes.json()) as { keys: any[] };
+    const data = (await listRes.json()) as { keys: { id: string; name: string }[] };
     const found = data.keys.find((k) => k.id === created.id);
     expect(found).toBeUndefined();
   });

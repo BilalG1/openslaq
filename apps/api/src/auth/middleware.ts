@@ -2,14 +2,17 @@ import { createMiddleware } from "hono/factory";
 import * as jose from "jose";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
-import { asUserId } from "@openslaq/shared";
-import { jwks, jwtVerifyOptions, e2eTestSecret } from "./jwt";
+import { asUserId, type BotScope } from "@openslaq/shared";
+import { jwks, jwtVerifyOptions, e2eTestSecret, builtinJwtSecret } from "./jwt";
+import { env } from "../env";
 import { upsertUser } from "../users/service";
 import { db } from "../db";
 import { apiKeys } from "../api-keys/schema";
 import { users } from "../users/schema";
+import { botApps } from "../bots/schema";
 import { hashToken } from "../api-keys/token";
-import type { AuthEnv } from "./types";
+import type { AuthEnv, TokenMeta } from "./types";
+import { UnauthorizedError, ForbiddenError } from "../errors";
 
 const jwtPayloadSchema = z.object({
   sub: z.string(),
@@ -24,10 +27,20 @@ async function verifyAndExtract(token: string) {
       const { payload } = await jose.jwtVerify(token, e2eTestSecret);
       return payload;
     } catch {
-      // Not an HMAC token — fall through to JWKS
+      // Not an HMAC token — fall through
     }
   }
 
+  // Builtin auth mode: verify against local secret
+  if (env.AUTH_MODE === "builtin" && builtinJwtSecret) {
+    const { payload } = await jose.jwtVerify(token, builtinJwtSecret);
+    return payload;
+  }
+
+  // Stack Auth mode: verify against remote JWKS
+  if (!jwks || !jwtVerifyOptions) {
+    throw new Error("Stack Auth not configured");
+  }
   const { payload } = await jose.jwtVerify(token, jwks, jwtVerifyOptions);
   return payload;
 }
@@ -52,25 +65,85 @@ async function resolveApiKey(token: string) {
   });
   if (!user) return null;
 
-  return { id: asUserId(user.id), email: user.email, displayName: user.displayName };
+  return {
+    user: { id: asUserId(user.id), email: user.email, displayName: user.displayName },
+    scopes: row.scopes as BotScope[],
+  };
 }
+
+async function resolveBotToken(token: string) {
+  const hash = hashToken(token);
+  const bot = await db.query.botApps.findFirst({
+    where: eq(botApps.apiToken, hash),
+  });
+  if (!bot) return null;
+  if (!bot.enabled) return { disabled: true as const };
+
+  return {
+    disabled: false as const,
+    user: {
+      id: asUserId(bot.userId),
+      email: `${bot.name.toLowerCase().replace(/\s+/g, "-")}@bot.openslaq`,
+      displayName: bot.name,
+    },
+    scopes: bot.scopes as BotScope[],
+    botAppId: bot.id,
+    botWorkspaceId: bot.workspaceId,
+  };
+}
+
+const JWT_TOKEN_META: TokenMeta = {
+  kind: "jwt",
+  scopes: null,
+  isBot: false,
+  botAppId: null,
+  botWorkspaceId: null,
+};
 
 export const auth = createMiddleware<AuthEnv>(async (c, next) => {
   const authHeader = c.req.header("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
-    return c.json({ error: "Unauthorized" }, 401);
+    throw new UnauthorizedError();
   }
 
   const token = authHeader.slice(7);
 
   try {
+    // Bot token path
+    if (token.startsWith("osb_")) {
+      const result = await resolveBotToken(token);
+      if (!result) {
+        throw new UnauthorizedError("Invalid bot token");
+      }
+      if (result.disabled) {
+        throw new ForbiddenError("Bot is disabled");
+      }
+      c.set("user", result.user);
+      c.set("tokenMeta", {
+        kind: "bot",
+        scopes: result.scopes,
+        isBot: true,
+        botAppId: result.botAppId,
+        botWorkspaceId: result.botWorkspaceId,
+      });
+      await next();
+      return;
+    }
+
     // API key path
     if (token.startsWith("osk_")) {
-      const user = await resolveApiKey(token);
-      if (!user) {
-        return c.json({ error: "Invalid API key" }, 401);
+      const result = await resolveApiKey(token);
+      if (!result) {
+        throw new UnauthorizedError("Invalid API key");
       }
-      c.set("user", user);
+      c.set("user", result.user);
+      c.set("tokenMeta", {
+        kind: "api_key",
+        scopes: result.scopes,
+        isBot: false,
+        botAppId: null,
+        botWorkspaceId: null,
+      });
       await next();
       return;
     }
@@ -86,9 +159,11 @@ export const auth = createMiddleware<AuthEnv>(async (c, next) => {
     await upsertUser(userId, email, displayName);
 
     c.set("user", { id: asUserId(userId), email, displayName });
+    c.set("tokenMeta", JWT_TOKEN_META);
     await next();
   } catch (err) {
+    if (err instanceof UnauthorizedError || err instanceof ForbiddenError) throw err;
     console.error("Auth middleware error:", err);
-    return c.json({ error: "Invalid token" }, 401);
+    throw new UnauthorizedError("Invalid token");
   }
 });

@@ -1,42 +1,74 @@
-import { View, Text } from "react-native";
+import { useMemo } from "react";
+import { View, Text, StyleSheet } from "react-native";
+import type { MobileTheme } from "@openslaq/shared";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import type { EphemeralMessage } from "@openslaq/shared";
+import { formatTime } from "@/lib/time";
 
 interface Props {
   message: EphemeralMessage;
 }
 
+const makeStyles = (theme: MobileTheme) =>
+  StyleSheet.create({
+    container: {
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      backgroundColor: theme.colors.ephemeralBg,
+      borderLeftWidth: 3,
+      borderLeftColor: theme.colors.ephemeralBorder,
+    },
+    headerRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      marginBottom: 4,
+    },
+    senderName: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: theme.colors.textPrimary,
+    },
+    time: {
+      fontSize: 12,
+      color: theme.colors.textMuted,
+    },
+    body: {
+      fontSize: 15,
+      color: theme.colors.textPrimary,
+      lineHeight: 20,
+    },
+    ephemeralLabel: {
+      fontSize: 12,
+      color: theme.colors.textMuted,
+      marginTop: 4,
+      fontStyle: "italic",
+    },
+  });
+
 export function EphemeralMessageBubble({ message }: Props) {
   const { theme } = useMobileTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
 
-  const time = new Date(message.createdAt).toLocaleTimeString([], {
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  const time = formatTime(message.createdAt);
 
   return (
     <View
       testID={`ephemeral-message-${message.id}`}
-      style={{
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        backgroundColor: "rgba(99, 102, 241, 0.06)",
-        borderLeftWidth: 3,
-        borderLeftColor: "#6366f1",
-      }}
+      style={styles.container}
     >
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 }}>
-        <Text style={{ fontSize: 14, fontWeight: "600", color: theme.colors.textPrimary }}>
+      <View style={styles.headerRow}>
+        <Text style={styles.senderName}>
           {message.senderName}
         </Text>
-        <Text style={{ fontSize: 12, color: theme.colors.textMuted }}>{time}</Text>
+        <Text style={styles.time}>{time}</Text>
       </View>
-      <Text style={{ fontSize: 15, color: theme.colors.textPrimary, lineHeight: 20 }}>
+      <Text style={styles.body}>
         {message.text}
       </Text>
       <Text
         testID="ephemeral-label"
-        style={{ fontSize: 12, color: theme.colors.textMuted, marginTop: 4, fontStyle: "italic" }}
+        style={styles.ephemeralLabel}
       >
         Only visible to you
       </Text>

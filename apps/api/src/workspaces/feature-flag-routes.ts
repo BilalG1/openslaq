@@ -1,6 +1,7 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import type { WorkspaceMemberEnv } from "./role-middleware";
 import { rlRead } from "../rate-limit";
+import { BEARER_SECURITY, jsonContent } from "../lib/openapi-helpers";
 import { getFeatureFlags } from "./feature-flags";
 
 const featureFlagsSchema = z.object({
@@ -15,13 +16,10 @@ const getRoute = createRoute({
   path: "/",
   tags: ["Feature Flags"],
   summary: "Get workspace feature flags",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlRead] as const,
   responses: {
-    200: {
-      content: { "application/json": { schema: featureFlagsSchema } },
-      description: "Feature flags",
-    },
+    200: jsonContent(featureFlagsSchema, "Feature flags"),
   },
 });
 

@@ -12,10 +12,20 @@ import {
   getOAuthAuthorizeUrl,
   exchangeOAuthCode,
 } from "../lib/stack-auth";
+import type { StackAuthConfig } from "../lib/auth-strategies";
+import {
+  createStackAuthStrategy,
+  createBuiltinAuthStrategy,
+} from "../lib/auth-strategies";
 import { env } from "../lib/env";
-import { getTokens, storeTokens, clearTokens } from "../lib/token-store";
-import { createMobileAuthProvider, setAuthToken } from "../lib/auth-provider";
+import {
+  getServerSession,
+  setServerSession,
+  clearServerSession,
+} from "../lib/server-store";
+import { createMobileAuthProvider } from "../lib/auth-provider";
 import { performDevQuickSignIn } from "../lib/dev-auth";
+import { useServer } from "./ServerContext";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -28,10 +38,15 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   user: AuthUser | null;
   authProvider: AuthProvider;
+  // Stack Auth methods (only available when server uses stack-auth)
   sendOtp: (email: string) => Promise<string>;
   verifyOtp: (code: string, nonce: string) => Promise<void>;
   signInWithApple: () => Promise<void>;
   signInWithOAuth: (provider: string) => Promise<void>;
+  // Builtin auth methods (only available when server uses builtin)
+  signInWithPassword: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, displayName: string) => Promise<void>;
+  // Common
   devQuickSignIn: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -43,20 +58,46 @@ function toBase64Url(base64: string): string {
 }
 
 export function AuthContextProvider({ children }: { children: ReactNode }) {
+  const { activeServer, apiUrl } = useServer();
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<AuthUser | null>(null);
 
-  const authProvider = useMemo(
-    () =>
-      createMobileAuthProvider(() => {
-        setUser(null);
-        setAuthToken(null);
-      }),
-    [],
-  );
+  const serverId = activeServer.id;
+  const authType = activeServer.authType;
 
-  // Restore session on mount (with Detox override for E2E testing)
+  const stackAuthConfig: StackAuthConfig | null = useMemo(() => {
+    if (authType !== "stack-auth") return null;
+    return {
+      projectId: activeServer.stackProjectId ?? "",
+      publishableKey: activeServer.stackPublishableKey ?? "",
+    };
+  }, [authType, activeServer.stackProjectId, activeServer.stackPublishableKey]);
+
+  const authStrategy = useMemo(() => {
+    if (authType === "stack-auth" && stackAuthConfig) {
+      return createStackAuthStrategy(stackAuthConfig);
+    }
+    return createBuiltinAuthStrategy(apiUrl);
+  }, [authType, stackAuthConfig, apiUrl]);
+
+  const authHandle = useMemo(
+    () =>
+      createMobileAuthProvider(serverId, authStrategy, () => {
+        setUser(null);
+        authHandle?.setToken(null);
+      }),
+    [serverId, authStrategy],
+  );
+  const authProvider = authHandle.provider;
+  const setAuthToken = authHandle.setToken;
+
+  // Restore session on mount or when server changes
   useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
+    setUser(null);
+    setAuthToken(null);
+
     void (async () => {
       if (__DEV__) {
         try {
@@ -67,6 +108,7 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
           const testUserId =
             devArgs?.detoxTestUserId ?? Settings.get("detoxTestUserId");
           if (testToken && testUserId) {
+            if (cancelled) return;
             setAuthToken(testToken);
             setUser({ id: testUserId });
             setIsLoading(false);
@@ -77,18 +119,21 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      const tokens = await getTokens();
-      if (tokens) {
-        setAuthToken(tokens.accessToken);
-        setUser({ id: tokens.userId });
+      const session = await getServerSession(serverId);
+      if (cancelled) return;
+      if (session) {
+        setAuthToken(session.accessToken);
+        setUser({ id: session.userId });
       }
       setIsLoading(false);
     })();
-  }, []);
+
+    return () => { cancelled = true; };
+  }, [serverId]);
 
   const handleTokens = useCallback(
     async (tokens: { access_token: string; refresh_token: string; user_id: string }) => {
-      await storeTokens({
+      await setServerSession(serverId, {
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token,
         userId: tokens.user_id,
@@ -96,28 +141,31 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
       setAuthToken(tokens.access_token);
       setUser({ id: tokens.user_id });
     },
-    [],
+    [serverId],
   );
 
+  // --- Stack Auth methods ---
+
   const sendOtp = useCallback(async (email: string): Promise<string> => {
-    // Use the web URL as callback — Stack Auth validates it against trusted domains.
-    // Mobile users enter the OTP code manually, so the magic link URL doesn't matter.
-    const { nonce } = await sendOtpCode(email, `${env.EXPO_PUBLIC_WEB_URL}/auth/otp-callback`);
+    if (!stackAuthConfig) throw new Error("Stack Auth not configured for this server");
+    const { nonce } = await sendOtpCode(stackAuthConfig, email, `${env.EXPO_PUBLIC_WEB_URL}/auth/otp-callback`);
     return nonce;
-  }, []);
+  }, [stackAuthConfig]);
 
   const verifyOtp = useCallback(
     async (code: string, nonce: string) => {
-      const tokens = await verifyOtpCode(code, nonce);
+      if (!stackAuthConfig) throw new Error("Stack Auth not configured for this server");
+      const tokens = await verifyOtpCode(stackAuthConfig, code, nonce);
       await handleTokens(tokens);
     },
-    [handleTokens],
+    [stackAuthConfig, handleTokens],
   );
 
   const signInWithApple = useCallback(async () => {
     if (Platform.OS !== "ios") {
       throw new Error("Apple Sign In is only available on iOS");
     }
+    if (!stackAuthConfig) throw new Error("Stack Auth not configured for this server");
     const AppleAuthentication = require("expo-apple-authentication") as typeof import("expo-apple-authentication");
     const credential = await AppleAuthentication.signInAsync({
       requestedScopes: [
@@ -128,15 +176,14 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
     if (!credential.identityToken) {
       throw new Error("No identity token received from Apple");
     }
-    const tokens = await signInWithAppleNative(credential.identityToken);
+    const tokens = await signInWithAppleNative(stackAuthConfig, credential.identityToken);
     await handleTokens(tokens);
-  }, [handleTokens]);
+  }, [stackAuthConfig, handleTokens]);
 
   const signInWithOAuth = useCallback(
     async (provider: string) => {
-      // Use the API's HTTPS callback as the redirect URI so it passes Stack Auth's
-      // trusted-domain validation. The API endpoint then redirects to our custom scheme.
-      const serverRedirectUri = `${env.EXPO_PUBLIC_API_URL}/api/auth/mobile-oauth-callback`;
+      if (!stackAuthConfig) throw new Error("Stack Auth not configured for this server");
+      const serverRedirectUri = `${apiUrl}/api/auth/mobile-oauth-callback`;
       const appRedirectUri = AuthSession.makeRedirectUri({ scheme: "openslaq" });
       const codeVerifier = Crypto.randomUUID() + Crypto.randomUUID();
       const state = Crypto.randomUUID();
@@ -147,17 +194,15 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
       );
       const codeChallenge = toBase64Url(codeChallengeBase64);
 
-      // Encode appRedirectUri in state so the API server knows where to redirect back.
-      // Stack Auth passes state through untouched.
       const statePayload = JSON.stringify({ nonce: state, redirect: appRedirectUri });
       const encodedState = btoa(statePayload);
       const authorizeUrl = getOAuthAuthorizeUrl(
+        stackAuthConfig,
         provider,
         serverRedirectUri,
         codeChallenge,
         encodedState,
       );
-      // WebBrowser listens for the app's actual scheme deep link (the final redirect)
       const result = await WebBrowser.openAuthSessionAsync(authorizeUrl, appRedirectUri);
 
       if (result.type !== "success") return;
@@ -184,24 +229,72 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
       const code = url.searchParams.get("code");
       if (!code) throw new Error("No authorization code received");
 
-      // redirect_uri must match what was sent to the authorize endpoint
-      const tokens = await exchangeOAuthCode(code, serverRedirectUri, codeVerifier);
+      const tokens = await exchangeOAuthCode(stackAuthConfig, code, serverRedirectUri, codeVerifier);
       await handleTokens(tokens);
     },
-    [handleTokens],
+    [stackAuthConfig, apiUrl, handleTokens],
   );
+
+  // --- Builtin auth methods ---
+
+  const signInWithPassword = useCallback(
+    async (email: string, password: string) => {
+      if (authType !== "builtin") throw new Error("Builtin auth not available for this server");
+      const res = await fetch(`${apiUrl}/api/auth/sign-in`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? `Sign-in failed (${res.status})`);
+      }
+      const json = (await res.json()) as { accessToken: string; refreshToken: string; userId: string };
+      await handleTokens({
+        access_token: json.accessToken,
+        refresh_token: json.refreshToken,
+        user_id: json.userId,
+      });
+    },
+    [authType, apiUrl, handleTokens],
+  );
+
+  const signUp = useCallback(
+    async (email: string, password: string, displayName: string) => {
+      if (authType !== "builtin") throw new Error("Builtin auth not available for this server");
+      const res = await fetch(`${apiUrl}/api/auth/sign-up`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, displayName }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? `Sign-up failed (${res.status})`);
+      }
+      const json = (await res.json()) as { accessToken: string; refreshToken: string; userId: string };
+      await handleTokens({
+        access_token: json.accessToken,
+        refresh_token: json.refreshToken,
+        user_id: json.userId,
+      });
+    },
+    [authType, apiUrl, handleTokens],
+  );
+
+  // --- Common ---
 
   const devQuickSignIn = useCallback(async () => {
     const result = await performDevQuickSignIn();
+    setAuthToken(result.accessToken);
     setUser({ id: result.userId });
     setIsLoading(false);
-  }, []);
+  }, [setAuthToken]);
 
   const signOut = useCallback(async () => {
-    await clearTokens();
+    await clearServerSession(serverId);
     setAuthToken(null);
     setUser(null);
-  }, []);
+  }, [serverId]);
 
   const value = useMemo(
     () => ({
@@ -213,10 +306,12 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
       verifyOtp,
       signInWithApple,
       signInWithOAuth,
+      signInWithPassword,
+      signUp,
       devQuickSignIn,
       signOut,
     }),
-    [isLoading, user, authProvider, sendOtp, verifyOtp, signInWithApple, signInWithOAuth, devQuickSignIn, signOut],
+    [isLoading, user, authProvider, sendOtp, verifyOtp, signInWithApple, signInWithOAuth, signInWithPassword, signUp, devQuickSignIn, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

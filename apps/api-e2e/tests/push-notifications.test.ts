@@ -22,7 +22,7 @@ describe("push notifications", () => {
         json: { token: `apns-token-${testId()}`, platform: "ios" as const },
       });
       expect(res.status).toBe(200);
-      const body = (await res.json()) as { ok: boolean };
+      const body = (await res.json()) as { ok: boolean; count?: number };
       expect(body.ok).toBe(true);
     });
 
@@ -175,11 +175,16 @@ describe("push notifications", () => {
       });
     }
 
+    interface SentPush {
+      payload: { aps: { alert: { title: string; subtitle: string; body: string }; badge: number; sound?: string }; workspaceSlug: string; channelId: string; threadParentId?: string; parentMessageId?: string };
+      result: { success: boolean; reason?: string };
+      token: string;
+    }
     async function getSentPushes() {
       const res = await fetch(`${baseUrl}/api/test/push/sent`, {
         headers: testHeaders,
       });
-      return (await res.json()) as any[];
+      return (await res.json()) as SentPush[];
     }
 
     async function clearSentPushes() {
@@ -241,8 +246,8 @@ describe("push notifications", () => {
       const chRes = await senderClient.api.workspaces[":slug"].channels.$get({
         param: { slug: wsSlug },
       });
-      const channels = (await chRes.json()) as any[];
-      generalChannelId = channels.find((c: any) => c.name === "general")?.id;
+      const channels = (await chRes.json()) as Array<{ id: string; name: string }>;
+      generalChannelId = channels.find((c: { id: string; name: string }) => c.name === "general")?.id ?? "";
       expect(generalChannelId).toBeTruthy();
 
       // Register push token for recipient
@@ -266,7 +271,7 @@ describe("push notifications", () => {
         json: { content: "Hello from push test!" },
       });
       expect(msgRes.status).toBe(201);
-      const msg = (await msgRes.json()) as any;
+      const msg = (await msgRes.json()) as { id: string; content?: string };
 
       // Deliver push synchronously
       const deliverRes = await deliverNow(msg.id, recipientUserId, wsSlug);
@@ -295,7 +300,7 @@ describe("push notifications", () => {
         json: { content: longContent },
       });
       expect(msgRes.status).toBe(201);
-      const msg = (await msgRes.json()) as any;
+      const msg = (await msgRes.json()) as { id: string; content?: string };
 
       await deliverNow(msg.id, recipientUserId, wsSlug);
 
@@ -315,7 +320,7 @@ describe("push notifications", () => {
         json: { content: "Already read test" },
       });
       expect(msgRes.status).toBe(201);
-      const msg = (await msgRes.json()) as any;
+      const msg = (await msgRes.json()) as { id: string; content?: string };
 
       // Mark channel as read for recipient
       const markRes = await recipientClient.api.workspaces[":slug"].channels[":id"].read.$post({
@@ -346,7 +351,7 @@ describe("push notifications", () => {
         json: { content: "Muted channel test" },
       });
       expect(msgRes.status).toBe(201);
-      const msg = (await msgRes.json()) as any;
+      const msg = (await msgRes.json()) as { id: string; content?: string };
 
       await deliverNow(msg.id, recipientUserId, wsSlug);
 
@@ -375,7 +380,7 @@ describe("push notifications", () => {
         json: { content: "No mention test" },
       });
       expect(msgRes.status).toBe(201);
-      const msg = (await msgRes.json()) as any;
+      const msg = (await msgRes.json()) as { id: string; content?: string };
 
       await deliverNow(msg.id, recipientUserId, wsSlug);
 
@@ -403,7 +408,7 @@ describe("push notifications", () => {
         json: { content: "Global disabled test" },
       });
       expect(msgRes.status).toBe(201);
-      const msg = (await msgRes.json()) as any;
+      const msg = (await msgRes.json()) as { id: string; content?: string };
 
       await deliverNow(msg.id, recipientUserId, wsSlug);
 
@@ -430,7 +435,7 @@ describe("push notifications", () => {
         json: { content: "Sound disabled test" },
       });
       expect(msgRes.status).toBe(201);
-      const msg = (await msgRes.json()) as any;
+      const msg = (await msgRes.json()) as { id: string; content?: string };
 
       await deliverNow(msg.id, recipientUserId, wsSlug);
 
@@ -464,7 +469,7 @@ describe("push notifications", () => {
         json: { content: "Bad token test" },
       });
       expect(msgRes.status).toBe(201);
-      const msg = (await msgRes.json()) as any;
+      const msg = (await msgRes.json()) as { id: string; content?: string };
 
       await deliverNow(msg.id, recipientUserId, wsSlug);
 
@@ -503,7 +508,7 @@ describe("push notifications", () => {
         json: { content: "No tokens test" },
       });
       expect(msgRes.status).toBe(201);
-      const msg = (await msgRes.json()) as any;
+      const msg = (await msgRes.json()) as { id: string; content?: string };
 
       await deliverNow(msg.id, noTokenUserId, wsSlug);
 
@@ -522,7 +527,7 @@ describe("push notifications", () => {
         json: { name: `thread-push-${testId()}`, type: "public" },
       });
       expect(chRes.status).toBe(201);
-      const threadChannel = (await chRes.json()) as any;
+      const threadChannel = (await chRes.json()) as { id: string };
 
       // Recipient joins the channel
       const joinRes = await recipientClient.api.workspaces[":slug"].channels[":id"].join.$post({
@@ -536,7 +541,7 @@ describe("push notifications", () => {
         json: { content: "Parent message for thread" },
       });
       expect(parentRes.status).toBe(201);
-      const parentMsg = (await parentRes.json()) as any;
+      const parentMsg = (await parentRes.json()) as { id: string };
 
       // Sender replies in the thread
       const replyRes = await senderClient.api.workspaces[":slug"].channels[":id"].messages[":messageId"].replies.$post({
@@ -544,7 +549,7 @@ describe("push notifications", () => {
         json: { content: "Thread reply!" },
       });
       expect(replyRes.status).toBe(201);
-      const replyMsg = (await replyRes.json()) as any;
+      const replyMsg = (await replyRes.json()) as { id: string };
 
       // Register a push token for recipient if they don't have one
       await recipientClient.api["push-tokens"].$post({
@@ -582,7 +587,7 @@ describe("push notifications", () => {
         headers: testHeaders,
       });
       expect(res.status).toBe(200);
-      const body = (await res.json()) as any;
+      const body = (await res.json()) as { ok: boolean; count?: number };
       expect(typeof body.count).toBe("number");
     });
   });

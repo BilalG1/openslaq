@@ -59,4 +59,41 @@ describe("FilePreviewStrip", () => {
     expect(screen.getByTestId("file-preview-f1")).toBeTruthy();
     expect(screen.getByTestId("file-preview-f2")).toBeTruthy();
   });
+
+  it("shows FILE for extensionless files", () => {
+    const files = [
+      makeFile({ id: "f1", name: "Makefile", isImage: false }),
+    ];
+    render(<FilePreviewStrip files={files} onRemove={jest.fn()} />);
+    expect(screen.getByText("FILE")).toBeTruthy();
+  });
+
+  it("shows FILE for files with trailing dot", () => {
+    // BUG: getExtension("data.") used ?? which doesn't catch empty string
+    const files = [
+      makeFile({ id: "f1", name: "data.", isImage: false }),
+    ];
+    render(<FilePreviewStrip files={files} onRemove={jest.fn()} />);
+    expect(screen.getByText("FILE")).toBeTruthy();
+  });
+
+  it("falls back to extension badge when image fails to load", () => {
+    const files = [makeFile({ id: "f1", name: "broken.png", uri: "file:///gone.png" })];
+    render(<FilePreviewStrip files={files} onRemove={jest.fn()} />);
+
+    const image = screen.getByTestId("file-preview-f1");
+    fireEvent(image, "error");
+
+    // After error, should show the file extension fallback instead of a blank image
+    expect(screen.getByText("PNG")).toBeTruthy();
+  });
+
+  it("shows FILE for dot-only filename", () => {
+    // BUG: getExtension(".") returns "" instead of "FILE"
+    const files = [
+      makeFile({ id: "f1", name: ".", isImage: false }),
+    ];
+    render(<FilePreviewStrip files={files} onRemove={jest.fn()} />);
+    expect(screen.getByText("FILE")).toBeTruthy();
+  });
 });

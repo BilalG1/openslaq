@@ -34,6 +34,21 @@ jest.mock("@/contexts/ChatStoreProvider", () => ({
   }),
 }));
 
+jest.mock("@/contexts/WorkspaceBootstrapProvider", () => ({
+  useWorkspaceSlug: () => "acme",
+}));
+
+const mockDeps = {
+  api: {},
+  auth: mockAuthProvider,
+  dispatch: mockDispatch,
+  getState: () => mockState,
+};
+
+jest.mock("@/hooks/useOperationDeps", () => ({
+  useOperationDeps: () => mockDeps,
+}));
+
 jest.mock("@/theme/ThemeProvider", () => ({
   useMobileTheme: () => ({
     theme: {
@@ -77,6 +92,8 @@ jest.mock("@openslaq/client-core", () => ({
   deleteDraftOp: (...args: unknown[]) => mockDeleteDraftOp(...args),
   deleteScheduledMessageOp: (...args: unknown[]) => mockDeleteScheduledMessageOp(...args),
   updateScheduledMessageOp: (...args: unknown[]) => mockUpdateScheduledMessageOp(...args),
+  getErrorMessage: (err: unknown, fallback: string) =>
+    err instanceof Error ? err.message : fallback,
 }));
 
 jest.mock("lucide-react-native", () => {

@@ -13,8 +13,8 @@ describe("operations/presence", () => {
     expect(action).toEqual({
       type: "presence/sync",
       users: [
-        { userId: "u-1", online: true, lastSeenAt: null },
-        { userId: "u-2", online: false, lastSeenAt: "2026-01-01T00:00:00.000Z" },
+        { userId: "u-1", online: true, lastSeenAt: null, statusEmoji: null, statusText: null, statusExpiresAt: null },
+        { userId: "u-2", online: false, lastSeenAt: "2026-01-01T00:00:00.000Z", statusEmoji: null, statusText: null, statusExpiresAt: null },
       ],
     });
   });

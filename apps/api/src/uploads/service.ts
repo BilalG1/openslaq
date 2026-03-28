@@ -1,4 +1,5 @@
 import { eq, and, isNull, isNotNull, or, inArray, sql } from "drizzle-orm";
+import sharp from "sharp";
 import { db } from "../db";
 import { attachments } from "./schema";
 
@@ -28,6 +29,16 @@ export async function createAttachment(
   file: { name: string; type: string; bytes: Uint8Array },
   userId: string,
 ) {
+  // Convert HEIC/HEIF to JPEG for cross-platform compatibility (Chrome/Firefox can't render HEIC)
+  if (file.type === "image/heic" || file.type === "image/heif") {
+    const converted = await sharp(file.bytes).jpeg({ quality: 90 }).toBuffer();
+    file = {
+      name: file.name.replace(/\.heic$/i, ".jpg").replace(/\.heif$/i, ".jpg"),
+      type: "image/jpeg",
+      bytes: new Uint8Array(converted),
+    };
+  }
+
   const safeName = sanitizeFilename(file.name);
   const key = `uploads/${userId}/${crypto.randomUUID()}/${safeName}`;
   await uploadToS3(key, file.bytes, file.type);

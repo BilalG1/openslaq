@@ -3,9 +3,12 @@ import * as Sentry from "@sentry/react-native";
 import { registerGlobals } from "@livekit/react-native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { LogBox } from "react-native";
 import { AuthContextProvider } from "@/contexts/AuthContext";
+import { ServerProvider } from "@/contexts/ServerContext";
 import { MobileThemeProvider, useMobileTheme } from "@/theme/ThemeProvider";
 
+LogBox.ignoreAllLogs();
 registerGlobals();
 
 function ThemedAppShell() {
@@ -22,9 +25,11 @@ function ThemedAppShell() {
 function RootLayout() {
   return (
     <MobileThemeProvider>
-      <AuthContextProvider>
-        <ThemedAppShell />
-      </AuthContextProvider>
+      <ServerProvider>
+        <AuthContextProvider>
+          <ThemedAppShell />
+        </AuthContextProvider>
+      </ServerProvider>
     </MobileThemeProvider>
   );
 }

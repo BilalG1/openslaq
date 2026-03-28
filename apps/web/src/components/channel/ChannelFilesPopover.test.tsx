@@ -1,4 +1,4 @@
-import { describe, expect, test, afterEach, jest } from "bun:test";
+import { describe, expect, test, afterEach, vi } from "vitest";
 import { render, screen, cleanup } from "../../test-utils";
 import { ChannelFilesPopover } from "./ChannelFilesPopover";
 import type { FileBrowserItem } from "@openslaq/shared";
@@ -94,8 +94,8 @@ describe("ChannelFilesPopover", () => {
   });
 
   test("jump to message calls handler and closes", () => {
-    const onJump = jest.fn();
-    const onClose = jest.fn();
+    const onJump = vi.fn();
+    const onClose = vi.fn();
     const file = makeFile({ channelId: "ch-1" as FileBrowserItem["channelId"], messageId: "msg-1" as FileBrowserItem["messageId"] });
     render(
       <ChannelFilesPopover
@@ -129,7 +129,7 @@ describe("ChannelFilesPopover", () => {
   });
 
   test("load more button calls onLoadMore", () => {
-    const onLoadMore = jest.fn();
+    const onLoadMore = vi.fn();
     render(
       <ChannelFilesPopover
         open={true}

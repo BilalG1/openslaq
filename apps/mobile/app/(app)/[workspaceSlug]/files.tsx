@@ -8,12 +8,14 @@ import {
   ScrollView,
   Image,
   Modal,
+  StyleSheet,
 } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { fetchFiles } from "@openslaq/client-core";
-import type { FileBrowserItem, FileCategory } from "@openslaq/shared";
+import type { FileBrowserItem, FileCategory, MobileTheme } from "@openslaq/shared";
 import { Camera, Film, FileText, Music, Paperclip, ChevronRight, Folder } from "lucide-react-native";
 import { useMobileTheme } from "@/theme/ThemeProvider";
+import { useWorkspaceParams } from "@/hooks/useRouteParams";
 import { useOperationDeps } from "@/hooks/useOperationDeps";
 import { env } from "@/lib/env";
 import { openSafeUrl } from "@/utils/url-validation";
@@ -59,10 +61,11 @@ function formatDate(iso: string): string {
 }
 
 export default function FilesBrowserScreen() {
-  const { workspaceSlug } = useLocalSearchParams<{ workspaceSlug: string }>();
+  const { workspaceSlug } = useWorkspaceParams();
   const deps = useOperationDeps();
   const { theme } = useMobileTheme();
   const router = useRouter();
+  const styles = makeStyles(theme);
 
   const [files, setFiles] = useState<FileBrowserItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,7 +91,7 @@ export default function FilesBrowserScreen() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [workspaceSlug, deps, category]);
 
   const handleLoadMore = useCallback(() => {
@@ -115,30 +118,27 @@ export default function FilesBrowserScreen() {
 
   const handleJumpToChannel = useCallback(
     (channelId: string) => {
-      router.push(routes.channel(workspaceSlug, channelId));
+      router.push(routes.channel(workspaceSlug!, channelId));
     },
     [router, workspaceSlug],
   );
 
   if (loading) {
     return (
-      <View
-        testID="files-loading"
-        style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.surface }}
-      >
+      <View testID="files-loading" style={styles.center}>
         <ActivityIndicator size="large" color={theme.brand.primary} />
       </View>
     );
   }
 
   return (
-    <View testID="files-screen" style={{ flex: 1, backgroundColor: theme.colors.surface }}>
+    <View testID="files-screen" style={styles.container}>
       {/* Category filter chips */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={{ flexGrow: 0 }}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12, gap: 8 }}
+        style={styles.chipScrollNoGrow}
+        contentContainerStyle={styles.chipScrollContent}
       >
         {CATEGORIES.map((cat) => {
           const active = cat.value === category;
@@ -147,14 +147,15 @@ export default function FilesBrowserScreen() {
               key={cat.label}
               testID={`filter-chip-${cat.label.toLowerCase()}`}
               onPress={() => setCategory(cat.value)}
-              style={{
-                paddingHorizontal: 14,
-                paddingVertical: 6,
-                borderRadius: 16,
-                backgroundColor: active ? theme.brand.primary : theme.colors.surfaceSecondary,
-              }}
+              accessibilityRole="button"
+              accessibilityLabel={`Filter by ${cat.label}`}
+              accessibilityHint={`Shows ${cat.label.toLowerCase()} files`}
+              style={[
+                styles.chip,
+                { backgroundColor: active ? theme.brand.primary : theme.colors.surfaceSecondary },
+              ]}
             >
-              <Text style={{ fontSize: 13, fontWeight: "600", color: active ? "#fff" : theme.colors.textPrimary }}>
+              <Text style={[styles.chipText, { color: active ? theme.colors.headerText : theme.colors.textPrimary }]}>
                 {cat.label}
               </Text>
             </Pressable>
@@ -165,7 +166,7 @@ export default function FilesBrowserScreen() {
       {/* File list */}
       <FlatList
         testID="files-list"
-        style={{ flex: 1 }}
+        style={styles.flex}
         data={files}
         keyExtractor={(item) => String(item.id)}
         onEndReached={handleLoadMore}
@@ -174,50 +175,30 @@ export default function FilesBrowserScreen() {
           <Pressable
             testID={`file-row-${item.id}`}
             onPress={() => handleFilePress(item)}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              paddingHorizontal: 16,
-              paddingVertical: 12,
-              borderBottomWidth: 1,
-              borderBottomColor: theme.colors.borderSecondary,
-            }}
+            accessibilityRole="button"
+            accessibilityLabel={item.filename}
+            accessibilityHint="Opens the file"
+            style={styles.fileRow}
           >
             {/* Thumbnail / icon */}
             {item.category === "images" ? (
               <Image
                 source={{ uri: getDownloadUrl(String(item.id)) }}
-                style={{ width: 48, height: 48, borderRadius: 6, marginRight: 12 }}
+                style={styles.thumbnail}
                 resizeMode="cover"
               />
             ) : (
-              <View
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 6,
-                  marginRight: 12,
-                  backgroundColor: theme.colors.surfaceSecondary,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
+              <View style={styles.iconPlaceholder}>
                 {getCategoryIcon(item.category, theme.colors.textMuted)}
               </View>
             )}
 
             {/* Center info */}
-            <View style={{ flex: 1, marginRight: 8 }}>
-              <Text
-                numberOfLines={1}
-                style={{ fontSize: 15, fontWeight: "600", color: theme.colors.textPrimary }}
-              >
+            <View style={styles.fileInfo}>
+              <Text numberOfLines={1} style={styles.fileName}>
                 {item.filename}
               </Text>
-              <Text
-                numberOfLines={1}
-                style={{ fontSize: 12, color: theme.colors.textMuted, marginTop: 2 }}
-              >
+              <Text numberOfLines={1} style={styles.fileMeta}>
                 {formatSize(item.size)} · {item.uploaderName} · #{item.channelName} · {formatDate(item.createdAt)}
               </Text>
             </View>
@@ -227,6 +208,9 @@ export default function FilesBrowserScreen() {
               testID={`file-jump-${item.id}`}
               onPress={() => handleJumpToChannel(String(item.channelId))}
               hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Jump to channel"
+              accessibilityHint="Navigates to the channel where this file was shared"
             >
               <ChevronRight size={18} color={theme.colors.textMuted} />
             </Pressable>
@@ -234,15 +218,15 @@ export default function FilesBrowserScreen() {
         )}
         ListFooterComponent={
           loadingMore ? (
-            <View style={{ paddingVertical: 16 }}>
+            <View style={styles.footerSpinner}>
               <ActivityIndicator size="small" color={theme.brand.primary} />
             </View>
           ) : null
         }
         ListEmptyComponent={
-          <View testID="files-empty" style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 48 }}>
-            <Folder size={32} color={theme.colors.textFaint} style={{ marginBottom: 12 }} />
-            <Text style={{ fontSize: 16, color: theme.colors.textFaint }}>No files found</Text>
+          <View testID="files-empty" style={styles.emptyContainer}>
+            <Folder size={32} color={theme.colors.textFaint} style={styles.emptyIcon} />
+            <Text style={styles.emptyText}>No files found</Text>
           </View>
         }
       />
@@ -256,17 +240,20 @@ export default function FilesBrowserScreen() {
       >
         <Pressable
           testID="file-preview-modal"
-          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.9)", justifyContent: "center", alignItems: "center" }}
+          style={styles.previewOverlay}
           onPress={() => setPreviewFile(null)}
+          accessibilityRole="button"
+          accessibilityLabel="Close preview"
+          accessibilityHint="Closes the image preview"
         >
           {previewFile && (
             <>
               <Image
                 source={{ uri: getDownloadUrl(String(previewFile.id)) }}
-                style={{ width: "90%", height: "70%" }}
+                style={styles.previewImage}
                 resizeMode="contain"
               />
-              <Text style={{ color: "#fff", marginTop: 12, fontSize: 14 }}>
+              <Text style={styles.previewFilename}>
                 {previewFile.filename}
               </Text>
             </>
@@ -276,3 +263,105 @@ export default function FilesBrowserScreen() {
     </View>
   );
 }
+
+const makeStyles = (theme: MobileTheme) =>
+  StyleSheet.create({
+    center: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.colors.surface,
+    },
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.surface,
+    },
+    chipScrollNoGrow: {
+      flexGrow: 0,
+    },
+    chipScrollContent: {
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      gap: 8,
+    },
+    chip: {
+      paddingHorizontal: 14,
+      paddingVertical: 6,
+      borderRadius: 16,
+    },
+    chipText: {
+      fontSize: 13,
+      fontWeight: "600",
+    },
+    flex: {
+      flex: 1,
+    },
+    fileRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.borderSecondary,
+    },
+    thumbnail: {
+      width: 48,
+      height: 48,
+      borderRadius: 6,
+      marginRight: 12,
+    },
+    iconPlaceholder: {
+      width: 48,
+      height: 48,
+      borderRadius: 6,
+      marginRight: 12,
+      backgroundColor: theme.colors.surfaceSecondary,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    fileInfo: {
+      flex: 1,
+      marginRight: 8,
+    },
+    fileName: {
+      fontSize: 15,
+      fontWeight: "600",
+      color: theme.colors.textPrimary,
+    },
+    fileMeta: {
+      fontSize: 12,
+      color: theme.colors.textMuted,
+      marginTop: 2,
+    },
+    footerSpinner: {
+      paddingVertical: 16,
+    },
+    emptyContainer: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 48,
+    },
+    emptyIcon: {
+      marginBottom: 12,
+    },
+    emptyText: {
+      fontSize: 16,
+      color: theme.colors.textFaint,
+    },
+    previewOverlay: {
+      flex: 1,
+      backgroundColor: theme.colors.overlayHeavy,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    previewImage: {
+      width: "90%",
+      height: "70%",
+    },
+    previewFilename: {
+      color: theme.colors.headerText,
+      marginTop: 12,
+      fontSize: 14,
+    },
+  });

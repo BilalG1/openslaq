@@ -1,3 +1,43 @@
+// Make Animated.timing and Animated.parallel complete synchronously in tests
+// This is needed because BottomSheet uses animations before calling onClose
+const { Animated } = require("react-native");
+const origTiming = Animated.timing;
+const origParallel = Animated.parallel;
+const origSpring = Animated.spring;
+
+jest.spyOn(Animated, "timing").mockImplementation((value, config) => {
+  return {
+    start: (cb) => {
+      value.setValue(config.toValue);
+      cb?.();
+    },
+    stop: jest.fn(),
+    reset: jest.fn(),
+  };
+});
+
+jest.spyOn(Animated, "spring").mockImplementation((value, config) => {
+  return {
+    start: (cb) => {
+      value.setValue(config.toValue);
+      cb?.();
+    },
+    stop: jest.fn(),
+    reset: jest.fn(),
+  };
+});
+
+jest.spyOn(Animated, "parallel").mockImplementation((animations) => {
+  return {
+    start: (cb) => {
+      animations.forEach((a) => a.start());
+      cb?.();
+    },
+    stop: jest.fn(),
+    reset: jest.fn(),
+  };
+});
+
 // Mock expo-secure-store with in-memory store
 // The Map is created fresh per test file (jest re-runs module factories per file)
 const mockSecureStore = new Map();
@@ -248,6 +288,7 @@ jest.mock("@/components/WebViewEditor", () => {
     setContent: jest.fn(),
     clearContent: jest.fn(),
     focus: jest.fn(),
+    blur: jest.fn(),
     getMarkdown: jest.fn(() => Promise.resolve("")),
     toggleBold: jest.fn(),
     toggleItalic: jest.fn(),
@@ -258,6 +299,7 @@ jest.mock("@/components/WebViewEditor", () => {
     toggleOrderedList: jest.fn(),
     setLink: jest.fn(),
     unsetLink: jest.fn(),
+    insertLink: jest.fn(),
     insertMention: jest.fn(),
     insertSlashCommand: jest.fn(),
   };
@@ -317,6 +359,34 @@ jest.mock("react-native-webview", () => {
   return {
     __esModule: true,
     default: MockWebView,
+  };
+});
+
+// Mock ServerContext — provide a default cloud server for all tests
+jest.mock("@/contexts/ServerContext", () => {
+  const apiUrl = "http://localhost:3001";
+  // Use a plain object as mock API client — tests mock individual operations anyway
+  const apiClient = { api: {} };
+  const defaultServer = {
+    id: "srv_test",
+    url: apiUrl,
+    name: "Test Server",
+    authType: "stack-auth",
+    stackProjectId: "proj_test",
+    stackPublishableKey: "pck_test",
+  };
+  return {
+    useServer: jest.fn(() => ({
+      activeServer: defaultServer,
+      apiClient,
+      apiUrl,
+      isLoading: false,
+      isCloudServer: true,
+      addServer: jest.fn(),
+      resetToCloud: jest.fn(),
+    })),
+    ServerProvider: ({ children }) => children,
+    CLOUD_SERVER: defaultServer,
   };
 });
 

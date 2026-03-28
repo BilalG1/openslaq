@@ -17,6 +17,7 @@ import { cleanupStalePresence } from "./presence/service";
 import { closeOrphanedHuddleMessages } from "./messages/service";
 import { startScheduledMessageProcessor } from "./messages/scheduled-service";
 import { startReminderProcessor } from "./commands/reminder-service";
+import { startPushQueuePoller } from "./push/queue";
 
 // Use Node.js HTTP server for Socket.IO compatibility
 const httpServer = createAdaptorServer(app);
@@ -43,7 +44,7 @@ const io = new Server<
 });
 
 const pgPool = new pg.Pool({ connectionString: env.DATABASE_URL });
-io.adapter(createAdapter(pgPool as any));
+io.adapter(createAdapter(pgPool as unknown as Parameters<typeof createAdapter>[0]));
 
 setupSocketHandlers(io);
 setIO(io);
@@ -54,6 +55,7 @@ httpServer.listen(port, "0.0.0.0", () => {
   startCleanup();
   startScheduledMessageProcessor();
   startReminderProcessor();
+  startPushQueuePoller();
   setInterval(() => {
     cleanupStalePresence().catch((err) => console.error("Stale presence cleanup error:", err));
   }, 60_000);

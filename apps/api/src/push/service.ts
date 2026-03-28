@@ -11,8 +11,6 @@ import { isApnsConfigured, sendApnsNotification } from "./apns";
 import type { ApnsPayload } from "./apns";
 import { schedulePush, cancelPushesForUser } from "./queue";
 
-const PUSH_DELAY_MS = 3000;
-
 export async function scheduleMessagePush(
   message: Message,
   workspaceSlug: string,
@@ -69,12 +67,8 @@ export async function scheduleMessagePush(
   }
 
   for (const userId of recipientUserIds) {
-    schedulePush(
-      message.id,
-      userId,
-      channelId,
-      PUSH_DELAY_MS,
-      () => deliverPush(message, userId as UserId, workspaceSlug),
+    schedulePush(message.id, userId, channelId, workspaceSlug).catch((err) =>
+      console.error("[push] failed to schedule push:", err),
     );
   }
 }
@@ -209,5 +203,7 @@ export async function deliverPush(
 }
 
 export function onReadPositionUpdated(userId: UserId, channelId: ChannelId): void {
-  cancelPushesForUser(userId, channelId);
+  cancelPushesForUser(userId, channelId).catch((err) =>
+    console.error("[push] failed to cancel pushes:", err),
+  );
 }

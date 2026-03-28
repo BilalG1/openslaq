@@ -14,14 +14,12 @@ interface MessageItemProps {
   message: Message;
   senderStatusEmoji?: string | null;
   isGrouped?: boolean;
-  isFollowedByGrouped?: boolean;
 }
 
 export function MessageItem({
   message,
   senderStatusEmoji,
   isGrouped,
-  isFollowedByGrouped,
 }: MessageItemProps) {
   const {
     currentUserId,
@@ -81,9 +79,10 @@ export function MessageItem({
 
   const fullTime = new Date(message.createdAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
   const compactTime = new Date(message.createdAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: false });
+  const isEdited = message.updatedAt !== message.createdAt;
 
   return (
-    <div className={`${!isGrouped && !isFollowedByGrouped ? "mb-0 border-b border-border-default/60" : ""} ${message.isPinned ? "bg-yellow-50 dark:bg-yellow-900/20" : ""} relative group px-4 -mx-4 py-1.5 hover:bg-surface-secondary/40 transition-colors duration-75`} data-message-id={message.id}>
+    <div className={`${message.isPinned ? "bg-yellow-50 dark:bg-yellow-900/20" : ""} relative group px-4 -mx-4 py-1.5 hover:bg-surface-secondary/40 transition-colors duration-75`} data-message-id={message.id}>
       {onToggleReaction && (
         <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-75">
           <MessageActionBar
@@ -162,6 +161,9 @@ export function MessageItem({
             <span className="text-[11px] text-faint">
               {fullTime}
             </span>
+            {isEdited && (
+              <span className="text-[11px] text-faint" data-testid="edited-indicator">(edited)</span>
+            )}
             {message.isPinned && (
               <span className="inline-flex items-center gap-1 text-xs text-yellow-700 dark:text-yellow-400" data-testid="pin-badge">
                 <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">

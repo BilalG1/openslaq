@@ -16,7 +16,7 @@ async function createBotWithToken(client: TestApiClient, slug: string) {
     },
   });
   expect(res.status).toBe(201);
-  const data = (await res.json()) as { bot: any; apiToken: string };
+  const data = (await res.json()) as unknown as { bot: { id: string; userId: string }; apiToken: string };
   return data;
 }
 
@@ -59,7 +59,7 @@ describe("bot-facing API", () => {
       body: JSON.stringify({ content: "Hello from bot!" }),
     });
     expect(msgRes.status).toBe(201);
-    const msg = await msgRes.json() as any;
+    const msg = await msgRes.json() as { content: string; userId: string; isBot: boolean };
     expect(msg.content).toBe("Hello from bot!");
     expect(msg.userId).toBe(bot.userId);
     expect(msg.isBot).toBe(true);
@@ -95,10 +95,10 @@ describe("bot-facing API", () => {
       }),
     });
     expect(msgRes.status).toBe(201);
-    const msg = await msgRes.json() as any;
+    const msg = await msgRes.json() as { actions: Array<{ id: string; label: string }> };
     expect(msg.actions).toHaveLength(2);
-    expect(msg.actions[0].id).toBe("approve");
-    expect(msg.actions[1].id).toBe("reject");
+    expect(msg.actions[0]!.id).toBe("approve");
+    expect(msg.actions[1]!.id).toBe("reject");
   });
 
   test("bot reads channel messages → 200", async () => {
@@ -127,9 +127,9 @@ describe("bot-facing API", () => {
       headers: { Authorization: `Bearer ${apiToken}` },
     });
     expect(readRes.status).toBe(200);
-    const data = await readRes.json() as any;
+    const data = await readRes.json() as { messages: Array<{ content: string }> };
     expect(data.messages.length).toBeGreaterThanOrEqual(1);
-    expect(data.messages.some((m: any) => m.content === "User message")).toBe(true);
+    expect(data.messages.some((m: { content: string }) => m.content === "User message")).toBe(true);
   });
 
   test("bot lists channels → 200", async () => {
@@ -153,7 +153,7 @@ describe("bot-facing API", () => {
       headers: { Authorization: `Bearer ${apiToken}` },
     });
     expect(listRes.status).toBe(200);
-    const channels = await listRes.json() as any[];
+    const channels = await listRes.json() as Array<{ id: string }>;
     expect(channels.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -226,7 +226,7 @@ describe("bot-facing API", () => {
       },
     });
     expect(res.status).toBe(201);
-    const { bot, apiToken } = (await res.json()) as { bot: any; apiToken: string };
+    const { bot, apiToken } = (await res.json()) as unknown as { bot: { id: string; userId: string }; apiToken: string };
 
     // Try to read (requires chat:read)
     const chanRes = await client.api.workspaces[":slug"].channels.$post({
@@ -280,9 +280,9 @@ describe("bot-facing API", () => {
       }),
     });
     expect(updRes.status).toBe(200);
-    const updated = (await updRes.json()) as any;
+    const updated = (await updRes.json()) as { content: string; actions: Array<{ label: string }> };
     expect(updated.content).toBe("Updated content");
-    expect(updated.actions[0].label).toBe("New");
+    expect(updated.actions[0]!.label).toBe("New");
   });
 
   test("bot cannot update another user's message → 404", async () => {
@@ -344,7 +344,7 @@ describe("bot-facing API", () => {
       headers: { Authorization: `Bearer ${apiToken}` },
     });
     expect(delRes.status).toBe(200);
-    const body = (await delRes.json()) as any;
+    const body = (await delRes.json()) as { ok: boolean };
     expect(body.ok).toBe(true);
   });
 
@@ -422,7 +422,7 @@ describe("bot-facing API", () => {
       headers: { Authorization: `Bearer ${apiToken}` },
     });
     expect(res.status).toBe(200);
-    const members = (await res.json()) as any[];
+    const members = (await res.json()) as Array<{ id: string }>;
     expect(members.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -455,8 +455,8 @@ describe("bot-facing API", () => {
       body: JSON.stringify({ emoji: "thumbsup" }),
     });
     expect(reactRes.status).toBe(200);
-    const reactData = (await reactRes.json()) as { reactions: any[] };
-    expect(reactData.reactions.some((r: any) => r.emoji === "thumbsup")).toBe(true);
+    const reactData = (await reactRes.json()) as { reactions: Array<{ emoji: string; count: number }> };
+    expect(reactData.reactions.some((r: { emoji: string; count: number }) => r.emoji === "thumbsup")).toBe(true);
 
     // Toggle reaction off
     const offRes = await fetch(`${getApiUrl()}/api/bot/messages/${msg.id}/reactions`, {
@@ -465,8 +465,8 @@ describe("bot-facing API", () => {
       body: JSON.stringify({ emoji: "thumbsup" }),
     });
     expect(offRes.status).toBe(200);
-    const offData = (await offRes.json()) as { reactions: any[] };
-    expect(offData.reactions.some((r: any) => r.emoji === "thumbsup" && r.count > 0)).toBe(false);
+    const offData = (await offRes.json()) as { reactions: Array<{ emoji: string; count: number }> };
+    expect(offData.reactions.some((r: { emoji: string; count: number }) => r.emoji === "thumbsup" && r.count > 0)).toBe(false);
   });
 
   test("bot reacts to message in non-member channel → 403", async () => {
@@ -597,7 +597,7 @@ describe("bot-facing API", () => {
       headers: { Authorization: `Bearer ${apiToken}` },
     });
     expect(res.status).toBe(200);
-    const data = (await res.json()) as any;
+    const data = (await res.json()) as { id: string; displayName: string };
     expect(data.id).toBe(user.id);
     expect(data.displayName).toBeDefined();
   });
@@ -647,7 +647,7 @@ describe("bot-facing API", () => {
       query: {},
     });
     expect(msgsRes.status).toBe(200);
-    const data = (await msgsRes.json()) as { messages: any[] };
+    const data = (await msgsRes.json()) as { messages: Array<{ content: string; isBot?: boolean; userId?: string; id?: string }> };
     const botMsg = data.messages.find((m) => m.content === "Bot message for flag test");
     expect(botMsg).toBeDefined();
     expect(botMsg!.isBot).toBe(true);

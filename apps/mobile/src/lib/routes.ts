@@ -16,5 +16,7 @@ export const routes = {
   browse: (ws: string) => `/(app)/${ws}/(tabs)/(channels)/browse` as const,
   notificationSettings: (ws: string) => `/(app)/${ws}/notification-settings` as const,
   preferences: (ws: string) => `/(app)/${ws}/preferences` as const,
-  channels: (ws: string) => `/(app)/${ws}/(channels)` as const,
+  channels: (ws: string) => `/(app)/${ws}/(tabs)/(channels)` as const,
+  messageDeepLink: (ws: string, channelId: string, messageId: string) =>
+    `openslaq://w/${ws}/c/${channelId}/t/${messageId}` as const,
 };

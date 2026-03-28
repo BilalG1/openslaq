@@ -110,6 +110,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
       if (recordingRef.current) {
         void recordingRef.current.stopAndUnloadAsync();
         recordingRef.current = null;
+        void Audio.setAudioModeAsync({ allowsRecordingIOS: false });
       }
     };
   }, [clearInterval_]);

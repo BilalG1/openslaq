@@ -37,15 +37,17 @@ export function usePushNotifications({
   ensureNotificationHandler();
 
   const tokenRef = useRef<string | null>(null);
-  const activeChannelIdRef = useRef(activeChannelId);
-  activeChannelIdRef.current = activeChannelId;
 
   // Register push token on mount
   useEffect(() => {
     let cancelled = false;
 
     void (async () => {
-      const { status } = await Notifications.getPermissionsAsync();
+      let { status } = await Notifications.getPermissionsAsync();
+      if (status !== "granted") {
+        const result = await Notifications.requestPermissionsAsync();
+        status = result.status;
+      }
       if (status !== "granted") return;
 
       try {
@@ -63,26 +65,6 @@ export function usePushNotifications({
       cancelled = true;
     };
   }, [deps]);
-
-  // Foreground notification handler — suppress if viewing the same channel
-  useEffect(() => {
-    const subscription = Notifications.addNotificationReceivedListener(
-      (notification) => {
-        const data = notification.request.content.data as {
-          channelId?: string;
-        } | undefined;
-
-        if (data?.channelId && data.channelId === activeChannelIdRef.current) {
-          // User is viewing this channel — dismiss the notification
-          Notifications.dismissNotificationAsync(
-            notification.request.identifier,
-          ).catch(() => {});
-        }
-      },
-    );
-
-    return () => subscription.remove();
-  }, []);
 
   // Notification tap — deep link
   useEffect(() => {

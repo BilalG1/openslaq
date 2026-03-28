@@ -1,46 +1,56 @@
-import { describe, test, expect, afterEach, jest, mock, beforeEach } from "bun:test";
+import { describe, test, expect, afterEach, vi, beforeEach } from "vitest";
 import { render, screen, cleanup, act } from "../test-utils";
 import { fireEvent } from "@testing-library/react";
 
 // --- Mocks (must be before component import) ---
 
 // Prevent @stripe/stripe-js side-effect script injection in happy-dom
-mock.module("@stripe/stripe-js", () => ({
+vi.mock("@stripe/stripe-js", () => ({
   loadStripe: async () => null,
 }));
 
-mock.module("react-router-dom", () => ({
+vi.mock("react-router-dom", () => ({
   useParams: () => ({ channelId: "ch-1" }),
 }));
 
-mock.module("../hooks/useCurrentUser", () => ({
-  useCurrentUser: () => ({
-    id: "user-1",
-    displayName: "Test User",
-    getAuthJson: async () => ({ accessToken: "tok" }),
-  }),
+const mockUser = {
+  id: "user-1",
+  displayName: "Test User",
+  getAuthJson: async () => ({ accessToken: "tok" }),
+};
+vi.mock("../hooks/useCurrentUser", () => ({
+  useCurrentUser: () => mockUser,
 }));
 
-const _realApiClient = require("../lib/api-client");
-mock.module("../lib/api-client", () => ({
-  ..._realApiClient,
+vi.mock("../lib/api-client", () => ({
   authorizedHeaders: async () => ({ Authorization: "Bearer tok" }),
+  useAuthProvider: () => ({ requireAccessToken: async () => "tok" }),
 }));
 
-mock.module("../env", () => ({
+vi.mock("../api", () => ({
+  api: {},
+}));
+
+vi.mock("../env", () => ({
   env: { VITE_API_URL: "http://localhost:3001" },
 }));
 
-const mockSubscribe = jest.fn(() => jest.fn());
-const mockConnect = jest.fn(async () => {});
-const mockEnableMicrophone = jest.fn(async () => {});
-const mockDestroy = jest.fn();
-const mockToggleMicrophone = jest.fn(async () => {});
-const mockToggleCamera = jest.fn(async () => {});
-const mockStartScreenShare = jest.fn(async () => {});
-const mockStopScreenShare = jest.fn(async () => {});
+const mockNotifyHuddleLeave = vi.fn(() => Promise.resolve({ ended: false }));
+vi.mock("@openslaq/client-core", async () => {
+  const actual = await vi.importActual<typeof import("@openslaq/client-core")>("@openslaq/client-core");
+  return { ...actual, notifyHuddleLeave: () => mockNotifyHuddleLeave() };
+});
 
-mock.module("@openslaq/huddle/client", () => ({
+const mockSubscribe = vi.fn(() => vi.fn());
+const mockConnect = vi.fn(async () => {});
+const mockEnableMicrophone = vi.fn(async () => {});
+const mockDestroy = vi.fn();
+const mockToggleMicrophone = vi.fn(async () => {});
+const mockToggleCamera = vi.fn(async () => {});
+const mockStartScreenShare = vi.fn(async () => {});
+const mockStopScreenShare = vi.fn(async () => {});
+
+vi.mock("@openslaq/huddle/client", () => ({
   HuddleClient: class {
     subscribe = mockSubscribe;
     connect = mockConnect;
@@ -50,30 +60,26 @@ mock.module("@openslaq/huddle/client", () => ({
     toggleCamera = mockToggleCamera;
     startScreenShare = mockStartScreenShare;
     stopScreenShare = mockStopScreenShare;
-    switchAudioDevice = jest.fn(async () => {});
+    switchAudioDevice = vi.fn(async () => {});
     getState = () => ({ localParticipant: null, participants: [] });
   },
 }));
 
-mock.module("../components/ui", () => ({
+vi.mock("../components/ui", () => ({
   Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
-// Provide browser APIs needed by VideoTile / DeviceSelector in happy-dom
-class MockMediaStream {
-  tracks: unknown[];
-  constructor(tracks?: unknown[]) { this.tracks = tracks ?? []; }
-}
-(globalThis as unknown as { MediaStream: unknown }).MediaStream = MockMediaStream;
-Object.defineProperty(HTMLVideoElement.prototype, "srcObject", {
-  set(value: unknown) { (this as unknown as { _srcObject: unknown })._srcObject = value; },
-  get() { return (this as unknown as { _srcObject: unknown })._srcObject ?? null; },
-  configurable: true,
-});
-Object.defineProperty(navigator, "mediaDevices", {
-  value: { enumerateDevices: async () => [] },
-  configurable: true,
-});
+vi.mock("../components/huddle/VideoGrid", () => ({
+  VideoGrid: ({ localParticipant, remoteParticipants }: { localParticipant: unknown; remoteParticipants: unknown[] }) => (
+    <div data-testid="video-grid">
+      {remoteParticipants.length + (localParticipant ? 1 : 0)} tiles
+    </div>
+  ),
+}));
+
+vi.mock("../components/huddle/DeviceSelector", () => ({
+  DeviceSelector: () => <div data-testid="device-selector" />,
+}));
 
 import { HuddlePage } from "./HuddlePage";
 
@@ -93,10 +99,10 @@ function fullParticipant(overrides: Record<string, unknown> = {}) {
 // --- Tests ---
 
 describe("HuddlePage", () => {
-  let fetchSpy: ReturnType<typeof jest.fn>;
+  let fetchSpy: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    fetchSpy = jest.fn(() =>
+    fetchSpy = vi.fn(() =>
       Promise.resolve({
         ok: true,
         json: async () => ({ token: "lk-token", wsUrl: "ws://localhost" }),
@@ -111,6 +117,7 @@ describe("HuddlePage", () => {
     mockToggleCamera.mockClear();
     mockStartScreenShare.mockClear();
     mockStopScreenShare.mockClear();
+    mockNotifyHuddleLeave.mockClear();
   });
 
   afterEach(cleanup);
@@ -241,11 +248,104 @@ describe("HuddlePage", () => {
     expect(screen.queryByText("Connection failed")).toBeNull();
   });
 
+  test("mic permission denied on join — joins muted, no error screen", async () => {
+    mockEnableMicrophone.mockRejectedValueOnce(
+      new DOMException("Permission denied", "NotAllowedError"),
+    );
+
+    await act(async () => {
+      render(<HuddlePage />);
+    });
+    await act(() => Promise.resolve());
+
+    // Should NOT show error screen
+    expect(screen.queryByText(/permission denied/i)).toBeNull();
+    expect(screen.queryByText(/failed/i)).toBeNull();
+    // Should show connecting/huddle UI (not error)
+    expect(screen.getByTestId("huddle-mute-toggle")).toBeTruthy();
+  });
+
+  test("camera permission denied — shows alert, no toggle", async () => {
+    (mockSubscribe as import("vitest").Mock).mockImplementation((cb: Function) => {
+      cb({ localParticipant: fullParticipant(), participants: [] });
+      return vi.fn();
+    });
+    mockToggleCamera.mockRejectedValueOnce(
+      new DOMException("Permission denied", "NotAllowedError"),
+    );
+
+    await act(async () => {
+      render(<HuddlePage />);
+    });
+    await act(() => Promise.resolve());
+
+    const cameraBtn = screen.getByTestId("huddle-camera-toggle");
+    await act(async () => {
+      fireEvent.click(cameraBtn);
+    });
+
+    // Should show permission alert
+    expect(screen.getByTestId("permission-alert")).toBeTruthy();
+    expect(screen.getByText(/camera blocked/i)).toBeTruthy();
+  });
+
+  test("screen share cancel — no alert shown", async () => {
+    (mockSubscribe as import("vitest").Mock).mockImplementation((cb: Function) => {
+      cb({ localParticipant: fullParticipant(), participants: [] });
+      return vi.fn();
+    });
+    mockStartScreenShare.mockRejectedValueOnce(
+      new DOMException("Permission denied", "NotAllowedError"),
+    );
+
+    await act(async () => {
+      render(<HuddlePage />);
+    });
+    await act(() => Promise.resolve());
+
+    const shareBtn = screen.getByTestId("huddle-screenshare-toggle");
+    await act(async () => {
+      fireEvent.click(shareBtn);
+    });
+
+    // User cancelled the picker — no alert
+    expect(screen.queryByTestId("permission-alert")).toBeNull();
+  });
+
+  test("permission alert can be dismissed", async () => {
+    (mockSubscribe as import("vitest").Mock).mockImplementation((cb: Function) => {
+      cb({ localParticipant: fullParticipant(), participants: [] });
+      return vi.fn();
+    });
+    mockToggleCamera.mockRejectedValueOnce(
+      new DOMException("Permission denied", "NotAllowedError"),
+    );
+
+    await act(async () => {
+      render(<HuddlePage />);
+    });
+    await act(() => Promise.resolve());
+
+    const cameraBtn = screen.getByTestId("huddle-camera-toggle");
+    await act(async () => {
+      fireEvent.click(cameraBtn);
+    });
+
+    expect(screen.getByTestId("permission-alert")).toBeTruthy();
+
+    // Dismiss
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("permission-alert-ok"));
+    });
+
+    expect(screen.queryByTestId("permission-alert")).toBeNull();
+  });
+
   test("mute toggle calls toggleMicrophone", async () => {
     // Let subscribe invoke the callback to set mediaState
-    (mockSubscribe as jest.Mock).mockImplementation((cb: Function) => {
+    (mockSubscribe as import("vitest").Mock).mockImplementation((cb: Function) => {
       cb({ localParticipant: fullParticipant(), participants: [] });
-      return jest.fn();
+      return vi.fn();
     });
 
     await act(async () => {
@@ -262,9 +362,9 @@ describe("HuddlePage", () => {
   });
 
   test("camera toggle calls toggleCamera", async () => {
-    (mockSubscribe as jest.Mock).mockImplementation((cb: Function) => {
+    (mockSubscribe as import("vitest").Mock).mockImplementation((cb: Function) => {
       cb({ localParticipant: fullParticipant(), participants: [] });
-      return jest.fn();
+      return vi.fn();
     });
 
     await act(async () => {
@@ -281,9 +381,9 @@ describe("HuddlePage", () => {
   });
 
   test("screen share toggle calls startScreenShare", async () => {
-    (mockSubscribe as jest.Mock).mockImplementation((cb: Function) => {
+    (mockSubscribe as import("vitest").Mock).mockImplementation((cb: Function) => {
       cb({ localParticipant: fullParticipant(), participants: [] });
-      return jest.fn();
+      return vi.fn();
     });
 
     await act(async () => {
@@ -299,14 +399,14 @@ describe("HuddlePage", () => {
     expect(mockStartScreenShare).toHaveBeenCalled();
   });
 
-  test("leave button calls destroy", async () => {
-    (mockSubscribe as jest.Mock).mockImplementation((cb: Function) => {
+  test("leave button calls destroy and notifyHuddleLeave", async () => {
+    (mockSubscribe as import("vitest").Mock).mockImplementation((cb: Function) => {
       cb({ localParticipant: fullParticipant(), participants: [] });
-      return jest.fn();
+      return vi.fn();
     });
 
     // Mock window.close to prevent errors
-    const closeSpy = jest.fn();
+    const closeSpy = vi.fn();
     window.close = closeSpy;
 
     await act(async () => {
@@ -320,15 +420,16 @@ describe("HuddlePage", () => {
     });
 
     expect(mockDestroy).toHaveBeenCalled();
+    expect(mockNotifyHuddleLeave).toHaveBeenCalledTimes(1);
   });
 
   test("participant count updates when mediaState changes", async () => {
-    (mockSubscribe as jest.Mock).mockImplementation((cb: Function) => {
+    (mockSubscribe as import("vitest").Mock).mockImplementation((cb: Function) => {
       cb({
         localParticipant: fullParticipant(),
         participants: [fullParticipant({ userId: "remote-1" })],
       });
-      return jest.fn();
+      return vi.fn();
     });
 
     await act(async () => {

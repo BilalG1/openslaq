@@ -1,5 +1,6 @@
-import { Pressable, Text, View } from "react-native";
-import type { Channel, ChannelNotifyLevel } from "@openslaq/shared";
+import { useMemo } from "react";
+import { Pressable, Text, View, StyleSheet } from "react-native";
+import type { Channel, ChannelNotifyLevel, MobileTheme } from "@openslaq/shared";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import {
@@ -29,6 +30,7 @@ interface ChannelInfoPanelProps {
   onViewFiles: () => void;
   onEditTopic: () => void;
   onLeaveChannel: () => void;
+  onArchiveChannel?: () => void;
   onClose: () => void;
 }
 
@@ -36,6 +38,153 @@ function formatDate(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
 }
+
+import { TRANSPARENT } from "@/theme/constants";
+
+const makeStyles = (theme: MobileTheme) =>
+  StyleSheet.create({
+    heroSection: {
+      alignItems: "center",
+      paddingHorizontal: 24,
+      paddingBottom: 20,
+    },
+    iconCircle: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      backgroundColor: theme.colors.surfaceSecondary,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 12,
+    },
+    channelName: {
+      fontSize: 22,
+      fontWeight: "700",
+      color: theme.colors.textPrimary,
+      marginBottom: 6,
+      textAlign: "center",
+    },
+    channelDescription: {
+      fontSize: 14,
+      color: theme.colors.textSecondary,
+      textAlign: "center",
+      lineHeight: 20,
+    },
+    statsRow: {
+      flexDirection: "row",
+      paddingHorizontal: 16,
+      gap: 10,
+      marginBottom: 20,
+    },
+    quickActionsRow: {
+      flexDirection: "row",
+      justifyContent: "center",
+      gap: 32,
+      paddingHorizontal: 16,
+      paddingBottom: 20,
+    },
+    separator: {
+      height: 1,
+      backgroundColor: theme.colors.borderDefault,
+      marginHorizontal: 16,
+    },
+    navSection: {
+      paddingVertical: 4,
+    },
+    footerContainer: {
+      paddingHorizontal: 16,
+      paddingTop: 16,
+      paddingBottom: 8,
+    },
+    createdDate: {
+      fontSize: 13,
+      color: theme.colors.textFaint,
+      textAlign: "center",
+      marginBottom: 16,
+    },
+    leaveButtonDefault: {
+      paddingVertical: 12,
+      alignItems: "center",
+      opacity: 1,
+    },
+    leaveButtonPressed: {
+      paddingVertical: 12,
+      alignItems: "center",
+      opacity: 0.6,
+    },
+    leaveText: {
+      fontSize: 16,
+      fontWeight: "500",
+      color: theme.brand.danger,
+    },
+    statCardContainer: {
+      flex: 1,
+      backgroundColor: theme.colors.surfaceSecondary,
+      borderRadius: 8,
+      paddingVertical: 10,
+      alignItems: "center",
+    },
+    statCardValue: {
+      fontSize: 18,
+      fontWeight: "700",
+      color: theme.colors.textPrimary,
+    },
+    statCardLabel: {
+      fontSize: 12,
+      color: theme.colors.textMuted,
+      marginTop: 2,
+    },
+    quickActionDefault: {
+      alignItems: "center",
+      opacity: 1,
+    },
+    quickActionPressed: {
+      alignItems: "center",
+      opacity: 0.6,
+    },
+    quickActionLabel: {
+      fontSize: 12,
+      color: theme.colors.textSecondary,
+    },
+    navRowDefault: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      backgroundColor: TRANSPARENT,
+    },
+    navRowPressed: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      backgroundColor: theme.colors.surfaceHover,
+    },
+    navRowLabel: {
+      flex: 1,
+      fontSize: 16,
+      color: theme.colors.textPrimary,
+      marginLeft: 12,
+    },
+    navRowCount: {
+      fontSize: 14,
+      color: theme.colors.textMuted,
+      marginRight: 4,
+    },
+  });
+
+const makeQuickActionIconStyles = (theme: MobileTheme, active: boolean) =>
+  StyleSheet.create({
+    iconCircle: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: active ? theme.colors.surfaceSelected : theme.colors.surfaceSecondary,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 6,
+    },
+  });
 
 export function ChannelInfoPanel({
   visible,
@@ -50,9 +199,11 @@ export function ChannelInfoPanel({
   onViewFiles,
   onEditTopic,
   onLeaveChannel,
+  onArchiveChannel,
   onClose,
 }: ChannelInfoPanelProps) {
   const { theme } = useMobileTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
 
   if (!channel) return null;
 
@@ -60,82 +211,29 @@ export function ChannelInfoPanel({
 
   return (
     <BottomSheet visible={visible} onClose={onClose} scrollable maxHeight="85%">
-      {/* Drag handle */}
-      <View style={{ alignItems: "center", paddingVertical: 10 }}>
-        <View
-          style={{
-            width: 40,
-            height: 4,
-            borderRadius: 2,
-            backgroundColor: theme.colors.textFaint,
-          }}
-        />
-      </View>
-
       {/* Hero section */}
-      <View style={{ alignItems: "center", paddingHorizontal: 24, paddingBottom: 20 }}>
-        <View
-          style={{
-            width: 64,
-            height: 64,
-            borderRadius: 32,
-            backgroundColor: theme.colors.surfaceSecondary,
-            alignItems: "center",
-            justifyContent: "center",
-            marginBottom: 12,
-          }}
-        >
+      <View style={styles.heroSection}>
+        <View style={styles.iconCircle}>
           <ChannelIcon size={28} color={theme.colors.textPrimary} />
         </View>
-        <Text
-          style={{
-            fontSize: 22,
-            fontWeight: "700",
-            color: theme.colors.textPrimary,
-            marginBottom: 6,
-            textAlign: "center",
-          }}
-        >
+        <Text style={styles.channelName}>
           {channel.displayName ?? channel.name}
         </Text>
         {channel.description ? (
-          <Text
-            style={{
-              fontSize: 14,
-              color: theme.colors.textSecondary,
-              textAlign: "center",
-              lineHeight: 20,
-            }}
-            numberOfLines={4}
-          >
+          <Text style={styles.channelDescription} numberOfLines={4}>
             {channel.description}
           </Text>
         ) : null}
       </View>
 
       {/* Stats row */}
-      <View
-        style={{
-          flexDirection: "row",
-          paddingHorizontal: 16,
-          gap: 10,
-          marginBottom: 20,
-        }}
-      >
+      <View style={styles.statsRow}>
         <StatCard label="Members" value={channel.memberCount ?? 0} theme={theme} />
         <StatCard label="Pinned" value={pinCount} theme={theme} />
       </View>
 
       {/* Quick action circles */}
-      <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "center",
-          gap: 32,
-          paddingHorizontal: 16,
-          paddingBottom: 20,
-        }}
-      >
+      <View style={styles.quickActionsRow}>
         <QuickAction
           icon={
             <Star
@@ -173,16 +271,10 @@ export function ChannelInfoPanel({
         />
       </View>
 
-      <View
-        style={{
-          height: 1,
-          backgroundColor: theme.colors.borderDefault,
-          marginHorizontal: 16,
-        }}
-      />
+      <View style={styles.separator} />
 
       {/* Navigation rows */}
-      <View style={{ paddingVertical: 4 }}>
+      <View style={styles.navSection}>
         <NavRow
           icon={<Users size={20} color={theme.colors.textSecondary} />}
           label="Members"
@@ -205,35 +297,32 @@ export function ChannelInfoPanel({
         />
       </View>
 
-      <View
-        style={{
-          height: 1,
-          backgroundColor: theme.colors.borderDefault,
-          marginHorizontal: 16,
-        }}
-      />
+      <View style={styles.separator} />
 
       {/* Footer */}
-      <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 }}>
-        <Text
-          style={{
-            fontSize: 13,
-            color: theme.colors.textFaint,
-            textAlign: "center",
-            marginBottom: 16,
-          }}
-        >
+      <View style={styles.footerContainer}>
+        <Text style={styles.createdDate}>
           Created on {formatDate(channel.createdAt)}
         </Text>
+        {onArchiveChannel && (
+          <Pressable
+            onPress={onArchiveChannel}
+            accessibilityLabel="Archive channel"
+            accessibilityHint="Archives this channel"
+            style={({ pressed }) => pressed ? styles.leaveButtonPressed : styles.leaveButtonDefault}
+          >
+            <Text style={styles.leaveText}>
+              Archive Channel
+            </Text>
+          </Pressable>
+        )}
         <Pressable
           onPress={onLeaveChannel}
-          style={({ pressed }) => ({
-            paddingVertical: 12,
-            alignItems: "center",
-            opacity: pressed ? 0.6 : 1,
-          })}
+          accessibilityLabel="Leave channel"
+          accessibilityHint="Leaves this channel"
+          style={({ pressed }) => pressed ? styles.leaveButtonPressed : styles.leaveButtonDefault}
         >
-          <Text style={{ fontSize: 16, fontWeight: "500", color: theme.brand.danger }}>
+          <Text style={styles.leaveText}>
             Leave Channel
           </Text>
         </Pressable>
@@ -251,20 +340,13 @@ interface StatCardProps {
 }
 
 function StatCard({ label, value, theme }: StatCardProps) {
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: theme.colors.surfaceSecondary,
-        borderRadius: 8,
-        paddingVertical: 10,
-        alignItems: "center",
-      }}
-    >
-      <Text style={{ fontSize: 18, fontWeight: "700", color: theme.colors.textPrimary }}>
+    <View style={styles.statCardContainer}>
+      <Text style={styles.statCardValue}>
         {value}
       </Text>
-      <Text style={{ fontSize: 12, color: theme.colors.textMuted, marginTop: 2 }}>{label}</Text>
+      <Text style={styles.statCardLabel}>{label}</Text>
     </View>
   );
 }
@@ -278,28 +360,19 @@ interface QuickActionProps {
 }
 
 function QuickAction({ icon, label, onPress, active, theme }: QuickActionProps) {
+  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const iconStyles = makeQuickActionIconStyles(theme, active);
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => ({
-        alignItems: "center",
-        opacity: pressed ? 0.6 : 1,
-      })}
+      accessibilityLabel={label}
+      accessibilityHint={`Activates ${label.toLowerCase()} action`}
+      style={({ pressed }) => pressed ? styles.quickActionPressed : styles.quickActionDefault}
     >
-      <View
-        style={{
-          width: 48,
-          height: 48,
-          borderRadius: 24,
-          backgroundColor: active ? theme.colors.surfaceSelected : theme.colors.surfaceSecondary,
-          alignItems: "center",
-          justifyContent: "center",
-          marginBottom: 6,
-        }}
-      >
+      <View style={iconStyles.iconCircle}>
         {icon}
       </View>
-      <Text style={{ fontSize: 12, color: theme.colors.textSecondary }}>{label}</Text>
+      <Text style={styles.quickActionLabel}>{label}</Text>
     </Pressable>
   );
 }
@@ -313,30 +386,20 @@ interface NavRowProps {
 }
 
 function NavRow({ icon, label, count, onPress, theme }: NavRowProps) {
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => ({
-        flexDirection: "row",
-        alignItems: "center",
-        paddingHorizontal: 16,
-        paddingVertical: 14,
-        backgroundColor: pressed ? theme.colors.surfaceHover : "transparent",
-      })}
+      accessibilityLabel={label}
+      accessibilityHint={`Opens ${label.toLowerCase()}`}
+      style={({ pressed }) => pressed ? styles.navRowPressed : styles.navRowDefault}
     >
       {icon}
-      <Text
-        style={{
-          flex: 1,
-          fontSize: 16,
-          color: theme.colors.textPrimary,
-          marginLeft: 12,
-        }}
-      >
+      <Text style={styles.navRowLabel}>
         {label}
       </Text>
       {count !== undefined && (
-        <Text style={{ fontSize: 14, color: theme.colors.textMuted, marginRight: 4 }}>
+        <Text style={styles.navRowCount}>
           {count}
         </Text>
       )}

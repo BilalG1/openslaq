@@ -47,8 +47,8 @@ describe("operations/search", () => {
         limit: 10,
         channelId: "ch-1",
         userId: "u-2",
-        fromDate: "2026-01-01",
-        toDate: "2026-01-31",
+        fromDate: "2026-01-01T00:00:00.000Z",
+        toDate: "2026-01-31T23:59:59.999Z",
       });
       return jsonResponse(200, { results: [], total: 0 });
     });
@@ -65,6 +65,28 @@ describe("operations/search", () => {
     });
 
     expect(result).toEqual({ results: [], total: 0 });
+  });
+
+  it("passes through dates that are already full ISO datetimes", async () => {
+    const { deps } = makeDeps((query) => {
+      expect(query).toEqual({
+        q: "test",
+        offset: 0,
+        limit: 10,
+        fromDate: "2026-03-01T12:00:00.000Z",
+        toDate: "2026-03-31T18:30:00.000Z",
+      });
+      return jsonResponse(200, { results: [], total: 0 });
+    });
+
+    await searchMessages(deps, {
+      workspaceSlug: "ws",
+      q: "test",
+      offset: 0,
+      limit: 10,
+      fromDate: "2026-03-01T12:00:00.000Z",
+      toDate: "2026-03-31T18:30:00.000Z",
+    });
   });
 
   it("omits optional filters when not provided", async () => {

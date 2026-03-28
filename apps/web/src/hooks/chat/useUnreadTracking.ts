@@ -20,6 +20,12 @@ export function useUnreadTracking(user: AuthJsonUser | null | undefined, workspa
   const onNewMessage = useCallback(
     (message: Message) => {
       if (!user) return;
+      const activeId = state.activeChannelId ?? state.activeDmId;
+      // If viewing this channel, mark as read so the server cancels the pending push
+      if (activeId && message.channelId === activeId && workspaceSlug) {
+        const deps = { api, auth, dispatch, getState: () => state };
+        void markChannelAsRead(deps, { workspaceSlug, channelId: activeId });
+      }
       const action = handleNewMessageUnread(message, {
         currentUserId: user.id,
         activeChannelId: state.activeChannelId,
@@ -28,7 +34,7 @@ export function useUnreadTracking(user: AuthJsonUser | null | undefined, workspa
       });
       if (action) dispatch(action);
     },
-    [state.activeChannelId, state.activeDmId, state.channelNotificationPrefs, dispatch, user],
+    [state, dispatch, user, workspaceSlug, auth],
   );
 
   useSocketEvent("message:new", onNewMessage);

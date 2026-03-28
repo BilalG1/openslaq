@@ -187,9 +187,9 @@ function ActionBar({ editor, onSend, disabled, onFileSelect, uploading, onSchedu
         @
       </button>
 
-      {/* Right side: send + schedule */}
-      <div className="ml-auto flex items-center gap-1">
-        <div className="inline-flex items-center">
+      {/* Right side: combined send + schedule split button */}
+      <div className="ml-auto flex items-center">
+        <div className={`editor-send-group${disabled || uploading ? " disabled" : ""}`}>
           <button
             type="button"
             disabled={disabled || uploading}
@@ -204,20 +204,22 @@ function ActionBar({ editor, onSend, disabled, onFileSelect, uploading, onSchedu
             </svg>
           </button>
           {onScheduleSend && (
-            <button
-              type="button"
-              disabled={disabled || uploading}
-              onClick={onScheduleSend}
-              aria-label="Schedule message"
-              title="Schedule for later"
-              data-testid="schedule-send-button"
-              className="editor-toolbar-btn ml-1"
-            >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" strokeWidth="1.5" />
-                <path d="M8 4V8L11 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
-            </button>
+            <>
+              <div className="editor-send-divider" />
+              <button
+                type="button"
+                disabled={disabled || uploading}
+                onClick={onScheduleSend}
+                aria-label="Schedule message"
+                title="Schedule for later"
+                data-testid="schedule-send-button"
+                className="editor-send-chevron"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                  <path d="M2 3.5L5 6.5L8 3.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </>
           )}
         </div>
       </div>

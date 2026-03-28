@@ -1,9 +1,10 @@
 import { View, ScrollView, StyleSheet, useWindowDimensions } from "react-native";
 import type { TrackReference } from "@livekit/react-native";
+import type { UserId } from "@openslaq/shared";
 import { VideoTile } from "./VideoTile";
 
 interface GridParticipant {
-  userId: string;
+  userId: UserId;
   displayName: string;
   isMuted: boolean;
   isCameraOn: boolean;
@@ -82,10 +83,11 @@ export function VideoGrid({ participants, safeAreaTop = 0, safeAreaBottom = 0 }:
   const availableWidth = width - 20;
 
   if (count === 1) {
+    const p = participants[0]!;
     return (
       <View style={styles.fixedContainer}>
         <VideoTile
-          {...participants[0]}
+          {...p}
           style={{ width: availableWidth, height: availableHeight }}
         />
       </View>

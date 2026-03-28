@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, mock } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   hasDevSession,
   getDevSession,
@@ -9,7 +9,7 @@ import {
 } from "./dev-auth";
 
 // Mock env module
-mock.module("../env", () => ({
+vi.mock("../env", () => ({
   env: {
     VITE_E2E_TEST_SECRET: "openslaq-e2e-test-secret-do-not-use-in-prod",
     VITE_STACK_PROJECT_ID: "924565c5-6377-44b7-aa75-6b7de8d311f4",

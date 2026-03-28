@@ -1,31 +1,33 @@
-import { Pressable, View } from "react-native";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { Pressable, View, StyleSheet } from "react-native";
+import { Stack, useRouter } from "expo-router";
 import { ChevronLeft } from "lucide-react-native";
 import { WorkspaceBootstrapProvider } from "@/contexts/WorkspaceBootstrapProvider";
 import { WorkspaceDrawerProvider } from "@/contexts/WorkspaceDrawerContext";
 import { WorkspaceDrawer } from "@/components/workspace/WorkspaceDrawer";
 import { HuddleFloatingBar } from "@/components/huddle/HuddleFloatingBar";
+import { useWorkspaceParams } from "@/hooks/useRouteParams";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 
 export default function WorkspaceLayout() {
-  const { workspaceSlug } = useLocalSearchParams<{ workspaceSlug: string }>();
+  const { workspaceSlug } = useWorkspaceParams();
   const { theme } = useMobileTheme();
   const router = useRouter();
 
   const backButton = () => (
-    <Pressable onPress={() => router.back()} hitSlop={8}>
+    <Pressable onPress={() => router.back()} hitSlop={8} accessibilityRole="button" accessibilityLabel="Go back" accessibilityHint="Navigates to the previous screen">
       <ChevronLeft size={28} color={theme.brand.primary} />
     </Pressable>
   );
 
   return (
-    <WorkspaceBootstrapProvider workspaceSlug={workspaceSlug}>
+    <WorkspaceBootstrapProvider workspaceSlug={workspaceSlug!}>
       <WorkspaceDrawerProvider>
         <WorkspaceDrawer>
-          <View style={{ flex: 1 }}>
+          <View style={styles.flex}>
             <Stack
               screenOptions={{
                 headerShown: false,
+                headerBackButtonDisplayMode: "minimal",
                 contentStyle: { backgroundColor: theme.colors.surface },
               }}
             >
@@ -34,7 +36,8 @@ export default function WorkspaceLayout() {
                 name="search"
                 options={{
                   headerShown: false,
-                  animation: "slide_from_bottom",
+                  title: "Search",
+                  animation: "none",
                 }}
               />
               <Stack.Screen
@@ -42,7 +45,6 @@ export default function WorkspaceLayout() {
                 options={{
                   headerShown: true,
                   title: "Thread",
-                  headerBackTitle: "",
                   headerLeft: backButton,
                   headerStyle: { backgroundColor: theme.colors.surface },
                   headerTintColor: theme.brand.primary,
@@ -53,7 +55,6 @@ export default function WorkspaceLayout() {
                 options={{
                   headerShown: true,
                   title: "Profile",
-                  headerBackTitle: "",
                   headerLeft: backButton,
                   headerStyle: { backgroundColor: theme.colors.surface },
                   headerTintColor: theme.brand.primary,
@@ -64,7 +65,6 @@ export default function WorkspaceLayout() {
                 options={{
                   headerShown: true,
                   title: "Settings",
-                  headerBackTitle: "",
                   headerLeft: backButton,
                   headerStyle: { backgroundColor: theme.colors.surface },
                   headerTintColor: theme.brand.primary,
@@ -75,7 +75,6 @@ export default function WorkspaceLayout() {
                 options={{
                   headerShown: true,
                   title: "Workspace Settings",
-                  headerBackTitle: "",
                   headerLeft: backButton,
                   headerStyle: { backgroundColor: theme.colors.surface },
                   headerTintColor: theme.brand.primary,
@@ -86,7 +85,6 @@ export default function WorkspaceLayout() {
                 options={{
                   headerShown: true,
                   title: "Notifications",
-                  headerBackTitle: "",
                   headerLeft: backButton,
                   headerStyle: { backgroundColor: theme.colors.surface },
                   headerTintColor: theme.brand.primary,
@@ -97,7 +95,6 @@ export default function WorkspaceLayout() {
                 options={{
                   headerShown: true,
                   title: "Preferences",
-                  headerBackTitle: "",
                   headerLeft: backButton,
                   headerStyle: { backgroundColor: theme.colors.surface },
                   headerTintColor: theme.brand.primary,
@@ -108,7 +105,6 @@ export default function WorkspaceLayout() {
                 options={{
                   headerShown: true,
                   title: "Scheduled Messages",
-                  headerBackTitle: "",
                   headerLeft: backButton,
                   headerStyle: { backgroundColor: theme.colors.surface },
                   headerTintColor: theme.brand.primary,
@@ -119,7 +115,6 @@ export default function WorkspaceLayout() {
                 options={{
                   headerShown: true,
                   title: "Saved Items",
-                  headerBackTitle: "",
                   headerLeft: backButton,
                   headerStyle: { backgroundColor: theme.colors.surface },
                   headerTintColor: theme.brand.primary,
@@ -130,7 +125,6 @@ export default function WorkspaceLayout() {
                 options={{
                   headerShown: true,
                   title: "Threads",
-                  headerBackTitle: "",
                   headerLeft: backButton,
                   headerStyle: { backgroundColor: theme.colors.surface },
                   headerTintColor: theme.brand.primary,
@@ -141,7 +135,6 @@ export default function WorkspaceLayout() {
                 options={{
                   headerShown: true,
                   title: "Files",
-                  headerBackTitle: "",
                   headerLeft: backButton,
                   headerStyle: { backgroundColor: theme.colors.surface },
                   headerTintColor: theme.brand.primary,
@@ -152,7 +145,6 @@ export default function WorkspaceLayout() {
                 options={{
                   headerShown: true,
                   title: "Outbox",
-                  headerBackTitle: "",
                   headerLeft: backButton,
                   headerStyle: { backgroundColor: theme.colors.surface },
                   headerTintColor: theme.brand.primary,
@@ -163,7 +155,6 @@ export default function WorkspaceLayout() {
                 options={{
                   headerShown: true,
                   title: "Huddles",
-                  headerBackTitle: "",
                   headerLeft: backButton,
                   headerStyle: { backgroundColor: theme.colors.surface },
                   headerTintColor: theme.brand.primary,
@@ -175,6 +166,7 @@ export default function WorkspaceLayout() {
                   presentation: "modal",
                   animation: "slide_from_bottom",
                   headerShown: false,
+                  title: "Huddle",
                 }}
               />
             </Stack>
@@ -185,3 +177,9 @@ export default function WorkspaceLayout() {
     </WorkspaceBootstrapProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
+});

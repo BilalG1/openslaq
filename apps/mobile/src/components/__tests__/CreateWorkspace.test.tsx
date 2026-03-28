@@ -69,7 +69,7 @@ describe("CreateWorkspaceScreen", () => {
     fireEvent.press(screen.getByTestId("create-workspace-submit"));
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith("/(app)/acme-corp/(channels)");
+      expect(mockReplace).toHaveBeenCalledWith("/(app)/acme-corp/(tabs)/(channels)");
     });
   });
 

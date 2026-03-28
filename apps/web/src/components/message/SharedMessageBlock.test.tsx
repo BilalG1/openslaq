@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from "bun:test";
+import { describe, it, expect, afterEach } from "vitest";
 import { render, screen, cleanup } from "../../test-utils";
 import { SharedMessageBlock } from "./SharedMessageBlock";
 import type { SharedMessageInfo } from "@openslaq/shared";

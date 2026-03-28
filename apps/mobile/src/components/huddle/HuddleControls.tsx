@@ -11,7 +11,8 @@ interface HuddleControlsProps {
   onLeave: () => void;
 }
 
-const GREEN = "#22c55e";
+import { GREEN, WHITE, WHITE_OVERLAY_15 } from "@/theme/constants";
+const HUDDLE_RED = "#dc2626";
 
 export function HuddleControls({
   isMuted,
@@ -26,43 +27,41 @@ export function HuddleControls({
     <View style={styles.container}>
       <Pressable
         testID="huddle-control-mute"
+        accessibilityRole="button"
+        accessibilityLabel={isMuted ? "Unmute microphone" : "Mute microphone"}
+        accessibilityHint="Toggles your microphone"
         onPress={onToggleMute}
         style={[
           styles.button,
-          { backgroundColor: isMuted ? "#dc2626" : "rgba(255,255,255,0.15)" },
+          { backgroundColor: isMuted ? HUDDLE_RED : WHITE_OVERLAY_15 },
         ]}
       >
-        {isMuted ? <MicOff size={22} color="#fff" /> : <Mic size={22} color="#fff" />}
+        {isMuted ? <MicOff size={22} color={WHITE} /> : <Mic size={22} color={WHITE} />}
       </Pressable>
 
       <Pressable
         testID="huddle-control-camera"
+        accessibilityRole="button"
+        accessibilityLabel={isCameraOn ? "Turn off camera" : "Turn on camera"}
+        accessibilityHint="Toggles your camera"
         onPress={onToggleCamera}
         style={[
           styles.button,
-          { backgroundColor: isCameraOn ? GREEN : "rgba(255,255,255,0.15)" },
+          { backgroundColor: isCameraOn ? GREEN : WHITE_OVERLAY_15 },
         ]}
       >
-        {isCameraOn ? <Video size={22} color="#fff" /> : <VideoOff size={22} color="#fff" />}
-      </Pressable>
-
-      <Pressable
-        testID="huddle-control-screen-share"
-        onPress={onToggleScreenShare}
-        style={[
-          styles.button,
-          { backgroundColor: isScreenSharing ? GREEN : "rgba(255,255,255,0.15)" },
-        ]}
-      >
-        <ScreenShare size={22} color="#fff" />
+        {isCameraOn ? <Video size={22} color={WHITE} /> : <VideoOff size={22} color={WHITE} />}
       </Pressable>
 
       <Pressable
         testID="huddle-control-leave"
+        accessibilityRole="button"
+        accessibilityLabel="Leave huddle"
+        accessibilityHint="Leaves the current huddle"
         onPress={onLeave}
         style={[styles.button, styles.leaveButton]}
       >
-        <PhoneOff size={24} color="#fff" />
+        <PhoneOff size={22} color={WHITE} />
       </Pressable>
     </View>
   );
@@ -85,9 +84,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   leaveButton: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: "#dc2626",
+    backgroundColor: HUDDLE_RED,
   },
 });

@@ -50,7 +50,7 @@ describe("ScheduledMessages resource", () => {
     let capturedUrl = "";
     const client = createClient((url) => {
       capturedUrl = url;
-      return { status: 200, body: [fakeScheduledWithChannel] };
+      return { status: 200, body: { scheduledMessages: [fakeScheduledWithChannel] } };
     });
 
     const result = await client.scheduledMessages.list();

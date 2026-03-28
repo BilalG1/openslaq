@@ -3,6 +3,7 @@ import { Alert, Text, View } from "react-native";
 import { fireEvent, render, screen } from "@/test-utils";
 
 const mockPush = jest.fn();
+const mockBack = jest.fn();
 const mockSetOptions = jest.fn();
 const mockDispatch = jest.fn();
 const mockJoinChannel = jest.fn();
@@ -13,7 +14,7 @@ let mockSearchParams: Record<string, string> = { workspaceSlug: "acme", channelI
 jest.mock("expo-router", () => ({
   useLocalSearchParams: () => mockSearchParams,
   useNavigation: () => ({ setOptions: mockSetOptions }),
-  useRouter: () => ({ push: mockPush, back: jest.fn() }),
+  useRouter: () => ({ push: mockPush, back: mockBack }),
 }));
 
 jest.mock("react-native-safe-area-context", () => ({
@@ -189,32 +190,69 @@ jest.mock("@openslaq/client-core", () => ({
   archiveChannel: jest.fn(() => Promise.resolve()),
 }));
 
-jest.mock("@/components/ChannelMessageList", () => ({
-  ChannelMessageList: ({ messages }: { messages: Array<{ content: string }> }) => {
-    const { Text: MockText, View: MockView } = require("react-native");
-    return (
-      <MockView testID="message-list">
-        {messages.map((m: { content: string }, i: number) => (
-          <MockText key={i}>{m.content}</MockText>
-        ))}
-      </MockView>
-    );
-  },
-}));
-jest.mock("@/components/MessageInput", () => ({ MessageInput: () => null }));
+let capturedMessageListProps: Record<string, unknown> = {};
+jest.mock("@/components/ChannelMessageList", () => {
+  const React = require("react");
+  return {
+    ChannelMessageList: React.forwardRef((props: Record<string, unknown>, _ref: unknown) => {
+      capturedMessageListProps = props;
+      const { Text: MockText, View: MockView } = require("react-native");
+      const messages = props.messages as Array<{ content: string }>;
+      return (
+        <MockView testID="message-list">
+          {messages.map((m: { content: string }, i: number) => (
+            <MockText key={i}>{m.content}</MockText>
+          ))}
+        </MockView>
+      );
+    }),
+  };
+});
+jest.mock("@/components/ReactionDetailsSheet", () => ({ ReactionDetailsSheet: () => null }));
+const mockDismissKeyboard = jest.fn();
+jest.mock("@/components/MessageInput", () => {
+  const React = require("react");
+  return {
+    MessageInput: React.forwardRef((_props: unknown, ref: React.Ref<unknown>) => {
+      React.useImperativeHandle(ref, () => ({
+        dismissKeyboard: mockDismissKeyboard,
+      }));
+      return null;
+    }),
+  };
+});
 jest.mock("@/components/TypingIndicator", () => ({ TypingIndicator: () => null }));
 jest.mock("@/components/MessageActionSheet", () => ({ MessageActionSheet: () => null }));
 jest.mock("@/components/EmojiPickerSheet", () => ({ EmojiPickerSheet: () => null }));
 jest.mock("@/components/EditTopicModal", () => ({ EditTopicModal: () => null }));
 jest.mock("@/components/PinnedMessagesSheet", () => ({ PinnedMessagesSheet: () => null }));
 jest.mock("@/components/ShareMessageModal", () => ({ ShareMessageModal: () => null }));
-jest.mock("@/components/NotificationLevelSheet", () => ({ NotificationLevelSheet: () => null }));
-jest.mock("@/components/huddle/HuddleHeaderButton", () => ({ HuddleHeaderButton: () => null }));
-jest.mock("@/components/ChannelInfoPanel.variant-a", () => ({
-  ChannelInfoPanel: ({ visible }: { visible: boolean }) => {
+jest.mock("@/components/NotificationLevelSheet", () => ({
+  NotificationLevelSheet: ({ visible }: { visible: boolean }) => {
     if (!visible) return null;
     const { View: V } = require("react-native");
-    return <V testID="channel-info-panel" />;
+    return <V testID="notification-level-sheet" />;
+  },
+}));
+jest.mock("@/components/huddle/HuddleHeaderButton", () => ({ HuddleHeaderButton: () => null }));
+jest.mock("@/components/ChannelInfoPanel.variant-a", () => ({
+  ChannelInfoPanel: ({ visible, onNotificationPress, onClose }: { visible: boolean; onNotificationPress?: () => void; onClose?: () => void }) => {
+    if (!visible) return null;
+    const { View: V, Pressable: P, Text: T } = require("react-native");
+    return (
+      <V testID="channel-info-panel">
+        {onNotificationPress && (
+          <P testID="info-notification-btn" onPress={onNotificationPress}>
+            <T>Notifications</T>
+          </P>
+        )}
+        {onClose && (
+          <P testID="info-close-btn" onPress={onClose}>
+            <T>Close</T>
+          </P>
+        )}
+      </V>
+    );
   },
 }));
 
@@ -306,15 +344,26 @@ describe("ChannelScreen", () => {
     expect(screen.queryByTestId("channel-options-button")).toBeNull();
   });
 
-  it("header title button has minimum 44pt tap target for Dynamic Island clearance", () => {
+  it("header right does not show pinned messages button", () => {
+    render(<ChannelScreen />);
+    const options = mockSetOptions.mock.calls.at(-1)?.[0];
+    const headerRight = options?.headerRight;
+    render(<View>{headerRight()}</View>);
+    expect(screen.queryByTestId("pinned-messages-button")).toBeNull();
+  });
+
+  it("header title button is hittable without minHeight overflow", () => {
     render(<ChannelScreen />);
     const options = mockSetOptions.mock.calls.at(-1)?.[0];
     const headerTitle = options?.headerTitle;
     render(<View>{headerTitle()}</View>);
     const titleButton = screen.getByTestId("channel-title-button");
-    expect(titleButton.props.style).toEqual(
+    // minHeight removed to prevent bounds extending outside nav bar (Detox hittability issue)
+    expect(titleButton.props.style).not.toEqual(
       expect.objectContaining({ minHeight: 44 }),
     );
+    // hitSlop expands touch target without inflating layout bounds
+    expect(titleButton.props.hitSlop).toBe(12);
   });
 
   it("opens channel info panel when showInfo query param is true", () => {
@@ -326,5 +375,141 @@ describe("ChannelScreen", () => {
   it("does not open channel info panel without showInfo param", () => {
     render(<ChannelScreen />);
     expect(screen.queryByTestId("channel-info-panel")).toBeNull();
+  });
+
+  it("navigates back and shows alert when channel is removed from state", () => {
+    const alertSpy = jest.spyOn(Alert, "alert");
+    const mockUseChatStore = require("@/contexts/ChatStoreProvider").useChatStore;
+    const original = mockUseChatStore();
+
+    // Start with channel present
+    const stateSpy = jest.spyOn(require("@/contexts/ChatStoreProvider"), "useChatStore").mockReturnValue({
+      ...original,
+      state: { ...original.state },
+    });
+
+    const { rerender } = render(<ChannelScreen />);
+    expect(screen.getByTestId("message-list")).toBeTruthy();
+
+    // Simulate channel removal (e.g., user was removed via socket event)
+    stateSpy.mockReturnValue({
+      ...original,
+      state: { ...original.state, channels: [] },
+    });
+
+    rerender(<ChannelScreen />);
+
+    expect(mockBack).toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledWith(
+      "Removed from channel",
+      "You are no longer a member of #general.",
+    );
+
+    alertSpy.mockRestore();
+    stateSpy.mockRestore();
+  });
+
+  it("header title shows # prefix for public channels", () => {
+    render(<ChannelScreen />);
+    const options = mockSetOptions.mock.calls.at(-1)?.[0];
+    const headerTitle = options?.headerTitle;
+    const { getByText, queryByTestId } = render(<View>{headerTitle()}</View>);
+    expect(getByText("# ")).toBeTruthy();
+    expect(queryByTestId("channel-header-lock-icon")).toBeNull();
+  });
+
+  it("header title shows lock icon for private channels", () => {
+    const mockUseChatStore = require("@/contexts/ChatStoreProvider").useChatStore;
+    const original = mockUseChatStore();
+    jest.spyOn(require("@/contexts/ChatStoreProvider"), "useChatStore").mockReturnValue({
+      ...original,
+      state: {
+        ...original.state,
+        channels: [{ ...original.state.channels[0], type: "private" }],
+      },
+    });
+
+    render(<ChannelScreen />);
+    const options = mockSetOptions.mock.calls.at(-1)?.[0];
+    const headerTitle = options?.headerTitle;
+    const { getByTestId } = render(<View>{headerTitle()}</View>);
+    expect(getByTestId("channel-header-lock-icon")).toBeTruthy();
+
+    jest.restoreAllMocks();
+  });
+
+  it("closes channel info panel before showing notification sheet", () => {
+    mockSearchParams = { workspaceSlug: "acme", channelId: "ch-1", showInfo: "true" };
+    render(<ChannelScreen />);
+    // Info panel should be visible
+    expect(screen.getByTestId("channel-info-panel")).toBeTruthy();
+    // Tap notifications button inside the info panel mock
+    fireEvent.press(screen.getByTestId("info-notification-btn"));
+    // Info panel should be closed
+    expect(screen.queryByTestId("channel-info-panel")).toBeNull();
+    // Notification sheet should be visible
+    expect(screen.getByTestId("notification-level-sheet")).toBeTruthy();
+  });
+
+  it("shows archived banner instead of message input when channel is archived", () => {
+    const mockUseChatStore = require("@/contexts/ChatStoreProvider").useChatStore;
+    const original = mockUseChatStore();
+    jest.spyOn(require("@/contexts/ChatStoreProvider"), "useChatStore").mockReturnValue({
+      ...original,
+      state: {
+        ...original.state,
+        channels: [{ ...original.state.channels[0], isArchived: true }],
+      },
+    });
+
+    render(<ChannelScreen />);
+    expect(screen.getByTestId("archived-banner")).toBeTruthy();
+    expect(screen.getByText("This channel has been archived")).toBeTruthy();
+
+    jest.restoreAllMocks();
+  });
+
+  it("dismisses keyboard when long-pressing a message", () => {
+    render(<ChannelScreen />);
+    const onLongPress = capturedMessageListProps.onLongPress as (msg: unknown) => void;
+    onLongPress(baseMessage);
+    expect(mockDismissKeyboard).toHaveBeenCalled();
+  });
+
+  it("dismisses keyboard when opening channel info", () => {
+    render(<ChannelScreen />);
+    const options = mockSetOptions.mock.calls.at(-1)?.[0];
+    const headerTitle = options?.headerTitle;
+    const { getByTestId } = render(<View>{headerTitle()}</View>);
+    fireEvent.press(getByTestId("channel-title-button"));
+    expect(mockDismissKeyboard).toHaveBeenCalled();
+  });
+
+  it("dismisses keyboard when adding a reaction via + button", () => {
+    render(<ChannelScreen />);
+    const onAddReaction = capturedMessageListProps.onAddReaction as (msg: unknown) => void;
+    onAddReaction(baseMessage);
+    expect(mockDismissKeyboard).toHaveBeenCalled();
+  });
+
+  it("dismisses keyboard when long-pressing a reaction", () => {
+    const messageWithReactions = {
+      ...baseMessage,
+      reactions: [{ emoji: "👍", count: 2, userIds: ["u1", "u2"] }],
+    };
+    render(<ChannelScreen />);
+    const onLongPressReaction = capturedMessageListProps.onLongPressReaction as (msg: unknown, emoji: string) => void;
+    onLongPressReaction(messageWithReactions, "👍");
+    expect(mockDismissKeyboard).toHaveBeenCalled();
+  });
+
+  it("triggers haptic feedback when pressing channel title", () => {
+    const { impactAsync, ImpactFeedbackStyle } = require("expo-haptics");
+    render(<ChannelScreen />);
+    const options = mockSetOptions.mock.calls.at(-1)?.[0];
+    const headerTitle = options?.headerTitle;
+    const { getByTestId } = render(<View>{headerTitle()}</View>);
+    fireEvent.press(getByTestId("channel-title-button"));
+    expect(impactAsync).toHaveBeenCalledWith(ImpactFeedbackStyle.Light);
   });
 });

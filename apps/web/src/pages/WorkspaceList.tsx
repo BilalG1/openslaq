@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link } from "react-router";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useWorkspacesApi, type WorkspaceInfo } from "../hooks/api/useWorkspacesApi";
 import { getErrorMessage } from "../lib/errors";
 import { Button, Avatar, Badge } from "../components/ui";
 import { CustomUserButton } from "../components/user/CustomUserButton";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, BookOpen, Download, Github } from "lucide-react";
+import { Tooltip } from "../components/ui";
 import { useGalleryMode, useGalleryMockData } from "../gallery/gallery-context";
 
 const DOCS_URL = import.meta.env.DEV ? "http://localhost:3008" : "https://docs.openslaq.com";
@@ -80,10 +81,23 @@ export function WorkspaceListPage() {
           <span className="text-lg font-bold text-primary">OpenSlaq</span>
           <div className="flex items-center gap-4">
             {!isGallery && !user && (
-              <>
-                <a href={DOCS_URL} className="text-sm text-muted hover:text-primary transition-colors" data-testid="nav-docs">Docs</a>
-                <Link to="/install" className="text-sm text-muted hover:text-primary transition-colors" data-testid="nav-install">Install</Link>
-              </>
+              <div className="flex items-center gap-3">
+                <Tooltip content="Docs">
+                  <a href={DOCS_URL} className="text-muted hover:text-primary transition-colors" data-testid="nav-docs">
+                    <BookOpen className="w-5 h-5" />
+                  </a>
+                </Tooltip>
+                <Tooltip content="Install">
+                  <Link to="/install" className="text-muted hover:text-primary transition-colors" data-testid="nav-install">
+                    <Download className="w-5 h-5" />
+                  </Link>
+                </Tooltip>
+                <Tooltip content="GitHub">
+                  <a href="https://github.com/bilalg1/openslaq" target="_blank" rel="noopener noreferrer" className="text-muted hover:text-primary transition-colors" data-testid="nav-github">
+                    <Github className="w-5 h-5" />
+                  </a>
+                </Tooltip>
+              </div>
             )}
             {!isGallery && (user ? <CustomUserButton /> : (
               <Button asChild size="sm" data-testid="sign-in-button">

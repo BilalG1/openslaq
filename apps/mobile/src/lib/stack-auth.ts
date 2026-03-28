@@ -1,5 +1,5 @@
 import { decodeJwt } from "jose";
-import { env } from "./env";
+import type { StackAuthConfig } from "./auth-strategies";
 
 const STACK_API_BASE = "https://api.stack-auth.com/api/v1";
 const PUBLISHABLE_CLIENT_KEY_NOT_NECESSARY_SENTINEL = "__stack_public_client__";
@@ -10,13 +10,12 @@ export interface AuthTokens {
   user_id: string;
 }
 
-function stackHeaders(): Record<string, string> {
+function stackHeaders(config: StackAuthConfig): Record<string, string> {
   return {
     "Content-Type": "application/json",
-    "X-Stack-Project-Id": env.EXPO_PUBLIC_STACK_PROJECT_ID,
+    "X-Stack-Project-Id": config.projectId,
     "X-Stack-Access-Type": "client",
-    "X-Stack-Publishable-Client-Key":
-      env.EXPO_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY,
+    "X-Stack-Publishable-Client-Key": config.publishableKey,
   };
 }
 
@@ -29,11 +28,8 @@ function extractErrorMessage(body: unknown): string | undefined {
   return undefined;
 }
 
-function getOAuthClientSecret(): string {
-  return (
-    env.EXPO_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY ||
-    PUBLISHABLE_CLIENT_KEY_NOT_NECESSARY_SENTINEL
-  );
+function getOAuthClientSecret(config: StackAuthConfig): string {
+  return config.publishableKey || PUBLISHABLE_CLIENT_KEY_NOT_NECESSARY_SENTINEL;
 }
 
 function extractUserId(
@@ -51,12 +47,13 @@ function extractUserId(
 // --- OTP ---
 
 export async function sendOtpCode(
+  config: StackAuthConfig,
   email: string,
   callbackUrl: string,
 ): Promise<{ nonce: string }> {
   const res = await fetch(`${STACK_API_BASE}/auth/otp/send-sign-in-code`, {
     method: "POST",
-    headers: stackHeaders(),
+    headers: stackHeaders(config),
     body: JSON.stringify({ email, callback_url: callbackUrl }),
   });
   if (!res.ok) {
@@ -69,12 +66,13 @@ export async function sendOtpCode(
 }
 
 export async function verifyOtpCode(
+  config: StackAuthConfig,
   code: string,
   nonce: string,
 ): Promise<AuthTokens> {
   const res = await fetch(`${STACK_API_BASE}/auth/otp/sign-in`, {
     method: "POST",
-    headers: stackHeaders(),
+    headers: stackHeaders(config),
     body: JSON.stringify({ code: code + nonce }),
   });
   if (!res.ok) {
@@ -89,13 +87,14 @@ export async function verifyOtpCode(
 // --- Apple Native Sign In ---
 
 export async function signInWithAppleNative(
+  config: StackAuthConfig,
   idToken: string,
 ): Promise<AuthTokens> {
   const res = await fetch(
     `${STACK_API_BASE}/auth/oauth/callback/apple/native`,
     {
       method: "POST",
-      headers: stackHeaders(),
+      headers: stackHeaders(config),
       body: JSON.stringify({ id_token: idToken }),
     },
   );
@@ -111,11 +110,12 @@ export async function signInWithAppleNative(
 // --- Token Refresh ---
 
 export async function refreshAccessToken(
+  config: StackAuthConfig,
   refreshToken: string,
 ): Promise<AuthTokens> {
   const res = await fetch(`${STACK_API_BASE}/auth/sessions/current/refresh`, {
     method: "POST",
-    headers: stackHeaders(),
+    headers: stackHeaders(config),
     body: JSON.stringify({ refresh_token: refreshToken }),
   });
   if (!res.ok) {
@@ -137,21 +137,16 @@ export async function refreshAccessToken(
 // --- OAuth ---
 
 export function getOAuthAuthorizeUrl(
+  config: StackAuthConfig,
   provider: string,
   redirectUri: string,
   codeChallenge: string,
   state: string,
 ): string {
-  const projectId = env.EXPO_PUBLIC_STACK_PROJECT_ID;
-  if (!projectId) {
-    throw new Error(
-      "EXPO_PUBLIC_STACK_PROJECT_ID is not set — cannot build OAuth URL",
-    );
-  }
   const providerId = provider.toLowerCase();
   const params = new URLSearchParams({
-    client_id: projectId,
-    client_secret: getOAuthClientSecret(),
+    client_id: config.projectId,
+    client_secret: getOAuthClientSecret(config),
     redirect_uri: redirectUri,
     scope: "legacy",
     state,
@@ -165,6 +160,7 @@ export function getOAuthAuthorizeUrl(
 }
 
 export async function exchangeOAuthCode(
+  config: StackAuthConfig,
   code: string,
   redirectUri: string,
   codeVerifier: string,
@@ -174,15 +170,15 @@ export async function exchangeOAuthCode(
     code,
     redirect_uri: redirectUri,
     code_verifier: codeVerifier,
-    client_id: env.EXPO_PUBLIC_STACK_PROJECT_ID,
-    client_secret: getOAuthClientSecret(),
+    client_id: config.projectId,
+    client_secret: getOAuthClientSecret(config),
   });
 
   const res = await fetch(`${STACK_API_BASE}/auth/oauth/token`, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
-      "X-Stack-Project-Id": env.EXPO_PUBLIC_STACK_PROJECT_ID,
+      "X-Stack-Project-Id": config.projectId,
       "X-Stack-Access-Type": "client",
     },
     body: body.toString(),

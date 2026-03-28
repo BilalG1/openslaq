@@ -1,31 +1,31 @@
-import { describe, test, expect, jest, mock, beforeEach } from "bun:test";
+import { describe, test, expect, vi, beforeEach } from "vitest";
 import { renderHook, act } from "../../../test-utils";
 
-const mockLoadFn = jest.fn();
+const mockLoadFn = vi.fn();
 
-mock.module("react-router-dom", () => ({
+vi.mock("react-router-dom", () => ({
   useParams: () => ({ workspaceSlug: "default" }),
 }));
 
-mock.module("../../../gallery/gallery-context", () => ({
+vi.mock("../../../gallery/gallery-context", () => ({
   useGalleryMode: () => false,
 }));
 
-const mockDeps = { api: {}, auth: {}, dispatch: jest.fn(), getState: jest.fn() };
-mock.module("../useOperationDeps", () => ({
+const mockDeps = { api: {}, auth: {}, dispatch: vi.fn(), getState: vi.fn() };
+vi.mock("../useOperationDeps", () => ({
   useOperationDeps: () => mockDeps,
 }));
 
 const mockState = {
-  channelPagination: {} as Record<string, any>,
-  threadPagination: {} as Record<string, any>,
+  channelPagination: {} as Record<string, Record<string, unknown>>,
+  threadPagination: {} as Record<string, Record<string, unknown>>,
 };
 
-mock.module("../../../state/chat-store", () => ({
-  useChatStore: () => ({ state: mockState, dispatch: jest.fn() }),
+vi.mock("../../../state/chat-store", () => ({
+  useChatStore: () => ({ state: mockState, dispatch: vi.fn() }),
 }));
 
-const { usePagination } = await import("../usePagination");
+import { usePagination } from "../usePagination";
 
 describe("usePagination", () => {
   beforeEach(() => {

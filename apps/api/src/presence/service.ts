@@ -74,22 +74,15 @@ export async function getSocketIdsForUser(userId: string): Promise<Set<string>> 
   return new Set(rows.map((r) => r.socketId));
 }
 
-export function startHeartbeat(userId: string, socketId: string): ReturnType<typeof setInterval> {
-  return setInterval(() => {
-    db.update(presenceConnections)
-      .set({ lastHeartbeat: new Date() })
-      .where(
-        and(
-          eq(presenceConnections.userId, userId),
-          eq(presenceConnections.socketId, socketId),
-        ),
-      )
-      .catch(console.error);
-  }, 30_000);
-}
-
-export function stopHeartbeat(interval: ReturnType<typeof setInterval>): void {
-  clearInterval(interval);
+export async function updateHeartbeat(userId: string, socketId: string): Promise<void> {
+  await db.update(presenceConnections)
+    .set({ lastHeartbeat: new Date() })
+    .where(
+      and(
+        eq(presenceConnections.userId, userId),
+        eq(presenceConnections.socketId, socketId),
+      ),
+    );
 }
 
 export async function cleanupStalePresence(): Promise<void> {

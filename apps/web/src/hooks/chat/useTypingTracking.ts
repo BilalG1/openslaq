@@ -15,17 +15,24 @@ interface MemberInfo {
 
 const EXPIRE_MS = 5000;
 
+interface Options {
+  onUnknownUser?: () => void;
+}
+
 export function useTypingTracking(
   channelId: string | undefined,
   currentUserId: string | undefined,
   members: MemberInfo[],
+  options?: Options,
 ) {
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
+  const prevChannelIdRef = useRef(channelId);
+  if (prevChannelIdRef.current !== channelId) {
+    prevChannelIdRef.current = channelId;
     setTypingUsers([]);
-  }, [channelId]);
+  }
 
   useEffect(() => {
     if (typingUsers.length === 0) {
@@ -54,13 +61,20 @@ export function useTypingTracking(
     };
   }, [typingUsers.length]);
 
+  const onUnknownUserRef = useRef(options?.onUnknownUser);
+  onUnknownUserRef.current = options?.onUnknownUser;
+
   const onUserTyping = useCallback(
     (payload: { userId: UserId; channelId: ChannelId }) => {
       if (payload.channelId !== channelId) return;
       if (payload.userId === currentUserId) return;
 
       const member = members.find((item) => item.id === payload.userId);
-      const displayName = member?.displayName ?? "Someone";
+      if (!member) {
+        onUnknownUserRef.current?.();
+        return;
+      }
+      const displayName = member.displayName;
 
       setTypingUsers((prev) => {
         const existingIndex = prev.findIndex((entry) => entry.userId === payload.userId);
@@ -80,7 +94,19 @@ export function useTypingTracking(
     [channelId, currentUserId, members],
   );
 
+  const onNewMessage = useCallback(
+    (message: { userId: string; channelId: string }) => {
+      if (message.channelId !== channelId) return;
+      setTypingUsers((prev) => {
+        const filtered = prev.filter((entry) => entry.userId !== message.userId);
+        return filtered.length === prev.length ? prev : filtered;
+      });
+    },
+    [channelId],
+  );
+
   useSocketEvent("user:typing", onUserTyping);
+  useSocketEvent("message:new", onNewMessage);
 
   return typingUsers;
 }

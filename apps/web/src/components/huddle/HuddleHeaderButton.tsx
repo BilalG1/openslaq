@@ -1,4 +1,5 @@
 import type { HuddleState } from "@openslaq/shared";
+import { Headphones } from "lucide-react";
 import { Button, Tooltip } from "../ui";
 
 interface HuddleHeaderButtonProps {
@@ -54,13 +55,7 @@ export function HuddleHeaderButton({
         data-testid="huddle-start-button"
         className="w-8 h-8 flex items-center justify-center rounded-md border border-border-default text-muted hover:bg-surface-tertiary hover:border-border-strong hover:text-primary transition-all cursor-pointer bg-transparent"
       >
-        <svg className="w-[18px] h-[18px]" fill="currentColor" viewBox="0 0 24 24">
-          <rect x="3" y="8" width="2" height="8" rx="1" />
-          <rect x="7.5" y="5" width="2" height="14" rx="1" />
-          <rect x="12" y="3" width="2" height="18" rx="1" />
-          <rect x="16.5" y="6" width="2" height="12" rx="1" />
-          <rect x="21" y="9" width="2" height="6" rx="1" />
-        </svg>
+        <Headphones className="w-[18px] h-[18px]" />
       </button>
     </Tooltip>
   );

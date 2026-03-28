@@ -18,6 +18,7 @@ import { useChatStore } from "../../state/chat-store";
 interface MessageInputProps {
   channelId: string;
   channelName?: string | null;
+  isDm?: boolean;
   parentMessageId?: string | null;
   externalDragDrop?: boolean;
   onTyping?: () => void;
@@ -31,7 +32,7 @@ export interface MessageInputHandle {
 }
 
 export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(
-  function MessageInput({ channelId, channelName, parentMessageId, externalDragDrop, onTyping, slashCommands, onSlashCommand }, ref) {
+  function MessageInput({ channelId, channelName, isDm, parentMessageId, externalDragDrop, onTyping, slashCommands, onSlashCommand }, ref) {
     const user = useCurrentUser();
     const { workspaceSlug } = useParams<{ workspaceSlug: string }>();
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -214,7 +215,7 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(
     const placeholder = parentMessageId
       ? "Reply in thread..."
       : channelName
-        ? `Message #${channelName}`
+        ? isDm ? `Message ${channelName}` : `Message #${channelName}`
         : "Type a message...";
 
     const filePreview = (

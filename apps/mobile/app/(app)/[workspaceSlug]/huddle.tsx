@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { View, Text, Pressable, Platform, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,6 +15,9 @@ import { useHuddle } from "@/contexts/HuddleProvider";
 import { useChatStore } from "@/contexts/ChatStoreProvider";
 import { HuddleControls } from "@/components/huddle/HuddleControls";
 import { VideoGrid } from "@/components/huddle/VideoGrid";
+import { useMobileTheme } from "@/theme/ThemeProvider";
+import type { MobileTheme } from "@openslaq/shared";
+import { asUserId } from "@openslaq/shared";
 
 function HuddleModalContent() {
   const {
@@ -26,10 +29,13 @@ function HuddleModalContent() {
     toggleMute,
     toggleCamera,
     toggleScreenShare,
+    setMinimized,
   } = useHuddle();
   const { state } = useChatStore();
   const { top, bottom } = useSafeAreaInsets();
   const router = useRouter();
+  const { theme } = useMobileTheme();
+  const styles = makeStyles(theme);
 
   const lkParticipants = useParticipants();
   const tracks = useTracks([Track.Source.Camera, Track.Source.ScreenShare], {
@@ -46,8 +52,9 @@ function HuddleModalContent() {
   }, [leaveHuddle, router]);
 
   const handleCollapse = useCallback(() => {
+    setMinimized(true);
     router.back();
-  }, [router]);
+  }, [setMinimized, router]);
 
   const gridParticipants = lkParticipants.map((p) => {
     const isLocal = p.isLocal;
@@ -82,7 +89,7 @@ function HuddleModalContent() {
     }
 
     return {
-      userId,
+      userId: asUserId(userId),
       displayName,
       isMuted: muted,
       isCameraOn: camera,
@@ -98,8 +105,8 @@ function HuddleModalContent() {
 
       {/* Translucent header pill overlay */}
       <View style={[styles.headerOverlay, { top: top + 8 }]}>
-        <Pressable onPress={handleCollapse} hitSlop={8} style={styles.headerPill}>
-          <ChevronDown size={16} color="#fff" />
+        <Pressable onPress={handleCollapse} hitSlop={8} style={styles.headerPill} accessibilityRole="button" accessibilityLabel="Collapse huddle" accessibilityHint="Minimizes the huddle view">
+          <ChevronDown size={16} color={theme.colors.headerText} />
           <Text style={styles.headerTitle} numberOfLines={1}>{label}</Text>
           <Text style={styles.headerCount}>
             {lkParticipants.length}
@@ -127,7 +134,16 @@ function HuddleModalContent() {
 }
 
 export default function HuddleModal() {
-  const { room } = useHuddle();
+  const { room, channelId } = useHuddle();
+  const router = useRouter();
+
+  // Auto-dismiss the modal when the huddle ends or connection fails
+  // (channelId becomes null after error cleanup, and room is never set)
+  useEffect(() => {
+    if (!room && !channelId) {
+      router.back();
+    }
+  }, [room, channelId, router]);
 
   if (!room) {
     return null;
@@ -140,36 +156,37 @@ export default function HuddleModal() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#000",
-  },
-  headerOverlay: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    zIndex: 10,
-    alignItems: "center",
-  },
-  headerPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: "rgba(0,0,0,0.3)",
-  },
-  headerTitle: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "600",
-    maxWidth: 180,
-  },
-  headerCount: {
-    color: "rgba(255,255,255,0.7)",
-    fontSize: 13,
-    fontWeight: "500",
-  },
-});
+const makeStyles = (theme: MobileTheme) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.huddleBg,
+    },
+    headerOverlay: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      zIndex: 10,
+      alignItems: "center",
+    },
+    headerPill: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 20,
+      backgroundColor: theme.colors.overlayLight,
+    },
+    headerTitle: {
+      color: theme.colors.headerText,
+      fontSize: 15,
+      fontWeight: "600",
+      maxWidth: 180,
+    },
+    headerCount: {
+      color: theme.colors.overlayLightText,
+      fontSize: 13,
+      fontWeight: "500",
+    },
+  });

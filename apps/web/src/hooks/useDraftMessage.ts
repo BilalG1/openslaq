@@ -141,18 +141,29 @@ export function useDraftMessage(
         writeDraft(draftKey, trimmed);
       }, LOCAL_DEBOUNCE_MS);
 
-      // Server save at 2s debounce
+      // Server save at 2s debounce — always cancel any pending timer first
       const { workspaceSlug, channelId, parentMessageId } = options ?? {};
-      if (workspaceSlug && channelId && trimmed) {
-        if (serverTimerRef.current) clearTimeout(serverTimerRef.current);
-        serverTimerRef.current = setTimeout(() => {
-          void upsertDraftOp(deps, {
-            workspaceSlug,
-            channelId,
-            content: trimmed,
-            parentMessageId,
-          }).catch(() => {});
-        }, SERVER_DEBOUNCE_MS);
+      if (serverTimerRef.current) clearTimeout(serverTimerRef.current);
+      if (workspaceSlug && channelId) {
+        if (trimmed) {
+          serverTimerRef.current = setTimeout(() => {
+            void upsertDraftOp(deps, {
+              workspaceSlug,
+              channelId,
+              content: trimmed,
+              parentMessageId,
+            }).catch(() => {});
+          }, SERVER_DEBOUNCE_MS);
+        } else {
+          // Empty draft — delete from server so stale content doesn't reappear
+          serverTimerRef.current = setTimeout(() => {
+            void deleteDraftByKeyOp(deps, {
+              workspaceSlug,
+              channelId,
+              parentMessageId,
+            }).catch(() => {});
+          }, SERVER_DEBOUNCE_MS);
+        }
       }
     },
     [draftKey, options?.workspaceSlug, options?.channelId, options?.parentMessageId], // eslint-disable-line react-hooks/exhaustive-deps

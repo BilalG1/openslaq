@@ -1,5 +1,6 @@
-import { Button } from "../components/ui";
+import { Button, Tooltip } from "../components/ui";
 import { Link } from "react-router-dom";
+import { BookOpen, Download, Github } from "lucide-react";
 
 const RELEASE_URL = "https://github.com/bgodil/openslaq/releases/latest";
 const DOCS_URL = import.meta.env.DEV ? "http://localhost:3008" : "https://docs.openslaq.com";
@@ -10,9 +11,22 @@ export function InstallPage() {
       <nav className="sticky top-0 z-10 bg-surface border-b border-border-default">
         <div className="max-w-3xl mx-auto px-6 h-14 flex items-center justify-between">
           <Link to="/" className="text-lg font-bold text-primary no-underline">OpenSlaq</Link>
-          <div className="flex items-center gap-4">
-            <a href={DOCS_URL} className="text-sm text-muted hover:text-primary transition-colors" data-testid="nav-docs">Docs</a>
-            <Link to="/install" className="text-sm text-muted hover:text-primary transition-colors" data-testid="nav-install">Install</Link>
+          <div className="flex items-center gap-3">
+            <Tooltip content="Docs">
+              <a href={DOCS_URL} className="text-muted hover:text-primary transition-colors" data-testid="nav-docs">
+                <BookOpen className="w-5 h-5" />
+              </a>
+            </Tooltip>
+            <Tooltip content="Install">
+              <Link to="/install" className="text-muted hover:text-primary transition-colors" data-testid="nav-install">
+                <Download className="w-5 h-5" />
+              </Link>
+            </Tooltip>
+            <Tooltip content="GitHub">
+              <a href="https://github.com/bilalg1/openslaq" target="_blank" rel="noopener noreferrer" className="text-muted hover:text-primary transition-colors" data-testid="nav-github">
+                <Github className="w-5 h-5" />
+              </a>
+            </Tooltip>
           </div>
         </div>
       </nav>

@@ -17,7 +17,7 @@ function formatDuration(seconds: number): string {
 
 export function HuddleSystemMessage({ message, activeHuddle, onJoinHuddle }: HuddleSystemMessageProps) {
   const meta = message.metadata;
-  const isActive = Boolean(activeHuddle);
+  const isActive = Boolean(activeHuddle) && (!activeHuddle?.messageId || activeHuddle.messageId === message.id);
   const senderName = message.senderDisplayName ?? message.userId;
 
   return (
@@ -58,7 +58,7 @@ export function HuddleSystemMessage({ message, activeHuddle, onJoinHuddle }: Hud
         ) : meta?.huddleEndedAt ? (
           <div className="flex items-center gap-2 mt-1">
             <span className="text-xs text-faint">
-              Lasted {meta.duration != null ? formatDuration(meta.duration) : "a moment"}
+              Lasted {meta.duration !== undefined ? formatDuration(meta.duration) : "a moment"}
             </span>
             {meta.finalParticipants && meta.finalParticipants.length > 0 && (
               <div className="flex -space-x-1">

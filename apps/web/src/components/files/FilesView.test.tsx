@@ -1,4 +1,4 @@
-import { describe, expect, test, afterEach, jest, beforeEach, mock } from "bun:test";
+import { describe, expect, test, afterEach, vi, beforeEach } from "vitest";
 import { render, screen, cleanup } from "../../test-utils";
 import type { FileBrowserItem, FileCategory, Channel, UserId } from "@openslaq/shared";
 import { asChannelId } from "@openslaq/shared";
@@ -10,18 +10,18 @@ const mockReturn = {
   nextCursor: null as string | null,
   category: undefined as FileCategory | undefined,
   channelId: undefined as string | undefined,
-  loadMore: jest.fn(),
-  changeCategory: jest.fn(),
-  changeChannel: jest.fn(),
-  refresh: jest.fn(),
+  loadMore: vi.fn(),
+  changeCategory: vi.fn(),
+  changeChannel: vi.fn(),
+  refresh: vi.fn(),
 };
 
-mock.module("../../hooks/chat/useFilesBrowser", () => ({
+vi.mock("../../hooks/chat/useFilesBrowser", () => ({
   useFilesBrowser: () => mockReturn,
 }));
 
 // Need to import after mock
-const { FilesView } = await import("./FilesView");
+import { FilesView } from "./FilesView";
 
 const noop = () => {};
 
@@ -136,7 +136,7 @@ describe("FilesView", () => {
   });
 
   test("jump to message calls onNavigateToChannel", () => {
-    const onNav = jest.fn();
+    const onNav = vi.fn();
     mockReturn.files = [makeFile({ channelId: "ch-1" as FileBrowserItem["channelId"], messageId: "msg-1" as FileBrowserItem["messageId"] })];
     render(<FilesView workspaceSlug="ws" channels={[baseChannel]} onNavigateToChannel={onNav} />);
     screen.getByTestId("file-jump-att-1").click();

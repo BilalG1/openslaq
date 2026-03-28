@@ -1,5 +1,5 @@
 import { authorizedRequest } from "../api/api-client";
-import { normalizeMessage } from "./normalize";
+import { normalizeMessage, type RawMessage } from "./normalize";
 import type { Message } from "@openslaq/shared";
 import type { OperationDeps } from "./types";
 
@@ -101,8 +101,6 @@ export async function fetchPinnedMessages(
       { headers },
     ),
   );
-  const data = (await res.json()) as { messages: unknown[] };
-  return data.messages.map(
-    (m) => normalizeMessage(m as unknown as Parameters<typeof normalizeMessage>[0]),
-  );
+  const data = (await res.json()) as { messages: RawMessage[] };
+  return data.messages.map((m) => normalizeMessage(m));
 }

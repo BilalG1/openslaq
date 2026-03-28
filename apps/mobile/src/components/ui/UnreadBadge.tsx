@@ -1,4 +1,4 @@
-import { View, Text } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 
 interface UnreadBadgeProps {
@@ -6,31 +6,30 @@ interface UnreadBadgeProps {
 }
 
 export function UnreadBadge({ count }: UnreadBadgeProps) {
-  if (count <= 0) return null;
-
   const { theme } = useMobileTheme();
 
+  if (count <= 0) return null;
+
   return (
-    <View
-      style={{
-        borderRadius: 9999,
-        minWidth: 20,
-        height: 20,
-        paddingHorizontal: 6,
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: theme.interaction.badgeUnreadBg,
-      }}
-    >
-      <Text
-        style={{
-          fontSize: 12,
-          fontWeight: "700",
-          color: theme.interaction.badgeUnreadText,
-        }}
-      >
+    <View style={[styles.badge, { backgroundColor: theme.interaction.badgeUnreadBg }]}>
+      <Text style={[styles.badgeText, { color: theme.interaction.badgeUnreadText }]}>
         {count > 99 ? "99+" : count}
       </Text>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  badge: {
+    borderRadius: 9999,
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 6,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+});

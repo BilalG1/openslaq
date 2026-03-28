@@ -22,9 +22,36 @@ export interface SemanticColorTokens {
   avatarFallbackBg: string;
   avatarFallbackText: string;
   highlightBg: string;
+  overlay: string;
+  codeHeaderBg: string;
+  codeBg: string;
+  ephemeralBg: string;
+  ephemeralBorder: string;
   headerBg: string;
   headerText: string;
   headerSearchBg: string;
+  huddleActiveBg: string;
+  huddleActiveText: string;
+  mentionGroupBg: string;
+  mentionGroupText: string;
+  mentionUserBg: string;
+  recordingIndicator: string;
+  screenShareText: string;
+  galleryOverlayText: string;
+  galleryOverlayTextSecondary: string;
+  codeInlineText: string;
+  shadowColor: string;
+  iconDefault: string;
+  overlayHeavy: string;
+  overlayLight: string;
+  overlayLightText: string;
+  presenceOnline: string;
+  presenceOffline: string;
+  warningBg: string;
+  warningText: string;
+  ownerBadge: string;
+  copiedBg: string;
+  huddleBg: string;
 }
 
 export interface BrandColorTokens {

@@ -4,7 +4,7 @@ import { scheduledMessages } from "./scheduled-schema";
 import { channels } from "../channels/schema";
 import { channelMembers } from "../channels/schema";
 import { createMessage } from "./service";
-import { getIO } from "../socket/io";
+import { emitToChannel, emitToUser } from "../lib/emit";
 import { unfurlMessageLinks } from "./link-preview-service";
 import { webhookDispatcher } from "../bots/webhook-dispatcher";
 import type { ScheduledMessage } from "@openslaq/shared";
@@ -178,8 +178,6 @@ export async function processDueScheduledMessages(): Promise<void> {
 
     if (dueMessages.length === 0) return;
 
-    const io = getIO();
-
     // Batch fetch all channels
     const uniqueChannelIds = [...new Set(dueMessages.map((m) => m.channelId))];
     const channelRows = await db
@@ -216,7 +214,7 @@ export async function processDueScheduledMessages(): Promise<void> {
             })
             .where(eq(scheduledMessages.id, scheduled.id));
 
-          io.to(`user:${scheduled.userId}`).emit("scheduledMessage:failed", {
+          emitToUser(asUserId(scheduled.userId), "scheduledMessage:failed", {
             id: asScheduledMessageId(scheduled.id),
             channelId: asChannelId(scheduled.channelId),
             failureReason: channel ? "Channel is archived" : "Channel not found",
@@ -237,7 +235,7 @@ export async function processDueScheduledMessages(): Promise<void> {
             })
             .where(eq(scheduledMessages.id, scheduled.id));
 
-          io.to(`user:${scheduled.userId}`).emit("scheduledMessage:failed", {
+          emitToUser(asUserId(scheduled.userId), "scheduledMessage:failed", {
             id: asScheduledMessageId(scheduled.id),
             channelId: asChannelId(scheduled.channelId),
             failureReason: "User is no longer a channel member",
@@ -258,7 +256,7 @@ export async function processDueScheduledMessages(): Promise<void> {
         }
 
         // Emit message:new to channel
-        io.to(`channel:${scheduled.channelId}`).emit("message:new", message);
+        emitToChannel(asChannelId(scheduled.channelId), "message:new", message);
         webhookDispatcher.dispatch({
           type: "message:new",
           channelId: scheduled.channelId,
@@ -278,7 +276,7 @@ export async function processDueScheduledMessages(): Promise<void> {
           .where(eq(scheduledMessages.id, scheduled.id));
 
         // Notify the user
-        io.to(`user:${scheduled.userId}`).emit("scheduledMessage:sent", {
+        emitToUser(asUserId(scheduled.userId), "scheduledMessage:sent", {
           id: asScheduledMessageId(scheduled.id),
           channelId: asChannelId(scheduled.channelId),
           messageId: asMessageId(message.id),
@@ -294,7 +292,7 @@ export async function processDueScheduledMessages(): Promise<void> {
           })
           .where(eq(scheduledMessages.id, scheduled.id));
 
-        io.to(`user:${scheduled.userId}`).emit("scheduledMessage:failed", {
+        emitToUser(asUserId(scheduled.userId), "scheduledMessage:failed", {
           id: asScheduledMessageId(scheduled.id),
           channelId: asChannelId(scheduled.channelId),
           failureReason: "Internal error",

@@ -1,6 +1,9 @@
 import { createMiddleware } from "hono/factory";
 import type { AuthEnv } from "../auth/types";
 import { checkRateLimit } from "./store";
+import { env } from "../env";
+
+const isDev = env.NODE_ENV === "development";
 
 interface RateLimitConfig {
   bucket: string;
@@ -10,6 +13,7 @@ interface RateLimitConfig {
 
 export function rateLimit(config: RateLimitConfig) {
   return createMiddleware<AuthEnv>(async (c, next) => {
+    if (isDev) return next();
     const userId = c.get("user").id;
     const key = `${config.bucket}:${userId}`;
     const result = await checkRateLimit(key, config.max, config.windowSec);
@@ -47,6 +51,7 @@ function getClientIp(c: Parameters<ReturnType<typeof createMiddleware>>[0]): str
 
 export function rateLimitByIp(config: RateLimitConfig) {
   return createMiddleware(async (c, next) => {
+    if (isDev) return next();
     const ip = getClientIp(c);
     const key = `${config.bucket}:${ip}`;
     const result = await checkRateLimit(key, config.max, config.windowSec);

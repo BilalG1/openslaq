@@ -5,7 +5,7 @@ import { channels } from "../channels/schema";
 import { getOrCreateSlaqbot } from "./slaqbot";
 import { getOrCreateDm } from "../dm/service";
 import { createMessage } from "../messages/service";
-import { getIO } from "../socket/io";
+import { emitToChannel } from "../lib/emit";
 import { asChannelId, asUserId, asWorkspaceId } from "@openslaq/shared";
 
 let isProcessing = false;
@@ -29,8 +29,6 @@ export async function processDueReminders(): Promise<void> {
         ),
       )
       .limit(20);
-
-    const io = getIO();
 
     for (const { reminder, workspaceId } of dueReminders) {
       try {
@@ -63,7 +61,7 @@ export async function processDueReminders(): Promise<void> {
         if ("error" in message) continue;
 
         // Emit message:new to user
-        io.to(`channel:${dmResult.channel.id}`).emit("message:new", message);
+        emitToChannel(asChannelId(dmResult.channel.id), "message:new", message);
 
         // Mark reminder as sent
         await db

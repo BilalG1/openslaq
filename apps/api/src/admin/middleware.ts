@@ -1,6 +1,7 @@
 import { createMiddleware } from "hono/factory";
 import type { AuthEnv } from "../auth/types";
 import { env } from "../env";
+import { ForbiddenError } from "../errors";
 
 const adminUserIds = new Set(
   env.ADMIN_USER_IDS.split(",")
@@ -15,7 +16,7 @@ export function isAdmin(userId: string): boolean {
 export const requireAdmin = createMiddleware<AuthEnv>(async (c, next) => {
   const user = c.get("user");
   if (!isAdmin(user.id)) {
-    return c.json({ error: "Forbidden" }, 403);
+    throw new ForbiddenError();
   }
   await next();
 });

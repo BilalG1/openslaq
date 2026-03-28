@@ -1,11 +1,12 @@
 import { Hono } from "hono";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { env } from "../../env";
+import { ServiceUnavailableError, UnauthorizedError } from "../../errors";
 import { getSubscriptionsForProject, getVercelBotForWorkspace } from "./service";
 import { handleVercelEvent } from "./event-handlers";
 import { createMessage } from "../../messages/service";
 import { setMessageActions } from "../../bots/service";
-import { getIO } from "../../socket/io";
+import { emitToChannel } from "../../lib/emit";
 import { asChannelId, asUserId } from "@openslaq/shared";
 
 const app = new Hono();
@@ -84,12 +85,12 @@ app.post("/webhook", async (c) => {
   // Vercel integration webhooks are signed with the client secret
   const secret = env.VERCEL_WEBHOOK_SECRET ?? env.VERCEL_CLIENT_SECRET;
   if (!secret) {
-    return c.json({ error: "Vercel webhook signature verification is not configured" }, 503);
+    throw new ServiceUnavailableError("Vercel webhook signature verification is not configured");
   }
 
   const signature = c.req.header("x-vercel-signature");
   if (!signature) {
-    return c.json({ error: "Missing signature" }, 401);
+    throw new UnauthorizedError("Missing signature");
   }
 
   // Vercel sends HMAC-SHA1 hex digest using the client secret
@@ -98,7 +99,7 @@ app.post("/webhook", async (c) => {
   const expectedBuffer = Buffer.from(expected);
 
   if (sigBuffer.length !== expectedBuffer.length || !timingSafeEqual(sigBuffer, expectedBuffer)) {
-    return c.json({ error: "Invalid signature" }, 401);
+    throw new UnauthorizedError("Invalid signature");
   }
 
   const payload = JSON.parse(body) as Record<string, unknown>;
@@ -182,7 +183,7 @@ async function processWebhook(
     }
 
     try {
-      getIO().to(`channel:${sub.channelId}`).emit("message:new", result);
+      emitToChannel(asChannelId(sub.channelId), "message:new", result);
     } catch {
       // Socket.IO may not be initialized
     }

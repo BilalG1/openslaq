@@ -1,41 +1,68 @@
 import type { AuthProvider } from "@openslaq/client-core";
 import { AuthError } from "@openslaq/client-core";
-import { getTokens, storeTokens } from "./token-store";
-import { refreshAccessToken } from "./stack-auth";
+import {
+  getServerSession,
+  setServerSession,
+  clearServerSession,
+} from "./server-store";
+import type { AuthStrategy } from "./auth-strategies";
 import { router } from "expo-router";
 
-let cachedToken: string | null = null;
-
-export function setAuthToken(token: string | null) {
-  cachedToken = token;
-}
-
-async function getValidToken(): Promise<string | null> {
-  if (cachedToken) return cachedToken;
-
-  const tokens = await getTokens();
-  if (!tokens) return null;
-
-  // Try to refresh the token
-  try {
-    const refreshed = await refreshAccessToken(tokens.refreshToken);
-    const newToken = refreshed.access_token;
-    await storeTokens({
-      accessToken: newToken,
-      refreshToken: refreshed.refresh_token,
-      userId: refreshed.user_id,
-    });
-    cachedToken = newToken;
-    return newToken;
-  } catch {
-    return null;
-  }
+export interface MobileAuthHandle {
+  provider: AuthProvider;
+  setToken: (token: string | null) => void;
 }
 
 export function createMobileAuthProvider(
+  serverId: string,
+  strategy: AuthStrategy,
   onAuthRequired?: () => void,
-): AuthProvider {
-  return {
+): MobileAuthHandle {
+  let cachedToken: string | null = null;
+  let authInvalidated = false;
+  let refreshInFlight: Promise<string | null> | null = null;
+
+  function setToken(token: string | null) {
+    cachedToken = token;
+    refreshInFlight = null;
+    if (token) authInvalidated = false;
+  }
+
+  async function getValidToken(): Promise<string | null> {
+    if (authInvalidated) return null;
+    if (cachedToken) return cachedToken;
+
+    // Deduplicate concurrent refresh calls
+    if (refreshInFlight) return refreshInFlight;
+
+    refreshInFlight = doRefresh();
+    try {
+      return await refreshInFlight;
+    } finally {
+      refreshInFlight = null;
+    }
+  }
+
+  async function doRefresh(): Promise<string | null> {
+    const session = await getServerSession(serverId);
+    if (!session) return null;
+
+    try {
+      const refreshed = await strategy.refreshAccessToken(session.refreshToken);
+      const newToken = refreshed.access_token;
+      await setServerSession(serverId, {
+        accessToken: newToken,
+        refreshToken: refreshed.refresh_token,
+        userId: refreshed.user_id,
+      });
+      cachedToken = newToken;
+      return newToken;
+    } catch {
+      return null;
+    }
+  }
+
+  const provider: AuthProvider = {
     getAccessToken: () => getValidToken(),
     requireAccessToken: async () => {
       const token = await getValidToken();
@@ -44,6 +71,8 @@ export function createMobileAuthProvider(
     },
     onAuthRequired: () => {
       cachedToken = null;
+      authInvalidated = true;
+      void clearServerSession(serverId);
       if (onAuthRequired) {
         onAuthRequired();
       } else {
@@ -51,4 +80,6 @@ export function createMobileAuthProvider(
       }
     },
   };
+
+  return { provider, setToken };
 }

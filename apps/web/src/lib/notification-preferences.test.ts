@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach } from "bun:test";
+import { describe, expect, test, beforeEach } from "vitest";
 import { getNotificationPreferences, setNotificationPreferences } from "./notification-preferences";
 
 describe("notification-preferences", () => {

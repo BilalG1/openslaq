@@ -42,6 +42,8 @@ const mockFetchUserThreads = jest.fn();
 
 jest.mock("@openslaq/client-core", () => ({
   fetchUserThreads: (...args: unknown[]) => mockFetchUserThreads(...args),
+  getErrorMessage: (err: unknown, fallback: string) =>
+    err instanceof Error ? err.message : fallback,
 }));
 
 jest.mock("@/contexts/AuthContext", () => ({

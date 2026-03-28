@@ -1,26 +1,13 @@
-import { Pressable, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Lock } from "lucide-react-native";
 import type { SearchResultItem as SearchResult } from "@openslaq/shared";
 import { useMobileTheme } from "@/theme/ThemeProvider";
+import { formatRelativeTime } from "@/lib/time";
 import { HeadlineRenderer } from "./HeadlineRenderer";
 
 interface Props {
   item: SearchResult;
   onPress: (item: SearchResult) => void;
-}
-
-function formatRelativeTime(dateStr: string): string {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60_000);
-  if (diffMins < 1) return "now";
-  if (diffMins < 60) return `${diffMins}m`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h`;
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 30) return `${diffDays}d`;
-  return date.toLocaleDateString();
 }
 
 function channelPrefixText(channelType: string): string | null {
@@ -35,6 +22,9 @@ export function SearchResultItem({ item, onPress }: Props) {
   return (
     <Pressable
       testID={`search-result-${item.messageId}`}
+      accessibilityRole="button"
+      accessibilityLabel={`Message from ${item.userDisplayName} in ${item.channelName}`}
+      accessibilityHint="Opens this message"
       onPress={() => onPress(item)}
       style={({ pressed }) => ({
         opacity: pressed ? 0.7 : 1,
@@ -45,14 +35,14 @@ export function SearchResultItem({ item, onPress }: Props) {
         borderBottomColor: theme.colors.borderDefault,
       })}
     >
-      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
+      <View style={styles.headerRow}>
         <View
           testID="search-result-channel"
-          style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
+          style={styles.channelRow}
         >
-          {item.channelType === "private" && <Lock size={13} color={theme.colors.textSecondary} style={{ marginRight: 3 }} />}
+          {item.channelType === "private" && <Lock size={13} color={theme.colors.textSecondary} style={styles.lockIcon} />}
           <Text
-            style={{ fontSize: 13, fontWeight: "600", color: theme.colors.textSecondary }}
+            style={[styles.channelName, { color: theme.colors.textSecondary }]}
             numberOfLines={1}
           >
             {channelPrefixText(item.channelType)}{item.channelName}
@@ -61,26 +51,20 @@ export function SearchResultItem({ item, onPress }: Props) {
         {item.parentMessageId && (
           <View
             testID="search-result-thread-badge"
-            style={{
-              backgroundColor: theme.brand.primary + "20",
-              borderRadius: 4,
-              paddingHorizontal: 6,
-              paddingVertical: 2,
-              marginLeft: 8,
-            }}
+            style={[styles.threadBadge, { backgroundColor: theme.brand.primary + "20" }]}
           >
-            <Text style={{ fontSize: 11, color: theme.brand.primary, fontWeight: "500" }}>
+            <Text style={[styles.threadBadgeText, { color: theme.brand.primary }]}>
               in thread
             </Text>
           </View>
         )}
-        <Text style={{ fontSize: 12, color: theme.colors.textFaint, marginLeft: 8 }}>
+        <Text style={[styles.timestamp, { color: theme.colors.textFaint }]}>
           {formatRelativeTime(item.createdAt)}
         </Text>
       </View>
       <Text
         testID="search-result-sender"
-        style={{ fontSize: 14, fontWeight: "500", color: theme.colors.textPrimary, marginBottom: 2 }}
+        style={[styles.senderName, { color: theme.colors.textPrimary }]}
         numberOfLines={1}
       >
         {item.userDisplayName}
@@ -89,3 +73,42 @@ export function SearchResultItem({ item, onPress }: Props) {
     </Pressable>
   );
 }
+
+const styles = StyleSheet.create({
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  channelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  lockIcon: {
+    marginRight: 3,
+  },
+  channelName: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  threadBadge: {
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginLeft: 8,
+  },
+  threadBadgeText: {
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  timestamp: {
+    fontSize: 12,
+    marginLeft: 8,
+  },
+  senderName: {
+    fontSize: 14,
+    fontWeight: "500",
+    marginBottom: 2,
+  },
+});

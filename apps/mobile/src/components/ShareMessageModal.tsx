@@ -5,14 +5,17 @@ import {
   Text,
   TextInput,
   View,
+  StyleSheet,
 } from "react-native";
 import { Lock, Check } from "lucide-react-native";
-import type { Channel, Message } from "@openslaq/shared";
+import type { Channel, ChannelId, Message } from "@openslaq/shared";
 import type { DmConversation, GroupDmConversation } from "@openslaq/client-core";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { formatTime } from "@/lib/time";
 import { buildDestinationItems } from "@/lib/destination-items";
+
+import { TRANSPARENT } from "@/theme/constants";
 
 interface Props {
   visible: boolean;
@@ -20,7 +23,7 @@ interface Props {
   channels: Channel[];
   dms: DmConversation[];
   groupDms: GroupDmConversation[];
-  onShare: (destinationChannelId: string, destinationName: string, comment: string) => void;
+  onShare: (destinationChannelId: ChannelId, destinationName: string, comment: string) => void;
   onClose: () => void;
 }
 
@@ -74,28 +77,17 @@ export function ShareMessageModal({
   return (
     <BottomSheet visible={visible} onClose={onClose} avoidKeyboard maxHeight="80%" testID="share-message-modal">
       {/* Header row */}
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          paddingHorizontal: 16,
-          marginBottom: 12,
-        }}
-      >
-        <Text
-          style={{
-            fontSize: 18,
-            fontWeight: "600",
-            color: theme.colors.textPrimary,
-          }}
-        >
+      <View style={styles.headerRow}>
+        <Text style={[styles.title, { color: theme.colors.textPrimary }]}>
           Share message
         </Text>
         <Pressable
           testID="share-message-button"
           onPress={handleShare}
           disabled={!selectedId}
+          accessibilityRole="button"
+          accessibilityLabel="Share"
+          accessibilityHint="Shares the message to the selected destination"
           style={({ pressed }) => ({
             paddingHorizontal: 16,
             paddingVertical: 8,
@@ -104,9 +96,7 @@ export function ShareMessageModal({
             opacity: !selectedId ? 0.4 : pressed ? 0.7 : 1,
           })}
         >
-          <Text
-            style={{ fontSize: 15, fontWeight: "600", color: "#fff" }}
-          >
+          <Text style={[styles.shareButtonText, { color: theme.colors.headerText }]}>
             Share
           </Text>
         </Pressable>
@@ -115,67 +105,32 @@ export function ShareMessageModal({
       {/* Message preview */}
       <View
         testID="share-message-preview"
-        style={{
-          borderLeftWidth: 3,
+        style={[styles.messagePreview, {
           borderLeftColor: theme.brand.primary,
-          borderRadius: 6,
           backgroundColor: theme.colors.surfaceSecondary,
-          padding: 10,
-          marginHorizontal: 16,
-          marginBottom: 12,
-        }}
+        }]}
       >
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            marginBottom: 4,
-          }}
-        >
+        <View style={styles.previewHeader}>
           <View
-            style={{
-              width: 20,
-              height: 20,
-              borderRadius: 10,
-              backgroundColor: theme.colors.surfaceTertiary,
-              alignItems: "center",
-              justifyContent: "center",
-              marginRight: 6,
-            }}
+            style={[styles.avatar, { backgroundColor: theme.colors.surfaceTertiary }]}
           >
-            <Text
-              style={{
-                fontSize: 11,
-                fontWeight: "600",
-                color: theme.colors.textMuted,
-              }}
-            >
+            <Text style={[styles.avatarText, { color: theme.colors.textMuted }]}>
               {initial}
             </Text>
           </View>
           <Text
             testID="share-preview-sender"
-            style={{
-              fontSize: 13,
-              fontWeight: "600",
-              color: theme.colors.textPrimary,
-            }}
+            style={[styles.senderName, { color: theme.colors.textPrimary }]}
           >
             {message.senderDisplayName}
           </Text>
-          <Text
-            style={{
-              fontSize: 11,
-              color: theme.colors.textFaint,
-              marginLeft: 6,
-            }}
-          >
+          <Text style={[styles.timeText, { color: theme.colors.textFaint }]}>
             {formatTime(message.createdAt)}
           </Text>
         </View>
         <Text
           testID="share-preview-content"
-          style={{ fontSize: 14, color: theme.colors.textPrimary }}
+          style={[styles.contentText, { color: theme.colors.textPrimary }]}
           numberOfLines={3}
         >
           {message.content}
@@ -191,19 +146,13 @@ export function ShareMessageModal({
         placeholderTextColor={theme.colors.textFaint}
         multiline
         maxLength={10000}
-        style={{
-          borderWidth: 1,
+        accessibilityLabel="Comment"
+        accessibilityHint="Add an optional comment to the shared message"
+        style={[styles.commentInput, {
           borderColor: theme.colors.borderDefault,
-          borderRadius: 8,
-          paddingHorizontal: 12,
-          paddingVertical: 10,
-          fontSize: 16,
           color: theme.colors.textPrimary,
           backgroundColor: theme.colors.surfaceSecondary,
-          marginHorizontal: 16,
-          marginBottom: 8,
-          maxHeight: 80,
-        }}
+        }]}
       />
 
       {/* Search input */}
@@ -215,18 +164,13 @@ export function ShareMessageModal({
         placeholderTextColor={theme.colors.textFaint}
         autoCapitalize="none"
         autoCorrect={false}
-        style={{
-          borderWidth: 1,
+        accessibilityLabel="Search destinations"
+        accessibilityHint="Search for channels and people to share with"
+        style={[styles.searchInput, {
           borderColor: theme.colors.borderDefault,
-          borderRadius: 8,
-          paddingHorizontal: 12,
-          paddingVertical: 10,
-          fontSize: 16,
           color: theme.colors.textPrimary,
           backgroundColor: theme.colors.surfaceSecondary,
-          marginHorizontal: 16,
-          marginBottom: 8,
-        }}
+        }]}
       />
 
       {/* Destination list */}
@@ -241,6 +185,9 @@ export function ShareMessageModal({
             <Pressable
               testID={`share-destination-${item.id}`}
               onPress={() => setSelectedId(item.id)}
+              accessibilityRole="button"
+              accessibilityLabel={`${item.type === "dm" ? "Direct message" : "Channel"} ${item.name}`}
+              accessibilityHint={`Selects ${item.name} as the share destination`}
               style={({ pressed }) => ({
                 opacity: pressed ? 0.7 : 1,
                 paddingHorizontal: 16,
@@ -249,24 +196,20 @@ export function ShareMessageModal({
                 alignItems: "center",
                 backgroundColor: isSelected
                   ? theme.colors.surfaceSecondary
-                  : "transparent",
+                  : TRANSPARENT,
               })}
             >
-              <View style={{ width: 24, alignItems: "center", justifyContent: "center" }}>
+              <View style={styles.prefixContainer}>
                 {item.type === "private" ? (
                   <Lock size={14} color={theme.colors.textFaint} />
                 ) : (
-                  <Text style={{ fontSize: 14, color: theme.colors.textFaint }}>
+                  <Text style={[styles.prefixText, { color: theme.colors.textFaint }]}>
                     {item.type === "dm" ? "@" : "#"}
                   </Text>
                 )}
               </View>
               <Text
-                style={{
-                  fontSize: 16,
-                  color: theme.colors.textPrimary,
-                  flex: 1,
-                }}
+                style={[styles.destinationName, { color: theme.colors.textPrimary }]}
                 numberOfLines={1}
               >
                 {item.name}
@@ -285,3 +228,87 @@ export function ShareMessageModal({
     </BottomSheet>
   );
 }
+
+const styles = StyleSheet.create({
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  shareButtonText: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  messagePreview: {
+    borderLeftWidth: 3,
+    borderRadius: 6,
+    padding: 10,
+    marginHorizontal: 16,
+    marginBottom: 12,
+  },
+  previewHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  avatar: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 6,
+  },
+  avatarText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  senderName: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  timeText: {
+    fontSize: 11,
+    marginLeft: 6,
+  },
+  contentText: {
+    fontSize: 14,
+  },
+  commentInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    maxHeight: 80,
+  },
+  searchInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    marginHorizontal: 16,
+    marginBottom: 8,
+  },
+  prefixContainer: {
+    width: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  prefixText: {
+    fontSize: 14,
+  },
+  destinationName: {
+    fontSize: 16,
+    flex: 1,
+  },
+});

@@ -1,8 +1,8 @@
-import type { Channel } from "@openslaq/shared";
+import type { Channel, ChannelId } from "@openslaq/shared";
 import type { DmConversation, GroupDmConversation } from "@openslaq/client-core";
 
 export interface DestinationItem {
-  id: string;
+  id: ChannelId;
   name: string;
   type: "public" | "private" | "dm";
 }

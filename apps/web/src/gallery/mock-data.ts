@@ -100,6 +100,8 @@ export const MOCK_DMS: DmConversation[] = [
       displayName: "Bob Chen",
       avatarUrl: null,
     },
+    lastMessageContent: null,
+    lastMessageAt: null,
   },
 ];
 

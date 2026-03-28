@@ -2,11 +2,14 @@ import React from "react";
 import { render, screen } from "@testing-library/react-native";
 import { TypingIndicator } from "../TypingIndicator";
 import type { TypingUser } from "@/hooks/useTypingTracking";
+import { asUserId } from "@openslaq/shared";
 
-function makeTypingUser(overrides: Partial<TypingUser> & { userId: string; displayName: string }): TypingUser {
+function makeTypingUser(overrides: Omit<Partial<TypingUser>, "userId"> & { userId: string; displayName: string }): TypingUser {
+  const { userId, ...rest } = overrides;
   return {
     expiresAt: Date.now() + 5000,
-    ...overrides,
+    ...rest,
+    userId: asUserId(userId),
   };
 }
 

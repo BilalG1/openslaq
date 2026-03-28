@@ -4,6 +4,7 @@ import type { Channel } from "@openslaq/shared";
 import type { WorkspaceMemberEnv } from "../workspaces/role-middleware";
 import { getChannelById, isChannelMember } from "./service";
 import { hasMinimumRole } from "../auth/permissions";
+import { NotFoundError, ForbiddenError } from "../errors";
 
 export type ChannelEnv = WorkspaceMemberEnv & {
   Variables: WorkspaceMemberEnv["Variables"] & {
@@ -14,14 +15,14 @@ export type ChannelEnv = WorkspaceMemberEnv & {
 export const resolveChannel = createMiddleware<ChannelEnv>(async (c, next) => {
   const idParam = c.req.param("id");
   if (!idParam) {
-    return c.json({ error: "Channel not found" }, 404);
+    throw new NotFoundError("Channel");
   }
   const channelId = asChannelId(idParam);
   const workspace = c.get("workspace");
 
   const channel = await getChannelById(channelId);
   if (!channel || channel.workspaceId !== workspace.id) {
-    return c.json({ error: "Channel not found" }, 404);
+    throw new NotFoundError("Channel");
   }
 
   // For private channels and group DMs, hide from non-members (return 404, not 403)
@@ -29,7 +30,7 @@ export const resolveChannel = createMiddleware<ChannelEnv>(async (c, next) => {
     const user = c.get("user");
     const isMember = await isChannelMember(channel.id, user.id);
     if (!isMember) {
-      return c.json({ error: "Channel not found" }, 404);
+      throw new NotFoundError("Channel");
     }
   }
 
@@ -43,7 +44,7 @@ export const requireChannelMember = createMiddleware<ChannelEnv>(async (c, next)
 
   const isMember = await isChannelMember(channel.id, user.id);
   if (!isMember) {
-    return c.json({ error: "Not a channel member" }, 403);
+    throw new ForbiddenError("Not a channel member");
   }
 
   await next();
@@ -64,7 +65,7 @@ export const requirePrivateChannelAdmin = createMiddleware<ChannelEnv>(async (c,
   const isWorkspaceAdmin = hasMinimumRole(memberRole, ROLES.ADMIN);
 
   if (!isCreator && !isWorkspaceAdmin) {
-    return c.json({ error: "Only channel creator or workspace admin can manage members" }, 403);
+    throw new ForbiddenError("Only channel creator or workspace admin can manage members");
   }
 
   await next();

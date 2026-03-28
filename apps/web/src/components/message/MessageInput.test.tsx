@@ -1,15 +1,15 @@
-import { describe, test, expect, afterEach, jest, mock, beforeEach } from "bun:test";
+import { describe, test, expect, afterEach, vi, beforeEach } from "vitest";
 import { render, screen, cleanup, act } from "../../test-utils";
 import { fireEvent } from "@testing-library/react";
 import { createRef } from "react";
 
 // Mock sub-components
-mock.module("./FilePreviewList", () => ({
+vi.mock("./FilePreviewList", () => ({
   FilePreviewList: () => null,
 }));
 
 let capturedScheduleOnSchedule: ((date: Date) => void) | null = null;
-mock.module("./ScheduleMessageDialog", () => ({
+vi.mock("./ScheduleMessageDialog", () => ({
   ScheduleMessageDialog: ({ open, onSchedule }: { open: boolean; onOpenChange: (v: boolean) => void; onSchedule: (d: Date) => void }) => {
     capturedScheduleOnSchedule = onSchedule;
     return open ? <div data-testid="schedule-dialog" /> : null;
@@ -21,7 +21,7 @@ let capturedOnContentChange: ((content: string) => void) | null = null;
 let capturedOnFilePaste: ((files: File[]) => void) | null = null;
 let capturedOnScheduleSend: (() => void) | null = null;
 
-mock.module("@openslaq/editor", () => ({
+vi.mock("@openslaq/editor", () => ({
   RichTextEditor: ({ onSubmit, onContentChange, onFilePaste, onScheduleSend }: {
     onSubmit?: (md: string) => void;
     onContentChange?: (content: string) => void;
@@ -40,11 +40,11 @@ mock.module("@openslaq/editor", () => ({
 }));
 
 // Mock hooks
-mock.module("react-router-dom", () => ({
+vi.mock("react-router-dom", () => ({
   useParams: () => ({ workspaceSlug: "default" }),
 }));
 
-mock.module("../../hooks/useCurrentUser", () => ({
+vi.mock("../../hooks/useCurrentUser", () => ({
   useCurrentUser: () => ({
     id: "user-1",
     displayName: "Test User",
@@ -52,27 +52,27 @@ mock.module("../../hooks/useCurrentUser", () => ({
   }),
 }));
 
-mock.module("../../state/chat-store", () => ({
+vi.mock("../../state/chat-store", () => ({
   useChatStore: () => ({
     state: { customEmojis: [] },
-    dispatch: jest.fn(),
+    dispatch: vi.fn(),
   }),
 }));
 
-const mockSendMessage = jest.fn(async () => true);
-mock.module("../../hooks/chat/useMessageMutations", () => ({
+const mockSendMessage = vi.fn(async () => true);
+vi.mock("../../hooks/chat/useMessageMutations", () => ({
   useMessageMutations: () => ({
     sendMessage: mockSendMessage,
-    toggleReaction: jest.fn(),
-    editMessage: jest.fn(),
-    deleteMessage: jest.fn(),
-    markAsUnread: jest.fn(),
+    toggleReaction: vi.fn(),
+    editMessage: vi.fn(),
+    deleteMessage: vi.fn(),
+    markAsUnread: vi.fn(),
   }),
 }));
 
-const mockAddFiles = jest.fn();
-const mockUploadAll = jest.fn(async () => []);
-const mockReset = jest.fn();
+const mockAddFiles = vi.fn();
+const mockUploadAll = vi.fn(async () => []);
+const mockReset = vi.fn();
 const uploadState = {
   pendingFiles: [] as unknown[],
   uploadedAttachments: [] as unknown[],
@@ -80,19 +80,19 @@ const uploadState = {
   error: null as string | null,
   hasFiles: false,
   addFiles: mockAddFiles,
-  removeFile: jest.fn(),
-  removeAttachment: jest.fn(),
+  removeFile: vi.fn(),
+  removeAttachment: vi.fn(),
   uploadAll: mockUploadAll,
   reset: mockReset,
 };
 
-mock.module("../../hooks/useFileUpload", () => ({
+vi.mock("../../hooks/useFileUpload", () => ({
   useFileUpload: () => uploadState,
 }));
 
-const mockSaveDraft = jest.fn();
-const mockClearDraft = jest.fn();
-mock.module("../../hooks/useDraftMessage", () => ({
+const mockSaveDraft = vi.fn();
+const mockClearDraft = vi.fn();
+vi.mock("../../hooks/useDraftMessage", () => ({
   useDraftMessage: () => ({
     draft: null,
     saveDraft: mockSaveDraft,
@@ -100,43 +100,49 @@ mock.module("../../hooks/useDraftMessage", () => ({
   }),
 }));
 
-const mockListMembers = jest.fn(async () => []);
-mock.module("../../hooks/api/useWorkspaceMembersApi", () => ({
+const mockListMembers = vi.fn(async () => []);
+vi.mock("../../hooks/api/useWorkspaceMembersApi", () => ({
   useWorkspaceMembersApi: () => ({
     listMembers: mockListMembers,
   }),
 }));
 
-const _realApiClient = require("../../lib/api-client");
-mock.module("../../lib/api-client", () => ({
-  ..._realApiClient,
+vi.mock("../../lib/api-client", async (importOriginal) => {
+  const mod = await importOriginal<Record<string, unknown>>();
+  return {
+    ...mod,
   useAuthProvider: () => ({}),
-}));
+  };
+});
 
-mock.module("../../api", () => ({
+vi.mock("../../api", () => ({
   api: {},
 }));
 
-const mockRedirectToAuth = jest.fn();
-mock.module("../../lib/auth", () => ({
+const mockRedirectToAuth = vi.hoisted(() => vi.fn());
+vi.mock("../../lib/auth", () => ({
   redirectToAuth: mockRedirectToAuth,
 }));
 
 // Use the real AuthError so instanceof checks work across mock boundaries
-const { AuthError: RealAuthError } = require("@openslaq/client-core");
-const _realErrors = require("../../lib/errors");
-mock.module("../../lib/errors", () => ({
-  ..._realErrors,
-}));
+import { AuthError as RealAuthError } from "@openslaq/client-core";
+vi.mock("../../lib/errors", async (importOriginal) => {
+  const mod = await importOriginal<Record<string, unknown>>();
+  return {
+    ...mod,
+  };
+});
 
-const mockCreateScheduledMessageOp = jest.fn(async () => {});
-const _realClientCore = require("@openslaq/client-core");
-mock.module("@openslaq/client-core", () => ({
-  ..._realClientCore,
-  createScheduledMessageOp: mockCreateScheduledMessageOp,
-}));
+const mockCreateScheduledMessageOp = vi.hoisted(() => vi.fn(async () => {}));
+vi.mock("@openslaq/client-core", async (importOriginal) => {
+  const mod = await importOriginal<Record<string, unknown>>();
+  return {
+    ...mod,
+    createScheduledMessageOp: mockCreateScheduledMessageOp,
+  };
+});
 
-const { MessageInput } = await import("./MessageInput");
+import { MessageInput } from "./MessageInput";
 type MessageInputHandle = import("./MessageInput").MessageInputHandle;
 
 describe("MessageInput", () => {
@@ -256,7 +262,7 @@ describe("MessageInput", () => {
   });
 
   test("content change calls saveDraft and onTyping", async () => {
-    const onTyping = jest.fn();
+    const onTyping = vi.fn();
     await act(async () => {
       render(<MessageInput channelId="ch-1" onTyping={onTyping} />);
     });

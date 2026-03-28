@@ -1,5 +1,6 @@
 import type { Channel, ChannelId, UserId } from "@openslaq/shared";
 import { authorizedRequest } from "../api/api-client";
+import { AuthError, getErrorMessage } from "../api/errors";
 import type { ChatAction } from "../chat-reducer";
 import type { TypedSocket } from "../socket/socketManager";
 import { normalizeChannel } from "./normalize";
@@ -92,6 +93,8 @@ interface JoinChannelParams {
   workspaceSlug: string;
   channelId: ChannelId;
   socket: TypedSocket | null;
+  /** Pass the channel object for optimistic update (skips re-fetch) */
+  channel?: Channel;
 }
 
 export async function joinChannel(
@@ -99,27 +102,47 @@ export async function joinChannel(
   params: JoinChannelParams,
 ): Promise<void> {
   const { api, auth, dispatch } = deps;
-  const { workspaceSlug, channelId, socket } = params;
+  const { workspaceSlug, channelId, socket, channel } = params;
 
-  await authorizedRequest(auth, (headers) =>
-    api.api.workspaces[":slug"].channels[":id"].join.$post(
-      { param: { slug: workspaceSlug, id: channelId } },
-      { headers },
-    ),
-  );
-
-  // Re-fetch channels to get the full Channel object
-  const res = await authorizedRequest(auth, (headers) =>
-    api.api.workspaces[":slug"].channels.$get(
-      { param: { slug: workspaceSlug } },
-      { headers },
-    ),
-  );
-  const channels = (await res.json()).map(normalizeChannel);
-  const newChannel = channels.find((c) => c.id === channelId);
-  if (newChannel) {
-    dispatch({ type: "workspace/addChannel", channel: newChannel });
+  // Optimistic update when channel data is available
+  if (channel) {
+    dispatch({ type: "workspace/addChannel", channel });
+    dispatch({ type: "channel/memberCountDelta", channelId, delta: 1 });
     socket?.emit("channel:join", { channelId });
+  }
+
+  try {
+    await authorizedRequest(auth, (headers) =>
+      api.api.workspaces[":slug"].channels[":id"].join.$post(
+        { param: { slug: workspaceSlug, id: channelId } },
+        { headers },
+      ),
+    );
+
+    // If no channel was provided, fall back to re-fetching
+    if (!channel) {
+      const res = await authorizedRequest(auth, (headers) =>
+        api.api.workspaces[":slug"].channels.$get(
+          { param: { slug: workspaceSlug } },
+          { headers },
+        ),
+      );
+      const channels = (await res.json()).map(normalizeChannel);
+      const newChannel = channels.find((c) => c.id === channelId);
+      if (newChannel) {
+        dispatch({ type: "workspace/addChannel", channel: newChannel });
+        socket?.emit("channel:join", { channelId });
+      }
+    }
+  } catch (err) {
+    // Rollback optimistic update
+    if (channel) {
+      dispatch({ type: "workspace/removeChannel", channelId });
+      dispatch({ type: "channel/memberCountDelta", channelId, delta: -1 });
+      socket?.emit("channel:leave", { channelId });
+    }
+    if (err instanceof AuthError) return;
+    dispatch({ type: "mutations/error", error: getErrorMessage(err, "Failed to join channel") });
   }
 }
 
@@ -133,18 +156,30 @@ export async function leaveChannel(
   deps: OperationDeps,
   params: LeaveChannelParams,
 ): Promise<void> {
-  const { api, auth, dispatch } = deps;
+  const { api, auth, dispatch, getState } = deps;
   const { workspaceSlug, channelId, socket } = params;
+  const previousChannel = getState().channels.find((c) => c.id === channelId);
 
-  await authorizedRequest(auth, (headers) =>
-    api.api.workspaces[":slug"].channels[":id"].leave.$post(
-      { param: { slug: workspaceSlug, id: channelId } },
-      { headers },
-    ),
-  );
-
+  // Optimistic removal
   dispatch({ type: "workspace/removeChannel", channelId });
   socket?.emit("channel:leave", { channelId });
+
+  try {
+    await authorizedRequest(auth, (headers) =>
+      api.api.workspaces[":slug"].channels[":id"].leave.$post(
+        { param: { slug: workspaceSlug, id: channelId } },
+        { headers },
+      ),
+    );
+  } catch (err) {
+    // Rollback: restore the channel
+    if (previousChannel) {
+      dispatch({ type: "workspace/addChannel", channel: previousChannel });
+      socket?.emit("channel:join", { channelId });
+    }
+    if (err instanceof AuthError) return;
+    dispatch({ type: "mutations/error", error: getErrorMessage(err, "Failed to leave channel") });
+  }
 }
 
 interface UpdateChannelDescriptionParams {

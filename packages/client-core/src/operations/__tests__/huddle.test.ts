@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, mock } from "bun:test";
 import { asChannelId, asUserId, type HuddleState } from "@openslaq/shared";
 import {
   handleHuddleEnded,
@@ -6,7 +6,9 @@ import {
   handleHuddleSync,
   handleHuddleUpdated,
   setCurrentHuddleChannel,
+  notifyHuddleLeave,
 } from "../huddle";
+import type { ApiDeps } from "../types";
 
 const huddle: HuddleState = {
   channelId: asChannelId("ch-1"),
@@ -46,5 +48,30 @@ describe("operations/huddle", () => {
       { type: "huddle/setCurrentChannel", channelId: "ch-1" },
       { type: "huddle/setCurrentChannel", channelId: null },
     ]);
+  });
+
+  it("notifyHuddleLeave calls POST /api/huddle/leave and returns result", async () => {
+    const mockPost = mock(() =>
+      Promise.resolve({ status: 200, ok: true, clone: () => ({ json: () => Promise.resolve({ ended: true }) }), json: () => Promise.resolve({ ended: true }) }),
+    );
+    const deps: ApiDeps = {
+      api: { api: { huddle: { leave: { $post: mockPost } } } } as unknown as ApiDeps["api"],
+      auth: { requireAccessToken: async () => "test-token" } as unknown as ApiDeps["auth"],
+    };
+
+    const result = await notifyHuddleLeave(deps);
+    expect(result).toEqual({ ended: true });
+    expect(mockPost).toHaveBeenCalledTimes(1);
+  });
+
+  it("notifyHuddleLeave returns ended=false on error", async () => {
+    const mockPost = mock(() => Promise.reject(new Error("network")));
+    const deps: ApiDeps = {
+      api: { api: { huddle: { leave: { $post: mockPost } } } } as unknown as ApiDeps["api"],
+      auth: { requireAccessToken: async () => "test-token" } as unknown as ApiDeps["auth"],
+    };
+
+    const result = await notifyHuddleLeave(deps);
+    expect(result).toEqual({ ended: false });
   });
 });

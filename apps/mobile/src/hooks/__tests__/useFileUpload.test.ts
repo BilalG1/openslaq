@@ -38,9 +38,7 @@ jest.mock("expo-document-picker", () => ({
   }),
 }));
 
-jest.mock("@/lib/env", () => ({
-  env: { EXPO_PUBLIC_API_URL: "http://api.test" },
-}));
+// apiUrl comes from useServer() mock (jest.setup.js) → http://localhost:3001
 
 describe("useFileUpload", () => {
   beforeEach(() => {
@@ -65,8 +63,8 @@ describe("useFileUpload", () => {
     });
 
     expect(result.current.pendingFiles).toHaveLength(1);
-    expect(result.current.pendingFiles[0].name).toBe("photo.jpg");
-    expect(result.current.pendingFiles[0].isImage).toBe(true);
+    expect(result.current.pendingFiles[0]!.name).toBe("photo.jpg");
+    expect(result.current.pendingFiles[0]!.isImage).toBe(true);
     expect(result.current.hasFiles).toBe(true);
   });
 
@@ -78,7 +76,7 @@ describe("useFileUpload", () => {
     });
 
     expect(result.current.pendingFiles).toHaveLength(1);
-    expect(result.current.pendingFiles[0].name).toBe("camera.jpg");
+    expect(result.current.pendingFiles[0]!.name).toBe("camera.jpg");
   });
 
   it("adds files from document picker", async () => {
@@ -89,8 +87,8 @@ describe("useFileUpload", () => {
     });
 
     expect(result.current.pendingFiles).toHaveLength(1);
-    expect(result.current.pendingFiles[0].name).toBe("doc.pdf");
-    expect(result.current.pendingFiles[0].isImage).toBe(false);
+    expect(result.current.pendingFiles[0]!.name).toBe("doc.pdf");
+    expect(result.current.pendingFiles[0]!.isImage).toBe(false);
   });
 
   it("removes a file by id", async () => {
@@ -100,7 +98,7 @@ describe("useFileUpload", () => {
       await result.current.addFromImagePicker();
     });
 
-    const fileId = result.current.pendingFiles[0].id;
+    const fileId = result.current.pendingFiles[0]!.id;
 
     act(() => {
       result.current.removeFile(fileId);
@@ -131,7 +129,7 @@ describe("useFileUpload", () => {
 
     expect(ids).toEqual(["att-1", "att-2"]);
     expect(global.fetch as unknown as jest.Mock).toHaveBeenCalledWith(
-      "http://api.test/api/uploads",
+      "http://localhost:3001/api/uploads",
       expect.objectContaining({
         method: "POST",
         headers: { Authorization: "Bearer test-token" },
@@ -193,5 +191,91 @@ describe("useFileUpload", () => {
     expect(result.current.pendingFiles).toHaveLength(0);
     expect(result.current.error).toBeNull();
     expect(result.current.hasFiles).toBe(false);
+  });
+
+  it("handles image picker cancellation", async () => {
+    const ImagePicker = require("expo-image-picker");
+    ImagePicker.launchImageLibraryAsync.mockResolvedValueOnce({ canceled: true, assets: [] });
+
+    const { result } = renderHook(() => useFileUpload());
+
+    await act(async () => {
+      await result.current.addFromImagePicker();
+    });
+
+    expect(result.current.pendingFiles).toHaveLength(0);
+    expect(result.current.hasFiles).toBe(false);
+  });
+
+  it("handles document picker cancellation", async () => {
+    const DocPicker = require("expo-document-picker");
+    DocPicker.getDocumentAsync.mockResolvedValueOnce({ canceled: true, assets: [] });
+
+    const { result } = renderHook(() => useFileUpload());
+
+    await act(async () => {
+      await result.current.addFromDocumentPicker();
+    });
+
+    expect(result.current.pendingFiles).toHaveLength(0);
+  });
+
+  it("prevents concurrent uploads (second call returns empty)", async () => {
+    // Mock a slow upload
+    const fetchSpy = jest.spyOn(global, "fetch").mockImplementation(
+      () => new Promise((resolve) => setTimeout(() => resolve(new Response(
+        JSON.stringify({ attachments: [{ id: "att-1" }] }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      )), 100)),
+    );
+
+    const { result } = renderHook(() => useFileUpload());
+
+    // Add a file
+    act(() => {
+      result.current.addFile({
+        id: "f1",
+        uri: "file:///f1.jpg",
+        name: "f1.jpg",
+        mimeType: "image/jpeg",
+        isImage: true,
+      });
+    });
+
+    const getToken = jest.fn().mockResolvedValue("test-token");
+
+    // Start two uploads concurrently
+    let result1: string[] = [];
+    let result2: string[] = [];
+
+    await act(async () => {
+      const p1 = result.current.uploadAll(getToken).then((r) => { result1 = r; });
+      const p2 = result.current.uploadAll(getToken).then((r) => { result2 = r; });
+      jest.advanceTimersByTime(200);
+      await p1;
+      await p2;
+    });
+
+    // Second call should have been blocked and returned empty
+    expect(result2).toEqual([]);
+    // Token should only be fetched once (first upload)
+    expect(getToken).toHaveBeenCalledTimes(1);
+
+    fetchSpy.mockRestore();
+  });
+
+  it("can add multiple files sequentially", async () => {
+    const { result } = renderHook(() => useFileUpload());
+
+    await act(async () => {
+      await result.current.addFromImagePicker();
+    });
+    await act(async () => {
+      await result.current.addFromDocumentPicker();
+    });
+
+    expect(result.current.pendingFiles).toHaveLength(2);
+    expect(result.current.pendingFiles[0]!.name).toBe("photo.jpg");
+    expect(result.current.pendingFiles[1]!.name).toBe("doc.pdf");
   });
 });

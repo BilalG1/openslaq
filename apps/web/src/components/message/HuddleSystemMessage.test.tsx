@@ -1,4 +1,4 @@
-import { describe, test, expect, afterEach, jest } from "bun:test";
+import { describe, test, expect, afterEach, vi } from "vitest";
 import { render, screen, cleanup } from "../../test-utils";
 import { fireEvent } from "@testing-library/react";
 import { HuddleSystemMessage } from "./HuddleSystemMessage";
@@ -65,7 +65,7 @@ describe("HuddleSystemMessage", () => {
   });
 
   test("active huddle shows participant avatars and join button", () => {
-    const onJoin = jest.fn();
+    const onJoin = vi.fn();
     render(
       <HuddleSystemMessage
         message={makeHuddleMessage()}
@@ -79,7 +79,7 @@ describe("HuddleSystemMessage", () => {
   });
 
   test("join button calls onJoinHuddle with channelId", () => {
-    const onJoin = jest.fn();
+    const onJoin = vi.fn();
     render(
       <HuddleSystemMessage
         message={makeHuddleMessage()}
@@ -154,12 +154,38 @@ describe("HuddleSystemMessage", () => {
     expect(screen.getByText("Lasted 2h")).toBeTruthy();
   });
 
+  test("ended huddle message shows as ended even when a different huddle is active on same channel", () => {
+    const activeHuddle = {
+      ...makeActiveHuddle(["user-3"]),
+      messageId: "msg-active",
+    };
+    render(
+      <HuddleSystemMessage
+        message={makeHuddleMessage({
+          id: "msg-ended" as MessageId,
+          metadata: {
+            huddleStartedAt: "2026-03-01T09:00:00Z",
+            huddleEndedAt: "2026-03-01T09:30:00Z",
+            duration: 1800,
+            finalParticipants: ["user-1", "user-2"],
+          } as HuddleMessage["metadata"],
+        })}
+        activeHuddle={activeHuddle}
+        onJoinHuddle={vi.fn()}
+      />,
+    );
+
+    // Should show ended state, not active state
+    expect(screen.getByText("Lasted 30 min")).toBeTruthy();
+    expect(screen.queryByTestId("huddle-join-from-message")).toBeNull();
+  });
+
   test("1 participant shows singular form", () => {
     render(
       <HuddleSystemMessage
         message={makeHuddleMessage()}
         activeHuddle={makeActiveHuddle(["user-1"])}
-        onJoinHuddle={jest.fn()}
+        onJoinHuddle={vi.fn()}
       />,
     );
     expect(screen.getByText("1 participant")).toBeTruthy();

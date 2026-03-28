@@ -1,13 +1,13 @@
-import type { HuddleState } from "@openslaq/shared";
+import type { ChannelId, HuddleState } from "@openslaq/shared";
 import { useChatStore } from "@/contexts/ChatStoreProvider";
 
-export function useHuddleForChannel(channelId: string | undefined) {
+export function useHuddleForChannel(channelId: ChannelId | undefined) {
   const { state } = useChatStore();
 
   const activeHuddle: HuddleState | null =
     channelId ? state.activeHuddles[channelId] ?? null : null;
 
-  const isUserInHuddle = state.currentHuddleChannelId === channelId;
+  const isUserInHuddle = channelId != null && state.currentHuddleChannelId === channelId;
 
   return { activeHuddle, isUserInHuddle };
 }

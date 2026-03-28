@@ -3,7 +3,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { VideoTrack } from "@livekit/react-native";
 import { Track } from "livekit-client";
-import { MicOff, Mic, PhoneOff } from "lucide-react-native";
 import { useHuddle } from "@/contexts/HuddleProvider";
 import { useChatStore } from "@/contexts/ChatStoreProvider";
 import { useMobileTheme } from "@/theme/ThemeProvider";
@@ -11,16 +10,14 @@ import { routes } from "@/lib/routes";
 
 const CARD_W = 100;
 const CARD_H = 140;
+import { GREEN, BLACK, DARK_OVERLAY_30 } from "@/theme/constants";
 
 export function HuddleFloatingBar() {
   const {
     channelId,
     connected,
-    isMuted,
-    participants: _participants,
+    minimized,
     room,
-    leaveHuddle,
-    toggleMute,
   } = useHuddle();
   const { state } = useChatStore();
   const { top } = useSafeAreaInsets();
@@ -28,7 +25,7 @@ export function HuddleFloatingBar() {
   const router = useRouter();
   const { workspaceSlug } = useLocalSearchParams<{ workspaceSlug: string }>();
 
-  if (!channelId) return null;
+  if (!channelId || !minimized) return null;
 
   const localParticipant = room?.localParticipant;
   const cameraTrack = localParticipant
@@ -60,7 +57,14 @@ export function HuddleFloatingBar() {
       testID="huddle-floating-bar"
       style={[styles.container, { top: top + 12 }]}
     >
-      <Pressable onPress={openModal} testID="huddle-bar-expand" style={styles.card}>
+      <Pressable
+        onPress={openModal}
+        testID="huddle-bar-expand"
+        accessibilityRole="button"
+        accessibilityLabel={`Expand huddle with ${displayName}`}
+        accessibilityHint="Opens the huddle screen"
+        style={styles.card}
+      >
         {trackRef ? (
           <VideoTrack
             trackRef={trackRef}
@@ -86,31 +90,8 @@ export function HuddleFloatingBar() {
           </View>
         )}
 
-        {/* Green dot indicator instead of text */}
+        {/* Green dot indicator */}
         {connected && <View style={styles.greenDot} />}
-
-        {/* Tiny controls */}
-        <View style={styles.controlRow}>
-          <Pressable
-            testID="huddle-bar-mute"
-            onPress={toggleMute}
-            hitSlop={8}
-            style={[
-              styles.controlButton,
-              { backgroundColor: isMuted ? "#dc2626" : "rgba(255,255,255,0.2)" },
-            ]}
-          >
-            {isMuted ? <MicOff size={12} color="#fff" /> : <Mic size={12} color="#fff" />}
-          </Pressable>
-          <Pressable
-            testID="huddle-bar-leave"
-            onPress={leaveHuddle}
-            hitSlop={8}
-            style={[styles.controlButton, { backgroundColor: "#dc2626" }]}
-          >
-            <PhoneOff size={12} color="#fff" />
-          </Pressable>
-        </View>
       </Pressable>
     </View>
   );
@@ -125,7 +106,7 @@ const styles = StyleSheet.create({
     height: CARD_H,
     borderRadius: 24,
     overflow: "hidden",
-    shadowColor: "#000",
+    shadowColor: BLACK,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
@@ -155,24 +136,8 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: "#22c55e",
+    backgroundColor: GREEN,
     borderWidth: 1.5,
-    borderColor: "rgba(0,0,0,0.3)",
-  },
-  controlRow: {
-    position: "absolute",
-    bottom: 8,
-    left: 0,
-    right: 0,
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 6,
-  },
-  controlButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
+    borderColor: DARK_OVERLAY_30,
   },
 });

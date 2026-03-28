@@ -1,5 +1,5 @@
 import { authorizedRequest } from "../api/api-client";
-import { normalizeMessage } from "./normalize";
+import { normalizeMessage, type RawMessage } from "./normalize";
 import type { Message } from "@openslaq/shared";
 import type { OperationDeps } from "./types";
 
@@ -27,8 +27,8 @@ export async function shareMessage(
     ),
   );
 
-  const data = (await res.json()) as unknown;
-  const message = normalizeMessage(data as Parameters<typeof normalizeMessage>[0]);
+  const data = (await res.json()) as RawMessage;
+  const message = normalizeMessage(data);
 
   dispatch({ type: "messages/upsert", message });
 

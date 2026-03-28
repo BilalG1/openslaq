@@ -112,8 +112,10 @@ export function useNotifications() {
           dispatch({
             type: "navigation/setScrollTarget",
             scrollTarget: {
+              channelId: message.channelId,
               messageId: targetMessageId,
               highlightMessageId: targetMessageId,
+              parentMessageId: message.parentMessageId ?? null,
             },
           });
           notification.close();

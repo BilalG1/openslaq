@@ -1,5 +1,5 @@
 import { AuthError, getErrorMessage } from "../api/errors";
-import { authorizedRequest } from "../api/api-client";
+import { authorizedRequest, withRetry } from "../api/api-client";
 import {
   normalizeChannel,
   normalizeDmConversation,
@@ -24,7 +24,7 @@ export async function bootstrapWorkspace(
   dispatch({ type: "workspace/bootstrapStart", workspaceSlug: slug });
 
   try {
-    const [channelsRes, workspacesRes, dmsRes, groupDmsRes, unreadRes, presenceRes, starredRes, notifyPrefsRes, emojiRes] = await Promise.all([
+    const [channelsRes, workspacesRes, dmsRes, groupDmsRes, unreadRes, presenceRes, starredRes, notifyPrefsRes, emojiRes] = await withRetry(() => Promise.all([
       authorizedRequest(auth, (headers) =>
         api.api.workspaces[":slug"].channels.$get({ param: { slug } }, { headers }),
       ),
@@ -52,7 +52,7 @@ export async function bootstrapWorkspace(
       authorizedRequest(auth, (headers) =>
         api.api.workspaces[":slug"].emoji.$get({ param: { slug } }, { headers }),
       ),
-    ]);
+    ]));
 
     const channels = (await channelsRes.json()).map(normalizeChannel);
     const workspaces = (await workspacesRes.json()).map(normalizeWorkspaceInfo);
@@ -65,7 +65,7 @@ export async function bootstrapWorkspace(
       lastSeenAt: string | null;
     }>;
 
-    const starredChannelIds = (await starredRes.json()) as string[];
+    const starredChannelIds = await starredRes.json();
     const notifyPrefs = (await notifyPrefsRes.json()) as Record<string, import("@openslaq/shared").ChannelNotifyLevel>;
     const emojiData = (await emojiRes.json()) as { emojis: import("@openslaq/shared").CustomEmoji[] };
 
@@ -85,15 +85,15 @@ export async function bootstrapWorkspace(
       dispatch({ type: "workspace/selectChannel", channelId: urlChannelId });
     } else {
       const defaultChannel = channels.find((c) => c.name === "general") ?? channels[0];
-      if (defaultChannel) {
+      if (urlChannelId && defaultChannel) {
+        // URL pointed to a channel not in the active list (likely archived or deleted)
+        dispatch({ type: "workspace/channelNotFound", requestedChannelId: urlChannelId, fallbackChannelId: defaultChannel.id });
+      } else if (defaultChannel) {
         dispatch({ type: "workspace/selectDefaultChannel", channelId: defaultChannel.id });
       }
     }
   } catch (err) {
-    if (err instanceof AuthError) {
-      auth.onAuthRequired();
-      return;
-    }
+    if (err instanceof AuthError) return;
     dispatch({
       type: "workspace/bootstrapError",
       error: getErrorMessage(err, "Failed to load workspace data"),

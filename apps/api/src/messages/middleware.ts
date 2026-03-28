@@ -7,6 +7,7 @@ import { getMessageById } from "./service";
 import { isChannelMember, getChannelById } from "../channels/service";
 import { db } from "../db";
 import { workspaceMembers } from "../workspaces/schema";
+import { NotFoundError } from "../errors";
 
 export type MessageEnv = AuthEnv & {
   Variables: AuthEnv["Variables"] & {
@@ -17,19 +18,19 @@ export type MessageEnv = AuthEnv & {
 export const requireMessageChannelAccess = createMiddleware<MessageEnv>(async (c, next) => {
   const idParam = c.req.param("id");
   if (!idParam) {
-    return c.json({ error: "Message not found" }, 404);
+    throw new NotFoundError("Message");
   }
   const messageId = asMessageId(idParam);
   const user = c.get("user");
 
   const message = await getMessageById(messageId);
   if (!message) {
-    return c.json({ error: "Message not found" }, 404);
+    throw new NotFoundError("Message");
   }
 
   const isMember = await isChannelMember(asChannelId(message.channelId), user.id);
   if (!isMember) {
-    return c.json({ error: "Message not found" }, 404);
+    throw new NotFoundError("Message");
   }
 
   // Verify the channel belongs to a workspace the user is a member of
@@ -42,7 +43,7 @@ export const requireMessageChannelAccess = createMiddleware<MessageEnv>(async (c
       ),
     });
     if (!wsMembership) {
-      return c.json({ error: "Message not found" }, 404);
+      throw new NotFoundError("Message");
     }
   }
 

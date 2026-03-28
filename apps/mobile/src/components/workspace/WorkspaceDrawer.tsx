@@ -10,6 +10,7 @@ import { useWorkspaceDrawer } from "@/contexts/WorkspaceDrawerContext";
 import { WorkspaceSidebar } from "./WorkspaceSidebar";
 
 const DRAWER_WIDTH_RATIO = 0.8;
+import { BACKDROP_BG } from "@/theme/constants";
 
 export function WorkspaceDrawer({ children }: { children: ReactNode }) {
   const { isOpen, close } = useWorkspaceDrawer();
@@ -33,6 +34,9 @@ export function WorkspaceDrawer({ children }: { children: ReactNode }) {
       {isOpen && (
         <Pressable
           testID="drawer-backdrop"
+          accessibilityRole="button"
+          accessibilityLabel="Close drawer"
+          accessibilityHint="Closes the workspace drawer"
           onPress={close}
           style={[styles.backdrop, { height }]}
         />
@@ -61,7 +65,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: BACKDROP_BG,
   },
   drawer: {
     position: "absolute",

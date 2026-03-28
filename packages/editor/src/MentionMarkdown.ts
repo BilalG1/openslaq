@@ -5,7 +5,7 @@ export const MentionWithMarkdown = Mention.extend({
     return {
       ...this.parent?.(),
       markdown: {
-        serialize(state: any, node: any) {
+        serialize(state: { write: (text: string) => void }, node: { attrs: { id: string } }) {
           state.write(`<@${node.attrs.id}>`);
         },
         parse: {},

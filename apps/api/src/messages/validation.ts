@@ -1,9 +1,18 @@
 import { z } from "@hono/zod-openapi";
 
+export const messageActionSchema = z.object({
+  id: z.string(),
+  type: z.literal("button"),
+  label: z.string().max(80),
+  style: z.enum(["primary", "danger", "default"]).optional(),
+  value: z.string().optional(),
+});
+
 export const createMessageSchema = z
   .object({
     content: z.string().max(10000).default(""),
     attachmentIds: z.array(z.string().uuid()).max(10).optional().default([]),
+    actions: z.array(messageActionSchema).optional(),
   })
   .refine((data) => data.content.trim().length > 0 || data.attachmentIds.length > 0, {
     message: "Message must have content or attachments",
@@ -11,6 +20,7 @@ export const createMessageSchema = z
 
 export const editMessageSchema = z.object({
   content: z.string().min(1).max(10000),
+  actions: z.array(messageActionSchema).optional(),
 });
 
 export const shareMessageSchema = z.object({

@@ -3,6 +3,7 @@ import {
   listWorkspaceMembers,
   updateMemberRole,
   removeMember as coreRemoveMember,
+  leaveWorkspace as coreLeaveWorkspace,
   deleteWorkspace as coreDeleteWorkspace,
 } from "@openslaq/client-core";
 import { api } from "../../api";
@@ -44,11 +45,17 @@ export function useWorkspaceMembersApi() {
     [auth],
   );
 
+  const leaveWorkspace = useCallback(
+    (workspaceSlug: string) =>
+      coreLeaveWorkspace({ api, auth }, workspaceSlug),
+    [auth],
+  );
+
   const deleteWorkspace = useCallback(
     (workspaceSlug: string) =>
       coreDeleteWorkspace({ api, auth }, workspaceSlug),
     [auth],
   );
 
-  return { listMembers, updateRole, removeMember, deleteWorkspace };
+  return { listMembers, updateRole, removeMember, leaveWorkspace, deleteWorkspace };
 }

@@ -35,7 +35,7 @@ export function DmHeader({
     <div className="px-4 py-3 border-b border-border-default min-h-[52px] flex items-center justify-between">
       <div className="flex items-center gap-2">
         <h2 className="font-bold text-lg m-0 text-primary">{title}</h2>
-        {isGroupDm && memberCount != null && (
+        {isGroupDm && memberCount !== undefined && (
           <span className="text-sm text-secondary" data-testid="group-dm-member-count">
             {memberCount} members
           </span>

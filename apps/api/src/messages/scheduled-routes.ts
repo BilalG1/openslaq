@@ -2,6 +2,7 @@ import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import type { WorkspaceMemberEnv } from "../workspaces/role-middleware";
 import { rlRead, rlMessageSend } from "../rate-limit";
 import { jsonResponse } from "../openapi/responses";
+import { BEARER_SECURITY, jsonBody, jsonContent } from "../lib/openapi-helpers";
 import { errorSchema, okSchema } from "../openapi/schemas";
 import {
   createScheduledMessage,
@@ -18,8 +19,10 @@ import { asChannelId, asUserId, asScheduledMessageId } from "@openslaq/shared";
 import { db } from "../db";
 import { channels } from "../channels/schema";
 import { eq } from "drizzle-orm";
-import { getIO } from "../socket/io";
+import { emitToUser } from "../lib/emit";
 import { createScheduledMessageSchema, updateScheduledMessageSchema } from "./validation";
+import { BadRequestError, ForbiddenError, NotFoundError } from "../errors";
+import { getWorkspaceMemberContext } from "../lib/context";
 
 const scheduledMessageSchema = z.object({
   id: z.string(),
@@ -44,29 +47,20 @@ const createScheduledRoute = createRoute({
   path: "/",
   tags: ["Scheduled Messages"],
   summary: "Schedule a message",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMessageSend] as const,
   request: {
-    body: {
-      content: {
-        "application/json": {
-          schema: z.object({
-            channelId: z.string().uuid(),
-            content: z.string().max(10000).default(""),
-            attachmentIds: z.array(z.string().uuid()).max(10).optional().default([]),
-            scheduledFor: z.string().datetime(),
-          }),
-        },
-      },
-    },
+    body: jsonBody(z.object({
+      channelId: z.string().uuid(),
+      content: z.string().max(10000).default(""),
+      attachmentIds: z.array(z.string().uuid()).max(10).optional().default([]),
+      scheduledFor: z.string().datetime(),
+    })),
   },
   responses: {
-    201: {
-      content: { "application/json": { schema: scheduledMessageSchema } },
-      description: "Scheduled message created",
-    },
-    400: { content: { "application/json": { schema: errorSchema } }, description: "Validation error" },
-    403: { content: { "application/json": { schema: errorSchema } }, description: "Not a channel member or channel archived" },
+    201: jsonContent(scheduledMessageSchema, "Scheduled message created"),
+    400: jsonContent(errorSchema, "Validation error"),
+    403: jsonContent(errorSchema, "Not a channel member or channel archived"),
   },
 });
 
@@ -75,19 +69,12 @@ const listScheduledRoute = createRoute({
   path: "/",
   tags: ["Scheduled Messages"],
   summary: "List scheduled messages",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlRead] as const,
   responses: {
-    200: {
-      content: {
-        "application/json": {
-          schema: z.object({
-            scheduledMessages: z.array(scheduledMessageWithChannelSchema),
-          }),
-        },
-      },
-      description: "List of scheduled messages",
-    },
+    200: jsonContent(z.object({
+      scheduledMessages: z.array(scheduledMessageWithChannelSchema),
+    }), "List of scheduled messages"),
   },
 });
 
@@ -96,16 +83,13 @@ const channelCountRoute = createRoute({
   path: "/channel/:channelId",
   tags: ["Scheduled Messages"],
   summary: "Get scheduled count for channel",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlRead] as const,
   request: {
     params: z.object({ channelId: z.string().uuid() }),
   },
   responses: {
-    200: {
-      content: { "application/json": { schema: z.object({ count: z.number() }) } },
-      description: "Count of pending scheduled messages",
-    },
+    200: jsonContent(z.object({ count: z.number() }), "Count of pending scheduled messages"),
   },
 });
 
@@ -114,17 +98,14 @@ const getScheduledRoute = createRoute({
   path: "/:id",
   tags: ["Scheduled Messages"],
   summary: "Get scheduled message",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlRead] as const,
   request: {
     params: z.object({ id: z.string().uuid() }),
   },
   responses: {
-    200: {
-      content: { "application/json": { schema: scheduledMessageSchema } },
-      description: "Scheduled message",
-    },
-    404: { content: { "application/json": { schema: errorSchema } }, description: "Not found" },
+    200: jsonContent(scheduledMessageSchema, "Scheduled message"),
+    404: jsonContent(errorSchema, "Not found"),
   },
 });
 
@@ -133,29 +114,20 @@ const updateScheduledRoute = createRoute({
   path: "/:id",
   tags: ["Scheduled Messages"],
   summary: "Update scheduled message",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMessageSend] as const,
   request: {
     params: z.object({ id: z.string().uuid() }),
-    body: {
-      content: {
-        "application/json": {
-          schema: z.object({
-            content: z.string().max(10000).optional(),
-            attachmentIds: z.array(z.string().uuid()).max(10).optional(),
-            scheduledFor: z.string().datetime().optional(),
-          }),
-        },
-      },
-    },
+    body: jsonBody(z.object({
+      content: z.string().max(10000).optional(),
+      attachmentIds: z.array(z.string().uuid()).max(10).optional(),
+      scheduledFor: z.string().datetime().optional(),
+    })),
   },
   responses: {
-    200: {
-      content: { "application/json": { schema: scheduledMessageSchema } },
-      description: "Updated scheduled message",
-    },
-    400: { content: { "application/json": { schema: errorSchema } }, description: "Validation error" },
-    404: { content: { "application/json": { schema: errorSchema } }, description: "Not found or not pending" },
+    200: jsonContent(scheduledMessageSchema, "Updated scheduled message"),
+    400: jsonContent(errorSchema, "Validation error"),
+    404: jsonContent(errorSchema, "Not found or not pending"),
   },
 });
 
@@ -164,30 +136,26 @@ const deleteScheduledRoute = createRoute({
   path: "/:id",
   tags: ["Scheduled Messages"],
   summary: "Delete scheduled message",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMessageSend] as const,
   request: {
     params: z.object({ id: z.string().uuid() }),
   },
   responses: {
-    200: {
-      content: { "application/json": { schema: okSchema } },
-      description: "Deleted",
-    },
-    404: { content: { "application/json": { schema: errorSchema } }, description: "Not found or not pending" },
+    200: jsonContent(okSchema, "Deleted"),
+    404: jsonContent(errorSchema, "Not found or not pending"),
   },
 });
 
 const app = new OpenAPIHono<WorkspaceMemberEnv>()
   .openapi(createScheduledRoute, async (c) => {
-    const user = c.get("user");
-    const workspace = c.get("workspace");
+    const { user, workspace } = getWorkspaceMemberContext(c);
     const body = c.req.valid("json");
 
     // Validate with refinements
     const parsed = createScheduledMessageSchema.safeParse(body);
     if (!parsed.success) {
-      return c.json({ error: parsed.error.issues[0]?.message ?? "Validation error" }, 400);
+      throw new BadRequestError(parsed.error.issues[0]?.message ?? "Validation error");
     }
     const { channelId, content, attachmentIds, scheduledFor } = parsed.data;
 
@@ -196,20 +164,20 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
       where: eq(channels.id, channelId),
     });
     if (!channel || channel.workspaceId !== workspace.id) {
-      return c.json({ error: "Channel not found" }, 403);
+      throw new ForbiddenError("Channel not found");
     }
     if (channel.isArchived) {
-      return c.json({ error: "Channel is archived" }, 403);
+      throw new ForbiddenError("Channel is archived");
     }
     const isMember = await isChannelMember(asChannelId(channelId), asUserId(user.id));
     if (!isMember) {
-      return c.json({ error: "Not a channel member" }, 403);
+      throw new ForbiddenError("Not a channel member");
     }
 
     // Check per-user pending scheduled message cap
     const pendingCount = await getScheduledCountForUser(user.id);
     if (pendingCount >= MAX_PENDING_SCHEDULED_PER_USER) {
-      return c.json({ error: `Maximum ${MAX_PENDING_SCHEDULED_PER_USER} pending scheduled messages allowed` }, 400);
+      throw new BadRequestError(`Maximum ${MAX_PENDING_SCHEDULED_PER_USER} pending scheduled messages allowed`);
     }
 
     const scheduled = await createScheduledMessage(
@@ -220,8 +188,7 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
       attachmentIds,
     );
 
-    const io = getIO();
-    io.to(`user:${user.id}`).emit("scheduledMessage:created", {
+    emitToUser(user.id, "scheduledMessage:created", {
       id: scheduled.id,
       channelId: asChannelId(scheduled.channelId),
       scheduledFor: scheduled.scheduledFor,
@@ -231,34 +198,33 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     return jsonResponse(c, scheduled, 201);
   })
   .openapi(listScheduledRoute, async (c) => {
-    const user = c.get("user");
-    const workspace = c.get("workspace");
+    const { user, workspace } = getWorkspaceMemberContext(c);
     const items = await getScheduledMessagesForUser(user.id, workspace.id);
     return jsonResponse(c, { scheduledMessages: items }, 200);
   })
   .openapi(channelCountRoute, async (c) => {
-    const user = c.get("user");
+    const { user } = getWorkspaceMemberContext(c);
     const { channelId } = c.req.valid("param");
     const cnt = await getScheduledCountForChannel(user.id, channelId);
     return jsonResponse(c, { count: cnt }, 200);
   })
   .openapi(getScheduledRoute, async (c) => {
-    const user = c.get("user");
+    const { user } = getWorkspaceMemberContext(c);
     const { id } = c.req.valid("param");
     const item = await getScheduledMessageById(id, user.id);
     if (!item) {
-      return c.json({ error: "Scheduled message not found" }, 404);
+      throw new NotFoundError("Scheduled message");
     }
     return jsonResponse(c, item, 200);
   })
   .openapi(updateScheduledRoute, async (c) => {
-    const user = c.get("user");
+    const { user } = getWorkspaceMemberContext(c);
     const { id } = c.req.valid("param");
     const body = c.req.valid("json");
 
     const parsed = updateScheduledMessageSchema.safeParse(body);
     if (!parsed.success) {
-      return c.json({ error: parsed.error.issues[0]?.message ?? "Validation error" }, 400);
+      throw new BadRequestError(parsed.error.issues[0]?.message ?? "Validation error");
     }
 
     const updates: { content?: string; scheduledFor?: Date; attachmentIds?: string[] } = {};
@@ -268,11 +234,10 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
 
     const updated = await updateScheduledMessage(id, user.id, updates);
     if (!updated) {
-      return c.json({ error: "Scheduled message not found or not pending" }, 404);
+      throw new NotFoundError("Scheduled message");
     }
 
-    const io = getIO();
-    io.to(`user:${user.id}`).emit("scheduledMessage:updated", {
+    emitToUser(user.id, "scheduledMessage:updated", {
       id: updated.id,
       channelId: asChannelId(updated.channelId),
       scheduledFor: updated.scheduledFor,
@@ -282,7 +247,7 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     return jsonResponse(c, updated, 200);
   })
   .openapi(deleteScheduledRoute, async (c) => {
-    const user = c.get("user");
+    const { user } = getWorkspaceMemberContext(c);
     const { id } = c.req.valid("param");
 
     // Get the scheduled message first for the socket event
@@ -290,12 +255,11 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
 
     const deleted = await deleteScheduledMessage(id, user.id);
     if (!deleted) {
-      return c.json({ error: "Scheduled message not found or not pending" }, 404);
+      throw new NotFoundError("Scheduled message");
     }
 
     if (existing) {
-      const io = getIO();
-      io.to(`user:${user.id}`).emit("scheduledMessage:deleted", {
+      emitToUser(user.id, "scheduledMessage:deleted", {
         id: asScheduledMessageId(id),
         channelId: asChannelId(existing.channelId),
       });

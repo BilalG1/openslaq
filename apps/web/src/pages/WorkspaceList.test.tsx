@@ -1,44 +1,50 @@
-import { describe, test, expect, afterEach, jest, mock } from "bun:test";
+import { describe, test, expect, afterEach, vi } from "vitest";
 import { render, screen, cleanup, act } from "../test-utils";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
+import { TooltipProvider } from "../components/ui";
 
 // Prevent @stripe/stripe-js side-effect
-mock.module("@stripe/stripe-js", () => ({
+vi.mock("@stripe/stripe-js", () => ({
   loadStripe: async () => null,
 }));
 
 let mockUser: { id: string } | null = { id: "user-1" };
-mock.module("../hooks/useCurrentUser", () => ({
+vi.mock("../hooks/useCurrentUser", () => ({
   useCurrentUser: () => mockUser,
 }));
 
-const mockListWorkspaces = jest.fn(async () => [
+const mockListWorkspaces = vi.fn(async () => [
   { id: "ws-1", slug: "default", name: "Default Workspace", role: "owner", memberCount: 5, createdAt: "2026-01-01" },
 ]);
 
-mock.module("../hooks/api/useWorkspacesApi", () => ({
+vi.mock("../hooks/api/useWorkspacesApi", () => ({
   useWorkspacesApi: () => ({
     listWorkspaces: mockListWorkspaces,
   }),
 }));
 
-mock.module("../state/chat-store", () => ({
+vi.mock("../state/chat-store", () => ({
   useChatStore: () => ({ state: { presence: {} } }),
 }));
 
-mock.module("../components/settings/UserSettingsDialog", () => ({
+vi.mock("../components/settings/UserSettingsDialog", () => ({
   UserSettingsDialog: () => null,
 }));
 
-mock.module("../components/user/SetStatusDialog", () => ({
+vi.mock("../components/user/SetStatusDialog", () => ({
   SetStatusDialog: () => null,
 }));
 
-mock.module("../lib/auth", () => ({
+vi.mock("../lib/auth", () => ({
   redirectToAuth: async () => {},
 }));
 
-const { WorkspaceListPage } = await import("./WorkspaceList");
+vi.mock("../gallery/gallery-context", () => ({
+  useGalleryMode: () => false,
+  useGalleryMockData: () => null,
+}));
+
+import { WorkspaceListPage } from "./WorkspaceList";
 
 afterEach(() => {
   cleanup();
@@ -52,7 +58,9 @@ describe("WorkspaceListPage", () => {
     await act(async () => {
       render(
         <MemoryRouter>
-          <WorkspaceListPage />
+          <TooltipProvider>
+            <WorkspaceListPage />
+          </TooltipProvider>
         </MemoryRouter>,
       );
     });
@@ -60,6 +68,7 @@ describe("WorkspaceListPage", () => {
     expect(screen.getByTestId("sign-in-cta")).toBeDefined();
     expect(screen.getByTestId("nav-docs")).toBeDefined();
     expect(screen.getByTestId("nav-install")).toBeDefined();
+    expect(screen.getByTestId("nav-github")).toBeDefined();
     expect(mockListWorkspaces).not.toHaveBeenCalled();
   });
 
@@ -67,7 +76,9 @@ describe("WorkspaceListPage", () => {
     await act(async () => {
       render(
         <MemoryRouter>
-          <WorkspaceListPage />
+          <TooltipProvider>
+            <WorkspaceListPage />
+          </TooltipProvider>
         </MemoryRouter>,
       );
     });
@@ -75,5 +86,6 @@ describe("WorkspaceListPage", () => {
     expect(screen.queryByTestId("sign-in-button")).toBeNull();
     expect(screen.queryByTestId("nav-docs")).toBeNull();
     expect(screen.queryByTestId("nav-install")).toBeNull();
+    expect(screen.queryByTestId("nav-github")).toBeNull();
   });
 });

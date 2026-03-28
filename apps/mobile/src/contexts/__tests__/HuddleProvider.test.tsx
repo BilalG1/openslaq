@@ -1,6 +1,7 @@
 import React from "react";
 import { Text, TouchableOpacity } from "react-native";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react-native";
+import { asChannelId } from "@openslaq/shared";
 import { HuddleProvider, useHuddle } from "../HuddleProvider";
 import { useAuth } from "../AuthContext";
 import { useChatStore } from "../ChatStoreProvider";
@@ -28,6 +29,7 @@ const mockRoom = {
   remoteParticipants: new Map(),
   on: jest.fn().mockReturnThis(),
   off: jest.fn().mockReturnThis(),
+  removeAllListeners: jest.fn().mockReturnThis(),
 };
 
 jest.mock("livekit-client", () => ({
@@ -55,8 +57,10 @@ jest.mock("expo-keep-awake", () => ({
   deactivateKeepAwake: jest.fn(),
 }));
 
+const mockNotifyHuddleLeave = jest.fn(() => Promise.resolve({ ended: false }));
 jest.mock("@openslaq/client-core", () => ({
   authorizedHeaders: jest.fn(() => Promise.resolve({ Authorization: "Bearer token" })),
+  notifyHuddleLeave: () => mockNotifyHuddleLeave(),
 }));
 
 jest.mock("../AuthContext", () => ({
@@ -70,6 +74,13 @@ jest.mock("../ChatStoreProvider", () => ({
 
 jest.mock("../../lib/env", () => ({
   env: { EXPO_PUBLIC_API_URL: "http://api.local" },
+}));
+
+jest.mock("../ServerContext", () => ({
+  useServer: () => ({
+    apiUrl: "http://api.local",
+    apiClient: {},
+  }),
 }));
 
 const useAuthMock = useAuth as jest.Mock;
@@ -88,7 +99,7 @@ function Probe() {
       <Text testID="isScreenSharing">{String(isScreenSharing)}</Text>
       <Text testID="participants">{participants.length}</Text>
       <Text testID="error">{error ?? "none"}</Text>
-      <TouchableOpacity testID="join" onPress={() => joinHuddle("ch-1")} />
+      <TouchableOpacity testID="join" onPress={() => joinHuddle(asChannelId("ch-1"))} />
       <TouchableOpacity testID="leave" onPress={leaveHuddle} />
       <TouchableOpacity testID="toggleMute" onPress={toggleMute} />
       <TouchableOpacity testID="toggleCamera" onPress={toggleCamera} />
@@ -365,6 +376,156 @@ describe("HuddleProvider", () => {
     });
 
     expect(screen.getByTestId("connected").children.join("")).toBe("false");
+  });
+
+  it("removes all room event listeners on cleanup", async () => {
+    global.fetch = jest.fn(() =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ token: "lk-token", wsUrl: "wss://lk.local" }),
+      }),
+    ) as unknown as typeof fetch;
+
+    useChatStoreMock.mockReturnValue({
+      state: {
+        currentHuddleChannelId: "ch-1",
+        activeHuddles: {},
+        channels: [],
+        dms: [],
+      },
+      dispatch: mockDispatch,
+    });
+
+    const { rerender } = render(
+      <HuddleProvider>
+        <Probe />
+      </HuddleProvider>,
+    );
+
+    await waitFor(() => {
+      expect(mockConnect).toHaveBeenCalled();
+    });
+
+    // Leave huddle to trigger cleanup
+    useChatStoreMock.mockReturnValue({
+      state: {
+        currentHuddleChannelId: null,
+        activeHuddles: {},
+        channels: [],
+        dms: [],
+      },
+      dispatch: mockDispatch,
+    });
+
+    rerender(
+      <HuddleProvider>
+        <Probe />
+      </HuddleProvider>,
+    );
+
+    expect(mockRoom.removeAllListeners).toHaveBeenCalled();
+  });
+
+  it("exposes room in context after connecting", async () => {
+    global.fetch = jest.fn(() =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ token: "lk-token", wsUrl: "wss://lk.local" }),
+      }),
+    ) as unknown as typeof fetch;
+
+    useChatStoreMock.mockReturnValue({
+      state: {
+        currentHuddleChannelId: "ch-1",
+        activeHuddles: {},
+        channels: [],
+        dms: [],
+      },
+      dispatch: mockDispatch,
+    });
+
+    // Extended probe that reads room
+    function RoomProbe() {
+      const { room, connected } = useHuddle();
+      return (
+        <>
+          <Text testID="hasRoom">{room ? "yes" : "no"}</Text>
+          <Text testID="probeConnected">{String(connected)}</Text>
+        </>
+      );
+    }
+
+    render(
+      <HuddleProvider>
+        <RoomProbe />
+      </HuddleProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("probeConnected").children.join("")).toBe("true");
+    });
+
+    // Room should be exposed in context (via state, not stale ref)
+    expect(screen.getByTestId("hasRoom").children.join("")).toBe("yes");
+  });
+
+  it("uses current isMuted value when connecting (not stale closure)", async () => {
+    // The isMuted ref should be read at the time setMicrophoneEnabled is called,
+    // not when the effect was first created. Since isMuted starts as false,
+    // setMicrophoneEnabled should be called with true (i.e. !false).
+    // This test verifies the ref-based approach works correctly.
+    global.fetch = jest.fn(() =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ token: "lk-token", wsUrl: "wss://lk.local" }),
+      }),
+    ) as unknown as typeof fetch;
+
+    useChatStoreMock.mockReturnValue({
+      state: {
+        currentHuddleChannelId: "ch-1",
+        activeHuddles: {},
+        channels: [],
+        dms: [],
+      },
+      dispatch: mockDispatch,
+    });
+
+    render(
+      <HuddleProvider>
+        <Probe />
+      </HuddleProvider>,
+    );
+
+    await waitFor(() => {
+      expect(mockConnect).toHaveBeenCalled();
+    });
+
+    // The key assertion: setMicrophoneEnabled should use the current ref value,
+    // not a stale closure value. With isMuted=false, it should be called with true.
+    expect(mockSetMicrophoneEnabled).toHaveBeenCalledWith(true);
+  });
+
+  it("leaveHuddle calls notifyHuddleLeave", () => {
+    useChatStoreMock.mockReturnValue({
+      state: {
+        currentHuddleChannelId: "ch-1",
+        activeHuddles: {},
+        channels: [],
+        dms: [],
+      },
+      dispatch: mockDispatch,
+    });
+
+    render(
+      <HuddleProvider>
+        <Probe />
+      </HuddleProvider>,
+    );
+
+    fireEvent.press(screen.getByTestId("leave"));
+
+    expect(mockNotifyHuddleLeave).toHaveBeenCalledTimes(1);
   });
 
   it("toggleScreenShare calls setScreenShareEnabled", async () => {

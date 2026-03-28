@@ -10,6 +10,10 @@ export const addChannelMemberSchema = z.object({
   userId: z.string().min(1),
 });
 
+export const addChannelMembersBulkSchema = z.object({
+  userIds: z.array(z.string().min(1)).min(1).max(50),
+});
+
 export const updateChannelSchema = z.object({
   description: z.string().max(500).nullable(),
 });

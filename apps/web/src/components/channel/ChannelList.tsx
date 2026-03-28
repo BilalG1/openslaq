@@ -100,6 +100,7 @@ export function ChannelList({
           const huddle = activeHuddles?.[channel.id];
           const chPref = channelNotificationPrefs?.[channel.id];
           const isMuted = chPref === "muted";
+          const isMentionsOnly = chPref === "mentions";
 
           return (
             <button
@@ -122,6 +123,11 @@ export function ChannelList({
                 {isMuted && (
                   <svg className="w-3 h-3 text-gray-500 shrink-0" data-testid={`muted-icon-${channel.id}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9.143 17.082a24.248 24.248 0 0 0 5.714 0m-7.03-12.583A8.966 8.966 0 0 1 12 3c4.97 0 9 3.582 9 8a8.948 8.948 0 0 1-1.174 4.416M3 3l18 18M10.5 21h3" />
+                  </svg>
+                )}
+                {isMentionsOnly && (
+                  <svg className="w-3 h-3 text-yellow-500 shrink-0" data-testid={`mentions-icon-${channel.id}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0zm0 0c0 1.657 1.007 3 2.25 3S21 13.657 21 12a9 9 0 1 0-2.636 6.364M16.5 12V8.25" />
                   </svg>
                 )}
                 {huddle && (

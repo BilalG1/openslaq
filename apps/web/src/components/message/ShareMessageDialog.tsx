@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import type { Message, Channel } from "@openslaq/shared";
 import { Dialog, DialogContent, DialogTitle } from "../ui";
 import { MessageContent } from "./MessageContent";
@@ -23,14 +23,16 @@ export function ShareMessageDialog({
   const [search, setSearch] = useState("");
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const [comment, setComment] = useState("");
+  const [prevOpen, setPrevOpen] = useState(false);
 
-  useEffect(() => {
-    if (!open) {
-      setSearch("");
-      setSelectedChannelId(null);
-      setComment("");
-    }
-  }, [open]);
+  if (!open && prevOpen) {
+    setSearch("");
+    setSelectedChannelId(null);
+    setComment("");
+  }
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+  }
 
   if (!message) return null;
 

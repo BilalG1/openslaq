@@ -1,11 +1,13 @@
-import { useCallback } from "react";
-import { View, Text, Pressable, Alert } from "react-native";
+import { useCallback, useMemo } from "react";
+import { View, Text, Pressable, Alert, StyleSheet } from "react-native";
 import { X } from "lucide-react-native";
 import ImageViewing from "react-native-image-viewing";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Paths, File as ExpoFile } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import * as MediaLibrary from "expo-media-library";
+import { useMobileTheme } from "@/theme/ThemeProvider";
+import type { MobileTheme } from "@openslaq/shared";
 
 export interface GalleryImage {
   uri: string;
@@ -29,17 +31,19 @@ function GalleryHeader({
   onClose: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const { theme } = useMobileTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const image = images[imageIndex];
 
   return (
     <View
-      style={{ paddingTop: insets.top + 8, paddingHorizontal: 16, paddingBottom: 12 }}
+      style={[styles.headerContainer, { paddingTop: insets.top + 8 }]}
       testID="gallery-header"
     >
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-        <View style={{ flex: 1, marginRight: 12 }}>
+      <View style={staticStyles.headerRow}>
+        <View style={staticStyles.headerTitleContainer}>
           <Text
-            style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}
+            style={styles.filename}
             numberOfLines={1}
             testID="gallery-filename"
           >
@@ -47,15 +51,22 @@ function GalleryHeader({
           </Text>
           {images.length > 1 && (
             <Text
-              style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, marginTop: 2 }}
+              style={styles.imageCount}
               testID="gallery-count"
             >
               {imageIndex + 1} of {images.length}
             </Text>
           )}
         </View>
-        <Pressable onPress={onClose} hitSlop={12} testID="gallery-close">
-          <X size={28} color="#fff" />
+        <Pressable
+          onPress={onClose}
+          hitSlop={12}
+          testID="gallery-close"
+          accessibilityRole="button"
+          accessibilityLabel="Close gallery"
+          accessibilityHint="Closes the image viewer"
+        >
+          <X size={28} color={theme.colors.galleryOverlayText} />
         </Pressable>
       </View>
     </View>
@@ -70,6 +81,8 @@ function GalleryFooter({
   images: GalleryImage[];
 }) {
   const insets = useSafeAreaInsets();
+  const { theme } = useMobileTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const image = images[imageIndex];
 
   const downloadToCache = useCallback(async () => {
@@ -107,21 +120,28 @@ function GalleryFooter({
 
   return (
     <View
-      style={{
-        paddingBottom: insets.bottom + 12,
-        paddingHorizontal: 16,
-        paddingTop: 12,
-        flexDirection: "row",
-        justifyContent: "center",
-        gap: 32,
-      }}
+      style={[styles.footerContainer, { paddingBottom: insets.bottom + 12 }]}
       testID="gallery-footer"
     >
-      <Pressable onPress={handleShare} hitSlop={8} testID="gallery-share">
-        <Text style={{ color: "#fff", fontSize: 15 }}>Share</Text>
+      <Pressable
+        onPress={handleShare}
+        hitSlop={8}
+        testID="gallery-share"
+        accessibilityRole="button"
+        accessibilityLabel="Share image"
+        accessibilityHint="Opens the share dialog for this image"
+      >
+        <Text style={styles.footerActionText}>Share</Text>
       </Pressable>
-      <Pressable onPress={handleSave} hitSlop={8} testID="gallery-save">
-        <Text style={{ color: "#fff", fontSize: 15 }}>Save</Text>
+      <Pressable
+        onPress={handleSave}
+        hitSlop={8}
+        testID="gallery-save"
+        accessibilityRole="button"
+        accessibilityLabel="Save image"
+        accessibilityHint="Saves this image to your photo library"
+      >
+        <Text style={styles.footerActionText}>Save</Text>
       </Pressable>
     </View>
   );
@@ -145,3 +165,44 @@ export function ImageGalleryViewer({ images, visible, initialIndex, onClose }: P
     />
   );
 }
+
+const staticStyles = StyleSheet.create({
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  headerTitleContainer: {
+    flex: 1,
+    marginRight: 12,
+  },
+});
+
+const makeStyles = (theme: MobileTheme) =>
+  StyleSheet.create({
+    headerContainer: {
+      paddingHorizontal: 16,
+      paddingBottom: 12,
+    },
+    filename: {
+      color: theme.colors.galleryOverlayText,
+      fontSize: 16,
+      fontWeight: "600",
+    },
+    imageCount: {
+      color: theme.colors.galleryOverlayTextSecondary,
+      fontSize: 13,
+      marginTop: 2,
+    },
+    footerContainer: {
+      paddingHorizontal: 16,
+      paddingTop: 12,
+      flexDirection: "row",
+      justifyContent: "center",
+      gap: 32,
+    },
+    footerActionText: {
+      color: theme.colors.galleryOverlayText,
+      fontSize: 15,
+    },
+  });

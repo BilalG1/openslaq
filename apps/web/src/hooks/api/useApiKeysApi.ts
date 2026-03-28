@@ -4,7 +4,7 @@ import {
   createApiKey as coreCreateApiKey,
   deleteApiKey as coreDeleteApiKey,
 } from "@openslaq/client-core";
-import type { ApiKey } from "@openslaq/shared";
+import type { ApiKey, BotScope } from "@openslaq/shared";
 import { api } from "../../api";
 import { useAuthProvider } from "../../lib/api-client";
 
@@ -16,7 +16,7 @@ export function useApiKeysApi() {
   }, [auth]);
 
   const createApiKey = useCallback(
-    async (data: { name: string; scopes: string[]; expiresAt?: string }) => {
+    async (data: { name: string; scopes: BotScope[]; expiresAt?: string }) => {
       return coreCreateApiKey({ api, auth }, data);
     },
     [auth],

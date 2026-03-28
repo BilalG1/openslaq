@@ -1,4 +1,6 @@
-import { ScrollView, View, Image, Text, Pressable } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { ScrollView, View, Image, Text, Pressable, StyleSheet } from "react-native";
+import type { MobileTheme } from "@openslaq/shared";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import type { PendingFile } from "@/hooks/useFileUpload";
 
@@ -9,11 +11,65 @@ interface Props {
 
 function getExtension(name: string): string {
   const parts = name.split(".");
-  return parts.length > 1 ? parts[parts.length - 1].toUpperCase() : "FILE";
+  const ext = parts.length > 1 ? parts[parts.length - 1] : "";
+  return ext ? ext.toUpperCase() : "FILE";
 }
+
+const makeStyles = (theme: MobileTheme) =>
+  StyleSheet.create({
+    scrollContainer: {
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      backgroundColor: theme.colors.surface,
+    },
+    fileItem: {
+      marginRight: 8,
+      position: "relative",
+    },
+    imagePreview: {
+      borderRadius: 8,
+      width: 60,
+      height: 60,
+    },
+    filePlaceholder: {
+      borderRadius: 8,
+      alignItems: "center",
+      justifyContent: "center",
+      width: 60,
+      height: 60,
+      backgroundColor: theme.colors.surfaceTertiary,
+    },
+    fileExtension: {
+      fontSize: 12,
+      fontWeight: "bold",
+      color: theme.colors.textMuted,
+    },
+    removeButton: {
+      position: "absolute",
+      top: -4,
+      right: -4,
+      width: 20,
+      height: 20,
+      borderRadius: 9999,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.colors.borderStrong,
+    },
+    removeButtonText: {
+      color: theme.colors.headerText,
+      fontSize: 12,
+      fontWeight: "bold",
+    },
+  });
 
 export function FilePreviewStrip({ files, onRemove }: Props) {
   const { theme } = useMobileTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
+
+  const handleImageError = useCallback((id: string) => {
+    setFailedIds((prev) => new Set(prev).add(id));
+  }, []);
 
   if (files.length === 0) return null;
 
@@ -22,31 +78,23 @@ export function FilePreviewStrip({ files, onRemove }: Props) {
       testID="file-preview-strip"
       horizontal
       showsHorizontalScrollIndicator={false}
-      style={{ paddingHorizontal: 12, paddingVertical: 8, backgroundColor: theme.colors.surface }}
+      style={styles.scrollContainer}
     >
       {files.map((file) => (
-        <View key={file.id} style={{ marginRight: 8, position: 'relative' }}>
-          {file.isImage ? (
+        <View key={file.id} style={styles.fileItem}>
+          {file.isImage && !failedIds.has(file.id) ? (
             <Image
               testID={`file-preview-${file.id}`}
               source={{ uri: file.uri }}
-              style={{ borderRadius: 8, width: 60, height: 60 }}
+              style={styles.imagePreview}
+              onError={() => handleImageError(file.id)}
             />
           ) : (
             <View
               testID={`file-preview-${file.id}`}
-              style={{
-                borderRadius: 8,
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 60,
-                height: 60,
-                backgroundColor: theme.colors.surfaceTertiary,
-              }}
+              style={styles.filePlaceholder}
             >
-              <Text
-                style={{ fontSize: 12, fontWeight: 'bold', color: theme.colors.textMuted }}
-              >
+              <Text style={styles.fileExtension}>
                 {getExtension(file.name)}
               </Text>
             </View>
@@ -55,9 +103,11 @@ export function FilePreviewStrip({ files, onRemove }: Props) {
             testID={`file-remove-${file.id}`}
             onPress={() => onRemove(file.id)}
             hitSlop={12}
-            style={{ position: 'absolute', top: -4, right: -4, width: 20, height: 20, borderRadius: 9999, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.borderStrong }}
+            accessibilityLabel={`Remove ${file.name}`}
+            accessibilityHint="Removes this file from the upload list"
+            style={styles.removeButton}
           >
-            <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>X</Text>
+            <Text style={styles.removeButtonText}>X</Text>
           </Pressable>
         </View>
       ))}

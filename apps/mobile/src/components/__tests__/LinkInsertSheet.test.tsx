@@ -1,5 +1,6 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react-native";
+import { Dimensions } from "react-native";
 import { LinkInsertSheet } from "../LinkInsertSheet";
 
 describe("LinkInsertSheet", () => {
@@ -97,6 +98,38 @@ describe("LinkInsertSheet", () => {
     const insertBtn = screen.getByTestId("link-insert-button");
     expect(insertBtn.props.accessibilityState?.disabled ?? insertBtn.props.disabled).toBeTruthy();
     expect(onInsert).not.toHaveBeenCalled();
+  });
+
+  it("backdrop Pressable should stretch to full width so dialog is not shrink-wrapped", () => {
+    render(
+      <LinkInsertSheet
+        visible={true}
+        initialText=""
+        onInsert={jest.fn()}
+        onClose={jest.fn()}
+      />,
+    );
+
+    // The KeyboardAvoidingView uses styles.backdrop which has alignItems: "center".
+    // This causes its child (backdrop Pressable) to shrink-wrap horizontally to its
+    // content width instead of filling the screen. Since the dialog Pressable uses
+    // width: "100%", it resolves to the parent's (shrink-wrapped) content width —
+    // making the dialog only as wide as the placeholder text, not the screen.
+    //
+    // The backdrop Pressable must stretch to fill the available width so that the
+    // dialog's width: "100%" resolves correctly. It needs alignSelf: "stretch" or
+    // the parent must not use alignItems: "center".
+    const backdrop = screen.getByTestId("link-sheet-content-backdrop");
+    const flatStyle = Array.isArray(backdrop.props.style)
+      ? Object.assign({}, ...backdrop.props.style)
+      : backdrop.props.style;
+
+    // With alignItems: "center" on the parent KAV, the backdrop must explicitly
+    // opt out via alignSelf: "stretch" (or width: "100%") to get a definite width.
+    const stretches =
+      flatStyle.alignSelf === "stretch" ||
+      flatStyle.width === "100%";
+    expect(stretches).toBe(true);
   });
 
   it("uses URL as display text when text field is empty", () => {

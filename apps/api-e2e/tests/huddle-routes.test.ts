@@ -122,7 +122,7 @@ describe("huddle routes", () => {
     expect(general).toBeDefined();
 
     roomManager.listParticipants = async () =>
-      Array.from({ length: MAX_HUDDLE_PARTICIPANTS }, (_, i) => ({ identity: `u-${i}` })) as any;
+      Array.from({ length: MAX_HUDDLE_PARTICIPANTS }, (_, i) => ({ identity: `u-${i}` })) as unknown as Awaited<ReturnType<typeof roomManager.listParticipants>>;
     roomManager.ensureRoom = async () => {
       throw new Error("ensureRoom should not run when room is full");
     };
@@ -178,7 +178,7 @@ describe("huddle routes", () => {
     const body = (await joinRes.json()) as { token: string; wsUrl: string; roomName: string };
     expect(body.token).toBeString();
     expect(body.token.length).toBeGreaterThan(20);
-    expect(body.wsUrl).toContain("ws://");
+    expect(body.wsUrl).toMatch(/^wss?:\/\//);
     expect(body.roomName).toBe(webhookRoomName(general!.id));
     expect(await getHuddleForChannel(general!.id)).not.toBeNull();
   });

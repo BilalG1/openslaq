@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { useAsyncEffect } from "../../hooks/useAsyncEffect";
 import clsx from "clsx";
@@ -28,6 +28,7 @@ import {
   SelectValue,
   SelectContent,
   SelectItem,
+  useConfirm,
 } from "../ui";
 
 interface Member {
@@ -47,7 +48,7 @@ const tabMeta: Record<Tab, { label: string; icon: LucideIcon; description: strin
   bots: { label: "Bots", icon: Bot, description: "Install and configure bot integrations", adminOnly: true },
   integrations: { label: "Integrations", icon: Puzzle, description: "Browse and install marketplace integrations", adminOnly: true },
   emoji: { label: "Emoji", icon: Smile, description: "Manage custom emoji for this workspace" },
-  danger: { label: "Danger Zone", icon: AlertTriangle, description: "Irreversible workspace actions", ownerOnly: true },
+  danger: { label: "Danger Zone", icon: AlertTriangle, description: "Irreversible workspace actions" },
 };
 
 interface WorkspaceSettingsDialogProps {
@@ -79,8 +80,9 @@ export function WorkspaceSettingsDialog({ open, onOpenChange, workspaceSlug }: W
     integrationVercel: false,
   });
 
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const { dispatch } = useChatStore();
-  const { listMembers, updateRole, removeMember, deleteWorkspace } = useWorkspaceMembersApi();
+  const { listMembers, updateRole, removeMember, leaveWorkspace, deleteWorkspace } = useWorkspaceMembersApi();
   const { listWorkspaces } = useWorkspacesApi();
   const { listBotApps, toggleBotEnabled } = useBotsApi();
   const { listListings, install: installListing, uninstall: uninstallListing, getInstalled } = useMarketplaceApi();
@@ -130,13 +132,16 @@ export function WorkspaceSettingsDialog({ open, onOpenChange, workspaceSlug }: W
     [open, listMembers, listWorkspaces, listBotApps, listListings, getInstalled, getFeatureFlags, user, workspaceSlug],
   );
 
-  useEffect(() => {
-    if (!open) {
-      setDeleteConfirm("");
-      setError(null);
-      setActiveTab("members");
-    }
-  }, [open]);
+  const [prevOpen, setPrevOpen] = useState(false);
+
+  if (!open && prevOpen) {
+    setDeleteConfirm("");
+    setError(null);
+    setActiveTab("members");
+  }
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+  }
 
   const refreshMembers = async () => {
     if (!workspaceSlug) return;
@@ -202,12 +207,25 @@ export function WorkspaceSettingsDialog({ open, onOpenChange, workspaceSlug }: W
 
   const handleRemove = async (userId: string, displayName: string) => {
     if (!workspaceSlug) return;
-    if (!confirm(`Remove ${displayName} from the workspace?`)) return;
+    const ok = await confirm({ title: "Remove member", description: `Remove ${displayName} from the workspace?`, confirmLabel: "Remove", variant: "danger" });
+    if (!ok) return;
     try {
       await removeMember(workspaceSlug, userId);
       await refreshMembers();
     } catch (err) {
       setError(getErrorMessage(err, "Failed to remove member"));
+    }
+  };
+
+  const handleLeaveWorkspace = async () => {
+    if (!workspaceSlug) return;
+    const ok = await confirm({ title: "Leave workspace", description: `Leave "${workspaceName}"? You will need a new invite to rejoin.`, confirmLabel: "Leave", variant: "danger" });
+    if (!ok) return;
+    try {
+      await leaveWorkspace(workspaceSlug);
+      window.location.href = "/";
+    } catch (err) {
+      setError(getErrorMessage(err, "Failed to leave workspace"));
     }
   };
 
@@ -422,32 +440,52 @@ export function WorkspaceSettingsDialog({ open, onOpenChange, workspaceSlug }: W
                   <CustomEmojiManager workspaceSlug={workspaceSlug} />
                 )}
 
-                {activeTab === "danger" && isOwner && (
-                  <div className="bg-surface rounded-lg border border-danger-border p-4">
-                    <h3 className="text-sm font-semibold text-danger-text m-0 mb-2">Delete Workspace</h3>
-                    <p className="text-[13px] text-muted m-0 mb-3">
-                      This action is irreversible. Type the workspace name <strong>{workspaceName}</strong> to confirm.
-                    </p>
-                    <div className="flex gap-2">
-                      <Input
-                        variant="compact"
-                        data-testid="delete-workspace-input"
-                        value={deleteConfirm}
-                        onChange={(e) => setDeleteConfirm(e.target.value)}
-                        placeholder={workspaceName}
-                        className="flex-1"
-                      />
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        data-testid="delete-workspace-btn"
-                        disabled={deleteConfirm !== workspaceName}
-                        onClick={() => { void handleDeleteWorkspace(); }}
-                        className={clsx(deleteConfirm !== workspaceName && "!bg-surface-tertiary !text-faint")}
-                      >
-                        Delete Workspace
-                      </Button>
-                    </div>
+                {activeTab === "danger" && (
+                  <div className="flex flex-col gap-4">
+                    {!isOwner && (
+                      <div className="bg-surface rounded-lg border border-danger-border p-4">
+                        <h3 className="text-sm font-semibold text-danger-text m-0 mb-2">Leave Workspace</h3>
+                        <p className="text-[13px] text-muted m-0 mb-3">
+                          You will lose access to all channels and messages in this workspace. You will need a new invite to rejoin.
+                        </p>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          data-testid="leave-workspace-btn"
+                          onClick={() => { void handleLeaveWorkspace(); }}
+                        >
+                          Leave Workspace
+                        </Button>
+                      </div>
+                    )}
+                    {isOwner && (
+                      <div className="bg-surface rounded-lg border border-danger-border p-4">
+                        <h3 className="text-sm font-semibold text-danger-text m-0 mb-2">Delete Workspace</h3>
+                        <p className="text-[13px] text-muted m-0 mb-3">
+                          This action is irreversible. Type the workspace name <strong>{workspaceName}</strong> to confirm.
+                        </p>
+                        <div className="flex gap-2">
+                          <Input
+                            variant="compact"
+                            data-testid="delete-workspace-input"
+                            value={deleteConfirm}
+                            onChange={(e) => setDeleteConfirm(e.target.value)}
+                            placeholder={workspaceName}
+                            className="flex-1"
+                          />
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            data-testid="delete-workspace-btn"
+                            disabled={deleteConfirm !== workspaceName}
+                            onClick={() => { void handleDeleteWorkspace(); }}
+                            className={clsx(deleteConfirm !== workspaceName && "!bg-surface-tertiary !text-faint")}
+                          >
+                            Delete Workspace
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -457,7 +495,8 @@ export function WorkspaceSettingsDialog({ open, onOpenChange, workspaceSlug }: W
       </DialogContent>
 
       <BotCreateDialog open={showCreateBot} onOpenChange={setShowCreateBot} workspaceSlug={workspaceSlug} onCreated={() => void refreshBots()} />
-      <BotConfigDialog open={!!configuringBot} onOpenChange={(o) => { if (!o) setConfiguringBot(null); }} workspaceSlug={workspaceSlug} bot={configuringBot} onUpdated={() => void refreshBots()} />
+      <BotConfigDialog key={configuringBot?.id} open={!!configuringBot} onOpenChange={(o) => { if (!o) setConfiguringBot(null); }} workspaceSlug={workspaceSlug} bot={configuringBot} onUpdated={() => void refreshBots()} />
+      {confirmDialog}
     </Dialog>
   );
 }

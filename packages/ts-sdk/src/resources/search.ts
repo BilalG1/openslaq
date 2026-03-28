@@ -1,4 +1,5 @@
-import type { HttpClient } from "../http";
+import type { RpcClient } from "../rpc";
+import { checked } from "../rpc";
 import type { SearchResponse } from "../types";
 
 export interface SearchOptions {
@@ -12,18 +13,26 @@ export interface SearchOptions {
 }
 
 export class Search {
-  constructor(private readonly http: HttpClient) {}
+  constructor(
+    private readonly rpc: RpcClient,
+    private readonly slug: string,
+  ) {}
 
   async query(options: SearchOptions): Promise<SearchResponse> {
-    const path = this.http.workspacePath("/search");
-    return this.http.get<SearchResponse>(path, {
-      q: options.q,
-      channelId: options.channelId,
-      userId: options.userId,
-      fromDate: options.fromDate,
-      toDate: options.toDate,
-      offset: options.offset,
-      limit: options.limit,
-    });
+    const res = await checked(
+      await this.rpc.api.workspaces[":slug"].search.$get({
+        param: { slug: this.slug },
+        query: {
+          q: options.q,
+          channelId: options.channelId,
+          userId: options.userId,
+          fromDate: options.fromDate,
+          toDate: options.toDate,
+          offset: options.offset,
+          limit: options.limit,
+        },
+      }),
+    );
+    return await res.json();
   }
 }

@@ -32,8 +32,8 @@ describe("Slash Commands", () => {
     const chRes = await ownerClient.api.workspaces[":slug"].channels.$get({
       param: { slug: ownerSlug },
     });
-    const channels = (await chRes.json()) as any[];
-    channelId = channels.find((c: any) => c.name === "general")?.id;
+    const channels = (await chRes.json()) as Array<{ id: string; name: string }>;
+    channelId = channels.find((c: { name: string }) => c.name === "general")?.id ?? "";
     expect(channelId).toBeTruthy();
   });
 
@@ -42,10 +42,10 @@ describe("Slash Commands", () => {
       param: { slug: ownerSlug },
     });
     expect(res.status).toBe(200);
-    const commands = (await res.json()) as any[];
+    const commands = (await res.json()) as Array<{ name: string; source?: string; description?: string }>;
     expect(commands.length).toBeGreaterThanOrEqual(5);
 
-    const names = commands.map((c: any) => c.name);
+    const names = commands.map((c: { name: string }) => c.name);
     expect(names).toContain("status");
     expect(names).toContain("remind");
     expect(names).toContain("invite");
@@ -53,7 +53,7 @@ describe("Slash Commands", () => {
     expect(names).toContain("unmute");
 
     // All built-in commands should have source "builtin"
-    const builtins = commands.filter((c: any) => c.source === "builtin");
+    const builtins = commands.filter((c) => c.source === "builtin");
     expect(builtins.length).toBe(5);
   });
 
@@ -62,8 +62,8 @@ describe("Slash Commands", () => {
       param: { slug: ownerSlug },
     });
     expect(res.status).toBe(200);
-    const commands = (await res.json()) as any[];
-    const names = commands.map((c: any) => c.name);
+    const commands = (await res.json()) as Array<{ name: string; source?: string; description?: string }>;
+    const names = commands.map((c: { name: string }) => c.name);
     expect(names).not.toContain("github");
   });
 
@@ -90,11 +90,11 @@ describe("Slash Commands", () => {
       param: { slug: ownerSlug },
     });
     expect(res.status).toBe(200);
-    const commands = (await res.json()) as any[];
-    const githubCmd = commands.find((c: any) => c.name === "github");
+    const commands = (await res.json()) as Array<{ name: string; source?: string; description?: string }>;
+    const githubCmd = commands.find((c: { name: string }) => c.name === "github");
     expect(githubCmd).toBeTruthy();
     // Integration commands installed via marketplace appear as bot commands
-    expect(githubCmd.source).toBe("bot");
+    expect(githubCmd!.source).toBe("bot");
 
     // Uninstall for test isolation
     await ownerClient.api.workspaces[":slug"].marketplace[":listingId"].uninstall.$delete({
@@ -108,7 +108,7 @@ describe("Slash Commands", () => {
       json: { command: "github", args: "subscribe test/repo", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; ephemeral?: string; response?: string; ephemeralMessages: Array<{ text: string; ephemeral?: boolean; senderName?: string }> };
     expect(result.ok).toBe(false);
     expect(result.error).toContain("Unknown command");
   });
@@ -119,11 +119,11 @@ describe("Slash Commands", () => {
       json: { command: "status", args: ":palm_tree: On vacation", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; ephemeral?: string; response?: string; ephemeralMessages: Array<{ text: string; ephemeral?: boolean; senderName?: string }> };
     expect(result.ok).toBe(true);
     expect(result.ephemeralMessages).toHaveLength(1);
-    expect(result.ephemeralMessages[0].text).toContain("Status set to");
-    expect(result.ephemeralMessages[0].ephemeral).toBe(true);
+    expect(result.ephemeralMessages[0]!.text).toContain("Status set to");
+    expect(result.ephemeralMessages[0]!.ephemeral).toBe(true);
   });
 
   test("POST /commands/execute with /status clear clears status", async () => {
@@ -132,9 +132,9 @@ describe("Slash Commands", () => {
       json: { command: "status", args: "clear", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; ephemeral?: string; response?: string; ephemeralMessages: Array<{ text: string; ephemeral?: boolean; senderName?: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Status cleared");
+    expect(result.ephemeralMessages[0]!.text).toContain("Status cleared");
   });
 
   test("POST /commands/execute with /mute sets pref to muted", async () => {
@@ -143,9 +143,9 @@ describe("Slash Commands", () => {
       json: { command: "mute", args: "", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; ephemeral?: string; response?: string; ephemeralMessages: Array<{ text: string; ephemeral?: boolean; senderName?: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("muted");
+    expect(result.ephemeralMessages[0]!.text).toContain("muted");
   });
 
   test("POST /commands/execute with /unmute sets pref to all", async () => {
@@ -154,9 +154,9 @@ describe("Slash Commands", () => {
       json: { command: "unmute", args: "", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; ephemeral?: string; response?: string; ephemeralMessages: Array<{ text: string; ephemeral?: boolean; senderName?: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("unmuted");
+    expect(result.ephemeralMessages[0]!.text).toContain("unmuted");
   });
 
   test("POST /commands/execute with /invite adds channel member", async () => {
@@ -166,7 +166,7 @@ describe("Slash Commands", () => {
       json: { name: `invite-test-${testId()}`, type: "private" },
     });
     expect(createChRes.status).toBe(201);
-    const privateChannel = (await createChRes.json()) as any;
+    const privateChannel = (await createChRes.json()) as { id: string };
 
     // Create a second user and add to workspace
     const secondId = `slash-invite-target-${testId()}`;
@@ -182,9 +182,9 @@ describe("Slash Commands", () => {
       json: { command: "invite", args: `<@${secondId}>`, channelId: privateChannel.id },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; ephemeral?: string; response?: string; ephemeralMessages: Array<{ text: string; ephemeral?: boolean; senderName?: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Invited");
+    expect(result.ephemeralMessages[0]!.text).toContain("Invited");
   });
 
   test("POST /commands/execute with /remind creates reminder", async () => {
@@ -193,10 +193,10 @@ describe("Slash Commands", () => {
       json: { command: "remind", args: "standup in 30 minutes", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; ephemeral?: string; response?: string; ephemeralMessages: Array<{ text: string; ephemeral?: boolean; senderName?: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("remind you");
-    expect(result.ephemeralMessages[0].text).toContain("standup");
+    expect(result.ephemeralMessages[0]!.text).toContain("remind you");
+    expect(result.ephemeralMessages[0]!.text).toContain("standup");
   });
 
   test("/status with no args returns usage", async () => {
@@ -205,10 +205,10 @@ describe("Slash Commands", () => {
       json: { command: "status", args: "", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; ephemeral?: string; response?: string; ephemeralMessages: Array<{ text: string; ephemeral?: boolean; senderName?: string }> };
     expect(result.ok).toBe(true);
     expect(result.ephemeralMessages).toHaveLength(1);
-    expect(result.ephemeralMessages[0].text).toContain("Usage");
+    expect(result.ephemeralMessages[0]!.text).toContain("Usage");
   });
 
   test("/remind with no args returns usage", async () => {
@@ -217,10 +217,10 @@ describe("Slash Commands", () => {
       json: { command: "remind", args: "", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; ephemeral?: string; response?: string; ephemeralMessages: Array<{ text: string; ephemeral?: boolean; senderName?: string }> };
     expect(result.ok).toBe(true);
     expect(result.ephemeralMessages).toHaveLength(1);
-    expect(result.ephemeralMessages[0].text).toContain("Usage");
+    expect(result.ephemeralMessages[0]!.text).toContain("Usage");
   });
 
   test("/invite with no args returns usage", async () => {
@@ -229,10 +229,10 @@ describe("Slash Commands", () => {
       json: { command: "invite", args: "", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; ephemeral?: string; response?: string; ephemeralMessages: Array<{ text: string; ephemeral?: boolean; senderName?: string }> };
     expect(result.ok).toBe(true);
     expect(result.ephemeralMessages).toHaveLength(1);
-    expect(result.ephemeralMessages[0].text).toContain("Usage");
+    expect(result.ephemeralMessages[0]!.text).toContain("Usage");
   });
 
   test("/invite with non-workspace-member returns error", async () => {
@@ -241,10 +241,10 @@ describe("Slash Commands", () => {
       json: { command: "invite", args: "<@nonexistent-user-id>", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; ephemeral?: string; response?: string; ephemeralMessages: Array<{ text: string; ephemeral?: boolean; senderName?: string }> };
     expect(result.ok).toBe(true);
     expect(result.ephemeralMessages).toHaveLength(1);
-    expect(result.ephemeralMessages[0].text).toContain("not a member of this workspace");
+    expect(result.ephemeralMessages[0]!.text).toContain("not a member of this workspace");
   });
 
   test("unknown command returns error", async () => {
@@ -253,7 +253,7 @@ describe("Slash Commands", () => {
       json: { command: "nonexistent", args: "", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; ephemeral?: string; response?: string; ephemeralMessages: Array<{ text: string; ephemeral?: boolean; senderName?: string }> };
     expect(result.ok).toBe(false);
     expect(result.error).toContain("Unknown command");
   });
@@ -270,7 +270,7 @@ describe("Slash Commands", () => {
       },
     });
     expect(botRes.status).toBe(201);
-    const { bot } = (await botRes.json()) as any;
+    const { bot } = (await botRes.json()) as unknown as { bot: { id: string; appId: string; name?: string } };
 
     // Register a command
     const cmdRes = await ownerClient.api.workspaces[":slug"].bots[":botId"].commands.$post({
@@ -278,18 +278,18 @@ describe("Slash Commands", () => {
       json: { name: "deploy", description: "Deploy app", usage: "/deploy [env]" },
     });
     expect(cmdRes.status).toBe(201);
-    const cmd = (await cmdRes.json()) as any;
+    const cmd = (await cmdRes.json()) as { id: string; name: string };
     expect(cmd.name).toBe("deploy");
 
     // List commands should include bot command
     const listRes = await ownerClient.api.workspaces[":slug"].commands.$get({
       param: { slug: ownerSlug },
     });
-    const commands = (await listRes.json()) as any[];
-    const deployCmd = commands.find((c: any) => c.name === "deploy");
+    const commands = (await listRes.json()) as Array<{ name: string; source?: string; botName?: string }>;
+    const deployCmd = commands.find((c) => c.name === "deploy");
     expect(deployCmd).toBeTruthy();
-    expect(deployCmd.source).toBe("bot");
-    expect(deployCmd.botName).toBe(bot.name);
+    expect(deployCmd!.source).toBe("bot");
+    expect(deployCmd!.botName).toBe(bot.name);
 
     // Delete the command
     const delRes = await ownerClient.api.workspaces[":slug"].bots[":botId"].commands[":commandId"].$delete({
@@ -301,8 +301,8 @@ describe("Slash Commands", () => {
     const afterRes = await ownerClient.api.workspaces[":slug"].commands.$get({
       param: { slug: ownerSlug },
     });
-    const afterCommands = (await afterRes.json()) as any[];
-    expect(afterCommands.find((c: any) => c.name === "deploy")).toBeFalsy();
+    const afterCommands = (await afterRes.json()) as Array<{ name: string }>;
+    expect(afterCommands.find((c: { name: string }) => c.name === "deploy")).toBeFalsy();
   });
 
   describe("bot command execution", () => {
@@ -319,7 +319,7 @@ describe("Slash Commands", () => {
         },
       });
       expect(botRes.status).toBe(201);
-      const { bot } = (await botRes.json()) as any;
+      const { bot } = (await botRes.json()) as unknown as { bot: { id: string; appId: string; name?: string } };
 
       // Register command
       const cmdRes = await ownerClient.api.workspaces[":slug"].bots[":botId"].commands.$post({
@@ -327,7 +327,7 @@ describe("Slash Commands", () => {
         json: { name: `echo${testId()}`, description: "Echo test", usage: "/echo" },
       });
       expect(cmdRes.status).toBe(201);
-      const cmd = (await cmdRes.json()) as any;
+      const cmd = (await cmdRes.json()) as { id: string; name: string };
 
       // Execute the command
       const execRes = await ownerClient.api.workspaces[":slug"].commands.execute.$post({
@@ -335,12 +335,12 @@ describe("Slash Commands", () => {
         json: { command: cmd.name, args: "hello", channelId },
       });
       expect(execRes.status).toBe(200);
-      const result = (await execRes.json()) as any;
+      const result = (await execRes.json()) as { ok?: boolean; error?: string; ephemeral?: string; ephemeralMessages: Array<{ text: string; ephemeral?: boolean; senderName?: string }> };
       expect(result.ok).toBe(true);
       expect(result.ephemeralMessages).toHaveLength(1);
-      expect(result.ephemeralMessages[0].text).toBe("Bot response from webhook");
-      expect(result.ephemeralMessages[0].ephemeral).toBe(true);
-      expect(result.ephemeralMessages[0].senderName).toBe(bot.name);
+      expect(result.ephemeralMessages[0]!.text).toBe("Bot response from webhook");
+      expect(result.ephemeralMessages[0]!.ephemeral).toBe(true);
+      expect(result.ephemeralMessages[0]!.senderName).toBe(bot.name);
     });
 
     test("webhook returns JSON without text field → unknown command", async () => {
@@ -355,7 +355,7 @@ describe("Slash Commands", () => {
         },
       });
       expect(botRes.status).toBe(201);
-      const { bot } = (await botRes.json()) as any;
+      const { bot } = (await botRes.json()) as unknown as { bot: { id: string; appId: string; name?: string } };
 
       const cmdName = `notext${testId()}`;
       const cmdRes = await ownerClient.api.workspaces[":slug"].bots[":botId"].commands.$post({
@@ -369,7 +369,7 @@ describe("Slash Commands", () => {
         json: { command: cmdName, args: "", channelId },
       });
       expect(execRes.status).toBe(200);
-      const result = (await execRes.json()) as any;
+      const result = (await execRes.json()) as { ok?: boolean; error?: string; ephemeral?: string; ephemeralMessages: Array<{ text: string; ephemeral?: boolean; senderName?: string }> };
       // executeBotCommand returns [] → falls through to "Unknown command"
       expect(result.ok).toBe(false);
       expect(result.error).toContain("Unknown command");
@@ -387,7 +387,7 @@ describe("Slash Commands", () => {
         },
       });
       expect(botRes.status).toBe(201);
-      const { bot } = (await botRes.json()) as any;
+      const { bot } = (await botRes.json()) as unknown as { bot: { id: string; appId: string; name?: string } };
 
       const cmdName = `fail${testId()}`;
       const cmdRes = await ownerClient.api.workspaces[":slug"].bots[":botId"].commands.$post({
@@ -401,7 +401,7 @@ describe("Slash Commands", () => {
         json: { command: cmdName, args: "", channelId },
       });
       expect(execRes.status).toBe(200);
-      const result = (await execRes.json()) as any;
+      const result = (await execRes.json()) as { ok?: boolean; error?: string; ephemeral?: string; ephemeralMessages: Array<{ text: string; ephemeral?: boolean; senderName?: string }> };
       expect(result.ok).toBe(false);
       expect(result.error).toContain("Unknown command");
 
@@ -412,8 +412,8 @@ describe("Slash Commands", () => {
         { headers: { Authorization: `Bearer ${testSecret}` } },
       );
       expect(deliveriesRes.status).toBe(200);
-      const deliveries = (await deliveriesRes.json()) as any[];
-      const errorDelivery = deliveries.find((d: any) => d.statusCode === "error");
+      const deliveries = (await deliveriesRes.json()) as Array<{ statusCode: string }>;
+      const errorDelivery = deliveries.find((d: { statusCode: string }) => d.statusCode === "error");
       expect(errorDelivery).toBeTruthy();
     });
 
@@ -429,7 +429,7 @@ describe("Slash Commands", () => {
         },
       });
       expect(botRes.status).toBe(201);
-      const { bot } = (await botRes.json()) as any;
+      const { bot } = (await botRes.json()) as unknown as { bot: { id: string; appId: string; name?: string } };
 
       const cmdName = `invalidurl${testId()}`;
       const cmdRes = await ownerClient.api.workspaces[":slug"].bots[":botId"].commands.$post({
@@ -450,10 +450,10 @@ describe("Slash Commands", () => {
         json: { command: cmdName, args: "", channelId },
       });
       expect(execRes.status).toBe(200);
-      const result = (await execRes.json()) as any;
+      const result = (await execRes.json()) as { ok?: boolean; error?: string; ephemeral?: string; ephemeralMessages: Array<{ text: string; ephemeral?: boolean; senderName?: string }> };
       expect(result.ok).toBe(true);
       expect(result.ephemeralMessages).toHaveLength(1);
-      expect(result.ephemeralMessages[0].text).toContain("webhook URL is invalid");
+      expect(result.ephemeralMessages[0]!.text).toContain("webhook URL is invalid");
     });
   });
 });

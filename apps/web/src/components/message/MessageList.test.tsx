@@ -1,59 +1,61 @@
-import { describe, test, expect, afterEach, beforeEach, jest, mock } from "bun:test";
+import { describe, test, expect, afterEach, beforeEach, vi } from "vitest";
 import { render, screen, cleanup } from "../../test-utils";
-import type { Message, ChannelId, MessageId, UserId, ReactionGroup } from "@openslaq/shared";
+import type { Message, ChannelId, MessageId, UserId, ReactionGroup, EphemeralMessage } from "@openslaq/shared";
 
 // Mock hooks
-mock.module("react-router-dom", () => ({
+vi.mock("react-router-dom", () => ({
   useParams: () => ({ workspaceSlug: "default" }),
 }));
 
-mock.module("../../hooks/useCurrentUser", () => ({
+vi.mock("../../hooks/useCurrentUser", () => ({
   useCurrentUser: () => ({ id: "user-1" }),
 }));
 
-mock.module("../../hooks/useSocket", () => ({
-  useSocket: () => ({ joinChannel: jest.fn() }),
+const mockJoinChannel = vi.fn();
+const socketConfig = { status: "connected" as string };
+vi.mock("../../hooks/useSocket", () => ({
+  useSocket: () => ({ joinChannel: mockJoinChannel, status: socketConfig.status }),
 }));
 
 // Capture socket event handlers so we can invoke them in tests
 const socketHandlers: Record<string, Function> = {};
-mock.module("../../hooks/useSocketEvent", () => ({
+vi.mock("../../hooks/useSocketEvent", () => ({
   useSocketEvent: (event: string, handler: Function) => {
     socketHandlers[event] = handler;
   },
 }));
 
-mock.module("../../hooks/chat/useChannelMessages", () => ({
+vi.mock("../../hooks/chat/useChannelMessages", () => ({
   useChannelMessages: () => {},
 }));
 
-mock.module("../../hooks/chat/useMessageMutations", () => ({
+vi.mock("../../hooks/chat/useMessageMutations", () => ({
   useMessageMutations: () => ({
-    toggleReaction: jest.fn(),
-    editMessage: jest.fn(),
-    deleteMessage: jest.fn(),
-    markAsUnread: jest.fn(),
+    toggleReaction: vi.fn(),
+    editMessage: vi.fn(),
+    deleteMessage: vi.fn(),
+    markAsUnread: vi.fn(),
   }),
 }));
 
 // Mutable config objects for pagination mocks
-const olderConfig = { loadOlder: jest.fn(), loadingOlder: false, hasOlder: false };
-mock.module("../../hooks/chat/useLoadOlderMessages", () => ({
+const olderConfig = { loadOlder: vi.fn(), loadingOlder: false, hasOlder: false };
+vi.mock("../../hooks/chat/useLoadOlderMessages", () => ({
   useLoadOlderMessages: () => olderConfig,
 }));
 
-const newerConfig = { loadNewer: jest.fn(), loadingNewer: false, hasNewer: false };
-mock.module("../../hooks/chat/useLoadNewerMessages", () => ({
+const newerConfig = { loadNewer: vi.fn(), loadingNewer: false, hasNewer: false };
+vi.mock("../../hooks/chat/useLoadNewerMessages", () => ({
   useLoadNewerMessages: () => newerConfig,
 }));
 
-mock.module("../../hooks/chat/useBotActions", () => ({
-  useBotActions: () => ({ triggerAction: jest.fn() }),
+vi.mock("../../hooks/chat/useBotActions", () => ({
+  useBotActions: () => ({ triggerAction: vi.fn() }),
 }));
 
 // Mock only MessageItem — it has complex dependencies.
 // Leave DaySeparator, HuddleSystemMessage, EphemeralMessageItem as real components.
-mock.module("./MessageItem", () => ({
+vi.mock("./MessageItem", () => ({
   MessageItem: ({ message, senderStatusEmoji, isGrouped }: { message: { id: string; content: string }; senderStatusEmoji?: string | null; isGrouped?: boolean }) => (
     <div data-testid={`msg-${message.id}`} data-status-emoji={senderStatusEmoji ?? ""} data-grouped={isGrouped ? "true" : "false"}>
       {message.content}
@@ -82,7 +84,7 @@ function makeMessage(id: string, content: string, overrides?: Partial<Message>):
   } as unknown as Message;
 }
 
-const mockDispatch = jest.fn();
+const mockDispatch = vi.fn();
 const mockState = {
   channelMessageIds: { "ch-1": ["m1", "m2", "m3"] } as Record<string, string[]>,
   messagesById: {
@@ -99,11 +101,11 @@ const mockState = {
   customEmojis: [] as unknown[],
 };
 
-mock.module("../../state/chat-store", () => ({
+vi.mock("../../state/chat-store", () => ({
   useChatStore: () => ({ state: mockState, dispatch: mockDispatch }),
 }));
 
-const { MessageList } = await import("./MessageList");
+import { MessageList } from "./MessageList";
 
 describe("MessageList", () => {
   beforeEach(() => {
@@ -123,6 +125,8 @@ describe("MessageList", () => {
     newerConfig.loadingNewer = false;
     newerConfig.hasNewer = false;
     mockDispatch.mockClear();
+    mockJoinChannel.mockClear();
+    socketConfig.status = "connected";
     // Clear captured handlers
     for (const key of Object.keys(socketHandlers)) {
       delete socketHandlers[key];
@@ -183,7 +187,7 @@ describe("MessageList", () => {
     const ephemeral = [
       { id: "eph-1", text: "Only you can see this", channelId: "ch-1", createdAt: new Date().toISOString() },
     ];
-    render(<MessageList channelId="ch-1" ephemeralMessages={ephemeral as any} />);
+    render(<MessageList channelId="ch-1" ephemeralMessages={ephemeral as EphemeralMessage[]} />);
     // Real EphemeralMessageItem renders with data-testid="ephemeral-message"
     expect(screen.getByTestId("ephemeral-message")).toBeTruthy();
     expect(screen.queryByText(/No messages yet/)).toBeNull();
@@ -241,7 +245,7 @@ describe("MessageList", () => {
   test("renders HuddleSystemMessage for messages with type=huddle", () => {
     mockState.messagesById = {
       m1: makeMessage("m1", "Regular msg"),
-      m2: makeMessage("m2", "Huddle started", { type: "huddle" as any }),
+      m2: makeMessage("m2", "Huddle started", { type: "huddle" as const, metadata: { huddleStartedAt: new Date().toISOString() } }),
     };
     mockState.channelMessageIds["ch-1"] = ["m1", "m2"];
 
@@ -333,10 +337,10 @@ describe("MessageList", () => {
     const { rerender } = render(<MessageList channelId="ch-1" />);
     const container = screen.getByTestId("message-list-scroll");
 
-    // Simulate scrolled up (not near bottom)
+    // In column-reverse, scrollTop=0 is bottom. Scrolled up = negative scrollTop.
     Object.defineProperty(container, "scrollHeight", { value: 2000, configurable: true });
     Object.defineProperty(container, "clientHeight", { value: 500, configurable: true });
-    Object.defineProperty(container, "scrollTop", { value: 200, writable: true, configurable: true });
+    Object.defineProperty(container, "scrollTop", { value: -800, writable: true, configurable: true });
     container.dispatchEvent(new Event("scroll"));
 
     // Add a new message from current user (user-1)
@@ -345,18 +349,18 @@ describe("MessageList", () => {
 
     rerender(<MessageList channelId="ch-1" />);
 
-    // Should scroll to bottom because the newest message is from the current user
-    expect(container.scrollTop).toBe(2000);
+    // Should scroll to bottom (scrollTop=0 in column-reverse)
+    expect(container.scrollTop).toBe(0);
   });
 
   test("does not auto-scroll when newest message is from another user and not near bottom", () => {
     const { rerender } = render(<MessageList channelId="ch-1" />);
     const container = screen.getByTestId("message-list-scroll");
 
-    // Simulate scrolled up (not near bottom)
+    // In column-reverse, scrolled up = negative scrollTop far from 0
     Object.defineProperty(container, "scrollHeight", { value: 2000, configurable: true });
     Object.defineProperty(container, "clientHeight", { value: 500, configurable: true });
-    Object.defineProperty(container, "scrollTop", { value: 200, writable: true, configurable: true });
+    Object.defineProperty(container, "scrollTop", { value: -800, writable: true, configurable: true });
     container.dispatchEvent(new Event("scroll"));
 
     // Add a new message from another user
@@ -366,7 +370,7 @@ describe("MessageList", () => {
     rerender(<MessageList channelId="ch-1" />);
 
     // Should NOT scroll — not near bottom and not from current user
-    expect(container.scrollTop).toBe(200);
+    expect(container.scrollTop).toBe(-800);
   });
 
   // ── Scroll position caching ─────────────────────────────────────
@@ -376,10 +380,10 @@ describe("MessageList", () => {
     const { rerender } = render(<MessageList channelId="ch-1" />);
     const container = screen.getByTestId("message-list-scroll");
 
-    // Simulate a scroll position on ch-1
+    // In column-reverse, scrolled up = negative scrollTop
     Object.defineProperty(container, "scrollHeight", { value: 2000, configurable: true });
     Object.defineProperty(container, "clientHeight", { value: 500, configurable: true });
-    Object.defineProperty(container, "scrollTop", { value: 300, writable: true, configurable: true });
+    Object.defineProperty(container, "scrollTop", { value: -300, writable: true, configurable: true });
     container.dispatchEvent(new Event("scroll"));
 
     // Set up ch-2 data
@@ -392,24 +396,24 @@ describe("MessageList", () => {
     // Switch back to ch-1
     rerender(<MessageList channelId="ch-1" />);
 
-    // Should restore the cached scroll position of 300
-    expect(container.scrollTop).toBe(300);
+    // Should restore the cached scroll position of -300
+    expect(container.scrollTop).toBe(-300);
   });
 
-  test("scrolls to bottom on first visit to a channel (no cached position)", () => {
+  test("starts at bottom on first visit to a channel (column-reverse natural position)", () => {
     render(<MessageList channelId="ch-1" />);
     const container = screen.getByTestId("message-list-scroll");
 
-    // On initial render with no cached position, should scroll to scrollHeight
-    // (scrollHeight is 0 in jsdom, so scrollTop should be set to scrollHeight)
-    expect(container.scrollTop).toBe(container.scrollHeight);
+    // In column-reverse, the browser naturally starts at bottom (scrollTop=0)
+    // No explicit scrolling needed
+    expect(container.scrollTop).toBe(0);
   });
 
   test("day separator breaks grouping even for same user within 5 minutes", () => {
     // Messages across midnight boundary — same user, technically close in time
     mockState.messagesById = {
-      m1: makeMessage("m1", "Late night", { userId: "user-1" as UserId, createdAt: "2026-02-26T23:59:00Z" }),
-      m2: makeMessage("m2", "Early morning", { userId: "user-1" as UserId, createdAt: "2026-02-27T00:01:00Z" }),
+      m1: makeMessage("m1", "Late night", { userId: "user-1" as UserId, createdAt: "2026-02-26T12:00:00Z" }),
+      m2: makeMessage("m2", "Early morning", { userId: "user-1" as UserId, createdAt: "2026-02-27T12:00:00Z" }),
     };
     mockState.channelMessageIds["ch-1"] = ["m1", "m2"];
 
@@ -555,7 +559,7 @@ describe("MessageList", () => {
   });
 
   test("command:ephemeral with matching channelId calls onEphemeralMessage", () => {
-    const onEphemeralMessage = jest.fn();
+    const onEphemeralMessage = vi.fn();
     render(<MessageList channelId="ch-1" onEphemeralMessage={onEphemeralMessage} />);
 
     const ephemeral = {
@@ -570,7 +574,7 @@ describe("MessageList", () => {
   });
 
   test("command:ephemeral with different channelId does NOT call onEphemeralMessage", () => {
-    const onEphemeralMessage = jest.fn();
+    const onEphemeralMessage = vi.fn();
     render(<MessageList channelId="ch-1" onEphemeralMessage={onEphemeralMessage} />);
 
     socketHandlers["command:ephemeral"]?.({
@@ -581,5 +585,25 @@ describe("MessageList", () => {
     });
 
     expect(onEphemeralMessage).not.toHaveBeenCalled();
+  });
+
+  // ── Socket connection re-join ──────────────────────────────────
+
+  test("re-joins channel when socket status becomes connected", () => {
+    socketConfig.status = "idle";
+    const { rerender } = render(<MessageList channelId="ch-1" />);
+
+    // Should not join while status is idle
+    const callsBeforeConnect = mockJoinChannel.mock.calls.length;
+
+    // Socket connects
+    socketConfig.status = "connected";
+    rerender(<MessageList channelId="ch-1" />);
+
+    // Should have called joinChannel with the channel id
+    const callsAfterConnect = mockJoinChannel.mock.calls.filter(
+      (args: unknown[]) => args[0] === "ch-1",
+    );
+    expect(callsAfterConnect.length).toBeGreaterThan(callsBeforeConnect);
   });
 });

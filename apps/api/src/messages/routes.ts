@@ -1,15 +1,21 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { zMessageId } from "@openslaq/shared";
 import { auth } from "../auth/middleware";
+import { requireScope } from "../auth/scope-middleware";
 import { editMessageSchema } from "./validation";
+import { setMessageActions } from "../bots/service";
+import type { BotMessage } from "@openslaq/shared";
 import { editMessage, deleteMessage } from "./service";
 import { reUnfurlMessageLinks } from "./link-preview-service";
 import { requireMessageChannelAccess } from "./middleware";
-import { getIO } from "../socket/io";
+import { emitToChannel } from "../lib/emit";
 import { rlMessageSend, rlRead } from "../rate-limit";
 import { messageSchema, errorSchema, okSchema } from "../openapi/schemas";
 import { jsonResponse } from "../openapi/responses";
+import { BEARER_SECURITY, jsonBody, jsonContent } from "../lib/openapi-helpers";
 import { webhookDispatcher } from "../bots/webhook-dispatcher";
+import { NotFoundError } from "../errors";
+import { getMessageContext } from "../lib/context";
 
 const getMessageRoute = createRoute({
   method: "get",
@@ -17,14 +23,14 @@ const getMessageRoute = createRoute({
   tags: ["Messages"],
   summary: "Get single message",
   description: "Returns a single message by ID.",
-  security: [{ Bearer: [] }],
-  middleware: [auth, rlRead, requireMessageChannelAccess] as const,
+  security: BEARER_SECURITY,
+  middleware: [auth, rlRead, requireScope("chat:read"), requireMessageChannelAccess] as const,
   request: {
     params: z.object({ id: zMessageId() }),
   },
   responses: {
-    200: { content: { "application/json": { schema: messageSchema } }, description: "Message" },
-    404: { content: { "application/json": { schema: errorSchema } }, description: "Message not found" },
+    200: jsonContent(messageSchema, "Message"),
+    404: jsonContent(errorSchema, "Message not found"),
   },
 });
 
@@ -34,15 +40,15 @@ const editMessageRoute = createRoute({
   tags: ["Messages"],
   summary: "Edit message",
   description: "Edits a message. Only the message author can edit.",
-  security: [{ Bearer: [] }],
-  middleware: [auth, rlMessageSend, requireMessageChannelAccess] as const,
+  security: BEARER_SECURITY,
+  middleware: [auth, rlMessageSend, requireScope("chat:write"), requireMessageChannelAccess] as const,
   request: {
     params: z.object({ id: zMessageId() }),
-    body: { content: { "application/json": { schema: editMessageSchema } } },
+    body: jsonBody(editMessageSchema),
   },
   responses: {
-    200: { content: { "application/json": { schema: messageSchema } }, description: "Updated message" },
-    404: { content: { "application/json": { schema: errorSchema } }, description: "Message not found or not yours" },
+    200: jsonContent(messageSchema, "Updated message"),
+    404: jsonContent(errorSchema, "Message not found or not yours"),
   },
 });
 
@@ -52,50 +58,57 @@ const deleteMessageRoute = createRoute({
   tags: ["Messages"],
   summary: "Delete message",
   description: "Deletes a message. Only the message author can delete.",
-  security: [{ Bearer: [] }],
-  middleware: [auth, rlMessageSend, requireMessageChannelAccess] as const,
+  security: BEARER_SECURITY,
+  middleware: [auth, rlMessageSend, requireScope("chat:write"), requireMessageChannelAccess] as const,
   request: {
     params: z.object({ id: zMessageId() }),
   },
   responses: {
-    200: { content: { "application/json": { schema: okSchema } }, description: "Message deleted" },
-    404: { content: { "application/json": { schema: errorSchema } }, description: "Message not found or not yours" },
+    200: jsonContent(okSchema, "Message deleted"),
+    404: jsonContent(errorSchema, "Message not found or not yours"),
   },
 });
 
 const app = new OpenAPIHono()
   .openapi(getMessageRoute, async (c) => {
-    const message = c.get("message");
+    const { message } = getMessageContext(c);
     return jsonResponse(c, message, 200);
   })
   .openapi(editMessageRoute, async (c) => {
-    const user = c.get("user");
+    const { user, tokenMeta } = getMessageContext(c);
     const messageId = c.req.valid("param").id;
-    const { content } = c.req.valid("json");
+    const { content, actions } = c.req.valid("json");
     const updated = await editMessage(messageId, user.id, content);
 
     if (!updated) {
-      return c.json({ error: "Message not found or not yours" }, 404);
+      throw new NotFoundError("Message");
     }
 
-    const io = getIO();
-    io.to(`channel:${updated.channelId}`).emit("message:updated", updated);
-    webhookDispatcher.dispatchForChannel({ type: "message:updated", channelId: updated.channelId, data: updated });
+    // Handle bot message actions
+    if (tokenMeta.isBot && actions !== undefined && tokenMeta.botAppId) {
+      await setMessageActions(updated.id, tokenMeta.botAppId, actions);
+    }
+
+    const emitMessage = tokenMeta.isBot && tokenMeta.botAppId
+      ? { ...updated, isBot: true as const, botAppId: tokenMeta.botAppId, actions: actions ?? [] } as BotMessage
+      : updated;
+
+    emitToChannel(updated.channelId, "message:updated", emitMessage);
+    webhookDispatcher.dispatchForChannel({ type: "message:updated", channelId: updated.channelId, data: emitMessage });
     reUnfurlMessageLinks(updated.id, updated.channelId, content).catch(console.error);
 
-    return jsonResponse(c, updated, 200);
+    return jsonResponse(c, emitMessage, 200);
   })
   .openapi(deleteMessageRoute, async (c) => {
-    const user = c.get("user");
+    const { user } = getMessageContext(c);
     const messageId = c.req.valid("param").id;
     const deleted = await deleteMessage(messageId, user.id);
 
     if (!deleted) {
-      return c.json({ error: "Message not found or not yours" }, 404);
+      throw new NotFoundError("Message");
     }
 
-    const io = getIO();
-    io.to(`channel:${deleted.channelId}`).emit("message:deleted", { id: deleted.id, channelId: deleted.channelId });
+    emitToChannel(deleted.channelId, "message:deleted", { id: deleted.id, channelId: deleted.channelId });
     webhookDispatcher.dispatchForChannel({ type: "message:deleted", channelId: deleted.channelId, data: { id: deleted.id, channelId: deleted.channelId } });
 
     return c.json({ ok: true as const }, 200);

@@ -11,6 +11,7 @@ const SCOPE_GROUPS: {
 }[] = [
   { label: "Messages", readScope: "chat:read", readLabel: "Read messages", writeScope: "chat:write", writeLabel: "Send messages" },
   { label: "Channels", readScope: "channels:read", readLabel: "List channels", writeScope: "channels:write", writeLabel: "Manage channels" },
+  { label: "Join", readScope: "channels:join", readLabel: "Join public channels" },
   { label: "Members", readScope: "channels:members:read", readLabel: "View members", writeScope: "channels:members:write", writeLabel: "Manage members" },
   { label: "Reactions", readScope: "reactions:read", readLabel: "Read reactions", writeScope: "reactions:write", writeLabel: "Add reactions" },
   { label: "Users & Presence", readScope: "users:read", readLabel: "View users" },
@@ -73,7 +74,7 @@ export function BotScopeSelector({ selectedScopes, onScopesChange, selectedEvent
   };
 
   const hasAnyScope = (group: (typeof SCOPE_GROUPS)[number]) =>
-    scopeSet.has(group.readScope) || (group.writeScope != null && scopeSet.has(group.writeScope));
+    scopeSet.has(group.readScope) || (group.writeScope !== undefined && scopeSet.has(group.writeScope));
 
   return (
     <div className="flex flex-col gap-4">

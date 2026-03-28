@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
+import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import { Avatar } from "../ui";
 
 export interface MentionSuggestionItem {
@@ -20,10 +20,12 @@ export interface MentionSuggestionListRef {
 export const MentionSuggestionList = forwardRef<MentionSuggestionListRef, MentionSuggestionListProps>(
   function MentionSuggestionList({ items, command }, ref) {
     const [selectedIndex, setSelectedIndex] = useState(0);
+    const prevItemsRef = useRef(items);
 
-    useEffect(() => {
+    if (prevItemsRef.current !== items) {
+      prevItemsRef.current = items;
       setSelectedIndex(0);
-    }, [items]);
+    }
 
     useImperativeHandle(ref, () => ({
       onKeyDown: ({ event }) => {

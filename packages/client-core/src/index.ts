@@ -19,6 +19,7 @@ export {
   getErrorMessage,
   authorizedHeaders,
   authorizedRequest,
+  withRetry,
   createApiClient,
 } from "./api";
 export type { ApiClient } from "./api";
@@ -49,7 +50,9 @@ export {
   editMessage,
   deleteMessage,
   createDm,
+  findOrCreateDmForCompose,
   createGroupDm,
+  findOrCreateGroupDmForCompose,
   handlePresenceSync,
   handlePresenceUpdate,
   handleUserStatusUpdated,
@@ -61,6 +64,7 @@ export {
   handleHuddleUpdated,
   handleHuddleEnded,
   setCurrentHuddleChannel,
+  notifyHuddleLeave,
   handleChannelMemberAdded,
   handleChannelMemberRemoved,
   createChannel,
@@ -78,6 +82,7 @@ export {
   listWorkspaceMembers,
   updateMemberRole,
   removeMember,
+  leaveWorkspace,
   deleteWorkspace,
   checkAdmin,
   getStats,
@@ -87,6 +92,7 @@ export {
   impersonate,
   listChannelMembers,
   addChannelMember,
+  addChannelMembersBulk,
   removeChannelMember,
   listWorkspaces,
   createWorkspace,
@@ -114,6 +120,7 @@ export {
   updateCurrentUser,
   setUserStatus,
   clearUserStatus,
+  handleUserProfileUpdated,
   fetchAllUnreads,
   markAllAsRead,
   shareMessageOp,
@@ -162,7 +169,7 @@ export {
 } from "./status-presets";
 export type { StatusPreset, DurationOption } from "./status-presets";
 
-export { useSocketEvent } from "./hooks";
+export { useSocketEvent, useOnlineStatus } from "./hooks";
 
 export {
   isCustomEmojiShortcode,

@@ -1,4 +1,5 @@
-import type { HttpClient } from "../http";
+import type { RpcClient } from "../rpc";
+import { checked } from "../rpc";
 import type { User } from "../types";
 
 export interface UpdateMeOptions {
@@ -13,25 +14,35 @@ export interface SetStatusOptions {
 }
 
 export class Users {
-  constructor(private readonly http: HttpClient) {}
+  constructor(private readonly rpc: RpcClient) {}
 
   async me(): Promise<User> {
-    const path = this.http.globalPath("/users/me");
-    return this.http.get<User>(path);
+    const res = await checked(
+      await this.rpc.api.users.me.$get({}),
+    );
+    return await res.json();
   }
 
   async updateMe(options: UpdateMeOptions): Promise<User> {
-    const path = this.http.globalPath("/users/me");
-    return this.http.patch<User>(path, options);
+    const res = await checked(
+      await this.rpc.api.users.me.$patch({
+        json: options,
+      }),
+    );
+    return await res.json();
   }
 
   async setStatus(options: SetStatusOptions): Promise<void> {
-    const path = this.http.globalPath("/users/me/status");
-    await this.http.putVoid(path, options);
+    await checked(
+      await this.rpc.api.users.me.status.$put({
+        json: options,
+      }),
+    );
   }
 
   async clearStatus(): Promise<void> {
-    const path = this.http.globalPath("/users/me/status");
-    await this.http.del(path);
+    await checked(
+      await this.rpc.api.users.me.status.$delete({}),
+    );
   }
 }

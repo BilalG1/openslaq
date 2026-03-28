@@ -155,7 +155,7 @@ export const emojiCommand = defineCommand({
           } else if (!res.ok) {
             const body = await res.json().catch(() => null);
             const msg = (body as { error?: string })?.error ?? `HTTP ${res.status}`;
-            console.error(`  Failed :${name}:: ${msg}`);
+            console.error(`  Failed :${name}: ${msg}`);
             results.push({ name, status: "error", error: msg });
           } else {
             uploaded++;

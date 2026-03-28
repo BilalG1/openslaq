@@ -1,6 +1,6 @@
 import type { Message, ChannelNotifyLevel } from "@openslaq/shared";
-import { AuthError } from "../api/errors";
 import { authorizedRequest } from "../api/api-client";
+import { getErrorMessage } from "../api/errors";
 import type { ChatAction } from "../chat-reducer";
 import type { OperationDeps } from "./types";
 
@@ -30,7 +30,9 @@ export function handleNewMessageUnread(
   const pref = ctx.channelNotificationPrefs?.[message.channelId] ?? "all";
   if (pref === "muted") return null;
   if (pref === "mentions") {
-    const isMentioned = message.mentions?.some((m) => m.userId === ctx.currentUserId) ?? false;
+    const isMentioned = message.mentions?.some(
+      (m) => m.userId === ctx.currentUserId || m.type === "here" || m.type === "channel",
+    ) ?? false;
     if (!isMentioned) return null;
   }
 
@@ -56,11 +58,7 @@ export async function markChannelAsRead(
         { headers },
       ),
     );
-  } catch (err) {
-    if (err instanceof AuthError) {
-      auth.onAuthRequired();
-    }
-  }
+  } catch { }
 }
 
 interface MarkAsUnreadParams {
@@ -89,8 +87,8 @@ export async function markChannelAsUnread(
     const body = (await res.clone().json()) as { ok: boolean; unreadCount: number };
     dispatch({ type: "unread/setCount", channelId, count: body.unreadCount });
   } catch (err) {
-    if (err instanceof AuthError) {
-      auth.onAuthRequired();
-    }
+    // Lift suppress so auto-read resumes, and surface the error
+    dispatch({ type: "unread/liftSuppressAutoRead", channelId });
+    dispatch({ type: "mutations/error", error: getErrorMessage(err, "Failed to mark as unread") });
   }
 }

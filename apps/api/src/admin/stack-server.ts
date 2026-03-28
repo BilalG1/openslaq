@@ -4,6 +4,9 @@ import { env } from "../env";
 let instance: StackServerApp | null = null;
 
 export function getStackServerApp(): StackServerApp {
+  if (!env.VITE_STACK_PROJECT_ID) {
+    throw new Error("VITE_STACK_PROJECT_ID is not configured (requires AUTH_MODE=stack-auth)");
+  }
   if (!env.STACK_SECRET_SERVER_KEY) {
     throw new Error("STACK_SECRET_SERVER_KEY is not configured");
   }

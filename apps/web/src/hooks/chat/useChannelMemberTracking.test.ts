@@ -1,35 +1,38 @@
-import { describe, test, expect, jest, mock } from "bun:test";
+import { describe, test, expect, vi } from "vitest";
 import { renderHook } from "../../test-utils";
 
-const mockDispatch = jest.fn();
-
-mock.module("../../state/chat-store", () => ({
+const mockDispatch = vi.fn();
+vi.mock("../../state/chat-store", () => ({
   useChatStore: () => ({ state: { channels: [] }, dispatch: mockDispatch }),
 }));
 
-mock.module("../useCurrentUser", () => ({
+vi.mock("../useCurrentUser", () => ({
   useCurrentUser: () => ({ id: "user-1" }),
 }));
 
-mock.module("../useSocket", () => ({
-  useSocket: () => ({ socket: null }),
-}));
-
-const _realApiClient = require("../../lib/api-client");
-mock.module("../../lib/api-client", () => ({
-  ..._realApiClient,
-  useAuthProvider: () => ({}),
-}));
-
+// Mock socket with on/off that captures handlers (used by the real useSocketEvent)
 const socketHandlers: Record<string, Function> = {};
-mock.module("../useSocketEvent", () => ({
-  useSocketEvent: (event: string, handler: Function) => {
+const mockSocket = {
+  on: (event: string, handler: Function) => {
     socketHandlers[event] = handler;
   },
+  off: () => {},
+};
+
+vi.mock("../useSocket", () => ({
+  useSocket: () => ({ socket: mockSocket }),
 }));
 
+vi.mock("../../lib/api-client", async (importOriginal) => {
+  const mod = await importOriginal<Record<string, unknown>>();
+  return {
+    ...mod,
+  useAuthProvider: () => ({}),
+  };
+});
+
 // Must import after mocks
-const { useChannelMemberTracking } = await import("./useChannelMemberTracking");
+import { useChannelMemberTracking } from "./useChannelMemberTracking";
 
 describe("useChannelMemberTracking", () => {
   test("registers channel:created socket handler that dispatches addChannel", () => {

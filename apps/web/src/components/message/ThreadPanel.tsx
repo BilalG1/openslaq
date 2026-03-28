@@ -47,11 +47,12 @@ export function ThreadPanel({ channelId, parentMessageId, onClose, onOpenProfile
   const error = state.ui.threadError[parentMessageId];
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const topSentinelRef = useRef<HTMLDivElement>(null);
+
+  const bottomSentinelRef = useRef<HTMLDivElement>(null);
 
   useScrollAnchor({
     scrollContainerRef,
-    topSentinelRef,
+    bottomSentinelRef,
     items: replies,
     currentUserId: user?.id,
     contextId: parentMessageId,
@@ -142,62 +143,56 @@ export function ThreadPanel({ channelId, parentMessageId, onClose, onOpenProfile
       </div>
 
       <MessageActionsProvider value={actionsContextValue}>
-        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4">
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 flex flex-col-reverse">
           {loading ? (
             <LoadingState label="Loading thread..." size="sm" />
           ) : error ? (
             <ErrorState message={error} size="sm" />
           ) : (
             <>
-              {parentMessage && (
-                <div className="pb-3 border-b border-border-secondary mb-3">
-                  <MessageItem message={parentMessage} />
-                </div>
-              )}
-
-              <div ref={topSentinelRef} className="h-px" />
-              {loadingOlder && (
-                <div data-testid="loading-more-replies" className="text-center text-faint text-xs py-2">
-                  Loading more replies...
-                </div>
-              )}
-
               {replies.length === 0 ? (
                 <EmptyState title="No replies yet" size="sm" />
               ) : (
-                replies.map((reply, index) => {
+                [...replies].reverse().map((reply, revIndex) => {
+                  const index = replies.length - 1 - revIndex;
                   const prevCreatedAt =
                     index === 0
                       ? parentMessage?.createdAt
                       : replies[index - 1]!.createdAt;
                   const showSeparator =
-                    prevCreatedAt != null && isDifferentDay(prevCreatedAt, reply.createdAt);
+                    prevCreatedAt !== undefined && isDifferentDay(prevCreatedAt, reply.createdAt);
                   const prevReply = index > 0 ? replies[index - 1] : null;
                   const prevUserId = prevReply ? prevReply.userId : parentMessage?.userId;
                   const isGrouped =
                     !showSeparator &&
-                    prevUserId != null &&
+                    prevUserId !== undefined &&
                     reply.userId === prevUserId &&
-                    prevCreatedAt != null &&
+                    prevCreatedAt !== undefined &&
                     new Date(reply.createdAt).getTime() - new Date(prevCreatedAt).getTime() < 5 * 60 * 1000;
-                  const nextReply = index < replies.length - 1 ? replies[index + 1] : null;
-                  const nextShowSeparator = nextReply != null && isDifferentDay(reply.createdAt, nextReply.createdAt);
-                  const isFollowedByGrouped =
-                    !nextShowSeparator &&
-                    nextReply != null &&
-                    nextReply.userId === reply.userId &&
-                    new Date(nextReply.createdAt).getTime() - new Date(reply.createdAt).getTime() < 5 * 60 * 1000;
+
                   return (
                     <Fragment key={reply.id}>
-                      {showSeparator && <DaySeparator date={new Date(reply.createdAt)} />}
                       <MessageItem
                         message={reply}
                         isGrouped={isGrouped}
-                        isFollowedByGrouped={isFollowedByGrouped}
                       />
+                      {showSeparator && <DaySeparator date={new Date(reply.createdAt)} />}
                     </Fragment>
                   );
                 })
+              )}
+
+              {loadingOlder && (
+                <div data-testid="loading-more-replies" className="text-center text-faint text-xs py-2">
+                  Loading more replies...
+                </div>
+              )}
+              <div ref={bottomSentinelRef} className="h-px" />
+
+              {parentMessage && (
+                <div className="pb-3 border-b border-border-secondary mb-3">
+                  <MessageItem message={parentMessage} />
+                </div>
               )}
             </>
           )}

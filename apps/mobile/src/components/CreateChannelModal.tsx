@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Modal,
   Pressable,
@@ -10,9 +10,10 @@ import {
   ScrollView,
   Platform,
   Keyboard,
+  StyleSheet,
 } from "react-native";
 import { Lock } from "lucide-react-native";
-import type { Channel } from "@openslaq/shared";
+import type { Channel, MobileTheme } from "@openslaq/shared";
 import { createChannel } from "@openslaq/client-core";
 import type { OperationDeps } from "@openslaq/client-core";
 import { useMobileTheme } from "@/theme/ThemeProvider";
@@ -26,6 +27,95 @@ interface Props {
   onCreated: (channel: Channel) => void;
 }
 
+import { TRANSPARENT } from "@/theme/constants";
+
+const makeStyles = (theme: MobileTheme) =>
+  StyleSheet.create({
+    keyboardView: {
+      flex: 1,
+    },
+    backdrop: {
+      flex: 1,
+      backgroundColor: theme.colors.overlay,
+      justifyContent: "flex-end",
+    },
+    modalContainer: {
+      backgroundColor: theme.colors.surface,
+      borderTopLeftRadius: 16,
+      borderTopRightRadius: 16,
+      paddingBottom: 34,
+      paddingTop: 16,
+      paddingHorizontal: 16,
+    },
+    heading: {
+      fontSize: 18,
+      fontWeight: "600",
+      color: theme.colors.textPrimary,
+      marginBottom: 16,
+    },
+    nameInput: {
+      borderWidth: 1,
+      borderColor: theme.colors.borderDefault,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 16,
+      color: theme.colors.textPrimary,
+      backgroundColor: theme.colors.surfaceSecondary,
+      marginBottom: 12,
+    },
+    descriptionInput: {
+      borderWidth: 1,
+      borderColor: theme.colors.borderDefault,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 16,
+      color: theme.colors.textPrimary,
+      backgroundColor: theme.colors.surfaceSecondary,
+      marginBottom: 12,
+      minHeight: 60,
+      textAlignVertical: "top",
+    },
+    typeRow: {
+      flexDirection: "row",
+      gap: 8,
+      marginBottom: 12,
+    },
+    lockIconRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+    },
+    errorText: {
+      color: theme.colors.dangerText,
+      marginBottom: 12,
+      fontSize: 14,
+    },
+    submitButtonText: {
+      color: theme.colors.headerText,
+      fontWeight: "600",
+      fontSize: 16,
+    },
+  });
+
+const makeTypeButtonStyles = (theme: MobileTheme, selected: boolean) =>
+  StyleSheet.create({
+    button: {
+      flex: 1,
+      paddingVertical: 10,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: selected ? theme.brand.primary : theme.colors.borderDefault,
+      backgroundColor: selected ? theme.brand.primary + "15" : TRANSPARENT,
+      alignItems: "center",
+    },
+    label: {
+      color: selected ? theme.brand.primary : theme.colors.textSecondary,
+      fontWeight: "500",
+    },
+  });
+
 export function CreateChannelModal({
   visible,
   onClose,
@@ -35,6 +125,7 @@ export function CreateChannelModal({
   onCreated,
 }: Props) {
   const { theme } = useMobileTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
@@ -72,6 +163,9 @@ export function CreateChannelModal({
     }
   };
 
+  const publicStyles = makeTypeButtonStyles(theme, !isPrivate);
+  const privateStyles = makeTypeButtonStyles(theme, isPrivate);
+
   return (
     <Modal
       visible={visible}
@@ -80,25 +174,22 @@ export function CreateChannelModal({
       onRequestClose={handleClose}
     >
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={styles.keyboardView}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <Pressable
           testID="create-channel-backdrop"
-          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" }}
+          style={styles.backdrop}
           onPress={handleClose}
+          accessibilityLabel="Close modal"
+          accessibilityHint="Closes the create channel modal"
         >
           <Pressable
             testID="create-channel-modal"
-            style={{
-              backgroundColor: theme.colors.surface,
-              borderTopLeftRadius: 16,
-              borderTopRightRadius: 16,
-              paddingBottom: 34,
-              paddingTop: 16,
-              paddingHorizontal: 16,
-            }}
+            style={styles.modalContainer}
             onPress={(e) => e.stopPropagation()}
+            accessibilityLabel="Create channel form"
+            accessibilityHint="Fill in the form to create a new channel"
           >
             <ScrollView
               testID="create-channel-scroll"
@@ -106,14 +197,7 @@ export function CreateChannelModal({
               bounces={false}
               showsVerticalScrollIndicator={false}
             >
-          <Text
-            style={{
-              fontSize: 18,
-              fontWeight: "600",
-              color: theme.colors.textPrimary,
-              marginBottom: 16,
-            }}
-          >
+          <Text style={styles.heading}>
             Create Channel
           </Text>
 
@@ -125,17 +209,9 @@ export function CreateChannelModal({
             onChangeText={setName}
             autoCapitalize="none"
             autoCorrect={false}
-            style={{
-              borderWidth: 1,
-              borderColor: theme.colors.borderDefault,
-              borderRadius: 8,
-              paddingHorizontal: 12,
-              paddingVertical: 10,
-              fontSize: 16,
-              color: theme.colors.textPrimary,
-              backgroundColor: theme.colors.surfaceSecondary,
-              marginBottom: 12,
-            }}
+            accessibilityLabel="Channel name"
+            accessibilityHint="Enter the name for the new channel"
+            style={styles.nameInput}
           />
 
           <TextInput
@@ -146,56 +222,34 @@ export function CreateChannelModal({
             onChangeText={setDescription}
             multiline
             maxLength={500}
-            style={{
-              borderWidth: 1,
-              borderColor: theme.colors.borderDefault,
-              borderRadius: 8,
-              paddingHorizontal: 12,
-              paddingVertical: 10,
-              fontSize: 16,
-              color: theme.colors.textPrimary,
-              backgroundColor: theme.colors.surfaceSecondary,
-              marginBottom: 12,
-              minHeight: 60,
-              textAlignVertical: "top",
-            }}
+            accessibilityLabel="Channel description"
+            accessibilityHint="Enter an optional description for the channel"
+            style={styles.descriptionInput}
           />
 
           {canCreatePrivate && (
-            <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
+            <View style={styles.typeRow}>
               <Pressable
                 testID="create-channel-type-public"
                 onPress={() => setIsPrivate(false)}
-                style={{
-                  flex: 1,
-                  paddingVertical: 10,
-                  borderRadius: 8,
-                  borderWidth: 1,
-                  borderColor: !isPrivate ? theme.brand.primary : theme.colors.borderDefault,
-                  backgroundColor: !isPrivate ? theme.brand.primary + "15" : "transparent",
-                  alignItems: "center",
-                }}
+                accessibilityLabel="Public channel"
+                accessibilityHint="Creates a public channel visible to all members"
+                style={publicStyles.button}
               >
-                <Text style={{ color: !isPrivate ? theme.brand.primary : theme.colors.textSecondary, fontWeight: "500" }}>
+                <Text style={publicStyles.label}>
                   # Public
                 </Text>
               </Pressable>
               <Pressable
                 testID="create-channel-type-private"
                 onPress={() => setIsPrivate(true)}
-                style={{
-                  flex: 1,
-                  paddingVertical: 10,
-                  borderRadius: 8,
-                  borderWidth: 1,
-                  borderColor: isPrivate ? theme.brand.primary : theme.colors.borderDefault,
-                  backgroundColor: isPrivate ? theme.brand.primary + "15" : "transparent",
-                  alignItems: "center",
-                }}
+                accessibilityLabel="Private channel"
+                accessibilityHint="Creates a private channel with restricted access"
+                style={privateStyles.button}
               >
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <View style={styles.lockIconRow}>
                   <Lock size={14} color={isPrivate ? theme.brand.primary : theme.colors.textSecondary} />
-                  <Text style={{ color: isPrivate ? theme.brand.primary : theme.colors.textSecondary, fontWeight: "500" }}>
+                  <Text style={privateStyles.label}>
                     Private
                   </Text>
                 </View>
@@ -206,7 +260,7 @@ export function CreateChannelModal({
           {error && (
             <Text
               testID="create-channel-error"
-              style={{ color: theme.colors.dangerText, marginBottom: 12, fontSize: 14 }}
+              style={styles.errorText}
             >
               {error}
             </Text>
@@ -216,6 +270,8 @@ export function CreateChannelModal({
             testID="create-channel-submit"
             onPress={handleSubmit}
             disabled={!name.trim() || loading}
+            accessibilityLabel="Create channel"
+            accessibilityHint="Submits the form to create the channel"
             style={({ pressed }) => ({
               opacity: pressed ? 0.8 : 1,
               backgroundColor: !name.trim() || loading
@@ -223,13 +279,13 @@ export function CreateChannelModal({
                 : theme.brand.primary,
               borderRadius: 8,
               paddingVertical: 12,
-              alignItems: "center",
+              alignItems: "center" as const,
             })}
           >
             {loading ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator size="small" color={theme.colors.headerText} />
             ) : (
-              <Text style={{ color: "#fff", fontWeight: "600", fontSize: 16 }}>
+              <Text style={styles.submitButtonText}>
                 Create Channel
               </Text>
             )}

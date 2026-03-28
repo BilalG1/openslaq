@@ -1,12 +1,11 @@
 import { useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { useGalleryMode } from "../../gallery/gallery-context";
 import { ChannelList } from "../channel/ChannelList";
 import { StarredList } from "../channel/StarredList";
 import { CreateChannelDialog } from "../channel/CreateChannelDialog";
 import { BrowseChannelsDialog } from "../channel/BrowseChannelsDialog";
 import { DmList } from "../dm/DmList";
-import { NewDmDialog } from "../dm/NewDmDialog";
 import { CustomUserButton } from "../user/CustomUserButton";
 import { WorkspaceSettingsDialog } from "../settings/WorkspaceSettingsDialog";
 import { InviteDialog } from "../settings/InviteDialog";
@@ -32,9 +31,7 @@ interface SidebarProps {
   groupDms: GroupDmConversation[];
   activeGroupDmId: string | null;
   onSelectGroupDm: (channelId: string) => void;
-  onStartGroupDm: (memberIds: string[]) => void;
   currentUserId: string;
-  onStartDm: (userId: string) => void;
   workspaceSlug: string;
   workspaces: WorkspaceInfo[];
   unreadCounts: Record<string, number>;
@@ -45,11 +42,12 @@ interface SidebarProps {
   starredChannelIds?: string[];
   channelNotificationPrefs?: Record<string, ChannelNotifyLevel>;
   onSetNotificationLevel?: (channelId: string, level: ChannelNotifyLevel) => void;
-  activeView?: "channel" | "unreads" | "saved" | "outbox" | "files";
+  activeView?: "channel" | "unreads" | "saved" | "outbox" | "files" | "compose";
   onSelectUnreadsView?: () => void;
   onSelectSavedView?: () => void;
   onSelectOutboxView?: () => void;
   onSelectFilesView?: () => void;
+  onSelectComposeView?: () => void;
   style?: React.CSSProperties;
 }
 
@@ -73,9 +71,7 @@ export function Sidebar({
   groupDms,
   activeGroupDmId,
   onSelectGroupDm,
-  onStartGroupDm,
   currentUserId,
-  onStartDm,
   workspaceSlug,
   workspaces,
   unreadCounts,
@@ -90,12 +86,12 @@ export function Sidebar({
   onSelectSavedView,
   onSelectOutboxView,
   onSelectFilesView,
+  onSelectComposeView,
   onSetNotificationLevel,
   style,
 }: SidebarProps) {
   const isGallery = useGalleryMode();
   const navigate = useNavigate();
-  const [newDmOpen, setNewDmOpen] = useState(false);
   const [createChannelOpen, setCreateChannelOpen] = useState(false);
   const [browseChannelsOpen, setBrowseChannelsOpen] = useState(false);
   const [workspaceSettingsOpen, setWorkspaceSettingsOpen] = useState(false);
@@ -295,7 +291,7 @@ export function Sidebar({
         <ChannelList
           activeChannelId={activeChannelId}
           onSelectChannel={onSelectChannel}
-          channels={channels.filter((ch) => !ch.isArchived).sort((a, b) => { if (a.type !== b.type) return a.type === "public" ? -1 : 1; return a.name.localeCompare(b.name); })}
+          channels={channels.filter((ch) => !ch.isArchived && !starredChannelIds?.includes(ch.id)).sort((a, b) => { if (a.type !== b.type) return a.type === "public" ? -1 : 1; return a.name.localeCompare(b.name); })}
           unreadCounts={unreadCounts}
           collapsed={sidebarCollapse.channels}
           onToggleCollapsed={toggleChannelsCollapsed}
@@ -314,7 +310,7 @@ export function Sidebar({
           dms={dms}
           groupDms={groupDms}
           currentUserId={currentUserId}
-          onNewDm={() => setNewDmOpen(true)}
+          onNewDm={() => onSelectComposeView?.()}
           unreadCounts={unreadCounts}
           presence={presence}
           collapsed={sidebarCollapse.dms}
@@ -328,14 +324,6 @@ export function Sidebar({
           <CustomUserButton showUserInfo />
         </div>
       )}
-
-      <NewDmDialog
-        open={newDmOpen}
-        onClose={() => setNewDmOpen(false)}
-        onSelectUser={onStartDm}
-        onCreateGroupDm={onStartGroupDm}
-        workspaceSlug={workspaceSlug}
-      />
 
       <CreateChannelDialog
         open={createChannelOpen}

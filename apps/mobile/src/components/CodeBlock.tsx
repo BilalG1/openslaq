@@ -1,7 +1,8 @@
-import { memo } from "react";
-import { View, Text, ScrollView } from "react-native";
+import { memo, useMemo } from "react";
+import { View, Text, ScrollView, StyleSheet } from "react-native";
 import SyntaxHighlighter from "react-native-syntax-highlighter";
 import { atomOneDark, atomOneLight } from "react-syntax-highlighter/styles/hljs";
+import type { MobileTheme } from "@openslaq/shared";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 
 interface Props {
@@ -9,32 +10,42 @@ interface Props {
   children: string;
 }
 
+const makeStyles = (theme: MobileTheme) =>
+  StyleSheet.create({
+    container: {
+      borderRadius: 6,
+      overflow: "hidden",
+      marginVertical: 4,
+      borderWidth: 1,
+      borderColor: theme.colors.borderDefault,
+    },
+    languageHeader: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      backgroundColor: theme.colors.codeHeaderBg,
+    },
+    languageLabel: {
+      fontSize: 11,
+      color: theme.colors.textFaint,
+    },
+    highlighterCustom: {
+      padding: 10,
+      margin: 0,
+      backgroundColor: theme.colors.codeBg,
+    },
+  });
+
 function CodeBlockInner({ language, children }: Props) {
   const { mode, theme } = useMobileTheme();
-  const isDark = mode === "dark";
-  const highlighterStyle = isDark ? atomOneDark : atomOneLight;
+  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const highlighterStyle = mode === "dark" ? atomOneDark : atomOneLight;
   const lang = language ?? "text";
 
   return (
-    <View
-      testID="code-block"
-      style={{
-        borderRadius: 6,
-        overflow: "hidden",
-        marginVertical: 4,
-        borderWidth: 1,
-        borderColor: theme.colors.borderDefault,
-      }}
-    >
+    <View testID="code-block" style={styles.container}>
       {language && (
-        <View
-          style={{
-            paddingHorizontal: 10,
-            paddingVertical: 4,
-            backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
-          }}
-        >
-          <Text style={{ fontSize: 11, color: theme.colors.textFaint }}>{language}</Text>
+        <View style={styles.languageHeader}>
+          <Text style={styles.languageLabel}>{language}</Text>
         </View>
       )}
       <SyntaxHighlighter
@@ -42,11 +53,7 @@ function CodeBlockInner({ language, children }: Props) {
         style={highlighterStyle}
         fontSize={13}
         highlighter="hljs"
-        customStyle={{
-          padding: 10,
-          margin: 0,
-          backgroundColor: isDark ? "#282c34" : "#fafafa",
-        }}
+        customStyle={styles.highlighterCustom}
         {...({ PreTag: ScrollView, CodeTag: ScrollView } as Record<string, unknown>)}
       >
         {children}

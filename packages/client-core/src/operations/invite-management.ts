@@ -1,5 +1,4 @@
 import type { WorkspaceInvite } from "@openslaq/shared";
-import { AuthError } from "../api/errors";
 import { authorizedRequest } from "../api/api-client";
 import type { ApiDeps } from "./types";
 
@@ -9,17 +8,10 @@ export async function listInvites(
 ): Promise<WorkspaceInvite[]> {
   const { api, auth } = deps;
 
-  try {
-    const response = await authorizedRequest(auth, (headers) =>
-      api.api.workspaces[":slug"].invites.$get({ param: { slug } }, { headers }),
-    );
-    return (await response.json()) as WorkspaceInvite[];
-  } catch (err) {
-    if (err instanceof AuthError) {
-      auth.onAuthRequired();
-    }
-    throw err;
-  }
+  const response = await authorizedRequest(auth, (headers) =>
+    api.api.workspaces[":slug"].invites.$get({ param: { slug } }, { headers }),
+  );
+  return (await response.json()) as WorkspaceInvite[];
 }
 
 export async function createInvite(
@@ -29,20 +21,13 @@ export async function createInvite(
 ): Promise<WorkspaceInvite> {
   const { api, auth } = deps;
 
-  try {
-    const response = await authorizedRequest(auth, (headers) =>
-      api.api.workspaces[":slug"].invites.$post(
-        { param: { slug }, json: opts ?? {} },
-        { headers },
-      ),
-    );
-    return (await response.json()) as WorkspaceInvite;
-  } catch (err) {
-    if (err instanceof AuthError) {
-      auth.onAuthRequired();
-    }
-    throw err;
-  }
+  const response = await authorizedRequest(auth, (headers) =>
+    api.api.workspaces[":slug"].invites.$post(
+      { param: { slug }, json: opts ?? {} },
+      { headers },
+    ),
+  );
+  return (await response.json()) as WorkspaceInvite;
 }
 
 export async function revokeInvite(
@@ -52,18 +37,10 @@ export async function revokeInvite(
 ): Promise<void> {
   const { api, auth } = deps;
 
-  try {
-    await authorizedRequest(auth, (headers) =>
-      api.api.workspaces[":slug"].invites[":inviteId"].$delete(
-        { param: { slug, inviteId } },
-        { headers },
-      ),
-    );
-  } catch (err) {
-    if (err instanceof AuthError) {
-      auth.onAuthRequired();
-      return;
-    }
-    throw err;
-  }
+  await authorizedRequest(auth, (headers) =>
+    api.api.workspaces[":slug"].invites[":inviteId"].$delete(
+      { param: { slug, inviteId } },
+      { headers },
+    ),
+  );
 }

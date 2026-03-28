@@ -3,7 +3,7 @@ import { Parser } from "htmlparser2";
 import { db } from "../db";
 import { linkPreviews, messageLinkPreviews } from "./link-preview-schema";
 import { getMessageById } from "./service";
-import { getIO } from "../socket/io";
+import { emitToChannel } from "../lib/emit";
 import type { LinkPreview, MessageId, ChannelId } from "@openslaq/shared";
 
 const MAX_URLS = 3;
@@ -303,8 +303,7 @@ export async function unfurlMessageLinks(
   // Re-hydrate full message and emit update
   const updatedMessage = await getMessageById(messageId);
   if (updatedMessage) {
-    const io = getIO();
-    io.to(`channel:${channelId}`).emit("message:updated", updatedMessage);
+    emitToChannel(channelId, "message:updated", updatedMessage);
   }
 }
 

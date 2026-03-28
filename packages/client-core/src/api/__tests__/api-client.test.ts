@@ -1,6 +1,6 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, mock } from "bun:test";
 import { ApiError, AuthError } from "../errors";
-import { authorizedHeaders, authorizedRequest } from "../api-client";
+import { authorizedHeaders, authorizedRequest, withRetry } from "../api-client";
 import type { AuthProvider } from "../../platform/types";
 
 function makeAuth(overrides: Partial<AuthProvider> = {}): AuthProvider {
@@ -81,5 +81,78 @@ describe("authorizedRequest", () => {
       expect(err).toBeInstanceOf(ApiError);
       expect((err as ApiError).status).toBe(409);
     }
+  });
+});
+
+describe("withRetry", () => {
+  it("returns result on first success", async () => {
+    const result = await withRetry(async () => "ok");
+    expect(result).toBe("ok");
+  });
+
+  it("retries on network error (TypeError) and succeeds", async () => {
+    const fn = mock()
+      .mockImplementationOnce(() => { throw new TypeError("Failed to fetch"); })
+      .mockImplementationOnce(() => "recovered");
+
+    const result = await withRetry(fn, { baseDelay: 1 });
+    expect(result).toBe("recovered");
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries on 503 ApiError and succeeds on second attempt", async () => {
+    const fn = mock()
+      .mockImplementationOnce(() => { throw new ApiError(503, "Service Unavailable"); })
+      .mockImplementationOnce(() => "ok");
+
+    const result = await withRetry(fn, { baseDelay: 1 });
+    expect(result).toBe("ok");
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries on 502 and 504 status codes", async () => {
+    for (const status of [502, 504]) {
+      const fn = mock()
+        .mockImplementationOnce(() => { throw new ApiError(status, "Gateway error"); })
+        .mockImplementationOnce(() => "ok");
+
+      const result = await withRetry(fn, { baseDelay: 1 });
+      expect(result).toBe("ok");
+    }
+  });
+
+  it("does NOT retry on AuthError (401)", async () => {
+    const fn = mock().mockImplementation(() => { throw new AuthError(); });
+
+    await expect(withRetry(fn, { baseDelay: 1 })).rejects.toBeInstanceOf(AuthError);
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT retry on 400 client error", async () => {
+    const fn = mock().mockImplementation(() => { throw new ApiError(400, "Bad Request"); });
+
+    await expect(withRetry(fn, { baseDelay: 1 })).rejects.toBeInstanceOf(ApiError);
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT retry on 404", async () => {
+    const fn = mock().mockImplementation(() => { throw new ApiError(404, "Not Found"); });
+
+    await expect(withRetry(fn, { baseDelay: 1 })).rejects.toBeInstanceOf(ApiError);
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it("throws after exhausting retries", async () => {
+    const fn = mock().mockImplementation(() => { throw new TypeError("Failed to fetch"); });
+
+    await expect(withRetry(fn, { maxRetries: 2, baseDelay: 1 })).rejects.toBeInstanceOf(TypeError);
+    expect(fn).toHaveBeenCalledTimes(3); // 1 initial + 2 retries
+  });
+
+  it("respects custom maxRetries", async () => {
+    const fn = mock().mockImplementation(() => { throw new ApiError(503, "down"); });
+
+    await expect(withRetry(fn, { maxRetries: 1, baseDelay: 1 })).rejects.toBeInstanceOf(ApiError);
+    expect(fn).toHaveBeenCalledTimes(2); // 1 initial + 1 retry
   });
 });

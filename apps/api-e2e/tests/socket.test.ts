@@ -28,6 +28,14 @@ import type {
 } from "@openslaq/shared";
 import { asChannelId, asUserId } from "@openslaq/shared";
 
+/** Loose-typed socket for subscribing to arbitrary server→client events in tests */
+type EventCallback = (...args: never[]) => void;
+interface UntypedSocket {
+  on(event: string, handler: EventCallback): void;
+  once(event: string, handler: EventCallback): void;
+  off(event: string, handler?: EventCallback): void;
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -74,8 +82,7 @@ function waitForEvent<T>(
       () => reject(new Error(`Timed out waiting for "${event}"`)),
       timeoutMs,
     );
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (socket as any).once(event, (data: T) => {
+    (socket as UntypedSocket).once(event, (data: T) => {
       clearTimeout(timer);
       resolve(data);
     });
@@ -91,20 +98,17 @@ function waitForFilteredEvent<T>(
 ): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (socket as any).off(event, handler);
+      (socket as UntypedSocket).off(event, handler);
       reject(new Error(`Timed out waiting for filtered "${event}"`));
     }, timeoutMs);
     const handler = (data: T) => {
       if (filter(data)) {
         clearTimeout(timer);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (socket as any).off(event, handler);
+        (socket as UntypedSocket).off(event, handler);
         resolve(data);
       }
     };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (socket as any).on(event, handler);
+    (socket as UntypedSocket).on(event, handler);
   });
 }
 
@@ -115,12 +119,10 @@ async function expectNoEvent(
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (socket as any).off(event);
+      (socket as UntypedSocket).off(event);
       resolve();
     }, waitMs);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (socket as any).once(event, () => {
+    (socket as UntypedSocket).once(event, () => {
       clearTimeout(timer);
       reject(new Error(`Unexpected event "${event}" received`));
     });
@@ -353,8 +355,7 @@ describe("socket.io integration", () => {
       track(await connectAndSettle(user1Token));
 
       let gotUser1Presence = false;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (observer as any).on("presence:updated", (data: { userId: string }) => {
+      (observer as UntypedSocket).on("presence:updated", (data: { userId: string }) => {
         if (data.userId === user1Id) gotUser1Presence = true;
       });
       await sleep(150);
@@ -396,8 +397,7 @@ describe("socket.io integration", () => {
       const socket = track(await connectSocket(user1Token));
 
       let gotSync = false;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (socket as any).on("huddle:sync", () => {
+      (socket as UntypedSocket).on("huddle:sync", () => {
         gotSync = true;
       });
 
@@ -532,8 +532,7 @@ describe("socket.io integration", () => {
       s1a.disconnect();
 
       let gotUser1Offline = false;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (observer as any).on("presence:updated", (data: { userId: string; status: string }) => {
+      (observer as UntypedSocket).on("presence:updated", (data: { userId: string; status: string }) => {
         if (data.userId === user1Id && data.status === "offline") gotUser1Offline = true;
       });
       await sleep(150);
@@ -595,8 +594,7 @@ describe("socket.io integration", () => {
       );
 
       let gotMessageUpdated = false;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (observer as any).on("message:updated", () => {
+      (observer as UntypedSocket).on("message:updated", () => {
         gotMessageUpdated = true;
       });
 

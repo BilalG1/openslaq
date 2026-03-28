@@ -42,6 +42,7 @@ jest.mock("@/theme/ThemeProvider", () => ({
   }),
 }));
 
+let mockPresence: Record<string, unknown> = {};
 jest.mock("@/contexts/ChatStoreProvider", () => ({
   useChatStore: () => ({
     state: {
@@ -51,14 +52,15 @@ jest.mock("@/contexts/ChatStoreProvider", () => ({
       groupDms: [],
       unreadCounts: {},
       starredChannelIds: [],
-      presence: {},
+      presence: mockPresence,
     },
   }),
 }));
 
+const mockProfile = { id: "u-1", displayName: "Test User", avatarUrl: null };
 jest.mock("@/hooks/useCurrentUserProfile", () => ({
   useCurrentUserProfile: () => ({
-    profile: { displayName: "Test User", avatarUrl: null },
+    profile: mockProfile,
     loading: false,
   }),
 }));
@@ -73,6 +75,7 @@ import { HomeHeader } from "../home/HomeHeader";
 beforeEach(() => {
   mockPush.mockClear();
   mockToggle.mockClear();
+  mockPresence = {};
 });
 
 describe("HomeHeader", () => {
@@ -112,6 +115,19 @@ describe("HomeHeader", () => {
   it("renders header avatar button", () => {
     render(<HomeHeader />);
     expect(screen.getByTestId("header-avatar-button")).toBeTruthy();
+  });
+
+  it("displays status emoji on avatar when user has active status", () => {
+    mockPresence = { "u-1": { statusEmoji: "🏠", statusText: "Working from home" } };
+    render(<HomeHeader />);
+    expect(screen.getByTestId("header-avatar-status-emoji")).toBeTruthy();
+    expect(screen.getByText("🏠")).toBeTruthy();
+  });
+
+  it("does not display status emoji when user has no status", () => {
+    mockPresence = {};
+    render(<HomeHeader />);
+    expect(screen.queryByTestId("header-avatar-status-emoji")).toBeNull();
   });
 
   it("navigates to settings when avatar is pressed", () => {

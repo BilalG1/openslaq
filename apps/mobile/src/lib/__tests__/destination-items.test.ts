@@ -77,9 +77,9 @@ describe("buildDestinationItems", () => {
     const result = buildDestinationItems(channels, dms, groupDms);
 
     expect(result).toHaveLength(3);
-    expect(result[0].id).toBe("c1");
-    expect(result[1].id).toBe("dm1");
-    expect(result[2].id).toBe("g1");
+    expect(result[0]!.id).toBe("c1");
+    expect(result[1]!.id).toBe("dm1");
+    expect(result[2]!.id).toBe("g1");
   });
 
   it("returns empty array when all inputs are empty", () => {

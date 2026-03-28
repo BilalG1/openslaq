@@ -9,7 +9,7 @@ interface CreateDmParams {
   targetUserId: string;
 }
 
-export async function createDm(
+async function findOrCreateDmCore(
   deps: OperationDeps,
   params: CreateDmParams,
 ): Promise<DmConversation | null> {
@@ -37,14 +37,32 @@ export async function createDm(
 
     const newDm: DmConversation = normalizeDmConversation({ channel, otherUser });
     dispatch({ type: "workspace/addDm", dm: newDm });
-    dispatch({ type: "workspace/selectDm", channelId: data.channel.id });
     return newDm;
   } catch (err) {
-    if (err instanceof AuthError) {
-      auth.onAuthRequired();
-      return null;
-    }
+    if (err instanceof AuthError) return null;
     dispatch({ type: "mutations/error", error: getErrorMessage(err, "Failed to create DM") });
     return null;
   }
+}
+
+export async function createDm(
+  deps: OperationDeps,
+  params: CreateDmParams,
+): Promise<DmConversation | null> {
+  const dm = await findOrCreateDmCore(deps, params);
+  if (dm) {
+    deps.dispatch({ type: "workspace/selectDm", channelId: dm.channel.id });
+  }
+  return dm;
+}
+
+export async function findOrCreateDmForCompose(
+  deps: OperationDeps,
+  params: CreateDmParams,
+): Promise<DmConversation | null> {
+  const dm = await findOrCreateDmCore(deps, params);
+  if (dm) {
+    deps.dispatch({ type: "compose/setPreviewChannel", channelId: dm.channel.id });
+  }
+  return dm;
 }

@@ -1,5 +1,6 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { asChannelId, asWorkspaceId, zChannelId, zMessageId } from "@openslaq/shared";
+import { BEARER_SECURITY, jsonBody, jsonContent } from "../lib/openapi-helpers";
 import type { BotMessage } from "@openslaq/shared";
 import type { BotAuthEnv } from "./auth-middleware";
 import { botAuth, requireScope } from "./auth-middleware";
@@ -9,7 +10,7 @@ import { createMessage, getMessages, editMessage, deleteMessage, getMessageById 
 import { messages } from "../messages/schema";
 import { toggleReaction } from "../reactions/service";
 import { setMessageActions } from "./service";
-import { getIO } from "../socket/io";
+import { emitToChannel } from "../lib/emit";
 import { db } from "../db";
 import { users } from "../users/schema";
 import { workspaceMembers } from "../workspaces/schema";
@@ -27,30 +28,24 @@ const sendMessageRoute = createRoute({
   tags: ["Bots"],
   summary: "Bot: Send message",
   description: "Send a message to a channel as a bot.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [botAuth, rlBotSend, requireScope("chat:write")] as const,
   request: {
     params: channelIdParam,
-    body: {
-      content: {
-        "application/json": {
-          schema: z.object({
-            content: z.string().min(1).max(40000),
-            actions: z.array(z.object({
-              id: z.string(),
-              type: z.literal("button"),
-              label: z.string().max(80),
-              style: z.enum(["primary", "danger", "default"]).optional(),
-              value: z.string().optional(),
-            })).optional(),
-          }),
-        },
-      },
-    },
+    body: jsonBody(z.object({
+      content: z.string().min(1).max(40000),
+      actions: z.array(z.object({
+        id: z.string(),
+        type: z.literal("button"),
+        label: z.string().max(80),
+        style: z.enum(["primary", "danger", "default"]).optional(),
+        value: z.string().optional(),
+      })).optional(),
+    })),
   },
   responses: {
-    201: { content: { "application/json": { schema: messageSchema } }, description: "Message sent" },
-    403: { content: { "application/json": { schema: errorSchema } }, description: "Not a channel member or missing scope" },
+    201: jsonContent(messageSchema, "Message sent"),
+    403: jsonContent(errorSchema, "Not a channel member or missing scope"),
   },
 });
 
@@ -61,31 +56,25 @@ const updateMessageRoute = createRoute({
   tags: ["Bots"],
   summary: "Bot: Update message",
   description: "Update a bot's own message.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [botAuth, rlBotSend, requireScope("chat:write")] as const,
   request: {
     params: messageIdParam,
-    body: {
-      content: {
-        "application/json": {
-          schema: z.object({
-            content: z.string().min(1).max(40000).optional(),
-            actions: z.array(z.object({
-              id: z.string(),
-              type: z.literal("button"),
-              label: z.string().max(80),
-              style: z.enum(["primary", "danger", "default"]).optional(),
-              value: z.string().optional(),
-            })).optional(),
-          }),
-        },
-      },
-    },
+    body: jsonBody(z.object({
+      content: z.string().min(1).max(40000).optional(),
+      actions: z.array(z.object({
+        id: z.string(),
+        type: z.literal("button"),
+        label: z.string().max(80),
+        style: z.enum(["primary", "danger", "default"]).optional(),
+        value: z.string().optional(),
+      })).optional(),
+    })),
   },
   responses: {
-    200: { content: { "application/json": { schema: messageSchema } }, description: "Message updated" },
-    403: { content: { "application/json": { schema: errorSchema } }, description: "Not a channel member" },
-    404: { content: { "application/json": { schema: errorSchema } }, description: "Message not found" },
+    200: jsonContent(messageSchema, "Message updated"),
+    403: jsonContent(errorSchema, "Not a channel member"),
+    404: jsonContent(errorSchema, "Message not found"),
   },
 });
 
@@ -96,13 +85,13 @@ const deleteMessageRoute = createRoute({
   tags: ["Bots"],
   summary: "Bot: Delete message",
   description: "Delete a bot's own message.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [botAuth, rlBotSend, requireScope("chat:write")] as const,
   request: { params: messageIdParam },
   responses: {
-    200: { content: { "application/json": { schema: z.object({ ok: z.literal(true) }) } }, description: "Deleted" },
-    403: { content: { "application/json": { schema: errorSchema } }, description: "Not a channel member" },
-    404: { content: { "application/json": { schema: errorSchema } }, description: "Message not found" },
+    200: jsonContent(z.object({ ok: z.literal(true) }), "Deleted"),
+    403: jsonContent(errorSchema, "Not a channel member"),
+    404: jsonContent(errorSchema, "Message not found"),
   },
 });
 
@@ -113,7 +102,7 @@ const readMessagesRoute = createRoute({
   tags: ["Bots"],
   summary: "Bot: Read channel messages",
   description: "Read message history from a channel.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [botAuth, rlBotRead, requireScope("chat:read")] as const,
   request: {
     params: channelIdParam,
@@ -123,8 +112,8 @@ const readMessagesRoute = createRoute({
     }),
   },
   responses: {
-    200: { content: { "application/json": { schema: messageListSchema } }, description: "Messages" },
-    403: { content: { "application/json": { schema: errorSchema } }, description: "Not a channel member" },
+    200: jsonContent(messageListSchema, "Messages"),
+    403: jsonContent(errorSchema, "Not a channel member"),
   },
 });
 
@@ -135,10 +124,10 @@ const listChannelsRoute = createRoute({
   tags: ["Bots"],
   summary: "Bot: List channels",
   description: "List channels the bot is a member of.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [botAuth, rlBotRead, requireScope("channels:read")] as const,
   responses: {
-    200: { content: { "application/json": { schema: z.array(z.object({ id: z.string(), name: z.string(), type: z.string() })) } }, description: "Channels" },
+    200: jsonContent(z.array(z.object({ id: z.string(), name: z.string(), type: z.string() })), "Channels"),
   },
 });
 
@@ -149,12 +138,12 @@ const listMembersRoute = createRoute({
   tags: ["Bots"],
   summary: "Bot: List channel members",
   description: "List members of a channel.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [botAuth, rlBotRead, requireScope("channels:members:read")] as const,
   request: { params: channelIdParam },
   responses: {
-    200: { content: { "application/json": { schema: z.array(z.object({ id: z.string(), displayName: z.string() })) } }, description: "Members" },
-    403: { content: { "application/json": { schema: errorSchema } }, description: "Not a channel member" },
+    200: jsonContent(z.array(z.object({ id: z.string(), displayName: z.string() })), "Members"),
+    403: jsonContent(errorSchema, "Not a channel member"),
   },
 });
 
@@ -165,22 +154,16 @@ const toggleReactionRoute = createRoute({
   tags: ["Bots"],
   summary: "Bot: Toggle reaction",
   description: "Add or remove a reaction on a message.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [botAuth, rlBotSend, requireScope("reactions:write")] as const,
   request: {
     params: messageIdParam,
-    body: {
-      content: {
-        "application/json": {
-          schema: z.object({ emoji: z.string().min(1).max(32) }),
-        },
-      },
-    },
+    body: jsonBody(z.object({ emoji: z.string().min(1).max(32) })),
   },
   responses: {
-    200: { content: { "application/json": { schema: z.object({ reactions: z.array(z.object({ emoji: z.string(), count: z.number(), userIds: z.array(z.string()) })) }) } }, description: "Reactions" },
-    403: { content: { "application/json": { schema: errorSchema } }, description: "Not a channel member" },
-    404: { content: { "application/json": { schema: errorSchema } }, description: "Message not found" },
+    200: jsonContent(z.object({ reactions: z.array(z.object({ emoji: z.string(), count: z.number(), userIds: z.array(z.string()) })) }), "Reactions"),
+    403: jsonContent(errorSchema, "Not a channel member"),
+    404: jsonContent(errorSchema, "Message not found"),
   },
 });
 
@@ -191,12 +174,12 @@ const getUserRoute = createRoute({
   tags: ["Bots"],
   summary: "Bot: Get user",
   description: "Get information about a user.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [botAuth, rlBotRead, requireScope("users:read")] as const,
   request: { params: z.object({ id: z.string().describe("User ID") }) },
   responses: {
-    200: { content: { "application/json": { schema: z.object({ id: z.string(), displayName: z.string(), avatarUrl: z.string().nullable() }) } }, description: "User" },
-    404: { content: { "application/json": { schema: errorSchema } }, description: "User not found" },
+    200: jsonContent(z.object({ id: z.string(), displayName: z.string(), avatarUrl: z.string().nullable() }), "User"),
+    404: jsonContent(errorSchema, "User not found"),
   },
 });
 
@@ -230,8 +213,7 @@ const app = new OpenAPIHono<BotAuthEnv>()
       actions: actions ?? [],
     } as BotMessage;
 
-    const io = getIO();
-    io.to(`channel:${channelId}`).emit("message:new", enriched);
+    emitToChannel(channelId, "message:new", enriched);
 
     return jsonResponse(c, enriched, 201);
   })
@@ -269,8 +251,7 @@ const app = new OpenAPIHono<BotAuthEnv>()
       actions: actions ?? [],
     } as BotMessage;
 
-    const io = getIO();
-    io.to(`channel:${updated.channelId}`).emit("message:updated", enriched);
+    emitToChannel(asChannelId(updated.channelId), "message:updated", enriched);
 
     return jsonResponse(c, enriched, 200);
   })
@@ -295,8 +276,7 @@ const app = new OpenAPIHono<BotAuthEnv>()
       return c.json({ error: "Message not found or not yours" }, 404);
     }
 
-    const io = getIO();
-    io.to(`channel:${deleted.channelId}`).emit("message:deleted", { id: deleted.id, channelId: deleted.channelId });
+    emitToChannel(asChannelId(deleted.channelId), "message:deleted", { id: deleted.id, channelId: deleted.channelId });
 
     return c.json({ ok: true as const }, 200);
   })
@@ -354,8 +334,7 @@ const app = new OpenAPIHono<BotAuthEnv>()
       return c.json({ error: "Message not found" }, 404);
     }
 
-    const io = getIO();
-    io.to(`channel:${result.channelId}`).emit("reaction:updated", {
+    emitToChannel(result.channelId, "reaction:updated", {
       messageId,
       channelId: result.channelId,
       reactions: result.reactions,

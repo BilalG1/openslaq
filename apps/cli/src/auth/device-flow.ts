@@ -75,11 +75,14 @@ export async function refreshAccessToken(
         ...stackHeaders(),
         "x-stack-refresh-token": refreshToken,
       },
+      body: JSON.stringify({}),
     },
   );
+  const body = await res.json();
   if (!res.ok) {
-    throw new Error(`Failed to refresh token: ${res.status}`);
+    throw new Error(
+      `Failed to refresh token: ${res.status} ${JSON.stringify(body)}`,
+    );
   }
-  const body = (await res.json()) as { access_token: string };
-  return body.access_token;
+  return (body as { access_token: string }).access_token;
 }

@@ -15,7 +15,8 @@
     "typecheck": "tsgo --noEmit",
     "db:generate": "bun --env-file=../../.env drizzle-kit generate",
     "db:migrate": "bun --env-file=../../.env run src/db/migrate.ts",
-    "db:seed": "bun --env-file=../../.env run src/db/seed.ts"
+    "db:seed": "bun --env-file=../../.env run src/db/seed.ts",
+    "openapi": "bun --env-file=../../.env -e 'import app from \"./src/app.ts\"; const spec = app.getOpenAPI31Document({ openapi: \"3.1.0\", info: { title: \"OpenSlaq API\", version: \"1.0.0\" } }); await Bun.write(\"openapi.json\", JSON.stringify(spec, null, 2)); console.log(\"Written to openapi.json\")'"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.9",

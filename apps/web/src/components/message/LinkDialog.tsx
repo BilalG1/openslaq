@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Dialog, DialogContent, DialogTitle, Input, Button } from "../ui";
 
 interface LinkDialogProps {
@@ -22,13 +22,15 @@ export function LinkDialog({
 }: LinkDialogProps) {
   const [text, setText] = useState(initialText);
   const [url, setUrl] = useState(initialUrl);
+  const [prevOpen, setPrevOpen] = useState(false);
 
-  useEffect(() => {
-    if (open) {
-      setText(initialText);
-      setUrl(initialUrl);
-    }
-  }, [open, initialText, initialUrl]);
+  if (open && !prevOpen) {
+    setText(initialText);
+    setUrl(initialUrl);
+  }
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

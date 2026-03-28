@@ -41,7 +41,7 @@ describe("files command (integration)", () => {
     // Upload a file and send a message with it
     const uploadRes = await client.api.uploads.$post({
       form: { files: new File(["test file content"], "test-file.txt", { type: "text/plain" }) },
-    } as any);
+    });
     if (uploadRes.ok) {
       const uploaded = (await uploadRes.json()) as { attachments: { id: string }[] };
       if (uploaded.attachments.length > 0) {

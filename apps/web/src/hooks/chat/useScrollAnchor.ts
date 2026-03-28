@@ -2,7 +2,9 @@ import { useEffect, useLayoutEffect, useRef, type RefObject } from "react";
 
 interface UseScrollAnchorOptions {
   scrollContainerRef: RefObject<HTMLDivElement | null>;
-  topSentinelRef: RefObject<HTMLDivElement | null>;
+  /** Sentinel placed at the DOM start (visually at the bottom in column-reverse) — triggers loadNewer */
+  topSentinelRef?: RefObject<HTMLDivElement | null>;
+  /** Sentinel placed at the DOM end (visually at the top in column-reverse) — triggers loadOlder */
   bottomSentinelRef?: RefObject<HTMLDivElement | null>;
   items: { userId?: string }[];
   currentUserId: string | undefined;
@@ -16,6 +18,13 @@ interface UseScrollAnchorOptions {
   enableScrollCache?: boolean;
 }
 
+/**
+ * Scroll management for a column-reverse container.
+ *
+ * In column-reverse the browser naturally anchors to the bottom (scrollTop = 0).
+ * Prepending older messages at the DOM end doesn't shift scrollTop, so no
+ * manual compensation is needed.
+ */
 export function useScrollAnchor({
   scrollContainerRef,
   topSentinelRef,
@@ -31,9 +40,6 @@ export function useScrollAnchor({
   loadNewer,
   enableScrollCache,
 }: UseScrollAnchorOptions): void {
-  const prevScrollHeightRef = useRef<number>(0);
-  const prevScrollTopRef = useRef<number>(0);
-  const isPrependingRef = useRef(false);
   const prevItemCountRef = useRef<number>(0);
   const isNearBottomRef = useRef(true);
   const didInitialScrollRef = useRef(false);
@@ -56,67 +62,50 @@ export function useScrollAnchor({
     }
   }, [contextId, enableScrollCache, scrollContainerRef]);
 
-  // Track whether user is near the bottom of the scroll container
+  // Track whether user is near the bottom.
+  // In column-reverse, scrollTop=0 is the bottom. Scrolling up makes scrollTop negative.
+  // Near bottom = scrollTop is close to 0 (> -150).
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
     const onScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = container;
-      isNearBottomRef.current = scrollHeight - scrollTop - clientHeight < 150;
+      isNearBottomRef.current = container.scrollTop > -150;
     };
     container.addEventListener("scroll", onScroll, { passive: true });
     return () => container.removeEventListener("scroll", onScroll);
   }, [scrollContainerRef]);
 
-  // Mark when a prepend starts
-  useEffect(() => {
-    if (loadingOlder) {
-      const container = scrollContainerRef.current;
-      if (container) {
-        prevScrollHeightRef.current = container.scrollHeight;
-        prevScrollTopRef.current = container.scrollTop;
-        isPrependingRef.current = true;
-      }
-    }
-  }, [loadingOlder, scrollContainerRef]);
-
-  // Scroll anchoring: prepend preservation, initial scroll-to-bottom, auto-scroll on new items
+  // Initial scroll and auto-scroll on new items
   useLayoutEffect(() => {
     const container = scrollContainerRef.current;
     const prevCount = prevItemCountRef.current;
     prevItemCountRef.current = items.length;
     if (!container || items.length <= prevCount) return;
 
-    if (isPrependingRef.current) {
-      const heightDelta = container.scrollHeight - prevScrollHeightRef.current;
-      container.scrollTop = prevScrollTopRef.current + heightDelta;
-      isPrependingRef.current = false;
-      return;
-    }
     if (!didInitialScrollRef.current) {
       if (enableScrollCache) {
         const cached = scrollPositionCache.current.get(contextId);
         if (cached !== undefined) {
           container.scrollTop = cached;
-          isNearBottomRef.current = container.scrollHeight - cached - container.clientHeight < 150;
-        } else {
-          container.scrollTop = container.scrollHeight;
+          isNearBottomRef.current = cached > -150;
         }
-      } else {
-        container.scrollTop = container.scrollHeight;
+        // else: column-reverse naturally starts at bottom (scrollTop=0), no action needed
       }
+      // column-reverse naturally starts at bottom, no explicit scroll needed
       didInitialScrollRef.current = true;
       return;
     }
+
+    // Auto-scroll when near bottom or when newest message is from current user
     const newestItem = items[items.length - 1];
     if (isNearBottomRef.current || newestItem?.userId === currentUserId) {
-      container.scrollTop = container.scrollHeight;
+      container.scrollTop = 0; // bottom in column-reverse
     }
   }, [items.length, items, currentUserId, enableScrollCache, contextId, scrollContainerRef]);
 
-  // Top IntersectionObserver — load older items
+  // Bottom sentinel IntersectionObserver — load older items (visually at top, DOM end)
   useEffect(() => {
-    const sentinel = topSentinelRef.current;
+    const sentinel = bottomSentinelRef?.current;
     const container = scrollContainerRef.current;
     if (!sentinel || !container) return;
 
@@ -131,11 +120,11 @@ export function useScrollAnchor({
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [hasOlder, loadingOlder, loadOlder, topSentinelRef, scrollContainerRef]);
+  }, [hasOlder, loadingOlder, loadOlder, bottomSentinelRef, scrollContainerRef]);
 
-  // Bottom IntersectionObserver — load newer items (optional)
+  // Top sentinel IntersectionObserver — load newer items (visually at bottom, DOM start)
   useEffect(() => {
-    const sentinel = bottomSentinelRef?.current;
+    const sentinel = topSentinelRef?.current;
     const container = scrollContainerRef.current;
     if (!sentinel || !container || !loadNewer) return;
 
@@ -150,5 +139,5 @@ export function useScrollAnchor({
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [hasNewer, loadingNewer, loadNewer, bottomSentinelRef, scrollContainerRef]);
+  }, [hasNewer, loadingNewer, loadNewer, topSentinelRef, scrollContainerRef]);
 }

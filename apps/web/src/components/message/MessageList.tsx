@@ -40,7 +40,7 @@ interface MessageListProps {
 export function MessageList({ channelId, onOpenThread, onOpenProfile, onJoinHuddle, onPinMessage, onUnpinMessage, onShareMessage, onSaveMessage, onUnsaveMessage, savedMessageIds, ephemeralMessages, onEphemeralMessage }: MessageListProps) {
   const user = useCurrentUser();
   const { workspaceSlug } = useParams<{ workspaceSlug: string }>();
-  const { joinChannel } = useSocket();
+  const { joinChannel, status } = useSocket();
   const { state, dispatch } = useChatStore();
   const { toggleReaction, editMessage, deleteMessage, markAsUnread } = useMessageMutations(user);
   const { triggerAction } = useBotActions();
@@ -188,8 +188,10 @@ export function MessageList({ channelId, onOpenThread, onOpenProfile, onJoinHudd
   useSocketEvent("command:ephemeral", handleCommandEphemeral);
 
   useEffect(() => {
-    joinChannel(asChannelId(channelId));
-  }, [channelId, joinChannel]);
+    if (status === "connected") {
+      joinChannel(asChannelId(channelId));
+    }
+  }, [channelId, joinChannel, status]);
 
   const actionsContextValue = useMemo(
     () => ({
@@ -214,7 +216,7 @@ export function MessageList({ channelId, onOpenThread, onOpenProfile, onJoinHudd
 
   return (
     <MessageActionsProvider value={actionsContextValue}>
-      <div ref={scrollContainerRef} data-testid="message-list-scroll" className="flex-1 overflow-y-auto p-4">
+      <div ref={scrollContainerRef} data-testid="message-list-scroll" className="flex-1 overflow-y-auto p-4 flex flex-col-reverse">
         {loading ? (
           <LoadingState label="Loading messages..." className="h-full" />
         ) : error ? (
@@ -230,37 +232,32 @@ export function MessageList({ channelId, onOpenThread, onOpenProfile, onJoinHudd
         ) : (
           <>
             <div ref={topSentinelRef} className="h-px" />
-            {loadingOlder && (
-              <div data-testid="loading-older" className="text-center text-faint text-xs py-2">
-                Loading older messages...
+            {loadingNewer && (
+              <div data-testid="loading-newer" className="text-center text-faint text-xs py-2">
+                Loading newer messages...
               </div>
             )}
-            {messages.map((msg, index) => {
+            {ephemeralMessages?.map((msg) => (
+              <EphemeralMessageItem key={msg.id} message={msg} />
+            ))}
+            {[...messages].reverse().map((msg, revIndex) => {
+              // revIndex 0 = newest message. Convert to original index for neighbor lookups.
+              const index = messages.length - 1 - revIndex;
+              const prevMsg = index > 0 ? messages[index - 1]! : null;
               const showSeparator =
-                index === 0 || isDifferentDay(messages[index - 1]!.createdAt, msg.createdAt);
-              const prevMsg = index > 0 ? messages[index - 1] : null;
+                index === 0 || isDifferentDay(prevMsg!.createdAt, msg.createdAt);
               const isSystemMessage = msg.type === "huddle" || msg.type === "channel_event";
               const prevIsSystemMessage = prevMsg?.type === "huddle" || prevMsg?.type === "channel_event";
               const isGrouped =
                 !showSeparator &&
-                prevMsg != null &&
+                prevMsg !== null &&
                 !prevIsSystemMessage &&
                 !isSystemMessage &&
                 msg.userId === prevMsg.userId &&
                 new Date(msg.createdAt).getTime() - new Date(prevMsg.createdAt).getTime() < 5 * 60 * 1000;
-              const nextMsg = index < messages.length - 1 ? messages[index + 1] : null;
-              const nextShowSeparator = nextMsg != null && isDifferentDay(msg.createdAt, nextMsg.createdAt);
-              const nextIsSystemMessage = nextMsg?.type === "huddle" || nextMsg?.type === "channel_event";
-              const isFollowedByGrouped =
-                !nextShowSeparator &&
-                nextMsg != null &&
-                !nextIsSystemMessage &&
-                !isSystemMessage &&
-                nextMsg.userId === msg.userId &&
-                new Date(nextMsg.createdAt).getTime() - new Date(msg.createdAt).getTime() < 5 * 60 * 1000;
+
               return (
                 <Fragment key={msg.id}>
-                  {showSeparator && <DaySeparator date={new Date(msg.createdAt)} />}
                   {msg.type === "channel_event" ? (
                     <ChannelEventSystemMessage message={msg} />
                   ) : msg.type === "huddle" ? (
@@ -273,7 +270,6 @@ export function MessageList({ channelId, onOpenThread, onOpenProfile, onJoinHudd
                     <MessageItem
                       message={msg}
                       isGrouped={isGrouped}
-                      isFollowedByGrouped={isFollowedByGrouped}
                       senderStatusEmoji={(() => {
                         const p = state.presence[msg.userId];
                         if (!p?.statusEmoji) return null;
@@ -282,17 +278,15 @@ export function MessageList({ channelId, onOpenThread, onOpenProfile, onJoinHudd
                       })()}
                     />
                   )}
+                  {showSeparator && <DaySeparator date={new Date(msg.createdAt)} />}
                 </Fragment>
               );
             })}
-            {loadingNewer && (
-              <div data-testid="loading-newer" className="text-center text-faint text-xs py-2">
-                Loading newer messages...
+            {loadingOlder && (
+              <div data-testid="loading-older" className="text-center text-faint text-xs py-2">
+                Loading older messages...
               </div>
             )}
-            {ephemeralMessages?.map((msg) => (
-              <EphemeralMessageItem key={msg.id} message={msg} />
-            ))}
             <div ref={bottomSentinelRef} className="h-px" />
           </>
         )}

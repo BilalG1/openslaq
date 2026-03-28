@@ -215,7 +215,7 @@ describe("private channels", () => {
     expect(found).toBeUndefined();
   });
 
-  test("non-admin non-creator cannot add/remove members (403)", async () => {
+  test("any channel member can add workspace members to private channel", async () => {
     const name = `no-perm-${testId()}`;
     const createRes = await ownerClient.api.workspaces[":slug"].channels.$post({
       param: { slug },
@@ -237,12 +237,12 @@ describe("private channels", () => {
     });
     await addToWorkspace(ownerClient, slug, thirdCtx.client);
 
-    // Member (non-admin, non-creator) tries to add third user
+    // Any channel member can add other workspace members to a private channel
     const addRes = await memberClient.api.workspaces[":slug"].channels[":id"].members.$post({
       param: { slug, id: channel.id },
       json: { userId: thirdCtx.user.id },
     }) as unknown as Response;
-    expect(addRes.status).toBe(403);
+    expect(addRes.status).toBe(201);
   });
 
   test("cannot remove the channel creator (400)", async () => {

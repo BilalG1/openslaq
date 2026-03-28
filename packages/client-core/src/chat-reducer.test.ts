@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import type { Channel, Message, HuddleState } from "@openslaq/shared";
 import { asChannelId, asMessageId, asUserId, asWorkspaceId } from "@openslaq/shared";
-import { chatReducer, initialState, type ChatStoreState, type DmConversation, type WorkspaceInfo } from "./chat-reducer";
+import { chatReducer, initialState, type ChatStoreState, type DmConversation, type GroupDmConversation, type WorkspaceInfo } from "./chat-reducer";
 
 // ---------------------------------------------------------------------------
 // Fixture helpers
@@ -46,6 +46,8 @@ function makeDm(channelId = "dm-1"): DmConversation {
   return {
     channel: makeChannel({ id: asChannelId(channelId), type: "dm", name: "dm" }),
     otherUser: { id: "user-2", displayName: "Bob", avatarUrl: null },
+    lastMessageContent: null,
+    lastMessageAt: null,
   };
 }
 
@@ -612,6 +614,36 @@ describe("message mutations", () => {
     expect(state.channelMessageIds[reply.channelId]).toBeUndefined();
   });
 
+  it("replaceOptimistic swaps temp message with real message in channel", () => {
+    const tempId = "optimistic-123";
+    const temp = makeMessage({ id: asMessageId(tempId), channelId: asChannelId("ch-1"), content: "hello" });
+    const prev: ChatStoreState = {
+      ...initialState,
+      messagesById: { [tempId]: temp },
+      channelMessageIds: { "ch-1": [tempId] },
+    };
+    const real = makeMessage({ id: asMessageId("m-real"), channelId: asChannelId("ch-1"), content: "hello" });
+    const state = chatReducer(prev, { type: "messages/replaceOptimistic", tempId, message: real });
+    expect(state.messagesById[tempId]).toBeUndefined();
+    expect(state.messagesById["m-real"]).toEqual(real);
+    expect(state.channelMessageIds["ch-1"]).toEqual(["m-real"]);
+  });
+
+  it("replaceOptimistic swaps temp message with real message in thread replies", () => {
+    const tempId = "optimistic-456";
+    const temp = makeMessage({ id: asMessageId(tempId), parentMessageId: asMessageId("p1") });
+    const prev: ChatStoreState = {
+      ...initialState,
+      messagesById: { [tempId]: temp },
+      threadReplyIds: { p1: [tempId] },
+    };
+    const real = makeMessage({ id: asMessageId("r-real"), parentMessageId: asMessageId("p1") });
+    const state = chatReducer(prev, { type: "messages/replaceOptimistic", tempId, message: real });
+    expect(state.messagesById[tempId]).toBeUndefined();
+    expect(state.messagesById["r-real"]).toEqual(real);
+    expect(state.threadReplyIds["p1"]).toEqual(["r-real"]);
+  });
+
   it("delete removes message from channel and all thread reply lists", () => {
     const m1 = makeMessage({ id: asMessageId("m1"), channelId: asChannelId("ch-1") });
     const prev: ChatStoreState = {
@@ -877,6 +909,27 @@ describe("huddles", () => {
     });
     expect(state.currentHuddleChannelId).toBe("ch-1");
   });
+
+  it("optimistic start then failed join must dispatch ended to clean up activeHuddles", () => {
+    // Simulate: optimistic huddle/started, then join fails and we only setCurrentChannel to null
+    let state = chatReducer(initialState, {
+      type: "huddle/started",
+      huddle: makeHuddle("ch-1"),
+    });
+    state = chatReducer(state, {
+      type: "huddle/setCurrentChannel",
+      channelId: null,
+    });
+    // setCurrentChannel alone doesn't clean up activeHuddles — huddle/ended is required
+    expect(state.activeHuddles["ch-1"]).toBeDefined();
+
+    // Now dispatch ended to clean up (what the fix does)
+    state = chatReducer(state, {
+      type: "huddle/ended",
+      channelId: "ch-1",
+    });
+    expect(state.activeHuddles["ch-1"]).toBeUndefined();
+  });
 });
 
 describe("scroll target", () => {
@@ -1007,5 +1060,66 @@ describe("compose view", () => {
     const prev: ChatStoreState = { ...initialState, activeView: "compose" };
     const state = chatReducer(prev, { type: "workspace/selectDefaultChannel", channelId: "ch-1" });
     expect(state).toBe(prev);
+  });
+});
+
+describe("user/profileUpdated", () => {
+  const dm1: DmConversation = {
+    channel: makeChannel({ id: asChannelId("dm-1"), type: "dm", name: "dm" }),
+    otherUser: { id: "user-2", displayName: "Old Name", avatarUrl: null },
+    lastMessageContent: null,
+    lastMessageAt: null,
+  };
+  const dm2: DmConversation = {
+    channel: makeChannel({ id: asChannelId("dm-2"), type: "dm", name: "dm2" }),
+    otherUser: { id: "user-3", displayName: "Unrelated", avatarUrl: "https://old.png" },
+    lastMessageContent: null,
+    lastMessageAt: null,
+  };
+  const gdm1: GroupDmConversation = {
+    channel: makeChannel({ id: asChannelId("gdm-1"), type: "group_dm", name: "gdm" }),
+    members: [
+      { id: "user-2", displayName: "Old Name", avatarUrl: null },
+      { id: "user-4", displayName: "Other Member", avatarUrl: "https://other.png" },
+    ],
+  };
+
+  it("updates DM otherUser displayName and avatarUrl when userId matches", () => {
+    const prev: ChatStoreState = { ...initialState, dms: [dm1, dm2], groupDms: [] };
+    const state = chatReducer(prev, {
+      type: "user/profileUpdated",
+      userId: "user-2",
+      displayName: "New Name",
+      avatarUrl: "https://new-avatar.png",
+    });
+    expect(state.dms[0]!.otherUser.displayName).toBe("New Name");
+    expect(state.dms[0]!.otherUser.avatarUrl).toBe("https://new-avatar.png");
+  });
+
+  it("does not affect DMs for other users", () => {
+    const prev: ChatStoreState = { ...initialState, dms: [dm1, dm2], groupDms: [] };
+    const state = chatReducer(prev, {
+      type: "user/profileUpdated",
+      userId: "user-2",
+      displayName: "New Name",
+      avatarUrl: "https://new-avatar.png",
+    });
+    expect(state.dms[1]!.otherUser.displayName).toBe("Unrelated");
+    expect(state.dms[1]!.otherUser.avatarUrl).toBe("https://old.png");
+  });
+
+  it("updates GroupDm members when userId matches", () => {
+    const prev: ChatStoreState = { ...initialState, dms: [], groupDms: [gdm1] };
+    const state = chatReducer(prev, {
+      type: "user/profileUpdated",
+      userId: "user-2",
+      displayName: "New Name",
+      avatarUrl: "https://new-avatar.png",
+    });
+    expect(state.groupDms[0]!.members[0]!.displayName).toBe("New Name");
+    expect(state.groupDms[0]!.members[0]!.avatarUrl).toBe("https://new-avatar.png");
+    // Other member unchanged
+    expect(state.groupDms[0]!.members[1]!.displayName).toBe("Other Member");
+    expect(state.groupDms[0]!.members[1]!.avatarUrl).toBe("https://other.png");
   });
 });

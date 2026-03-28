@@ -1,12 +1,12 @@
-import { describe, it, expect, beforeEach, jest } from "bun:test";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, cleanup } from "../../test-utils";
 import { AudioPlayer } from "./AudioPlayer";
 
 beforeEach(() => {
   cleanup();
-  HTMLMediaElement.prototype.play = jest.fn(() => Promise.resolve());
-  HTMLMediaElement.prototype.pause = jest.fn();
-  HTMLMediaElement.prototype.load = jest.fn();
+  HTMLMediaElement.prototype.play = vi.fn(() => Promise.resolve());
+  HTMLMediaElement.prototype.pause = vi.fn();
+  HTMLMediaElement.prototype.load = vi.fn();
 });
 
 describe("AudioPlayer", () => {

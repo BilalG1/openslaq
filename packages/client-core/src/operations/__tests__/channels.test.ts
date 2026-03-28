@@ -1,9 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import { asChannelId } from "@openslaq/shared";
+import { asChannelId, asWorkspaceId, asUserId, type Channel } from "@openslaq/shared";
 import { AuthError } from "../../api/errors";
-import { initialState, type ChatAction } from "../../chat-reducer";
+import { initialState, type ChatAction, type ChatStoreState } from "../../chat-reducer";
 import {
   createChannel,
+  joinChannel,
   leaveChannel,
   archiveChannel,
   unarchiveChannel,
@@ -21,24 +22,43 @@ const rawChannel = {
   createdAt: "2026-01-01T00:00:00Z",
 };
 
-function jsonResponse(data: unknown) {
+function jsonResponse(statusOrData: number | unknown, body?: unknown) {
+  const status = typeof statusOrData === "number" ? statusOrData : 200;
+  const data = typeof statusOrData === "number" ? body : statusOrData;
   return Promise.resolve(
     new Response(JSON.stringify(data), {
-      status: 200,
+      status,
       headers: { "content-type": "application/json" },
     }),
   );
 }
 
+function makeChannel(overrides: Partial<Channel> = {}): Channel {
+  return {
+    id: asChannelId("ch-1"),
+    workspaceId: asWorkspaceId("ws-1"),
+    name: "general",
+    type: "public" as const,
+    description: null,
+    displayName: null,
+    isArchived: false,
+    createdBy: asUserId("u-1"),
+    createdAt: "2026-01-01T00:00:00Z",
+    memberCount: 5,
+    ...overrides,
+  };
+}
+
 function makeDeps(resolvers: {
   channelsPost?: () => Promise<Response>;
   channelsGet?: () => Promise<Response>;
+  joinPost?: () => Promise<Response>;
   leavePost?: () => Promise<Response>;
   archivePost?: () => Promise<Response>;
   unarchivePost?: () => Promise<Response>;
   browseGet?: () => Promise<Response>;
   authToken?: string;
-}) {
+}, stateOverride?: import("../../chat-reducer").ChatStoreState) {
   const actions: ChatAction[] = [];
   let authRequiredCount = 0;
   const socketEmits: Array<{ event: string; data: unknown }> = [];
@@ -64,6 +84,12 @@ function makeDeps(resolvers: {
                 },
               },
               ":id": {
+                join: {
+                  $post: (_args: unknown, { headers }: { headers: { Authorization: string } }) => {
+                    expect(headers.Authorization).toBe(`Bearer ${resolvers.authToken ?? "token"}`);
+                    return (resolvers.joinPost ?? (() => Promise.resolve(new Response(null, { status: 500 }))))();
+                  },
+                },
                 leave: {
                   $post: (_args: unknown, { headers }: { headers: { Authorization: string } }) => {
                     expect(headers.Authorization).toBe(`Bearer ${resolvers.authToken ?? "token"}`);
@@ -98,7 +124,7 @@ function makeDeps(resolvers: {
     dispatch: (action) => {
       actions.push(action);
     },
-    getState: () => initialState,
+    getState: () => stateOverride ?? initialState,
   };
 
   const socket = {
@@ -165,28 +191,139 @@ describe("operations/channels", () => {
       });
 
       await expect(createChannel(deps, { workspaceSlug: "ws", name: "general" })).rejects.toThrow(AuthError);
-      expect(getAuthRequiredCount()).toBe(0); // createChannel does not catch AuthError
+      expect(getAuthRequiredCount()).toBe(1); // authorizedRequest calls onAuthRequired on 401
     });
   });
 
   describe("leaveChannel", () => {
-    it("dispatches workspace/removeChannel and emits socket channel:leave", async () => {
-      const { deps, actions, socket } = makeDeps({
-        leavePost: () => jsonResponse({}),
-      });
+    it("dispatches workspace/removeChannel optimistically before API call", async () => {
+      const channel = makeChannel();
+      const state: ChatStoreState = { ...initialState, channels: [channel] };
+      const { deps, actions, socket, socketEmits } = makeDeps(
+        { leavePost: () => jsonResponse({}) },
+        state,
+      );
 
       await leaveChannel(deps, { workspaceSlug: "ws", channelId: asChannelId("ch-1"), socket: socket as never });
 
       expect(actions).toEqual([{ type: "workspace/removeChannel", channelId: "ch-1" }]);
-      expect(socket.emit).toBeDefined();
+      expect(socketEmits).toEqual([{ event: "channel:leave", data: { channelId: "ch-1" } }]);
     });
 
-    it("throws AuthError on 401", async () => {
-      const { deps, socket } = makeDeps({
+    it("restores channel on non-auth failure", async () => {
+      const channel = makeChannel();
+      const state: ChatStoreState = { ...initialState, channels: [channel] };
+      const { deps, actions, socket, socketEmits } = makeDeps(
+        { leavePost: () => jsonResponse(500, { error: "Leave failed" }) },
+        state,
+      );
+
+      await leaveChannel(deps, { workspaceSlug: "ws", channelId: asChannelId("ch-1"), socket: socket as never });
+
+      expect(actions).toEqual([
+        { type: "workspace/removeChannel", channelId: "ch-1" },
+        { type: "workspace/addChannel", channel },
+        { type: "mutations/error", error: "Leave failed" },
+      ]);
+      // Socket emits: first leave (optimistic), then join (rollback)
+      expect(socketEmits).toEqual([
+        { event: "channel:leave", data: { channelId: "ch-1" } },
+        { event: "channel:join", data: { channelId: "ch-1" } },
+      ]);
+    });
+
+    it("calls onAuthRequired on 401", async () => {
+      const { deps, socket, getAuthRequiredCount } = makeDeps({
         leavePost: () => Promise.resolve(new Response(null, { status: 401 })),
       });
 
-      await expect(leaveChannel(deps, { workspaceSlug: "ws", channelId: asChannelId("ch-1"), socket: socket as never })).rejects.toThrow(AuthError);
+      await leaveChannel(deps, { workspaceSlug: "ws", channelId: asChannelId("ch-1"), socket: socket as never });
+
+      expect(getAuthRequiredCount()).toBe(1);
+    });
+  });
+
+  describe("joinChannel", () => {
+    it("dispatches optimistically when channel is provided", async () => {
+      const channel = makeChannel();
+      const { deps, actions, socket, socketEmits } = makeDeps({
+        joinPost: () => jsonResponse({}),
+      });
+
+      await joinChannel(deps, {
+        workspaceSlug: "ws",
+        channelId: asChannelId("ch-1"),
+        socket: socket as never,
+        channel,
+      });
+
+      expect(actions).toEqual([
+        { type: "workspace/addChannel", channel },
+        { type: "channel/memberCountDelta", channelId: "ch-1", delta: 1 },
+      ]);
+      expect(socketEmits).toEqual([{ event: "channel:join", data: { channelId: "ch-1" } }]);
+    });
+
+    it("rolls back on failure when channel is provided", async () => {
+      const channel = makeChannel();
+      const { deps, actions, socket, socketEmits } = makeDeps({
+        joinPost: () => jsonResponse(500, { error: "Join failed" }),
+      });
+
+      await joinChannel(deps, {
+        workspaceSlug: "ws",
+        channelId: asChannelId("ch-1"),
+        socket: socket as never,
+        channel,
+      });
+
+      expect(actions).toEqual([
+        // optimistic
+        { type: "workspace/addChannel", channel },
+        { type: "channel/memberCountDelta", channelId: "ch-1", delta: 1 },
+        // rollback
+        { type: "workspace/removeChannel", channelId: "ch-1" },
+        { type: "channel/memberCountDelta", channelId: "ch-1", delta: -1 },
+        { type: "mutations/error", error: "Join failed" },
+      ]);
+      expect(socketEmits).toEqual([
+        { event: "channel:join", data: { channelId: "ch-1" } },
+        { event: "channel:leave", data: { channelId: "ch-1" } },
+      ]);
+    });
+
+    it("falls back to re-fetch when channel is not provided", async () => {
+      const { deps, actions, socket, socketEmits } = makeDeps({
+        joinPost: () => jsonResponse({}),
+        channelsGet: () => jsonResponse([{ ...rawChannel, displayName: null, isArchived: false }]),
+      });
+
+      await joinChannel(deps, {
+        workspaceSlug: "ws",
+        channelId: asChannelId("ch-1"),
+        socket: socket as never,
+      });
+
+      expect(actions).toEqual([
+        { type: "workspace/addChannel", channel: expect.objectContaining({ id: "ch-1" }) },
+      ]);
+      expect(socketEmits).toEqual([{ event: "channel:join", data: { channelId: "ch-1" } }]);
+    });
+
+    it("calls onAuthRequired on 401", async () => {
+      const channel = makeChannel();
+      const { deps, socket, getAuthRequiredCount } = makeDeps({
+        joinPost: () => Promise.resolve(new Response(null, { status: 401 })),
+      });
+
+      await joinChannel(deps, {
+        workspaceSlug: "ws",
+        channelId: asChannelId("ch-1"),
+        socket: socket as never,
+        channel,
+      });
+
+      expect(getAuthRequiredCount()).toBe(1);
     });
   });
 
@@ -253,7 +390,7 @@ describe("operations/channels", () => {
       });
 
       await expect(browseChannels(deps, "ws")).rejects.toThrow(AuthError);
-      expect(getAuthRequiredCount()).toBe(0); // browseChannels does not catch AuthError
+      expect(getAuthRequiredCount()).toBe(1); // authorizedRequest calls onAuthRequired on 401
     });
   });
 });

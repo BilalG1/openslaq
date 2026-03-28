@@ -1,0 +1,49 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicolo-ribaudo/oxlint-config/refs/heads/main/schema.json",
+  "plugins": ["typescript", "react", "unicorn"],
+  "categories": {
+    "suspicious": "warn"
+  },
+  "options": {
+    "typeAware": true
+  },
+  "rules": {
+    "no-unused-vars": "warn",
+    "no-console": "off",
+    "@typescript-eslint/no-explicit-any": "error",
+    "@typescript-eslint/no-unnecessary-type-assertion": "error",
+    "@typescript-eslint/no-floating-promises": "error",
+    "@typescript-eslint/no-non-null-asserted-optional-chain": "error",
+    "@typescript-eslint/no-misused-promises": "error",
+    "@typescript-eslint/switch-exhaustiveness-check": "error",
+    "@typescript-eslint/await-thenable": "error",
+    "@typescript-eslint/no-unnecessary-condition": "error",
+    "no-constant-binary-expression": "error",
+    "no-self-compare": "error",
+    "eqeqeq": "error",
+    "no-var": "error",
+    "prefer-const": "error",
+    "react/jsx-key": "error",
+    "react/jsx-no-target-blank": "error",
+    "@typescript-eslint/prefer-optional-chain": "warn",
+    "react/react-in-jsx-scope": "off",
+    "react/no-direct-mutation-state": "error",
+    "unicorn/prefer-add-event-listener": "off",
+    "unicorn/consistent-function-scoping": "off",
+    "unicorn/no-useless-spread": "warn",
+    "unicorn/no-invalid-fetch-options": "error",
+    "unicorn/prefer-node-protocol": "warn",
+    "react-hooks/exhaustive-deps": "error",
+    "react-hooks/rules-of-hooks": "error"
+  },
+  "overrides": [
+    {
+      "files": ["apps/web-e2e/**", "apps/web-e2e-old/**"],
+      "rules": {
+        "react-hooks/rules-of-hooks": "off",
+        "no-empty-pattern": "off"
+      }
+    }
+  ],
+  "ignorePatterns": ["node_modules", "dist", ".vite", "target", "ios", "android"]
+}

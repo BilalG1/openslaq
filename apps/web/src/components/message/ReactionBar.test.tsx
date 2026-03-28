@@ -1,4 +1,4 @@
-import { describe, expect, test, afterEach, jest } from "bun:test";
+import { describe, expect, test, afterEach, vi } from "vitest";
 import { render, screen, cleanup } from "../../test-utils";
 import { ReactionBar } from "./ReactionBar";
 import type { ReactionGroup, UserId, CustomEmoji } from "@openslaq/shared";
@@ -58,7 +58,7 @@ describe("ReactionBar", () => {
   });
 
   test("calls onToggleReaction when reaction pill is clicked", () => {
-    const onToggle = jest.fn();
+    const onToggle = vi.fn();
     const reactions: ReactionGroup[] = [{ emoji: "👍", count: 1, userIds: [uid("u-1")] }];
     render(
       <ReactionBar reactions={reactions} currentUserId="u-1" onToggleReaction={onToggle} />,

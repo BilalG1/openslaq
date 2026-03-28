@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchBookmarks, addBookmarkOp, removeBookmarkOp } from "@openslaq/client-core";
 import { useChatSelectors, useChatStore } from "../../state/chat-store";
 import { useGalleryMode } from "../../gallery/gallery-context";
@@ -30,7 +30,12 @@ export function useChannelPopovers(workspaceSlug: string | undefined) {
       dispatch({ type: "workspace/selectChannel", channelId });
       dispatch({
         type: "navigation/setScrollTarget",
-        scrollTarget: { messageId, highlightMessageId: messageId },
+        scrollTarget: {
+          channelId,
+          messageId,
+          highlightMessageId: messageId,
+          parentMessageId: null,
+        },
       });
     },
     [dispatch],
@@ -61,9 +66,11 @@ export function useChannelPopovers(workspaceSlug: string | undefined) {
   );
 
   // Close files popover when channel changes
-  useEffect(() => {
+  const prevChannelIdRef = useRef(activeChannel?.id);
+  if (prevChannelIdRef.current !== activeChannel?.id) {
+    prevChannelIdRef.current = activeChannel?.id;
     setChannelFilesOpen(false);
-  }, [activeChannel?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }
 
   // Fetch bookmarks when channel changes
   useEffect(() => {

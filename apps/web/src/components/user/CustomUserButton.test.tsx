@@ -1,4 +1,4 @@
-import { describe, test, expect, afterEach, jest, mock } from "bun:test";
+import { describe, test, expect, afterEach, vi } from "vitest";
 import { render, screen, cleanup, act } from "../../test-utils";
 import { fireEvent } from "@testing-library/react";
 
@@ -9,28 +9,28 @@ const mockUser = {
   profileImageUrl: "https://example.com/avatar.png",
 };
 
-mock.module("../../hooks/useCurrentUser", () => ({
+vi.mock("../../hooks/useCurrentUser", () => ({
   useCurrentUser: () => mockUser,
 }));
 
-const mockRedirectToAuth = jest.fn(async () => {});
-mock.module("../../lib/auth", () => ({
-  redirectToAuth: mockRedirectToAuth,
+const mockRedirectToAuth = vi.fn(async () => {});
+vi.mock("../../lib/auth", () => ({
+  get redirectToAuth() { return mockRedirectToAuth; },
 }));
 
-mock.module("../../state/chat-store", () => ({
+vi.mock("../../state/chat-store", () => ({
   useChatStore: () => ({ state: { presence: {} } }),
 }));
 
-mock.module("../settings/UserSettingsDialog", () => ({
+vi.mock("../settings/UserSettingsDialog", () => ({
   UserSettingsDialog: () => null,
 }));
 
-mock.module("./SetStatusDialog", () => ({
+vi.mock("./SetStatusDialog", () => ({
   SetStatusDialog: () => null,
 }));
 
-const { CustomUserButton } = await import("./CustomUserButton");
+import { CustomUserButton } from "./CustomUserButton";
 
 /** Radix DropdownMenu needs pointerdown to open */
 function openDropdown(trigger: HTMLElement) {
@@ -41,7 +41,7 @@ function openDropdown(trigger: HTMLElement) {
 describe("CustomUserButton", () => {
   afterEach(() => {
     cleanup();
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   test("renders avatar image", () => {

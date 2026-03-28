@@ -1,3 +1,8 @@
+const mockToggle = jest.fn();
+jest.mock("@/contexts/WorkspaceDrawerContext", () => ({
+  useWorkspaceDrawer: () => ({ toggle: mockToggle }),
+}));
+
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react-native";
 
@@ -14,6 +19,10 @@ jest.mock("expo-status-bar", () => ({
 
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 44, bottom: 34, left: 0, right: 0 }),
+}));
+
+jest.mock("@/contexts/WorkspaceBootstrapProvider", () => ({
+  useWorkspaceSlug: () => "acme",
 }));
 
 jest.mock("@/lib/draft-storage", () => ({
@@ -278,6 +287,19 @@ describe("HomeScreen", () => {
     render(<HomeScreen />);
     fireEvent.press(screen.getByTestId("group-dm-row-gdm-1"));
     expect(mockPush).toHaveBeenCalledWith("/(app)/acme/(tabs)/(channels)/dm/gdm-1");
+  });
+
+  it("shows huddle icon on channel row when huddle is active", () => {
+    mockState.activeHuddles = {
+      "ch-1": { channelId: "ch-1", participants: [{ userId: "u-1" }], startedAt: "", livekitRoom: null, screenShareUserId: null, messageId: null },
+    };
+    render(<HomeScreen />);
+    expect(screen.getByTestId("huddle-icon-ch-1")).toBeTruthy();
+  });
+
+  it("does not show huddle icon when no active huddle", () => {
+    render(<HomeScreen />);
+    expect(screen.queryByTestId("huddle-icon-ch-1")).toBeNull();
   });
 
   it("renders search pill in header", () => {

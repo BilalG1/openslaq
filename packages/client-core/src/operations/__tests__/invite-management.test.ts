@@ -132,12 +132,12 @@ describe("operations/invite-management", () => {
       await expect(revokeInvite(deps, "ws", "inv-1")).resolves.toBeUndefined();
     });
 
-    it("calls onAuthRequired and returns on 401", async () => {
+    it("calls onAuthRequired and throws on 401", async () => {
       const { deps, getAuthRequiredCount } = makeApiDeps({
         inviteDelete: () => Promise.resolve(new Response(null, { status: 401 })),
       });
 
-      await expect(revokeInvite(deps, "ws", "inv-1")).resolves.toBeUndefined();
+      await expect(revokeInvite(deps, "ws", "inv-1")).rejects.toThrow(AuthError);
       expect(getAuthRequiredCount()).toBe(1);
     });
   });

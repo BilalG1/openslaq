@@ -1,29 +1,35 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { View, Pressable, Text, ActivityIndicator } from "react-native";
-import { Circle, Mic } from "lucide-react-native";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { View, Pressable, Text, ActivityIndicator, Keyboard, PanResponder, StyleSheet } from "react-native";
+import { Mic } from "lucide-react-native";
+import type { MobileTheme, MessageId } from "@openslaq/shared";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { haptics } from "@/utils/haptics";
-import { useDraftMessage } from "@/hooks/useDraftMessage";
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
+import { useDraftRestoration } from "@/hooks/useDraftRestoration";
+import { useMessageSuggestions } from "@/hooks/useMessageSuggestions";
 import { RichTextToolbar } from "./RichTextToolbar";
 import { LinkInsertSheet } from "./LinkInsertSheet";
 import { ScheduleMessageSheet } from "./ScheduleMessageSheet";
 import { FilePreviewStrip } from "./FilePreviewStrip";
 import { MentionSuggestionList } from "./MentionSuggestionList";
-import type { MentionSuggestionItem } from "./MentionSuggestionList";
+import type { MentionCandidate } from "@/utils/message-input-utils";
 import { SlashCommandSuggestionList } from "./SlashCommandSuggestionList";
 import { WebViewEditor } from "./WebViewEditor";
-import type { WebViewEditorRef, FormattingState } from "./WebViewEditor";
+import type { WebViewEditorRef, FormattingState, EditorThemeColors } from "./WebViewEditor";
+import { RecordingBar } from "./RecordingBar";
 import type { PendingFile } from "@/hooks/useFileUpload";
 import type { SlashCommandDefinition } from "@openslaq/shared";
+import { parseSlashCommand } from "@/utils/message-input-utils";
+
+import { TRANSPARENT } from "@/theme/constants";
 
 interface Props {
-  onSend: (content: string) => void;
+  onSend: (content: string) => Promise<boolean> | void;
   placeholder?: string;
-  editingMessage?: { id: string; content: string } | null;
+  editingMessage?: { id: MessageId; content: string } | null;
   onCancelEdit?: () => void;
-  onSaveEdit?: (messageId: string, content: string) => void;
-  members?: MentionSuggestionItem[];
+  onSaveEdit?: (messageId: MessageId, content: string) => void;
+  members?: MentionCandidate[];
   onTyping?: () => void;
   pendingFiles?: PendingFile[];
   onAddAttachment?: () => void;
@@ -34,9 +40,14 @@ interface Props {
   onScheduleSend?: (content: string, scheduledFor: Date) => void;
   onSendVoiceMessage?: (uri: string, durationMs: number) => void;
   draftKey?: string;
+  autoFocus?: boolean;
 }
 
-export function MessageInput({
+export interface MessageInputRef {
+  dismissKeyboard: () => void;
+}
+
+export const MessageInput = forwardRef<MessageInputRef, Props>(function MessageInput({
   onSend,
   placeholder = "Message",
   editingMessage,
@@ -53,7 +64,8 @@ export function MessageInput({
   onScheduleSend,
   onSendVoiceMessage,
   draftKey,
-}: Props) {
+  autoFocus = false,
+}: Props, ref) {
   const [showScheduleSheet, setShowScheduleSheet] = useState(false);
   const [showToolbar, setShowToolbar] = useState(false);
   const [showLinkSheet, setShowLinkSheet] = useState(false);
@@ -68,57 +80,42 @@ export function MessageInput({
     bulletList: false,
     orderedList: false,
   });
-  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
-  const [slashQuery, setSlashQuery] = useState<string | null>(null);
   const { theme } = useMobileTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const editorThemeColors = useMemo<EditorThemeColors>(() => ({
+    "text-primary": theme.colors.textPrimary,
+    "text-muted": theme.colors.textMuted,
+    "text-faint": theme.colors.textFaint,
+    "border-strong": theme.colors.borderDefault,
+    "surface-tertiary": theme.colors.surfaceTertiary,
+    "brand-primary": theme.brand.primary,
+  }), [theme]);
 
   const editorRef = useRef<WebViewEditorRef>(null);
   const latestMarkdownRef = useRef("");
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const editorReadyRef = useRef(false);
 
   const { isRecording, duration, startRecording, stopRecording, cancelRecording } = useAudioRecorder();
 
-  const { draft, saveDraft, clearDraft, isLoaded: draftLoaded } = useDraftMessage(
-    editingMessage ? undefined : draftKey,
-  );
-  const draftRestoredRef = useRef(false);
+  const { saveDraft, clearDraft, handleEditorReady } = useDraftRestoration({
+    editingMessage: editingMessage ?? null,
+    draftKey,
+    editorRef,
+  });
 
   const handleReady = useCallback(() => {
-    editorReadyRef.current = true;
-
-    // Apply theme
-    editorRef.current?.focus("end");
-
-    // Editing message takes priority over draft restoration
-    if (editingMessage) {
-      editorRef.current?.setContent(editingMessage.content);
-      editorRef.current?.focus("end");
-      return;
+    handleEditorReady();
+    if (autoFocus) {
+      editorRef.current?.focus();
     }
+  }, [handleEditorReady, autoFocus]);
 
-    // Restore draft
-    if (draftLoaded && draft && !draftRestoredRef.current) {
-      draftRestoredRef.current = true;
-      editorRef.current?.setContent(draft);
-    }
-  }, [draftLoaded, draft, editingMessage]);
-
-  // Restore draft when it loads after editor is ready
-  useEffect(() => {
-    if (draftLoaded && draft && !draftRestoredRef.current && editorReadyRef.current) {
-      draftRestoredRef.current = true;
-      editorRef.current?.setContent(draft);
-    }
-  }, [draftLoaded, draft]);
-
-  // Load editing message content
-  useEffect(() => {
-    if (editingMessage && editorReadyRef.current) {
-      editorRef.current?.setContent(editingMessage.content);
-      editorRef.current?.focus("end");
-    }
-  }, [editingMessage]);
+  const {
+    mentionQuery, setMentionQuery,
+    slashQuery, setSlashQuery,
+    mentionSuggestions, slashSuggestions,
+    clearSuggestions,
+  } = useMessageSuggestions({ members, slashCommands });
 
   // Clear typing timer on unmount
   useEffect(() => {
@@ -150,22 +147,8 @@ export function MessageInput({
 
   const canSend = !isEmpty || pendingFiles.length > 0;
 
-  // Mention suggestions
-  const mentionSuggestions = mentionQuery !== null
-    ? members
-        .filter((m) => m.displayName.toLowerCase().includes(mentionQuery.toLowerCase()))
-        .slice(0, 10)
-    : [];
-
-  // Slash suggestions
-  const slashSuggestions = slashQuery !== null
-    ? slashCommands
-        .filter((c) => c.name.toLowerCase().startsWith(slashQuery.toLowerCase()))
-        .slice(0, 10)
-    : [];
-
   const handleMentionSelect = useCallback(
-    (item: MentionSuggestionItem) => {
+    (item: MentionCandidate) => {
       editorRef.current?.insertMention(item.id, item.displayName);
       setMentionQuery(null);
       editorRef.current?.focus();
@@ -201,12 +184,10 @@ export function MessageInput({
     if (!markdown && pendingFiles.length === 0) return;
 
     // Handle slash commands
-    if (markdown.startsWith("/") && onSlashCommand) {
-      const spaceIndex = markdown.indexOf(" ");
-      const command = spaceIndex > 0 ? markdown.slice(1, spaceIndex) : markdown.slice(1);
-      const args = spaceIndex > 0 ? markdown.slice(spaceIndex + 1).trim() : "";
+    const parsed = parseSlashCommand(markdown);
+    if (parsed && onSlashCommand) {
       haptics.light();
-      onSlashCommand(command, args);
+      onSlashCommand(parsed.command, parsed.args);
       editorRef.current?.clearContent();
       setEditorHeight(36);
       clearDraft();
@@ -214,7 +195,11 @@ export function MessageInput({
     }
 
     haptics.light();
-    onSend(markdown);
+    const result = onSend(markdown);
+    if (result && typeof result.then === "function") {
+      const ok = await result;
+      if (!ok) return;
+    }
     editorRef.current?.clearContent();
     setEditorHeight(36);
     clearDraft();
@@ -224,13 +209,12 @@ export function MessageInput({
     onCancelEdit?.();
     editorRef.current?.clearContent();
     setEditorHeight(36);
-    setMentionQuery(null);
-    setSlashQuery(null);
+    clearSuggestions();
   };
 
   const handleLinkInsert = useCallback(
-    (_displayText: string, url: string) => {
-      editorRef.current?.setLink(url);
+    (displayText: string, url: string) => {
+      editorRef.current?.insertLink(displayText, url);
       setShowLinkSheet(false);
       editorRef.current?.focus();
     },
@@ -255,16 +239,32 @@ export function MessageInput({
     }
   }, [stopRecording, onSendVoiceMessage]);
 
-  const showMicButton = onSendVoiceMessage && !editingMessage && !canSend && !isRecording;
+  const blurEditor = useCallback(() => {
+    editorRef.current?.blur();
+    Keyboard.dismiss();
+  }, []);
 
-  const formatDuration = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${String(s).padStart(2, "0")}`;
-  };
+  useImperativeHandle(ref, () => ({
+    dismissKeyboard: blurEditor,
+  }));
+
+  const dismissPanResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 10,
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 30) {
+          editorRef.current?.blur();
+          Keyboard.dismiss();
+        }
+      },
+    }),
+  ).current;
+
+  const showMicButton = false; // Voice messages disabled for now
+  // Was: onSendVoiceMessage && !editingMessage && !canSend && !isRecording;
 
   return (
-    <View style={{ position: "relative" }}>
+    <View style={staticStyles.wrapper}>
       {mentionSuggestions.length > 0 && (
         <MentionSuggestionList
           suggestions={mentionSuggestions}
@@ -280,20 +280,27 @@ export function MessageInput({
       {editingMessage && (
         <View
           testID="edit-banner"
-          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 8, borderTopWidth: 1, borderColor: theme.colors.borderDefault, backgroundColor: theme.colors.surfaceTertiary }}
+          style={styles.editBanner}
         >
-          <Text style={{ fontSize: 12, fontWeight: '500', color: theme.brand.primary }}>
+          <Text style={styles.editBannerLabel}>
             Editing message
           </Text>
-          <Pressable testID="edit-cancel" onPress={handleCancel} hitSlop={8}>
-            <Text style={{ fontSize: 12, fontWeight: '500', color: theme.colors.textMuted }}>
+          <Pressable
+            testID="edit-cancel"
+            onPress={handleCancel}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Cancel editing"
+            accessibilityHint="Cancels the message edit"
+          >
+            <Text style={styles.editCancelText}>
               Cancel
             </Text>
           </Pressable>
         </View>
       )}
       {pendingFiles.length > 0 && onRemoveFile && (
-        <View style={{ borderTopWidth: 1, borderColor: theme.colors.borderDefault }}>
+        <View style={styles.filePreviewBorder}>
           <FilePreviewStrip files={pendingFiles} onRemove={onRemoveFile} />
         </View>
       )}
@@ -305,52 +312,38 @@ export function MessageInput({
         />
       )}
       {isRecording ? (
-        <View
-          testID="recording-bar"
-          style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: 1, borderColor: theme.colors.borderDefault, backgroundColor: theme.colors.surface }}
-        >
-          <Pressable testID="recording-cancel" onPress={() => void handleCancelRecording()}>
-            <Text style={{ fontSize: 14, color: theme.colors.textMuted }}>Cancel</Text>
-          </Pressable>
-          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-            <Circle size={12} color="#E53935" fill="#E53935" style={{ marginRight: 6 }} />
-            <Text testID="recording-timer" style={{ fontSize: 14, fontWeight: '500', color: theme.colors.textPrimary }}>
-              {formatDuration(duration)}
-            </Text>
-          </View>
-          <Pressable
-            testID="recording-stop-send"
-            style={{ width: 36, height: 36, borderRadius: 9999, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.brand.primary }}
-            onPress={() => void handleStopAndSend()}
-          >
-            <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>↑</Text>
-          </Pressable>
-        </View>
+        <RecordingBar
+          duration={duration}
+          onCancel={() => void handleCancelRecording()}
+          onStopAndSend={() => void handleStopAndSend()}
+        />
       ) : (
-        <View
-          style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 8, paddingVertical: 8, alignItems: 'flex-end', borderTopWidth: 1, borderColor: theme.colors.borderDefault, backgroundColor: theme.colors.surface }}
-        >
+        <View testID="input-row" style={styles.inputRow} {...dismissPanResponder.panHandlers}>
           {/* Left capsule: attach + rich text editor + Aa */}
           <View
             testID="input-capsule"
-            style={{ borderRadius: 24, backgroundColor: theme.colors.surfaceTertiary, flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4, minHeight: editorHeight + 8 }}
+            style={[styles.inputCapsule, { minHeight: editorHeight + 8 }]}
           >
             {onAddAttachment && (
               <Pressable
                 testID="attachment-button"
-                style={{ width: 32, height: 32, borderRadius: 9999, alignItems: 'center', justifyContent: 'center' }}
+                style={staticStyles.circleButton32}
                 onPress={onAddAttachment}
+                accessibilityRole="button"
+                accessibilityLabel="Add attachment"
+                accessibilityHint="Opens the file picker to add an attachment"
               >
-                <Text style={{ fontSize: 18, color: theme.colors.textMuted }}>+</Text>
+                <Text style={styles.attachmentButtonText}>+</Text>
               </Pressable>
             )}
             <View
               testID="message-input"
-              style={{ flex: 1, height: editorHeight, minHeight: 36, maxHeight: 120 }}
+              style={[staticStyles.editorContainer, { height: editorHeight }]}
             >
               <WebViewEditor
                 ref={editorRef}
                 placeholder={placeholder}
+                themeColors={editorThemeColors}
                 onContentChange={handleContentChange}
                 onHeightChange={handleHeightChange}
                 onFormattingState={setFormattingState}
@@ -361,18 +354,17 @@ export function MessageInput({
             </View>
             <Pressable
               testID="formatting-toggle"
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 9999,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: showToolbar ? theme.brand.primary : 'transparent',
-              }}
+              style={[
+                staticStyles.circleButton32,
+                showToolbar ? styles.formattingToggleActive : styles.formattingToggleInactive,
+              ]}
               onPress={() => setShowToolbar((v) => !v)}
+              accessibilityRole="button"
+              accessibilityLabel={showToolbar ? "Hide formatting toolbar" : "Show formatting toolbar"}
+              accessibilityHint="Toggles the rich text formatting toolbar"
             >
               <Text
-                style={{ fontSize: 14, fontWeight: '600', color: showToolbar ? "#fff" : theme.colors.textMuted }}
+                style={showToolbar ? styles.formattingToggleTextActive : styles.formattingToggleTextInactive}
               >
                 Aa
               </Text>
@@ -382,8 +374,11 @@ export function MessageInput({
           {showMicButton ? (
             <Pressable
               testID="mic-button"
-              style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.surfaceTertiary }}
+              style={styles.micButton}
               onPress={() => void handleStartRecording()}
+              accessibilityRole="button"
+              accessibilityLabel="Record voice message"
+              accessibilityHint="Starts recording a voice message"
             >
               <Mic size={20} color={theme.colors.textMuted} />
             </Pressable>
@@ -394,8 +389,8 @@ export function MessageInput({
                 width: 44,
                 height: 44,
                 borderRadius: 22,
-                alignItems: 'center',
-                justifyContent: 'center',
+                alignItems: "center" as const,
+                justifyContent: "center" as const,
                 backgroundColor: canSend && !uploading ? theme.brand.primary : theme.colors.borderStrong,
                 opacity: pressed ? 0.85 : 1,
               })}
@@ -406,11 +401,14 @@ export function MessageInput({
                   : undefined
               }
               disabled={!canSend || uploading}
+              accessibilityRole="button"
+              accessibilityLabel="Send message"
+              accessibilityHint={canSend ? "Sends the message" : "Type a message first"}
             >
               {uploading ? (
-                <ActivityIndicator testID="upload-spinner" size="small" color="#fff" />
+                <ActivityIndicator testID="upload-spinner" size="small" color={theme.colors.headerText} />
               ) : (
-                <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>↑</Text>
+                <Text style={styles.sendArrowText}>↑</Text>
               )}
             </Pressable>
           )}
@@ -430,6 +428,8 @@ export function MessageInput({
             if (markdown) {
               onScheduleSend(markdown, date);
               editorRef.current?.clearContent();
+              setEditorHeight(36);
+              clearDraft();
               setShowScheduleSheet(false);
             }
           }}
@@ -438,4 +438,100 @@ export function MessageInput({
       )}
     </View>
   );
-}
+});
+
+const staticStyles = StyleSheet.create({
+  wrapper: {
+    position: "relative",
+  },
+  circleButton32: {
+    width: 32,
+    height: 32,
+    borderRadius: 9999,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  editorContainer: {
+    flex: 1,
+    minHeight: 36,
+    maxHeight: 120,
+  },
+});
+
+const makeStyles = (theme: MobileTheme) =>
+  StyleSheet.create({
+    editBanner: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderTopWidth: 1,
+      borderColor: theme.colors.borderDefault,
+      backgroundColor: theme.colors.surfaceTertiary,
+    },
+    editBannerLabel: {
+      fontSize: 12,
+      fontWeight: "500",
+      color: theme.brand.primary,
+    },
+    editCancelText: {
+      fontSize: 12,
+      fontWeight: "500",
+      color: theme.colors.textMuted,
+    },
+    filePreviewBorder: {
+      borderTopWidth: 1,
+      borderColor: theme.colors.borderDefault,
+    },
+    sendArrowText: {
+      color: theme.colors.headerText,
+      fontWeight: "bold",
+      fontSize: 16,
+    },
+    inputRow: {
+      flexDirection: "row",
+      gap: 8,
+      paddingHorizontal: 8,
+      paddingVertical: 8,
+      alignItems: "flex-end",
+      backgroundColor: theme.colors.surface,
+    },
+    inputCapsule: {
+      borderRadius: 24,
+      backgroundColor: theme.colors.surfaceTertiary,
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+    },
+    attachmentButtonText: {
+      fontSize: 18,
+      color: theme.colors.textMuted,
+    },
+    formattingToggleActive: {
+      backgroundColor: theme.brand.primary,
+    },
+    formattingToggleInactive: {
+      backgroundColor: TRANSPARENT,
+    },
+    formattingToggleTextActive: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: theme.colors.headerText,
+    },
+    formattingToggleTextInactive: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: theme.colors.textMuted,
+    },
+    micButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.colors.surfaceTertiary,
+    },
+  });

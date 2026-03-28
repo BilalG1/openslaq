@@ -8,9 +8,10 @@ import {
   Pressable,
   RefreshControl,
   Switch,
+  StyleSheet,
 } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import type { ChannelId } from "@openslaq/shared";
+import { useRouter, useFocusEffect } from "expo-router";
+import type { ChannelId, MobileTheme } from "@openslaq/shared";
 import {
   browseChannels,
   joinChannel as coreJoinChannel,
@@ -21,16 +22,20 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useChatStore } from "@/contexts/ChatStoreProvider";
 import { useSocket } from "@/contexts/SocketProvider";
 import { useMobileTheme } from "@/theme/ThemeProvider";
-import { api } from "@/lib/api";
+import { useServer } from "@/contexts/ServerContext";
+import { useWorkspaceParams } from "@/hooks/useRouteParams";
 import { routes } from "@/lib/routes";
+import { Lock } from "lucide-react-native";
 
 export default function BrowseChannelsScreen() {
-  const { workspaceSlug } = useLocalSearchParams<{ workspaceSlug: string }>();
+  const { workspaceSlug } = useWorkspaceParams();
   const { authProvider } = useAuth();
+  const { apiClient: api } = useServer();
   const { state, dispatch } = useChatStore();
   const { socket } = useSocket();
   const router = useRouter();
   const { theme } = useMobileTheme();
+  const styles = makeStyles(theme);
 
   const [channels, setChannels] = useState<BrowseChannel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,12 +49,14 @@ export default function BrowseChannelsScreen() {
   const stateRef = useRef(state);
   stateRef.current = state;
 
-  const workspace = state.workspaces?.find((w: { slug: string }) => w.slug === workspaceSlug);
+  const workspace = state.workspaces?.find((w) => w.slug === workspaceSlug);
   const isAdmin = workspace?.role === "owner" || workspace?.role === "admin";
+
+  const memberChannelIds = new Set(state.channels.map((c) => c.id));
 
   const fetchChannels = useCallback(async (includeArchived = false) => {
     const deps = { api, auth: authProvider };
-    const result = await browseChannels(deps, workspaceSlug, includeArchived);
+    const result = await browseChannels(deps, workspaceSlug!, includeArchived);
     setChannels(result);
   }, [authProvider, workspaceSlug]);
 
@@ -67,6 +74,15 @@ export default function BrowseChannelsScreen() {
     return () => { cancelled = true; };
   }, [fetchChannels, showArchived]);
 
+  // Re-fetch channel list when screen gains focus
+  useFocusEffect(
+    useCallback(() => {
+      if (!loading) {
+        fetchChannels(showArchived).catch(() => {});
+      }
+    }, [fetchChannels, showArchived, loading]),
+  );
+
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchChannels(showArchived).catch(() => {});
@@ -78,7 +94,7 @@ export default function BrowseChannelsScreen() {
       setUnarchivingId(channelId);
       const deps = { api, auth: authProvider, dispatch, getState: () => stateRef.current };
       try {
-        await unarchiveChannel(deps, { workspaceSlug, channelId });
+        await unarchiveChannel(deps, { workspaceSlug: workspaceSlug!, channelId });
         setChannels((prev) =>
           prev.map((ch) =>
             ch.id === channelId ? { ...ch, isArchived: false } : ch,
@@ -96,12 +112,14 @@ export default function BrowseChannelsScreen() {
   const handleJoin = useCallback(
     async (channelId: ChannelId) => {
       setJoiningId(channelId);
-      const deps = { api, auth: authProvider, dispatch, getState: () => state };
+      const deps = { api, auth: authProvider, dispatch, getState: () => stateRef.current };
       try {
+        const browseChannel = channels.find((ch) => ch.id === channelId);
         await coreJoinChannel(deps, {
-          workspaceSlug,
+          workspaceSlug: workspaceSlug!,
           channelId,
           socket,
+          channel: browseChannel,
         });
         // Update local browse list
         setChannels((prev) =>
@@ -109,23 +127,28 @@ export default function BrowseChannelsScreen() {
             ch.id === channelId ? { ...ch, isMember: true } : ch,
           ),
         );
-        router.push(routes.channel(workspaceSlug, channelId));
+        router.push(routes.channel(workspaceSlug!, channelId));
       } catch {
         // Ignore — user will see the channel unchanged
       } finally {
         setJoiningId(null);
       }
     },
-    [authProvider, dispatch, router, socket, state, workspaceSlug],
+    [authProvider, dispatch, router, socket, workspaceSlug],
   );
 
+  const withMembership = channels.map((c) => ({
+    ...c,
+    isMember: memberChannelIds.has(c.id),
+  }));
+
   const filtered = filter
-    ? channels.filter((c) => c.name.toLowerCase().includes(filter.toLowerCase()))
-    : channels;
+    ? withMembership.filter((c) => c.name.toLowerCase().includes(filter.toLowerCase()))
+    : withMembership;
 
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.surface }}>
+      <View style={styles.center}>
         <ActivityIndicator size="large" color={theme.brand.primary} />
       </View>
     );
@@ -133,8 +156,8 @@ export default function BrowseChannelsScreen() {
 
   if (error) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.surface, padding: 24 }}>
-        <Text style={{ fontSize: 14, color: theme.colors.textFaint, textAlign: "center", marginBottom: 12 }}>{error}</Text>
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>{error}</Text>
         <Pressable
           testID="browse-retry"
           onPress={() => {
@@ -144,6 +167,9 @@ export default function BrowseChannelsScreen() {
               .catch((e) => setError(e instanceof Error ? e.message : "Failed to load channels"))
               .finally(() => setLoading(false));
           }}
+          accessibilityRole="button"
+          accessibilityLabel="Retry"
+          accessibilityHint="Retries loading channels"
           style={({ pressed }) => ({
             backgroundColor: pressed ? theme.brand.primary + "cc" : theme.brand.primary,
             paddingHorizontal: 20,
@@ -151,15 +177,15 @@ export default function BrowseChannelsScreen() {
             borderRadius: 6,
           })}
         >
-          <Text style={{ color: "#fff", fontWeight: "600", fontSize: 14 }}>Retry</Text>
+          <Text style={styles.retryButtonText}>Retry</Text>
         </Pressable>
       </View>
     );
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.colors.surface }}>
-      <View style={{ paddingHorizontal: 16, paddingVertical: 8, gap: 8 }}>
+    <View style={styles.container}>
+      <View style={styles.filterContainer}>
         <TextInput
           testID="browse-channel-filter"
           placeholder="Filter channels..."
@@ -168,19 +194,12 @@ export default function BrowseChannelsScreen() {
           onChangeText={setFilter}
           autoCapitalize="none"
           autoCorrect={false}
-          style={{
-            borderWidth: 1,
-            borderColor: theme.colors.borderDefault,
-            borderRadius: 8,
-            paddingHorizontal: 12,
-            paddingVertical: 8,
-            fontSize: 14,
-            color: theme.colors.textPrimary,
-            backgroundColor: theme.colors.surfaceSecondary,
-          }}
+          style={styles.filterInput}
+          accessibilityLabel="Filter channels"
+          accessibilityHint="Type to filter the channel list"
         />
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <Text style={{ color: theme.colors.textSecondary, fontSize: 14 }}>Show archived</Text>
+        <View style={styles.archivedRow}>
+          <Text style={styles.archivedLabel}>Show archived</Text>
           <Switch
             testID="browse-show-archived-toggle"
             value={showArchived}
@@ -199,34 +218,22 @@ export default function BrowseChannelsScreen() {
         renderItem={({ item, index }) => (
           <View
             testID={`browse-channel-row-${index}`}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              paddingHorizontal: 16,
-              paddingVertical: 12,
-              borderBottomWidth: 1,
-              borderBottomColor: theme.colors.borderSecondary,
-            }}
+            style={styles.channelRow}
           >
-            <Text style={{ color: theme.colors.textFaint, fontSize: 16, marginRight: 8 }}>#</Text>
-            <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                <Text style={{ color: theme.colors.textPrimary, fontSize: 16 }}>{item.name}</Text>
+            {item.type === "private" ? <Lock size={16} color={theme.colors.textMuted} testID={`browse-lock-icon-${item.id}`} /> : <Text style={styles.hashIcon}>#</Text>}
+            <View style={styles.channelInfo}>
+              <View style={styles.channelNameRow}>
+                <Text style={styles.channelName}>{item.name}</Text>
                 {item.isArchived && (
                   <View
                     testID={`browse-archived-badge-${item.id}`}
-                    style={{
-                      backgroundColor: theme.colors.surfaceTertiary,
-                      borderRadius: 4,
-                      paddingHorizontal: 6,
-                      paddingVertical: 2,
-                    }}
+                    style={styles.archivedBadge}
                   >
-                    <Text style={{ color: theme.colors.textFaint, fontSize: 11, fontWeight: "600" }}>Archived</Text>
+                    <Text style={styles.archivedBadgeText}>Archived</Text>
                   </View>
                 )}
               </View>
-              <Text style={{ color: theme.colors.textFaint, fontSize: 12 }}>
+              <Text style={styles.memberCount}>
                 {item.memberCount ?? 0} {(item.memberCount ?? 0) === 1 ? "member" : "members"}
               </Text>
             </View>
@@ -235,6 +242,9 @@ export default function BrowseChannelsScreen() {
                 testID={`browse-unarchive-${item.id}`}
                 onPress={() => handleUnarchive(item.id)}
                 disabled={unarchivingId === item.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Unarchive ${item.name}`}
+                accessibilityHint="Unarchives this channel"
                 style={({ pressed }) => ({
                   backgroundColor: pressed ? theme.colors.surfaceTertiary : theme.colors.surfaceSecondary,
                   paddingHorizontal: 16,
@@ -248,18 +258,21 @@ export default function BrowseChannelsScreen() {
                 {unarchivingId === item.id ? (
                   <ActivityIndicator size="small" color={theme.colors.textSecondary} />
                 ) : (
-                  <Text style={{ color: theme.colors.textSecondary, fontWeight: "600", fontSize: 14 }}>Unarchive</Text>
+                  <Text style={styles.unarchiveText}>Unarchive</Text>
                 )}
               </Pressable>
             ) : item.isArchived ? (
-              <Text style={{ color: theme.colors.textFaint, fontSize: 14, fontWeight: "500" }}>Archived</Text>
+              <Text style={styles.statusText}>Archived</Text>
             ) : item.isMember ? (
-              <Text style={{ color: theme.colors.textFaint, fontSize: 14, fontWeight: "500" }}>Joined</Text>
+              <Text style={styles.statusText}>Joined</Text>
             ) : (
               <Pressable
                 testID={`browse-join-${item.id}`}
                 onPress={() => handleJoin(item.id)}
                 disabled={joiningId === item.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Join ${item.name}`}
+                accessibilityHint="Joins this channel"
                 style={({ pressed }) => ({
                   backgroundColor: pressed ? theme.brand.primary + "cc" : theme.brand.primary,
                   paddingHorizontal: 16,
@@ -269,17 +282,17 @@ export default function BrowseChannelsScreen() {
                 })}
               >
                 {joiningId === item.id ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <ActivityIndicator size="small" color={theme.colors.headerText} />
                 ) : (
-                  <Text style={{ color: "#fff", fontWeight: "600", fontSize: 14 }}>Join</Text>
+                  <Text style={styles.joinButtonText}>Join</Text>
                 )}
               </Pressable>
             )}
           </View>
         )}
         ListEmptyComponent={
-          <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 48 }}>
-            <Text style={{ color: theme.colors.textFaint }}>
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>
               {filter ? "No channels match your filter" : "No public channels"}
             </Text>
           </View>
@@ -288,3 +301,122 @@ export default function BrowseChannelsScreen() {
     </View>
   );
 }
+
+const makeStyles = (theme: MobileTheme) =>
+  StyleSheet.create({
+    center: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.colors.surface,
+    },
+    errorContainer: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.colors.surface,
+      padding: 24,
+    },
+    errorText: {
+      fontSize: 14,
+      color: theme.colors.textFaint,
+      textAlign: "center",
+      marginBottom: 12,
+    },
+    retryButtonText: {
+      color: theme.colors.headerText,
+      fontWeight: "600",
+      fontSize: 14,
+    },
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.surface,
+    },
+    filterContainer: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      gap: 8,
+    },
+    filterInput: {
+      borderWidth: 1,
+      borderColor: theme.colors.borderDefault,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      fontSize: 14,
+      color: theme.colors.textPrimary,
+      backgroundColor: theme.colors.surfaceSecondary,
+    },
+    archivedRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    archivedLabel: {
+      color: theme.colors.textSecondary,
+      fontSize: 14,
+    },
+    channelRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.borderSecondary,
+    },
+    hashIcon: {
+      color: theme.colors.textFaint,
+      fontSize: 16,
+      marginRight: 8,
+    },
+    channelInfo: {
+      flex: 1,
+    },
+    channelNameRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    channelName: {
+      color: theme.colors.textPrimary,
+      fontSize: 16,
+    },
+    archivedBadge: {
+      backgroundColor: theme.colors.surfaceTertiary,
+      borderRadius: 4,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+    },
+    archivedBadgeText: {
+      color: theme.colors.textFaint,
+      fontSize: 11,
+      fontWeight: "600",
+    },
+    memberCount: {
+      color: theme.colors.textFaint,
+      fontSize: 12,
+    },
+    unarchiveText: {
+      color: theme.colors.textSecondary,
+      fontWeight: "600",
+      fontSize: 14,
+    },
+    statusText: {
+      color: theme.colors.textFaint,
+      fontSize: 14,
+      fontWeight: "500",
+    },
+    joinButtonText: {
+      color: theme.colors.headerText,
+      fontWeight: "600",
+      fontSize: 14,
+    },
+    emptyContainer: {
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 48,
+    },
+    emptyText: {
+      color: theme.colors.textFaint,
+    },
+  });

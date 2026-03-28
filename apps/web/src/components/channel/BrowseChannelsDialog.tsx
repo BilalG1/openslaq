@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
-import { Search, Check, MoreHorizontal, Lock, LogIn, LogOut, Archive, Plus } from "lucide-react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { Search, Check, MoreHorizontal, Lock, LogIn, LogOut, Archive, ArchiveRestore, Plus } from "lucide-react";
 import type { Channel } from "@openslaq/shared";
 import { DEFAULT_CHANNELS } from "@openslaq/shared";
 import {
@@ -7,6 +7,7 @@ import {
   joinChannel,
   leaveChannel,
   archiveChannel,
+  unarchiveChannel,
   type BrowseChannel,
 } from "@openslaq/client-core";
 import { useOperationDeps } from "../../hooks/chat/useOperationDeps";
@@ -50,16 +51,31 @@ export function BrowseChannelsDialog({
   const [search, setSearch] = useState("");
   const [joiningId, setJoiningId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const showArchivedRef = useRef(false);
 
   useEffect(() => {
     if (!open) return;
     setLoading(true);
     setSearch("");
-    browseChannels(deps, workspaceSlug)
+    setShowArchived(false);
+    showArchivedRef.current = false;
+    browseChannels(deps, workspaceSlug, false)
       .then(setChannels)
       .catch(() => setChannels([]))
       .finally(() => setLoading(false));
   }, [open, deps, workspaceSlug]);
+
+  const handleToggleArchived = () => {
+    const next = !showArchivedRef.current;
+    showArchivedRef.current = next;
+    setShowArchived(next);
+    setLoading(true);
+    browseChannels(deps, workspaceSlug, next)
+      .then(setChannels)
+      .catch(() => setChannels([]))
+      .finally(() => setLoading(false));
+  };
 
   const filtered = useMemo(() => {
     if (!search.trim()) return channels;
@@ -70,7 +86,7 @@ export function BrowseChannelsDialog({
   const handleJoin = async (ch: BrowseChannel) => {
     setJoiningId(ch.id);
     try {
-      await joinChannel(deps, { workspaceSlug, channelId: ch.id, socket });
+      await joinChannel(deps, { workspaceSlug, channelId: ch.id, socket, channel: ch });
       setChannels((prev) =>
         prev.map((c) => (c.id === ch.id ? { ...c, isMember: true } : c)),
       );
@@ -90,6 +106,13 @@ export function BrowseChannelsDialog({
   const handleArchive = async (ch: BrowseChannel) => {
     await archiveChannel(deps, { workspaceSlug, channelId: ch.id });
     setChannels((prev) => prev.filter((c) => c.id !== ch.id));
+  };
+
+  const handleUnarchive = async (ch: BrowseChannel) => {
+    await unarchiveChannel(deps, { workspaceSlug, channelId: ch.id });
+    setChannels((prev) =>
+      prev.map((c) => (c.id === ch.id ? { ...c, isArchived: false } : c)),
+    );
   };
 
   const isGeneral = (ch: BrowseChannel) =>
@@ -112,16 +135,28 @@ export function BrowseChannelsDialog({
                 Create channel
               </Button>
             </div>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input
-                data-testid="browse-channels-search"
-                placeholder="Search channels..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-                autoFocus
-              />
+            <div className="flex items-center gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  data-testid="browse-channels-search"
+                  placeholder="Search channels..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9"
+                  autoFocus
+                />
+              </div>
+              <label className="flex items-center gap-1.5 text-xs text-secondary whitespace-nowrap cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={showArchived}
+                  onChange={handleToggleArchived}
+                  data-testid="browse-show-archived-toggle"
+                  className="accent-primary"
+                />
+                Show archived
+              </label>
             </div>
           </div>
 
@@ -135,7 +170,7 @@ export function BrowseChannelsDialog({
                 {filtered.map((ch) => (
                   <div
                     key={ch.id}
-                    className="relative border border-border-default rounded-lg p-4 flex flex-col hover:border-primary/50 transition-colors"
+                    className={`relative border border-border-default rounded-lg p-4 flex flex-col hover:border-primary/50 transition-colors ${ch.isArchived ? "opacity-70" : ""}`}
                     data-testid={`browse-channel-row-${ch.id}`}
                   >
                     {/* Top-right area: joined indicator or kebab menu */}
@@ -159,7 +194,7 @@ export function BrowseChannelsDialog({
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          {!ch.isMember && (
+                          {!ch.isMember && !ch.isArchived && (
                             <DropdownMenuItem
                               onSelect={() => void handleJoin(ch)}
                               className="flex items-center gap-2"
@@ -169,7 +204,7 @@ export function BrowseChannelsDialog({
                               Join channel
                             </DropdownMenuItem>
                           )}
-                          {ch.isMember && !isGeneral(ch) && (
+                          {ch.isMember && !isGeneral(ch) && !ch.isArchived && (
                             <DropdownMenuItem
                               onSelect={() => void handleLeave(ch)}
                               className="flex items-center gap-2"
@@ -179,7 +214,7 @@ export function BrowseChannelsDialog({
                               Leave channel
                             </DropdownMenuItem>
                           )}
-                          {isAdmin && !isGeneral(ch) && (
+                          {isAdmin && !isGeneral(ch) && !ch.isArchived && (
                             <>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
@@ -192,6 +227,16 @@ export function BrowseChannelsDialog({
                               </DropdownMenuItem>
                             </>
                           )}
+                          {isAdmin && ch.isArchived && (
+                            <DropdownMenuItem
+                              onSelect={() => void handleUnarchive(ch)}
+                              className="flex items-center gap-2"
+                              data-testid={`browse-channel-menu-unarchive-${ch.id}`}
+                            >
+                              <ArchiveRestore className="w-4 h-4" />
+                              Unarchive channel
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -203,13 +248,18 @@ export function BrowseChannelsDialog({
                         "#"
                       )}
                       {" "}{ch.name}
+                      {ch.isArchived && (
+                        <Badge variant="gray" size="sm" data-testid={`browse-channel-archived-${ch.id}`}>
+                          Archived
+                        </Badge>
+                      )}
                     </span>
                     {ch.description && (
                       <p className="text-xs text-secondary line-clamp-2 mb-2">{ch.description}</p>
                     )}
                     <div className="mt-auto pt-2 flex items-center justify-between">
-                      <Badge variant="gray" size="sm">{ch.memberCount ?? 0} members</Badge>
-                      {!ch.isMember && (
+                      <Badge variant="gray" size="sm">{ch.memberCount ?? 0} {(ch.memberCount ?? 0) === 1 ? "member" : "members"}</Badge>
+                      {!ch.isMember && !ch.isArchived && (
                         <Button
                           variant="primary"
                           size="sm"

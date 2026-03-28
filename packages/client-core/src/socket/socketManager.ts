@@ -30,6 +30,7 @@ interface SocketManagerOptions {
 }
 
 export class SocketManager {
+  readonly apiUrl: string;
   private socket: TypedSocket | null = null;
   private status: SocketStatus = "idle";
   private lastError: string | null = null;
@@ -37,9 +38,11 @@ export class SocketManager {
   private snapshotListeners = new Set<SnapshotListener>();
   private connectAttempt = 0;
   private intentionallyDisconnected = true;
+  private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
   private readonly createSocket: () => TypedSocket;
 
   constructor(options: SocketManagerOptions) {
+    this.apiUrl = options.apiUrl;
     this.createSocket =
       options.createSocket ??
       (() =>
@@ -103,6 +106,7 @@ export class SocketManager {
   }
 
   destroy(): void {
+    this.stopHeartbeat();
     this.disconnectForLogout();
     if (this.socket) {
       this.socket.removeAllListeners();
@@ -138,6 +142,7 @@ export class SocketManager {
       for (const channelId of this.desiredChannels) {
         socket.emit("channel:join", { channelId });
       }
+      this.startHeartbeat();
     });
 
     socket.on("connect_error", (error: Error) => {
@@ -145,6 +150,7 @@ export class SocketManager {
     });
 
     socket.on("disconnect", (reason: string) => {
+      this.stopHeartbeat();
       if (reason === "io client disconnect" || this.intentionallyDisconnected) {
         this.updateStatus("disconnected", null);
         return;
@@ -161,6 +167,22 @@ export class SocketManager {
     this.socket = socket;
     this.emitSnapshot();
     return socket;
+  }
+
+  private startHeartbeat(): void {
+    this.stopHeartbeat();
+    this.heartbeatInterval = setInterval(() => {
+      if (this.socket?.connected) {
+        this.socket.emit("presence:heartbeat");
+      }
+    }, 30_000);
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
   }
 
   private updateStatus(status: SocketStatus, lastError: string | null): void {

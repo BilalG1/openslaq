@@ -1,5 +1,4 @@
 import type { GlobalNotificationPreferences } from "@openslaq/shared";
-import { AuthError } from "../api/errors";
 import { authorizedRequest } from "../api/api-client";
 import type { ApiDeps } from "./types";
 
@@ -10,14 +9,9 @@ export async function registerPushToken(
 ): Promise<void> {
   const { api, auth } = deps;
 
-  try {
-    await authorizedRequest(auth, (headers) =>
-      api.api["push-tokens"].$post({ json: { token, platform } }, { headers }),
-    );
-  } catch (err) {
-    if (err instanceof AuthError) auth.onAuthRequired();
-    throw err;
-  }
+  await authorizedRequest(auth, (headers) =>
+    api.api["push-tokens"].$post({ json: { token, platform } }, { headers }),
+  );
 }
 
 export async function unregisterPushToken(
@@ -26,14 +20,9 @@ export async function unregisterPushToken(
 ): Promise<void> {
   const { api, auth } = deps;
 
-  try {
-    await authorizedRequest(auth, (headers) =>
-      api.api["push-tokens"].$delete({ json: { token } }, { headers }),
-    );
-  } catch (err) {
-    if (err instanceof AuthError) auth.onAuthRequired();
-    throw err;
-  }
+  await authorizedRequest(auth, (headers) =>
+    api.api["push-tokens"].$delete({ json: { token } }, { headers }),
+  );
 }
 
 export async function getGlobalNotificationPrefs(
@@ -41,15 +30,10 @@ export async function getGlobalNotificationPrefs(
 ): Promise<GlobalNotificationPreferences> {
   const { api, auth } = deps;
 
-  try {
-    const response = await authorizedRequest(auth, (headers) =>
-      api.api.users.me["notification-preferences"].$get({}, { headers }),
-    );
-    return (await response.json()) as GlobalNotificationPreferences;
-  } catch (err) {
-    if (err instanceof AuthError) auth.onAuthRequired();
-    throw err;
-  }
+  const response = await authorizedRequest(auth, (headers) =>
+    api.api.users.me["notification-preferences"].$get({}, { headers }),
+  );
+  return (await response.json()) as GlobalNotificationPreferences;
 }
 
 export async function updateGlobalNotificationPrefs(
@@ -58,16 +42,11 @@ export async function updateGlobalNotificationPrefs(
 ): Promise<GlobalNotificationPreferences> {
   const { api, auth } = deps;
 
-  try {
-    const response = await authorizedRequest(auth, (headers) =>
-      api.api.users.me["notification-preferences"].$put(
-        { json: prefs },
-        { headers },
-      ),
-    );
-    return (await response.json()) as GlobalNotificationPreferences;
-  } catch (err) {
-    if (err instanceof AuthError) auth.onAuthRequired();
-    throw err;
-  }
+  const response = await authorizedRequest(auth, (headers) =>
+    api.api.users.me["notification-preferences"].$put(
+      { json: prefs },
+      { headers },
+    ),
+  );
+  return (await response.json()) as GlobalNotificationPreferences;
 }

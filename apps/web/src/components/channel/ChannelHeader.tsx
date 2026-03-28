@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Check, Info, Lock, Star, Users, MoreHorizontal, Bell, AtSign, BellOff, Pin, FileText, Bookmark, Archive, ArchiveRestore } from "lucide-react";
+import { Check, Info, Lock, Star, Users, MoreHorizontal, Bell, AtSign, BellOff, Pin, FileText, Bookmark, Archive, ArchiveRestore, LogOut } from "lucide-react";
 import type { ChannelType, HuddleState, ChannelNotifyLevel } from "@openslaq/shared";
 import { ChannelMembersDialog } from "./ChannelMembersDialog";
 import { ChannelInfoDialog } from "./ChannelInfoDialog";
@@ -44,6 +44,7 @@ interface ChannelHeaderProps {
   onUnarchive?: () => void;
   onAddBookmark?: () => void;
   hasBookmarks?: boolean;
+  onLeaveChannel?: () => void;
 }
 
 export function ChannelHeader({
@@ -76,6 +77,7 @@ export function ChannelHeader({
   onUnarchive,
   onAddBookmark,
   hasBookmarks,
+  onLeaveChannel,
 }: ChannelHeaderProps) {
   const [membersOpen, setMembersOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
@@ -85,6 +87,7 @@ export function ChannelHeader({
   const topicInputRef = useRef<HTMLInputElement>(null);
 
   const isPrivate = channelType === "private";
+  const canModifyChannel = channelName !== null && channelName !== "general";
 
   useEffect(() => {
     if (editingTopic && topicInputRef.current) {
@@ -200,7 +203,7 @@ export function ChannelHeader({
           />
         )}
 
-      {channelId && memberCount != null && (
+      {channelId && memberCount !== undefined && (
         <>
           <Tooltip content="View members">
               <button
@@ -232,7 +235,7 @@ export function ChannelHeader({
       )}
 
       {/* Overflow kebab menu for secondary actions */}
-      {(onSetNotificationLevel || onOpenPins || onOpenFiles || (onAddBookmark && !hasBookmarks && !isArchived) || (canArchive && !isArchived && onArchive && channelName !== "general") || (canArchive && isArchived && onUnarchive)) && (
+      {(onSetNotificationLevel || onOpenPins || onOpenFiles || (onAddBookmark && !hasBookmarks && !isArchived) || (canArchive && !isArchived && onArchive && canModifyChannel) || (canArchive && isArchived && onUnarchive) || (onLeaveChannel && canModifyChannel)) && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
@@ -325,7 +328,21 @@ export function ChannelHeader({
               </DropdownMenuItem>
             )}
 
-            {canArchive && !isArchived && onArchive && channelName !== "general" && (
+            {onLeaveChannel && canModifyChannel && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  data-testid="leave-channel-button"
+                  onSelect={onLeaveChannel}
+                  className="flex items-center gap-2"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Leave channel
+                </DropdownMenuItem>
+              </>
+            )}
+
+            {canArchive && !isArchived && onArchive && canModifyChannel && (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
@@ -376,7 +393,7 @@ export function ChannelHeader({
       )}
 
       {/* Archive confirmation dialog (rendered outside dropdown) */}
-      {canArchive && !isArchived && onArchive && channelName !== "general" && (
+      {canArchive && !isArchived && onArchive && canModifyChannel && (
         <Dialog open={archiveConfirmOpen} onOpenChange={setArchiveConfirmOpen}>
           <DialogContent size="sm" className="p-4">
             <DialogTitle className="mb-3">Archive #{channelName}?</DialogTitle>

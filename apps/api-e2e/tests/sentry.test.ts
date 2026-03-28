@@ -39,8 +39,8 @@ describe("Sentry Bot", () => {
     const chRes = await adminClient.api.workspaces[":slug"].channels.$get({
       param: { slug: workspaceSlug },
     });
-    const channels = (await chRes.json()) as any[];
-    channelId = channels.find((c: any) => c.name === "general")?.id;
+    const channels = (await chRes.json()) as Array<{ id: string; name: string }>;
+    channelId = channels.find((c: { id: string; name: string }) => c.name === "general")?.id ?? "";
     expect(channelId).toBeTruthy();
 
     // Get sentry-bot listing ID
@@ -81,10 +81,10 @@ describe("Sentry Bot", () => {
       json: { command: "sentry", args: "", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
     expect(result.ephemeralMessages).toHaveLength(1);
-    expect(result.ephemeralMessages[0].text).toContain("Sentry Bot Commands");
+    expect(result.ephemeralMessages[0]!.text).toContain("Sentry Bot Commands");
   });
 
   test("/sentry subscribe creates subscription", async () => {
@@ -93,9 +93,9 @@ describe("Sentry Bot", () => {
       json: { command: "sentry", args: "subscribe frontend", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Subscribed to **frontend**");
+    expect(result.ephemeralMessages[0]!.text).toContain("Subscribed to **frontend**");
   });
 
   test("/sentry subscribe with specific events", async () => {
@@ -104,9 +104,9 @@ describe("Sentry Bot", () => {
       json: { command: "sentry", args: "subscribe api issues,metrics", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("issues, metrics");
+    expect(result.ephemeralMessages[0]!.text).toContain("issues, metrics");
   });
 
   test("/sentry subscribe with invalid events returns error", async () => {
@@ -115,9 +115,9 @@ describe("Sentry Bot", () => {
       json: { command: "sentry", args: "subscribe backend bogus,invalid", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Unknown events");
+    expect(result.ephemeralMessages[0]!.text).toContain("Unknown events");
   });
 
   test("/sentry subscribe without project slug returns usage", async () => {
@@ -126,9 +126,9 @@ describe("Sentry Bot", () => {
       json: { command: "sentry", args: "subscribe", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Usage:");
+    expect(result.ephemeralMessages[0]!.text).toContain("Usage:");
   });
 
   test("/sentry subscribe rejects duplicate", async () => {
@@ -137,9 +137,9 @@ describe("Sentry Bot", () => {
       json: { command: "sentry", args: "subscribe frontend", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Already subscribed");
+    expect(result.ephemeralMessages[0]!.text).toContain("Already subscribed");
   });
 
   test("/sentry list shows subscriptions", async () => {
@@ -148,10 +148,10 @@ describe("Sentry Bot", () => {
       json: { command: "sentry", args: "list", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("frontend");
-    expect(result.ephemeralMessages[0].text).toContain("api");
+    expect(result.ephemeralMessages[0]!.text).toContain("frontend");
+    expect(result.ephemeralMessages[0]!.text).toContain("api");
   });
 
   // Test ALL event types via /sentry test to cover event-handlers + message-formatter
@@ -171,9 +171,9 @@ describe("Sentry Bot", () => {
           json: { command: "sentry", args: `test ${name}`, channelId },
         });
         expect(res.status).toBe(200);
-        const result = (await res.json()) as any;
+        const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
         expect(result.ok).toBe(true);
-        expect(result.ephemeralMessages[0].text).toContain(`Test event "${expectedFragment}" posted`);
+        expect(result.ephemeralMessages[0]!.text).toContain(`Test event "${expectedFragment}" posted`);
       });
     }
   });
@@ -184,9 +184,9 @@ describe("Sentry Bot", () => {
       json: { command: "sentry", args: "test", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Usage:");
+    expect(result.ephemeralMessages[0]!.text).toContain("Usage:");
   });
 
   test("/sentry test unknown event returns error", async () => {
@@ -195,9 +195,9 @@ describe("Sentry Bot", () => {
       json: { command: "sentry", args: "test nonexistent", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Unknown test event");
+    expect(result.ephemeralMessages[0]!.text).toContain("Unknown test event");
   });
 
   test("/sentry unknown subcommand returns usage", async () => {
@@ -206,9 +206,9 @@ describe("Sentry Bot", () => {
       json: { command: "sentry", args: "foobar", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Sentry Bot Commands");
+    expect(result.ephemeralMessages[0]!.text).toContain("Sentry Bot Commands");
   });
 
   test("/sentry unsubscribe without project slug returns usage", async () => {
@@ -217,9 +217,9 @@ describe("Sentry Bot", () => {
       json: { command: "sentry", args: "unsubscribe", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Usage:");
+    expect(result.ephemeralMessages[0]!.text).toContain("Usage:");
   });
 
   test("/sentry unsubscribe removes subscription", async () => {
@@ -228,9 +228,9 @@ describe("Sentry Bot", () => {
       json: { command: "sentry", args: "unsubscribe frontend", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("Unsubscribed from **frontend**");
+    expect(result.ephemeralMessages[0]!.text).toContain("Unsubscribed from **frontend**");
   });
 
   test("/sentry unsubscribe nonexistent returns not found", async () => {
@@ -239,9 +239,9 @@ describe("Sentry Bot", () => {
       json: { command: "sentry", args: "unsubscribe nope", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("No subscription");
+    expect(result.ephemeralMessages[0]!.text).toContain("No subscription");
   });
 
   test("/sentry list after unsubscribe shows remaining", async () => {
@@ -250,11 +250,11 @@ describe("Sentry Bot", () => {
       json: { command: "sentry", args: "list", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
     // frontend was unsubscribed, api should remain
-    expect(result.ephemeralMessages[0].text).toContain("api");
-    expect(result.ephemeralMessages[0].text).not.toContain("frontend");
+    expect(result.ephemeralMessages[0]!.text).toContain("api");
+    expect(result.ephemeralMessages[0]!.text).not.toContain("frontend");
   });
 
   // Unsubscribe remaining so list returns empty
@@ -268,9 +268,9 @@ describe("Sentry Bot", () => {
       json: { command: "sentry", args: "list", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(true);
-    expect(result.ephemeralMessages[0].text).toContain("No Sentry subscriptions");
+    expect(result.ephemeralMessages[0]!.text).toContain("No Sentry subscriptions");
   });
 
   test("uninstall sentry-bot", async () => {
@@ -293,7 +293,7 @@ describe("Sentry Bot", () => {
       json: { command: "sentry", args: "subscribe frontend", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(false);
     expect(result.error).toContain("Unknown command");
   });
@@ -304,7 +304,7 @@ describe("Sentry Bot", () => {
       json: { command: "sentry", args: "test issue_created", channelId },
     });
     expect(res.status).toBe(200);
-    const result = (await res.json()) as any;
+    const result = (await res.json()) as { ok?: boolean; error?: string; channelId?: string; ephemeralMessages: Array<{ text: string }> };
     expect(result.ok).toBe(false);
   });
 
@@ -397,8 +397,8 @@ describe("Sentry Bot", () => {
       const chRes = await admin2.client.api.workspaces[":slug"].channels.$get({
         param: { slug: wsSlug2 },
       });
-      const channels = (await chRes.json()) as any[];
-      const ch = channels.find((c: any) => c.name === "general");
+      const channels = (await chRes.json()) as Array<{ id: string; name: string }>;
+      const ch = channels.find((c: { id: string; name: string }) => c.name === "general")!;
       _channelId2 = ch.id;
 
       await admin2.client.api.workspaces[":slug"].commands.execute.$post({

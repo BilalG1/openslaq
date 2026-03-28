@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import type { BotApp } from "@openslaq/shared";
-import { Dialog, DialogContent, DialogTitle, Button, Input } from "../ui";
+import { Dialog, DialogContent, DialogTitle, Button, Input, useConfirm } from "../ui";
 import { BotScopeSelector } from "./BotScopeSelector";
 import { useBotsApi } from "../../hooks/api/useBotsApi";
 import { getErrorMessage } from "../../lib/errors";
@@ -15,29 +15,17 @@ interface BotConfigDialogProps {
 
 export function BotConfigDialog({ open, onOpenChange, workspaceSlug, bot, onUpdated }: BotConfigDialogProps) {
   const { updateBotApp, deleteBotApp, regenerateToken } = useBotsApi();
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState("");
-  const [webhookUrl, setWebhookUrl] = useState("");
-  const [scopes, setScopes] = useState<string[]>([]);
-  const [events, setEvents] = useState<string[]>([]);
+  const [name, setName] = useState(bot?.name ?? "");
+  const [description, setDescription] = useState(bot?.description ?? "");
+  const [avatarUrl, setAvatarUrl] = useState(bot?.avatarUrl ?? "");
+  const [webhookUrl, setWebhookUrl] = useState(bot?.webhookUrl ?? "");
+  const [scopes, setScopes] = useState<string[]>(bot?.scopes ? [...bot.scopes] : []);
+  const [events, setEvents] = useState<string[]>(bot?.subscribedEvents ? [...bot.subscribedEvents] : []);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [newToken, setNewToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    if (bot && open) {
-      setName(bot.name);
-      setDescription(bot.description ?? "");
-      setAvatarUrl(bot.avatarUrl ?? "");
-      setWebhookUrl(bot.webhookUrl);
-      setScopes([...bot.scopes]);
-      setEvents([...bot.subscribedEvents]);
-      setError(null);
-      setNewToken(null);
-    }
-  }, [bot, open]);
+  const { confirm, dialog: confirmDialog } = useConfirm();
 
   if (!bot) return null;
 
@@ -63,7 +51,8 @@ export function BotConfigDialog({ open, onOpenChange, workspaceSlug, bot, onUpda
   };
 
   const handleDelete = async () => {
-    if (!confirm(`Delete bot "${bot.name}"? This cannot be undone.`)) return;
+    const ok = await confirm({ title: "Delete bot", description: `Delete bot "${bot.name}"? This cannot be undone.`, confirmLabel: "Delete", variant: "danger" });
+    if (!ok) return;
     try {
       await deleteBotApp(workspaceSlug, bot.id);
       onUpdated();
@@ -74,7 +63,8 @@ export function BotConfigDialog({ open, onOpenChange, workspaceSlug, bot, onUpda
   };
 
   const handleRegenerate = async () => {
-    if (!confirm("Regenerate the API token? The old token will stop working immediately.")) return;
+    const ok = await confirm({ title: "Regenerate token", description: "Regenerate the API token? The old token will stop working immediately.", confirmLabel: "Regenerate", variant: "danger" });
+    if (!ok) return;
     try {
       const result = await regenerateToken(workspaceSlug, bot.id);
       setNewToken(result.apiToken);
@@ -194,6 +184,7 @@ export function BotConfigDialog({ open, onOpenChange, workspaceSlug, bot, onUpda
           </Button>
         </div>
       </DialogContent>
+      {confirmDialog}
     </Dialog>
   );
 }

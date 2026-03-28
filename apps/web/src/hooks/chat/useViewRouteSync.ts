@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { useChatStore } from "../../state/chat-store";
 import { useGalleryMode } from "../../gallery/gallery-context";
 
@@ -27,6 +27,9 @@ export function useViewRouteSync(
     if (window.location.pathname.endsWith("/files") && state.activeView !== "files") {
       dispatch({ type: "workspace/selectFilesView" });
     }
+    if (window.location.pathname.endsWith("/new-message") && state.activeView !== "compose") {
+      dispatch({ type: "workspace/selectComposeView" });
+    }
   }, [isGallery, state.ui.bootstrapLoading, workspaceSlug]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Store → URL sync (store is source of truth)
@@ -51,6 +54,11 @@ export function useViewRouteSync(
     } else if (state.activeView === "files") {
       const target = `${base}/files`;
       if (!window.location.pathname.endsWith("/files")) {
+        navigate(target, { replace: true });
+      }
+    } else if (state.activeView === "compose") {
+      const target = `${base}/new-message`;
+      if (!window.location.pathname.endsWith("/new-message")) {
         navigate(target, { replace: true });
       }
     } else if (state.activeGroupDmId) {

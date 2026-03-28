@@ -1,4 +1,4 @@
-import { describe, test, expect, afterEach } from "bun:test";
+import { describe, test, expect, afterEach } from "vitest";
 import { render, screen, cleanup } from "../../test-utils";
 import { EphemeralMessageItem } from "./EphemeralMessage";
 import type { EphemeralMessage } from "@openslaq/shared";

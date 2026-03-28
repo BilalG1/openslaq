@@ -85,7 +85,7 @@ describe("Channels resource", () => {
       return { status: 200, body: { ...fakeChannel, description: "Updated" } };
     });
 
-    const result = await client.channels.update("ch-1", { description: "Updated" });
+    const result = await client.channels.update("ch-1", { description: "Updated" as string | null });
     expect(capturedUrl).toContain("/api/workspaces/test-ws/channels/ch-1");
     expect(capturedMethod).toBe("PATCH");
     expect(JSON.parse(capturedBody)).toEqual({ description: "Updated" });
@@ -179,16 +179,16 @@ describe("Channels resource", () => {
     expect(capturedMethod).toBe("DELETE");
   });
 
-  test("listStarred() GETs starred channels", async () => {
+  test("listStarred() GETs starred channel IDs", async () => {
     let capturedUrl = "";
     const client = createClient((url) => {
       capturedUrl = url;
-      return { status: 200, body: [fakeChannel] };
+      return { status: 200, body: ["ch-1", "ch-2"] };
     });
 
     const result = await client.channels.listStarred();
     expect(capturedUrl).toContain("/api/workspaces/test-ws/channels/starred");
-    expect(result).toHaveLength(1);
+    expect(result).toEqual(["ch-1", "ch-2"]);
   });
 
   test("star() POSTs to star endpoint", async () => {

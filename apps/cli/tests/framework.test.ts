@@ -59,7 +59,7 @@ function flush() {
 
 describe("parseFlags", () => {
   test("boolean flag present → true", async () => {
-    let captured: any;
+    let captured: Record<string, unknown> | undefined;
     const cmd = defineCommand({
       help: () => {},
       flags: { verbose: { type: "boolean" } },
@@ -70,11 +70,11 @@ describe("parseFlags", () => {
     setArgv("test", "--verbose");
     run(() => {}, { test: cmd });
     await flush();
-    expect(captured.verbose).toBe(true);
+    expect(captured!.verbose).toBe(true);
   });
 
   test("boolean flag absent → false", async () => {
-    let captured: any;
+    let captured: Record<string, unknown> | undefined;
     const cmd = defineCommand({
       help: () => {},
       flags: { verbose: { type: "boolean" } },
@@ -85,11 +85,11 @@ describe("parseFlags", () => {
     setArgv("test");
     run(() => {}, { test: cmd });
     await flush();
-    expect(captured.verbose).toBe(false);
+    expect(captured!.verbose).toBe(false);
   });
 
   test("string flag --name foo → 'foo'", async () => {
-    let captured: any;
+    let captured: Record<string, unknown> | undefined;
     const cmd = defineCommand({
       help: () => {},
       flags: { name: { type: "string", required: true } },
@@ -100,7 +100,7 @@ describe("parseFlags", () => {
     setArgv("test", "--name", "foo");
     run(() => {}, { test: cmd });
     await flush();
-    expect(captured.name).toBe("foo");
+    expect(captured!.name).toBe("foo");
   });
 
   test("required flag missing → exit(1) + error", () => {
@@ -115,7 +115,7 @@ describe("parseFlags", () => {
   });
 
   test("default value applied when flag absent", async () => {
-    let captured: any;
+    let captured: Record<string, unknown> | undefined;
     const cmd = defineCommand({
       help: () => {},
       flags: { name: { type: "string", default: "world" } },
@@ -126,11 +126,11 @@ describe("parseFlags", () => {
     setArgv("test");
     run(() => {}, { test: cmd });
     await flush();
-    expect(captured.name).toBe("world");
+    expect(captured!.name).toBe("world");
   });
 
   test("optional string flag absent → undefined", async () => {
-    let captured: any;
+    let captured: Record<string, unknown> | undefined;
     const cmd = defineCommand({
       help: () => {},
       flags: { name: { type: "string" } },
@@ -141,7 +141,7 @@ describe("parseFlags", () => {
     setArgv("test");
     run(() => {}, { test: cmd });
     await flush();
-    expect(captured.name).toBeUndefined();
+    expect(captured!.name).toBeUndefined();
   });
 });
 

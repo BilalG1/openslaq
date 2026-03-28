@@ -1,7 +1,8 @@
 import { useCallback } from "react";
-import { View, Text, FlatList, Pressable } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { View, Text, FlatList, Pressable, StyleSheet } from "react-native";
+import { useRouter } from "expo-router";
 import { useChatStore } from "@/contexts/ChatStoreProvider";
+import { useWorkspaceParams } from "@/hooks/useRouteParams";
 import { X, FileText } from "lucide-react-native";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { useFetchData } from "@/hooks/useFetchData";
@@ -9,6 +10,7 @@ import { LoadingScreen } from "@/components/ui/LoadingScreen";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { routes } from "@/lib/routes";
 import { getAllDrafts, removeDraft } from "@/lib/draft-storage";
+import type { MobileTheme } from "@openslaq/shared";
 
 interface DraftItem {
   draftKey: string;
@@ -18,12 +20,13 @@ interface DraftItem {
 }
 
 export default function DraftsScreen() {
-  const { workspaceSlug } = useLocalSearchParams<{ workspaceSlug: string }>();
+  const { workspaceSlug } = useWorkspaceParams();
   const { state } = useChatStore();
   const { theme } = useMobileTheme();
   const router = useRouter();
+  const styles = makeStyles(theme);
 
-  const { data: drafts, setData: setDrafts, loading, error } = useFetchData<DraftItem[]>({
+  const { data: drafts, setData: setDrafts, loading, error, refetch } = useFetchData<DraftItem[]>({
     fetchFn: async () => {
       const raw = await getAllDrafts();
       return raw.map(({ draftKey, text }) => {
@@ -60,15 +63,15 @@ export default function DraftsScreen() {
     (item: DraftItem) => {
       if (item.isThread) {
         const parentMessageId = item.draftKey.replace("thread-", "");
-        router.push(routes.thread(workspaceSlug, parentMessageId));
+        router.push(routes.thread(workspaceSlug!, parentMessageId));
       } else {
         // Check if it's a DM/group DM or channel
         const isDm = state.dms.some((d) => d.channel.id === item.draftKey);
         const isGroupDm = state.groupDms.some((g) => g.channel.id === item.draftKey);
         if (isDm || isGroupDm) {
-          router.push(routes.dm(workspaceSlug, item.draftKey));
+          router.push(routes.dm(workspaceSlug!, item.draftKey));
         } else {
-          router.push(routes.channel(workspaceSlug, item.draftKey));
+          router.push(routes.channel(workspaceSlug!, item.draftKey));
         }
       }
     },
@@ -82,11 +85,11 @@ export default function DraftsScreen() {
 
   if (error) {
     return (
-      <View
-        testID="drafts-error"
-        style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.surface }}
-      >
-        <Text style={{ color: theme.colors.dangerText }}>{error}</Text>
+      <View testID="drafts-error" style={styles.center}>
+        <Text style={styles.errorText}>{error}</Text>
+        <Pressable testID="drafts-retry" onPress={() => void refetch()} accessibilityRole="button" accessibilityLabel="Retry" accessibilityHint="Retries loading drafts">
+          <Text style={styles.retryText}>Retry</Text>
+        </Pressable>
       </View>
     );
   }
@@ -96,7 +99,7 @@ export default function DraftsScreen() {
   }
 
   return (
-    <View testID="drafts-screen" style={{ flex: 1, backgroundColor: theme.colors.surface }}>
+    <View testID="drafts-screen" style={styles.container}>
       <FlatList
         testID="drafts-list"
         data={drafts}
@@ -105,23 +108,16 @@ export default function DraftsScreen() {
           <Pressable
             testID={`draft-item-${item.draftKey}`}
             onPress={() => handlePress(item)}
-            style={{
-              paddingHorizontal: 16,
-              paddingVertical: 12,
-              borderBottomWidth: 1,
-              borderBottomColor: theme.colors.borderSecondary,
-              flexDirection: "row",
-              alignItems: "center",
-            }}
+            accessibilityRole="button"
+            accessibilityLabel={`Draft in ${item.channelName}`}
+            accessibilityHint="Opens the draft"
+            style={styles.draftRow}
           >
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 14, fontWeight: "600", color: theme.brand.primary, marginBottom: 4 }}>
+            <View style={styles.draftContent}>
+              <Text style={styles.draftChannel}>
                 {item.channelName}
               </Text>
-              <Text
-                numberOfLines={2}
-                style={{ fontSize: 15, color: theme.colors.textSecondary }}
-              >
+              <Text numberOfLines={2} style={styles.draftText}>
                 {item.text}
               </Text>
             </View>
@@ -129,7 +125,10 @@ export default function DraftsScreen() {
               testID={`draft-delete-${item.draftKey}`}
               onPress={() => handleDelete(item.draftKey)}
               hitSlop={8}
-              style={{ marginLeft: 12, padding: 4 }}
+              style={styles.deleteButton}
+              accessibilityRole="button"
+              accessibilityLabel="Delete draft"
+              accessibilityHint="Removes this draft"
             >
               <X size={18} color={theme.colors.textMuted} />
             </Pressable>
@@ -146,3 +145,53 @@ export default function DraftsScreen() {
     </View>
   );
 }
+
+const makeStyles = (theme: MobileTheme) =>
+  StyleSheet.create({
+    center: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.colors.surface,
+    },
+    errorText: {
+      fontSize: 14,
+      textAlign: "center",
+      marginBottom: 16,
+      color: theme.colors.textFaint,
+    },
+    retryText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: theme.brand.primary,
+    },
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.surface,
+    },
+    draftRow: {
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.borderSecondary,
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    draftContent: {
+      flex: 1,
+    },
+    draftChannel: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: theme.brand.primary,
+      marginBottom: 4,
+    },
+    draftText: {
+      fontSize: 15,
+      color: theme.colors.textSecondary,
+    },
+    deleteButton: {
+      marginLeft: 12,
+      padding: 4,
+    },
+  });

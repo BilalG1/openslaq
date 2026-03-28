@@ -6,6 +6,9 @@ import { ROLES } from "@openslaq/shared";
 import { rlInviteAdmin, rlRead } from "../rate-limit";
 import { workspaceInviteSchema, okSchema, errorSchema } from "../openapi/schemas";
 import { jsonResponse } from "../openapi/responses";
+import { BEARER_SECURITY, jsonBody, jsonContent } from "../lib/openapi-helpers";
+import { NotFoundError } from "../errors";
+import { getWorkspaceMemberContext } from "../lib/context";
 
 function toInviteResponse(invite: {
   id: string;
@@ -37,13 +40,10 @@ const listInvitesRoute = createRoute({
   tags: ["Invites"],
   summary: "List workspace invites",
   description: "Returns all invites for the workspace. Requires admin permissions.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [requireRole(ROLES.ADMIN), rlRead] as const,
   responses: {
-    200: {
-      content: { "application/json": { schema: z.array(workspaceInviteSchema) } },
-      description: "Workspace invites",
-    },
+    200: jsonContent(z.array(workspaceInviteSchema), "Workspace invites"),
   },
 });
 
@@ -53,16 +53,13 @@ const createInviteRoute = createRoute({
   tags: ["Invites"],
   summary: "Create invite",
   description: "Creates a new workspace invite link. Requires admin permissions.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [requireRole(ROLES.ADMIN), rlInviteAdmin] as const,
   request: {
-    body: { content: { "application/json": { schema: createInviteSchema } } },
+    body: jsonBody(createInviteSchema),
   },
   responses: {
-    201: {
-      content: { "application/json": { schema: workspaceInviteSchema } },
-      description: "Created invite",
-    },
+    201: jsonContent(workspaceInviteSchema, "Created invite"),
   },
 });
 
@@ -72,26 +69,25 @@ const revokeInviteRoute = createRoute({
   tags: ["Invites"],
   summary: "Revoke invite",
   description: "Revokes a workspace invite. Requires admin permissions.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [requireRole(ROLES.ADMIN), rlInviteAdmin] as const,
   request: {
     params: z.object({ inviteId: z.string().describe("Invite ID") }),
   },
   responses: {
-    200: { content: { "application/json": { schema: okSchema } }, description: "Invite revoked" },
-    404: { content: { "application/json": { schema: errorSchema } }, description: "Invite not found" },
+    200: jsonContent(okSchema, "Invite revoked"),
+    404: jsonContent(errorSchema, "Invite not found"),
   },
 });
 
 const app = new OpenAPIHono<WorkspaceMemberEnv>()
   .openapi(listInvitesRoute, async (c) => {
-    const workspace = c.get("workspace");
+    const { workspace } = getWorkspaceMemberContext(c);
     const invites = await listInvites(workspace.id);
     return jsonResponse(c, invites.map(toInviteResponse), 200);
   })
   .openapi(createInviteRoute, async (c) => {
-    const workspace = c.get("workspace");
-    const user = c.get("user");
+    const { workspace, user } = getWorkspaceMemberContext(c);
     const { maxUses, expiresInHours } = c.req.valid("json");
 
     const invite = await createInvite(
@@ -104,12 +100,12 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     return jsonResponse(c, toInviteResponse(invite), 201);
   })
   .openapi(revokeInviteRoute, async (c) => {
-    const workspace = c.get("workspace");
+    const { workspace } = getWorkspaceMemberContext(c);
     const { inviteId } = c.req.valid("param");
 
     const revoked = await revokeInvite(inviteId, workspace.id);
     if (!revoked) {
-      return c.json({ error: "Invite not found" }, 404);
+      throw new NotFoundError("Invite");
     }
 
     return c.json({ ok: true as const }, 200);

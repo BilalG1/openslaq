@@ -1,63 +1,51 @@
-import { describe, expect, test, afterEach, jest, beforeEach, mock } from "bun:test";
+import { describe, expect, test, afterEach, vi, beforeEach } from "vitest";
 import { render, screen, cleanup, act } from "../../test-utils";
 import { fireEvent } from "@testing-library/react";
-import type { DraftItem, ScheduledMessageItem } from "@openslaq/client-core";
+import type { DraftItem } from "@openslaq/client-core";
 
 // Mock drafts hook
 const mockDraftsReturn = {
   data: null as DraftItem[] | null,
   loading: false,
   error: null as string | null,
-  refresh: jest.fn(),
-  removeItem: jest.fn(),
+  refresh: vi.fn(),
+  removeItem: vi.fn(),
 };
 
-mock.module("../../hooks/chat/useDrafts", () => ({
+vi.mock("../../hooks/chat/useDrafts", () => ({
   useDrafts: () => mockDraftsReturn,
 }));
 
-// Mock scheduled messages hook
-const mockScheduledReturn = {
-  data: null as ScheduledMessageItem[] | null,
-  loading: false,
-  error: null as string | null,
-  refresh: jest.fn(),
-  removeItem: jest.fn(),
-  updateItem: jest.fn(),
-};
-
-mock.module("../../hooks/chat/useScheduledMessages", () => ({
-  useScheduledMessages: () => mockScheduledReturn,
-}));
-
 // Mock api-client
-const _realApiClient = require("../../lib/api-client");
-mock.module("../../lib/api-client", () => ({
-  ..._realApiClient,
+vi.mock("../../lib/api-client", async (importOriginal) => {
+  const mod = await importOriginal<Record<string, unknown>>();
+  return {
+    ...mod,
   useAuthProvider: () => ({ getToken: async () => "test-token" }),
-}));
+  };
+});
 
-mock.module("../../api", () => ({
+vi.mock("../../api", () => ({
   api: {},
 }));
 
-mock.module("../../state/chat-store", () => ({
+vi.mock("../../state/chat-store", () => ({
   useChatStore: () => ({
     state: { activeView: "outbox" },
-    dispatch: jest.fn(),
+    dispatch: vi.fn(),
   }),
 }));
 
 // Mock the ScheduledTab and SentTab to avoid deep dependency issues
-mock.module("./ScheduledTab", () => ({
+vi.mock("./ScheduledTab", () => ({
   ScheduledTab: () => <div data-testid="scheduled-tab-content">No scheduled messages</div>,
 }));
 
-mock.module("./SentTab", () => ({
+vi.mock("./SentTab", () => ({
   SentTab: () => <div data-testid="sent-tab-content">No sent messages</div>,
 }));
 
-const { OutboxView } = await import("./OutboxView");
+import { OutboxView } from "./OutboxView";
 
 const noop = () => {};
 
@@ -66,9 +54,6 @@ describe("OutboxView", () => {
     mockDraftsReturn.data = null;
     mockDraftsReturn.loading = false;
     mockDraftsReturn.error = null;
-    mockScheduledReturn.data = null;
-    mockScheduledReturn.loading = false;
-    mockScheduledReturn.error = null;
   });
 
   afterEach(cleanup);
@@ -88,7 +73,6 @@ describe("OutboxView", () => {
 
   test("switching to Scheduled tab", async () => {
     mockDraftsReturn.data = [];
-    mockScheduledReturn.data = [];
     render(<OutboxView workspaceSlug="test" onNavigateToChannel={noop} />);
 
     act(() => {
@@ -99,7 +83,6 @@ describe("OutboxView", () => {
 
   test("switching to Sent tab", async () => {
     mockDraftsReturn.data = [];
-    mockScheduledReturn.data = [];
     render(<OutboxView workspaceSlug="test" onNavigateToChannel={noop} />);
 
     act(() => {

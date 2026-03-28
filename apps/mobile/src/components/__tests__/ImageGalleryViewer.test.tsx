@@ -165,7 +165,7 @@ describe("ImageGalleryViewer", () => {
   it("does not show count for single image", () => {
     render(
       <ImageGalleryViewer
-        images={[images[0]]}
+        images={[images[0]!]}
         visible={true}
         initialIndex={0}
         onClose={jest.fn()}

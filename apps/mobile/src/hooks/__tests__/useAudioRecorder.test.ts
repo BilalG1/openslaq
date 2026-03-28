@@ -74,4 +74,22 @@ describe("useAudioRecorder", () => {
     unmount();
     // No error thrown means cleanup succeeded
   });
+
+  it("resets audio mode on unmount while recording", async () => {
+    const { result, unmount } = renderHook(() => useAudioRecorder());
+
+    await act(async () => {
+      await result.current.startRecording();
+    });
+
+    // Clear the mock to isolate unmount behavior
+    (Audio.setAudioModeAsync as jest.Mock).mockClear();
+
+    unmount();
+
+    // Should reset allowsRecordingIOS to false on unmount
+    expect(Audio.setAudioModeAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ allowsRecordingIOS: false }),
+    );
+  });
 });

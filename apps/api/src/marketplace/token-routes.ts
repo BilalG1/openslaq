@@ -1,7 +1,9 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { errorSchema } from "../openapi/schemas";
+import { jsonBody, jsonContent } from "../lib/openapi-helpers";
 import { jsonResponse } from "../openapi/responses";
 import { exchangeAuthCode } from "./service";
+import { BadRequestError, UnauthorizedError } from "../errors";
 import { db } from "../db";
 import { workspaces } from "../workspaces/schema";
 import { eq } from "drizzle-orm";
@@ -13,42 +15,23 @@ const tokenExchangeRoute = createRoute({
   summary: "Exchange auth code for API token",
   description: "Bot server exchanges an auth code for an API token (OAuth flow).",
   request: {
-    body: {
-      content: {
-        "application/json": {
-          schema: z.object({
-            grant_type: z.literal("authorization_code"),
-            code: z.string(),
-            client_id: z.string(),
-            client_secret: z.string(),
-          }),
-        },
-      },
-    },
+    body: jsonBody(z.object({
+      grant_type: z.literal("authorization_code"),
+      code: z.string(),
+      client_id: z.string(),
+      client_secret: z.string(),
+    })),
   },
   responses: {
-    200: {
-      content: {
-        "application/json": {
-          schema: z.object({
-            access_token: z.string(),
-            token_type: z.literal("bearer"),
-            bot_app_id: z.string(),
-            workspace_id: z.string(),
-            workspace_slug: z.string(),
-          }),
-        },
-      },
-      description: "Token issued",
-    },
-    400: {
-      content: { "application/json": { schema: errorSchema } },
-      description: "Invalid request",
-    },
-    401: {
-      content: { "application/json": { schema: errorSchema } },
-      description: "Invalid credentials",
-    },
+    200: jsonContent(z.object({
+      access_token: z.string(),
+      token_type: z.literal("bearer"),
+      bot_app_id: z.string(),
+      workspace_id: z.string(),
+      workspace_slug: z.string(),
+    }), "Token issued"),
+    400: jsonContent(errorSchema, "Invalid request"),
+    401: jsonContent(errorSchema, "Invalid credentials"),
   },
 });
 
@@ -57,12 +40,12 @@ const app = new OpenAPIHono()
     const { grant_type, code, client_id, client_secret } = c.req.valid("json");
 
     if (grant_type !== "authorization_code") {
-      return c.json({ error: "Unsupported grant_type" }, 400);
+      throw new BadRequestError("Unsupported grant_type");
     }
 
     const result = await exchangeAuthCode(code, client_id, client_secret);
     if (!result) {
-      return c.json({ error: "Invalid or expired auth code" }, 401);
+      throw new UnauthorizedError("Invalid or expired auth code");
     }
 
     // Look up workspace slug

@@ -1,4 +1,4 @@
-import { Pressable, View, type PressableProps, type ViewStyle } from "react-native";
+import { Pressable, StyleSheet, View, type PressableProps, type ViewStyle } from "react-native";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import type { ReactNode } from "react";
 
@@ -20,7 +20,14 @@ export function ListRow({ children, style, ...props }: ListRowProps) {
         ...style,
       })}
     >
-      <View style={{ flexDirection: "row", alignItems: "center" }}>{children}</View>
+      <View style={styles.content}>{children}</View>
     </Pressable>
   );
 }
+
+const styles = StyleSheet.create({
+  content: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+});

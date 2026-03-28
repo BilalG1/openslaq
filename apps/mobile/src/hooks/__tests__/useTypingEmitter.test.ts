@@ -1,4 +1,5 @@
 import { renderHook, act } from "@testing-library/react-native";
+import { asChannelId } from "@openslaq/shared";
 import { useTypingEmitter } from "../useTypingEmitter";
 
 const mockEmit = jest.fn();
@@ -18,7 +19,7 @@ describe("useTypingEmitter", () => {
   });
 
   it("emits message:typing on first call", () => {
-    const { result } = renderHook(() => useTypingEmitter("ch-1"));
+    const { result } = renderHook(() => useTypingEmitter(asChannelId("ch-1")));
 
     act(() => {
       result.current.emitTyping();
@@ -29,7 +30,7 @@ describe("useTypingEmitter", () => {
 
   it("debounces rapid calls within 2.5s", () => {
     jest.useFakeTimers();
-    const { result } = renderHook(() => useTypingEmitter("ch-1"));
+    const { result } = renderHook(() => useTypingEmitter(asChannelId("ch-1")));
 
     act(() => {
       result.current.emitTyping();
@@ -80,7 +81,7 @@ describe("useTypingEmitter with null socket", () => {
       leaveChannel: jest.fn(),
     });
 
-    const { result } = renderHook(() => useTypingEmitter("ch-1"));
+    const { result } = renderHook(() => useTypingEmitter(asChannelId("ch-1")));
 
     act(() => {
       result.current.emitTyping();

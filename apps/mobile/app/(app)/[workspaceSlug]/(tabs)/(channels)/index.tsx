@@ -6,7 +6,7 @@ import { getAllDraftKeys } from "@/lib/draft-storage";
 import { useChatStore } from "@/contexts/ChatStoreProvider";
 import { useWorkspaceSlug } from "@/contexts/WorkspaceBootstrapProvider";
 import { useAuth } from "@/contexts/AuthContext";
-import { api } from "@/lib/api";
+import { useServer } from "@/contexts/ServerContext";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { ListRow } from "@/components/ui/ListRow";
 import { CollapsibleSectionHeader } from "@/components/CollapsibleSectionHeader";
@@ -24,7 +24,8 @@ import {
 } from "@openslaq/client-core";
 import { useSocket } from "@/contexts/SocketProvider";
 import type { Channel, ChannelId, ChannelNotifyLevel, MobileTheme } from "@openslaq/shared";
-import { Lock, Users } from "lucide-react-native";
+import { Headphones, Lock, Users } from "lucide-react-native";
+import { GREEN } from "@/theme/constants";
 import type { DmConversation, GroupDmConversation } from "@openslaq/client-core";
 import { routes } from "@/lib/routes";
 
@@ -44,6 +45,7 @@ export default function HomeScreen() {
   const workspaceSlug = useWorkspaceSlug();
   const { state, dispatch } = useChatStore();
   const { authProvider } = useAuth();
+  const { apiClient: api } = useServer();
   const { theme } = useMobileTheme();
   const { openCreateChannel, openNewDm } = useHomeActions();
   const { socket } = useSocket();
@@ -64,7 +66,7 @@ export default function HomeScreen() {
     getState: () => stateRef.current,
   };
 
-  const workspace = state.workspaces?.find((w: { slug: string }) => w.slug === workspaceSlug);
+  const workspace = state.workspaces?.find((w) => w.slug === workspaceSlug);
   const isAdmin = workspace?.role === "owner" || workspace?.role === "admin";
 
   const handleLongPressChannel = (channel: Channel) => {
@@ -90,7 +92,7 @@ export default function HomeScreen() {
   };
 
   const handleChannelInfo = (channelId: string) => {
-    router.push(`${routes.channel(workspaceSlug, channelId as ChannelId)}?showInfo=true`);
+    router.push({ pathname: routes.channel(workspaceSlug, channelId as ChannelId) as any, params: { showInfo: "true" } });
   };
 
   const handleLeaveChannel = (channelId: string) => {
@@ -221,6 +223,7 @@ export default function HomeScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={`${isPrivate ? "Private channel" : "Channel"} ${ch.name}${unread > 0 ? `, ${unread} unread` : ""}`}
                 accessibilityHint="Opens the channel"
+                style={({ pressed }) => pressed ? { backgroundColor: theme.colors.surfaceTertiary } : undefined}
               >
                 <View style={styles.channelRow}>
                   <View style={styles.iconContainer}>
@@ -235,6 +238,11 @@ export default function HomeScreen() {
                   >
                     {ch.name}
                   </Text>
+                  {state.activeHuddles[ch.id] && (
+                    <View testID={`huddle-icon-${ch.id}`} style={styles.huddleIcon}>
+                      <Headphones size={14} color={GREEN} />
+                    </View>
+                  )}
                   {draftSet.has(ch.id) && (
                     <Text style={styles.draftLabel}>
                       Draft
@@ -470,6 +478,9 @@ const makeStyles = (theme: MobileTheme) =>
     channelNameRead: {
       fontWeight: "400",
       color: theme.colors.textSecondary,
+    },
+    huddleIcon: {
+      marginRight: 6,
     },
     draftLabel: {
       fontSize: 13,

@@ -1,7 +1,7 @@
 import type { User } from "@openslaq/shared";
 import { defineCommand, type FlagSchema } from "../framework";
 import { printHelp } from "../output";
-import { getAuthenticatedClient } from "../client";
+import { getAuthenticatedClient, getAuthToken } from "../client";
 
 const flags = {
   json: { type: "boolean" },
@@ -15,6 +15,10 @@ export const whoamiCommand = defineCommand({
   },
   flags,
   async action(f) {
+    const token = await getAuthToken();
+    const isBot = token.startsWith("osb_");
+    const isApiKey = token.startsWith("osk_");
+
     const client = await getAuthenticatedClient();
     const res = await client.api.users.me.$get();
     if (!res.ok) {
@@ -24,7 +28,9 @@ export const whoamiCommand = defineCommand({
     const user = (await res.json()) as User;
 
     if (f.json) {
-      console.log(JSON.stringify(user, null, 2));
+      console.log(JSON.stringify({ ...user, authKind: isBot ? "bot" : isApiKey ? "api_key" : "jwt" }, null, 2));
+    } else if (isBot) {
+      console.log(`Bot: ${user.displayName}`);
     } else {
       console.log(`${user.displayName} (${user.email})`);
     }

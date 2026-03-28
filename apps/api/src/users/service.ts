@@ -52,7 +52,6 @@ export async function upsertUser(id: string, email: string, displayName: string)
       target: users.id,
       set: {
         email,
-        displayName,
         updatedAt: new Date(),
       },
     });

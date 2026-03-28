@@ -125,7 +125,7 @@ describe("operations/messages", () => {
     );
   });
 
-  it("loadOlderMessages resets loading flag on failure", async () => {
+  it("loadOlderMessages resets loading flag and dispatches error on failure", async () => {
     const { deps, actions } = makeDeps({
       getMessages: () => Promise.reject(new ApiError(503, "upstream")),
     });
@@ -135,6 +135,7 @@ describe("operations/messages", () => {
     expect(actions).toEqual([
       { type: "channel/setLoadingOlder", channelId: "ch-1", loading: true },
       { type: "channel/setLoadingOlder", channelId: "ch-1", loading: false },
+      { type: "mutations/error", error: "upstream" },
     ]);
   });
 

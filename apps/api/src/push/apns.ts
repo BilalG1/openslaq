@@ -1,5 +1,6 @@
 import * as http2 from "node:http2";
 import * as fs from "node:fs";
+import * as path from "node:path";
 import { SignJWT, importPKCS8 } from "jose";
 import { env } from "../env";
 
@@ -44,7 +45,10 @@ export function isApnsConfigured(): boolean {
 
 async function getSigningKey(): Promise<CryptoKey> {
   if (cachedKey) return cachedKey;
-  const keyData = fs.readFileSync(env.APNS_KEY_PATH!, "utf-8");
+  const keyPath = path.isAbsolute(env.APNS_KEY_PATH!)
+    ? env.APNS_KEY_PATH!
+    : path.resolve(import.meta.dirname, "../../../..", env.APNS_KEY_PATH!);
+  const keyData = fs.readFileSync(keyPath, "utf-8");
   cachedKey = await importPKCS8(keyData, "ES256");
   return cachedKey;
 }
@@ -188,14 +192,54 @@ async function sendApnsNotificationReal(
   });
 }
 
+const MAX_RETRIES = 3;
+let retryBaseMs = 1000;
+
+export function setRetryBaseMs(ms: number): void {
+  retryBaseMs = ms;
+}
+
+export function resetRetryBaseMs(): void {
+  retryBaseMs = 1000;
+}
+
+function isTransientError(result: ApnsResult): boolean {
+  // Network errors (statusCode 0) or server errors (5xx)
+  return result.statusCode === 0 || result.statusCode >= 500;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function sendApnsNotification(
   deviceToken: string,
   payload: ApnsPayload,
 ): Promise<ApnsResult> {
   const sender = customSender ?? sendApnsNotificationReal;
-  const result = await sender(deviceToken, payload);
-  sentLog.push({ token: deviceToken, payload, result });
-  return result;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      const backoffMs = retryBaseMs * 2 ** (attempt - 1); // 1s, 2s, 4s (default)
+      await sleep(backoffMs);
+    }
+
+    const result = await sender(deviceToken, payload);
+    sentLog.push({ token: deviceToken, payload, result });
+
+    if (result.success || !isTransientError(result)) {
+      return result;
+    }
+
+    if (attempt < MAX_RETRIES) {
+      console.warn(
+        `[APNs] Transient error (status ${result.statusCode}), retrying (${attempt + 1}/${MAX_RETRIES})...`,
+      );
+    }
+  }
+
+  // Return the last failed result (already logged above)
+  return sentLog[sentLog.length - 1]!.result;
 }
 
 /** Clean up the HTTP/2 session (for graceful shutdown) */

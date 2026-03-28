@@ -20,6 +20,8 @@ export interface WorkspaceInfo extends Workspace {
 export interface DmConversation {
   channel: Channel;
   otherUser: { id: string; displayName: string; avatarUrl: string | null };
+  lastMessageContent: string | null;
+  lastMessageAt: string | null;
 }
 
 export interface GroupDmMember {
@@ -149,6 +151,7 @@ export const initialState: ChatStoreState = {
 };
 
 export type ChatAction =
+  | { type: "reset" }
   | { type: "demo/hydrate"; state: ChatStoreState }
   | { type: "workspace/bootstrapStart"; workspaceSlug: string }
   | {
@@ -167,6 +170,7 @@ export type ChatAction =
   | { type: "compose/setPreviewChannel"; channelId: string | null }
   | { type: "workspace/selectChannel"; channelId: string }
   | { type: "workspace/selectDefaultChannel"; channelId: string }
+  | { type: "workspace/channelNotFound"; requestedChannelId: string; fallbackChannelId: string }
   | { type: "workspace/selectDm"; channelId: string }
   | { type: "workspace/openThread"; messageId: string }
   | { type: "workspace/closeThread" }
@@ -212,6 +216,7 @@ export type ChatAction =
   | { type: "thread/appendReplies"; parentMessageId: string; replies: Message[]; newerCursor: string | null; hasNewer: boolean }
   | { type: "thread/setLoadingNewer"; parentMessageId: string; loading: boolean }
   | { type: "messages/upsert"; message: Message }
+  | { type: "messages/replaceOptimistic"; tempId: string; message: Message }
   | { type: "messages/delete"; messageId: string; channelId: string }
   | { type: "messages/updateReactions"; messageId: string; reactions: ReactionGroup[] }
   | {
@@ -227,6 +232,7 @@ export type ChatAction =
   | { type: "unread/clear"; channelId: string }
   | { type: "unread/setCount"; channelId: string; count: number }
   | { type: "unread/suppressAutoRead"; channelId: string }
+  | { type: "unread/liftSuppressAutoRead"; channelId: string }
   | {
       type: "presence/sync";
       users: Array<{
@@ -272,7 +278,8 @@ export type ChatAction =
   | { type: "emoji/remove"; emojiId: string }
   | { type: "bookmarks/set"; channelId: string; bookmarks: ChannelBookmark[] }
   | { type: "bookmarks/add"; bookmark: ChannelBookmark }
-  | { type: "bookmarks/remove"; channelId: string; bookmarkId: string };
+  | { type: "bookmarks/remove"; channelId: string; bookmarkId: string }
+  | { type: "user/profileUpdated"; userId: string; displayName: string; avatarUrl: string | null };
 
 function dedupeIds(ids: string[]): string[] {
   return Array.from(new Set(ids));
@@ -290,6 +297,8 @@ function insertSortedByCreatedAt(state: ChatStoreState, ids: string[], messageId
 
 export function chatReducer(state: ChatStoreState, action: ChatAction): ChatStoreState {
   switch (action.type) {
+    case "reset":
+      return initialState;
     case "demo/hydrate": {
       return {
         ...action.state,
@@ -435,6 +444,19 @@ export function chatReducer(state: ChatStoreState, action: ChatAction): ChatStor
         ...state,
         activeView: "channel",
         activeChannelId: action.channelId,
+        activeDmId: null,
+        activeGroupDmId: null,
+        activeThreadId: null,
+        activeProfileUserId: null,
+        markedUnreadChannelId: null,
+        composePreviewChannelId: null,
+      };
+    }
+    case "workspace/channelNotFound": {
+      return {
+        ...state,
+        activeView: "channel",
+        activeChannelId: action.fallbackChannelId,
         activeDmId: null,
         activeGroupDmId: null,
         activeThreadId: null,
@@ -899,6 +921,31 @@ export function chatReducer(state: ChatStoreState, action: ChatAction): ChatStor
 
       return nextState;
     }
+    case "messages/replaceOptimistic": {
+      const { tempId, message } = action;
+      const nextById = { ...state.messagesById };
+      const oldMsg = nextById[tempId];
+      delete nextById[tempId];
+      nextById[message.id] = message;
+
+      const nextState: ChatStoreState = { ...state, messagesById: nextById };
+
+      if (oldMsg?.parentMessageId) {
+        const ids = (state.threadReplyIds[oldMsg.parentMessageId] ?? []).filter((id) => id !== tempId);
+        nextState.threadReplyIds = {
+          ...state.threadReplyIds,
+          [oldMsg.parentMessageId]: insertSortedByCreatedAt(nextState, ids, message.id),
+        };
+      } else if (oldMsg?.channelId) {
+        const ids = (state.channelMessageIds[oldMsg.channelId] ?? []).filter((id) => id !== tempId);
+        nextState.channelMessageIds = {
+          ...state.channelMessageIds,
+          [oldMsg.channelId]: insertSortedByCreatedAt(nextState, ids, message.id),
+        };
+      }
+
+      return nextState;
+    }
     case "messages/delete": {
       const nextById = { ...state.messagesById };
       const message = nextById[action.messageId];
@@ -1009,6 +1056,13 @@ export function chatReducer(state: ChatStoreState, action: ChatAction): ChatStor
         markedUnreadChannelId: action.channelId,
       };
     }
+    case "unread/liftSuppressAutoRead": {
+      if (state.markedUnreadChannelId !== action.channelId) return state;
+      return {
+        ...state,
+        markedUnreadChannelId: null,
+      };
+    }
     case "presence/sync": {
       const next: Record<string, PresenceEntry> = {};
       for (const u of action.users) {
@@ -1052,6 +1106,24 @@ export function chatReducer(state: ChatStoreState, action: ChatAction): ChatStor
             statusExpiresAt: action.statusExpiresAt,
           },
         },
+      };
+    }
+    case "user/profileUpdated": {
+      return {
+        ...state,
+        dms: state.dms.map((dm) =>
+          dm.otherUser.id === action.userId
+            ? { ...dm, otherUser: { ...dm.otherUser, displayName: action.displayName, avatarUrl: action.avatarUrl } }
+            : dm,
+        ),
+        groupDms: state.groupDms.map((gdm) => ({
+          ...gdm,
+          members: gdm.members.map((m) =>
+            m.id === action.userId
+              ? { ...m, displayName: action.displayName, avatarUrl: action.avatarUrl }
+              : m,
+          ),
+        })),
       };
     }
     case "navigation/setScrollTarget": {

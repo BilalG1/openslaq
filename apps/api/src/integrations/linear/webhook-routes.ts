@@ -1,11 +1,12 @@
 import { Hono } from "hono";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { env } from "../../env";
+import { ServiceUnavailableError, UnauthorizedError } from "../../errors";
 import { getSubscriptionsForTeam, getLinearBotForWorkspace } from "./service";
 import { handleLinearEvent } from "./event-handlers";
 import { createMessage } from "../../messages/service";
 import { setMessageActions } from "../../bots/service";
-import { getIO } from "../../socket/io";
+import { emitToChannel } from "../../lib/emit";
 import { asChannelId, asUserId } from "@openslaq/shared";
 
 const app = new Hono();
@@ -15,12 +16,12 @@ app.post("/webhook", async (c) => {
 
   // Require webhook secret — reject all requests if not configured
   if (!env.LINEAR_WEBHOOK_SECRET) {
-    return c.json({ error: "Linear webhook signature verification is not configured" }, 503);
+    throw new ServiceUnavailableError("Linear webhook signature verification is not configured");
   }
 
   const signature = c.req.header("Linear-Signature");
   if (!signature) {
-    return c.json({ error: "Missing signature" }, 401);
+    throw new UnauthorizedError("Missing signature");
   }
 
   // Linear sends raw hex (no prefix)
@@ -29,7 +30,7 @@ app.post("/webhook", async (c) => {
   const expectedBuffer = Buffer.from(expected);
 
   if (sigBuffer.length !== expectedBuffer.length || !timingSafeEqual(sigBuffer, expectedBuffer)) {
-    return c.json({ error: "Invalid signature" }, 401);
+    throw new UnauthorizedError("Invalid signature");
   }
 
   const payload = JSON.parse(body) as Record<string, unknown>;
@@ -97,7 +98,7 @@ async function processWebhook(
     }
 
     try {
-      getIO().to(`channel:${sub.channelId}`).emit("message:new", result);
+      emitToChannel(asChannelId(sub.channelId), "message:new", result);
     } catch {
       // Socket.IO may not be initialized
     }

@@ -1,4 +1,3 @@
-import { AuthError } from "../api/errors";
 import { authorizedRequest } from "../api/api-client";
 import type { ApiDeps } from "./types";
 
@@ -17,20 +16,13 @@ export async function listChannelMembers(
 ): Promise<ChannelMember[]> {
   const { api, auth } = deps;
 
-  try {
-    const response = await authorizedRequest(auth, (headers) =>
-      api.api.workspaces[":slug"].channels[":id"].members.$get(
-        { param: { slug, id: channelId } },
-        { headers },
-      ),
-    );
-    return (await response.json()) as ChannelMember[];
-  } catch (err) {
-    if (err instanceof AuthError) {
-      auth.onAuthRequired();
-    }
-    throw err;
-  }
+  const response = await authorizedRequest(auth, (headers) =>
+    api.api.workspaces[":slug"].channels[":id"].members.$get(
+      { param: { slug, id: channelId } },
+      { headers },
+    ),
+  );
+  return (await response.json()) as ChannelMember[];
 }
 
 export async function addChannelMember(
@@ -41,20 +33,29 @@ export async function addChannelMember(
 ): Promise<void> {
   const { api, auth } = deps;
 
-  try {
-    await authorizedRequest(auth, (headers) =>
-      api.api.workspaces[":slug"].channels[":id"].members.$post(
-        { param: { slug, id: channelId }, json: { userId } },
-        { headers },
-      ),
-    );
-  } catch (err) {
-    if (err instanceof AuthError) {
-      auth.onAuthRequired();
-      return;
-    }
-    throw err;
-  }
+  await authorizedRequest(auth, (headers) =>
+    api.api.workspaces[":slug"].channels[":id"].members.$post(
+      { param: { slug, id: channelId }, json: { userId } },
+      { headers },
+    ),
+  );
+}
+
+export async function addChannelMembersBulk(
+  deps: ApiDeps,
+  slug: string,
+  channelId: string,
+  userIds: string[],
+): Promise<{ added: number }> {
+  const { api, auth } = deps;
+
+  const response = await authorizedRequest(auth, (headers) =>
+    api.api.workspaces[":slug"].channels[":id"].members.bulk.$post(
+      { param: { slug, id: channelId }, json: { userIds } },
+      { headers },
+    ),
+  );
+  return (await response.json()) as { added: number };
 }
 
 export async function removeChannelMember(
@@ -65,18 +66,10 @@ export async function removeChannelMember(
 ): Promise<void> {
   const { api, auth } = deps;
 
-  try {
-    await authorizedRequest(auth, (headers) =>
-      api.api.workspaces[":slug"].channels[":id"].members[":userId"].$delete(
-        { param: { slug, id: channelId, userId } },
-        { headers },
-      ),
-    );
-  } catch (err) {
-    if (err instanceof AuthError) {
-      auth.onAuthRequired();
-      return;
-    }
-    throw err;
-  }
+  await authorizedRequest(auth, (headers) =>
+    api.api.workspaces[":slug"].channels[":id"].members[":userId"].$delete(
+      { param: { slug, id: channelId, userId } },
+      { headers },
+    ),
+  );
 }

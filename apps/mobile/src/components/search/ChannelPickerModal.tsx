@@ -4,9 +4,10 @@ import {
   Pressable,
   Text,
   View,
+  StyleSheet,
 } from "react-native";
 import { Lock } from "lucide-react-native";
-import type { Channel } from "@openslaq/shared";
+import type { Channel, ChannelId } from "@openslaq/shared";
 import type { DmConversation } from "@openslaq/client-core";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { BottomSheet } from "@/components/ui/BottomSheet";
@@ -16,7 +17,7 @@ import { buildDestinationItems, type DestinationItem } from "@/lib/destination-i
 interface Props {
   visible: boolean;
   onClose: () => void;
-  onSelect: (id: string, name: string) => void;
+  onSelect: (id: ChannelId, name: string) => void;
   channels: Channel[];
   dms: DmConversation[];
 }
@@ -51,10 +52,7 @@ export function ChannelPickerModal({ visible, onClose, onSelect, channels, dms }
         onChangeText={setFilterText}
         autoCapitalize="none"
         autoCorrect={false}
-        style={{
-          marginHorizontal: 16,
-          marginBottom: 8,
-        }}
+        style={styles.filterInput}
       />
       <FlatList
         testID="channel-picker-list"
@@ -64,6 +62,9 @@ export function ChannelPickerModal({ visible, onClose, onSelect, channels, dms }
         renderItem={({ item }) => (
           <Pressable
             testID={`channel-picker-item-${item.id}`}
+            accessibilityRole="button"
+            accessibilityLabel={`Select ${item.name}`}
+            accessibilityHint="Selects this channel as a filter"
             onPress={() => handleSelect(item)}
             style={({ pressed }) => ({
               opacity: pressed ? 0.7 : 1,
@@ -73,15 +74,15 @@ export function ChannelPickerModal({ visible, onClose, onSelect, channels, dms }
               alignItems: "center",
             })}
           >
-            <View style={{ width: 24, alignItems: "center", justifyContent: "center" }}>
+            <View style={styles.iconContainer}>
               {item.type === "private" ? (
                 <Lock size={14} color={theme.colors.textFaint} />
               ) : (
-                <Text style={{ fontSize: 14, color: theme.colors.textFaint }}>{item.type === "dm" ? "@" : "#"}</Text>
+                <Text style={[styles.prefixText, { color: theme.colors.textFaint }]}>{item.type === "dm" ? "@" : "#"}</Text>
               )}
             </View>
             <Text
-              style={{ fontSize: 16, color: theme.colors.textPrimary, flex: 1 }}
+              style={[styles.itemName, { color: theme.colors.textPrimary }]}
               numberOfLines={1}
             >
               {item.name}
@@ -92,3 +93,22 @@ export function ChannelPickerModal({ visible, onClose, onSelect, channels, dms }
     </BottomSheet>
   );
 }
+
+const styles = StyleSheet.create({
+  filterInput: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+  },
+  iconContainer: {
+    width: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  prefixText: {
+    fontSize: 14,
+  },
+  itemName: {
+    fontSize: 16,
+    flex: 1,
+  },
+});

@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from "react";
 import type { SearchResultItem as SearchResultItemType, Channel } from "@openslaq/shared";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useSearch } from "../../hooks/chat/useSearch";
 import type { DmConversation } from "../../state/chat-store";
 import { Search } from "lucide-react";
@@ -36,16 +38,25 @@ function HighlightedText({ html }: { html: string }) {
 
   return (
     <>
-      {parts.map((part, i) =>
-        part.highlighted ? (
-          <mark key={i} className="bg-mark-bg rounded-sm px-0.5">{part.text}</mark>
+      {parts.map((part, i) => {
+        const rendered = (
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={inlineComponents}>
+            {part.text}
+          </ReactMarkdown>
+        );
+        return part.highlighted ? (
+          <mark key={i} className="bg-mark-bg rounded-sm px-0.5">{rendered}</mark>
         ) : (
-          <span key={i}>{part.text}</span>
-        ),
-      )}
+          <span key={i}>{rendered}</span>
+        );
+      })}
     </>
   );
 }
+
+const inlineComponents = {
+  p: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+};
 
 function stripTags(str: string): string {
   return str.replace(/<[^>]*>/g, "");
@@ -61,15 +72,23 @@ export function SearchModal({ open, onClose, onNavigateToMessage, workspaceSlug 
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  const [prevOpen, setPrevOpen] = useState(false);
+
+  if (open && !prevOpen) {
+    setSelectedIndex(0);
+    setActiveTab(ALL_CHANNELS);
+    reset();
+  }
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+  }
+
+  useLayoutEffect(() => {
     if (open) {
-      setSelectedIndex(0);
-      setActiveTab(ALL_CHANNELS);
-      reset();
       const timer = setTimeout(() => inputRef.current?.focus(), 0);
       return () => clearTimeout(timer);
     }
-  }, [open, reset]);
+  }, [open]);
 
   useEffect(() => {
     if (!open || !isGallery) return;

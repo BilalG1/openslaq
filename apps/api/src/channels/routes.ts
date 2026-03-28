@@ -1,22 +1,27 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
-import { createChannelSchema, addChannelMemberSchema, updateChannelSchema } from "./validation";
-import { listChannels, createChannel, joinChannel, leaveChannel, listChannelMembers, addChannelMember, removeChannelMember, browsePublicChannels, updateChannel, archiveChannel, unarchiveChannel } from "./service";
+import { createChannelSchema, addChannelMemberSchema, addChannelMembersBulkSchema, updateChannelSchema } from "./validation";
+import { listChannels, createChannel, joinChannel, leaveChannel, listChannelMembers, addChannelMember, addChannelMembersBulk, removeChannelMember, browsePublicChannels, updateChannel, archiveChannel, unarchiveChannel } from "./service";
 import { markChannelAsRead, markChannelAsUnread } from "./read-positions-service";
 import { getStarredChannelIds, starChannel as starChannelService, unstarChannel as unstarChannelService } from "./starred-service";
 import { getChannelNotificationPrefs, getChannelNotificationPref, setChannelNotificationPref } from "./notification-prefs-service";
 import { resolveChannel, requireChannelMember, requirePrivateChannelAdmin } from "./middleware";
 import type { WorkspaceMemberEnv } from "../workspaces/role-middleware";
+import { requireScope } from "../auth/scope-middleware";
 import { rlChannelCreate, rlChannelJoinLeave, rlMarkAsRead, rlRead, rlMemberManage } from "../rate-limit";
 import { createChannelEventMessage } from "../messages/service";
 import { hasMinimumRole } from "../auth/permissions";
 import { ROLES, CHANNEL_TYPES, asUserId, asMessageId, zChannelId, zUserId } from "@openslaq/shared";
 import type { ChannelNotifyLevel } from "@openslaq/shared";
-import { getWorkspaceMember } from "../workspaces/service";
+import { getWorkspaceMember, getWorkspaceMembersByIds } from "../workspaces/service";
 import { getIO } from "../socket/io";
+import { emitToChannel, emitToWorkspace } from "../lib/emit";
 import { getSocketIdsForUser } from "../presence/service";
 import { channelSchema, browseChannelSchema, channelMemberSchema, okSchema, errorSchema } from "../openapi/schemas";
 import { jsonResponse } from "../openapi/responses";
+import { BEARER_SECURITY, jsonBody, jsonContent } from "../lib/openapi-helpers";
 import { webhookDispatcher } from "../bots/webhook-dispatcher";
+import { BadRequestError, ForbiddenError, NotFoundError } from "../errors";
+import { getWorkspaceMemberContext, getChannelContext } from "../lib/context";
 
 const channelIdParam = z.object({ id: zChannelId() });
 
@@ -26,13 +31,10 @@ const listChannelsRoute = createRoute({
   tags: ["Channels"],
   summary: "List channels",
   description: "Returns all channels the user is a member of in this workspace.",
-  security: [{ Bearer: [] }],
-  middleware: [rlRead] as const,
+  security: BEARER_SECURITY,
+  middleware: [rlRead, requireScope("channels:read")] as const,
   responses: {
-    200: {
-      content: { "application/json": { schema: z.array(channelSchema) } },
-      description: "List of channels",
-    },
+    200: jsonContent(z.array(channelSchema), "List of channels"),
   },
 });
 
@@ -42,20 +44,14 @@ const createChannelRoute = createRoute({
   tags: ["Channels"],
   summary: "Create channel",
   description: "Creates a new channel. Only admins can create private channels.",
-  security: [{ Bearer: [] }],
-  middleware: [rlChannelCreate] as const,
+  security: BEARER_SECURITY,
+  middleware: [rlChannelCreate, requireScope("channels:write")] as const,
   request: {
-    body: { content: { "application/json": { schema: createChannelSchema } } },
+    body: jsonBody(createChannelSchema),
   },
   responses: {
-    201: {
-      content: { "application/json": { schema: channelSchema } },
-      description: "Created channel",
-    },
-    403: {
-      content: { "application/json": { schema: errorSchema } },
-      description: "Only admins can create private channels",
-    },
+    201: jsonContent(channelSchema, "Created channel"),
+    403: jsonContent(errorSchema, "Only admins can create private channels"),
   },
 });
 
@@ -65,18 +61,15 @@ const browseChannelsRoute = createRoute({
   tags: ["Channels"],
   summary: "Browse public channels",
   description: "Returns all public channels in the workspace with membership status.",
-  security: [{ Bearer: [] }],
-  middleware: [rlRead] as const,
+  security: BEARER_SECURITY,
+  middleware: [rlRead, requireScope("channels:read")] as const,
   request: {
     query: z.object({
       includeArchived: z.string().optional().describe("Set to 'true' to include archived channels"),
     }),
   },
   responses: {
-    200: {
-      content: { "application/json": { schema: z.array(browseChannelSchema) } },
-      description: "List of public channels with membership info",
-    },
+    200: jsonContent(z.array(browseChannelSchema), "List of public channels with membership info"),
   },
 });
 
@@ -86,12 +79,12 @@ const joinChannelRoute = createRoute({
   tags: ["Channels"],
   summary: "Join channel",
   description: "Joins a public channel.",
-  security: [{ Bearer: [] }],
-  middleware: [rlChannelJoinLeave, resolveChannel] as const,
+  security: BEARER_SECURITY,
+  middleware: [rlChannelJoinLeave, requireScope("channels:join"), resolveChannel] as const,
   request: { params: channelIdParam },
   responses: {
-    200: { content: { "application/json": { schema: okSchema } }, description: "Joined" },
-    403: { content: { "application/json": { schema: errorSchema } }, description: "Cannot self-join a private channel" },
+    200: jsonContent(okSchema, "Joined"),
+    403: jsonContent(errorSchema, "Cannot self-join a private channel"),
   },
 });
 
@@ -101,11 +94,11 @@ const leaveChannelRoute = createRoute({
   tags: ["Channels"],
   summary: "Leave channel",
   description: "Leaves a channel the user is a member of.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlChannelJoinLeave, resolveChannel, requireChannelMember] as const,
   request: { params: channelIdParam },
   responses: {
-    200: { content: { "application/json": { schema: okSchema } }, description: "Left" },
+    200: jsonContent(okSchema, "Left"),
   },
 });
 
@@ -115,14 +108,11 @@ const listChannelMembersRoute = createRoute({
   tags: ["Channels"],
   summary: "List channel members",
   description: "Returns all members of a channel.",
-  security: [{ Bearer: [] }],
-  middleware: [rlRead, resolveChannel, requireChannelMember] as const,
+  security: BEARER_SECURITY,
+  middleware: [rlRead, requireScope("channels:members:read"), resolveChannel, requireChannelMember] as const,
   request: { params: channelIdParam },
   responses: {
-    200: {
-      content: { "application/json": { schema: z.array(channelMemberSchema) } },
-      description: "Channel members",
-    },
+    200: jsonContent(z.array(channelMemberSchema), "Channel members"),
   },
 });
 
@@ -131,16 +121,34 @@ const addChannelMemberRoute = createRoute({
   path: "/:id/members",
   tags: ["Channels"],
   summary: "Add channel member",
-  description: "Adds a user to a private channel. Requires channel creator or workspace admin role.",
-  security: [{ Bearer: [] }],
-  middleware: [rlMemberManage, resolveChannel, requireChannelMember, requirePrivateChannelAdmin] as const,
+  description: "Adds a workspace member to the channel. Any channel member can add others.",
+  security: BEARER_SECURITY,
+  middleware: [rlMemberManage, requireScope("channels:members:write"), resolveChannel, requireChannelMember] as const,
   request: {
     params: channelIdParam,
-    body: { content: { "application/json": { schema: addChannelMemberSchema } } },
+    body: jsonBody(addChannelMemberSchema),
   },
   responses: {
-    201: { content: { "application/json": { schema: okSchema } }, description: "Member added" },
-    400: { content: { "application/json": { schema: errorSchema } }, description: "Target user is not a workspace member" },
+    201: jsonContent(okSchema, "Member added"),
+    400: jsonContent(errorSchema, "Target user is not a workspace member"),
+  },
+});
+
+const addChannelMembersBulkRoute = createRoute({
+  method: "post",
+  path: "/:id/members/bulk",
+  tags: ["Channels"],
+  summary: "Bulk add channel members",
+  description: "Adds multiple workspace members to the channel in a single request. Any channel member can add others.",
+  security: BEARER_SECURITY,
+  middleware: [rlMemberManage, requireScope("channels:members:write"), resolveChannel, requireChannelMember] as const,
+  request: {
+    params: channelIdParam,
+    body: jsonBody(addChannelMembersBulkSchema),
+  },
+  responses: {
+    201: jsonContent(z.object({ ok: z.literal(true), added: z.number() }), "Members added"),
+    400: jsonContent(errorSchema, "No valid workspace members in the list"),
   },
 });
 
@@ -150,8 +158,8 @@ const removeChannelMemberRoute = createRoute({
   tags: ["Channels"],
   summary: "Remove channel member",
   description: "Removes a user from a private channel. Cannot remove the channel creator.",
-  security: [{ Bearer: [] }],
-  middleware: [rlMemberManage, resolveChannel, requireChannelMember, requirePrivateChannelAdmin] as const,
+  security: BEARER_SECURITY,
+  middleware: [rlMemberManage, requireScope("channels:members:write"), resolveChannel, requireChannelMember, requirePrivateChannelAdmin] as const,
   request: {
     params: z.object({
       id: zChannelId(),
@@ -159,8 +167,8 @@ const removeChannelMemberRoute = createRoute({
     }),
   },
   responses: {
-    200: { content: { "application/json": { schema: okSchema } }, description: "Member removed" },
-    400: { content: { "application/json": { schema: errorSchema } }, description: "Cannot remove the channel creator" },
+    200: jsonContent(okSchema, "Member removed"),
+    400: jsonContent(errorSchema, "Cannot remove the channel creator"),
   },
 });
 
@@ -170,11 +178,11 @@ const markReadRoute = createRoute({
   tags: ["Channels"],
   summary: "Mark channel as read",
   description: "Marks all messages in the channel as read for the authenticated user.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMarkAsRead, resolveChannel, requireChannelMember] as const,
   request: { params: channelIdParam },
   responses: {
-    200: { content: { "application/json": { schema: okSchema } }, description: "Marked as read" },
+    200: jsonContent(okSchema, "Marked as read"),
   },
 });
 
@@ -184,34 +192,18 @@ const markUnreadRoute = createRoute({
   tags: ["Channels"],
   summary: "Mark channel as unread",
   description: "Moves the read position to just before a specific message, making it and all subsequent messages appear unread.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMarkAsRead, resolveChannel, requireChannelMember] as const,
   request: {
     params: channelIdParam,
-    body: {
-      content: {
-        "application/json": {
-          schema: z.object({ messageId: z.string().describe("Message ID to mark as unread from") }),
-        },
-      },
-    },
+    body: jsonBody(z.object({ messageId: z.string().describe("Message ID to mark as unread from") })),
   },
   responses: {
-    200: {
-      content: {
-        "application/json": {
-          schema: z.object({
-            ok: z.literal(true),
-            unreadCount: z.number().describe("Number of unread messages after marking"),
-          }),
-        },
-      },
-      description: "Marked as unread",
-    },
-    404: {
-      content: { "application/json": { schema: errorSchema } },
-      description: "Message not found in channel",
-    },
+    200: jsonContent(z.object({
+      ok: z.literal(true),
+      unreadCount: z.number().describe("Number of unread messages after marking"),
+    }), "Marked as unread"),
+    404: jsonContent(errorSchema, "Message not found in channel"),
   },
 });
 
@@ -221,13 +213,10 @@ const listStarredRoute = createRoute({
   tags: ["Channels"],
   summary: "List starred channels",
   description: "Returns the IDs of channels the user has starred.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlRead] as const,
   responses: {
-    200: {
-      content: { "application/json": { schema: z.array(z.string()) } },
-      description: "List of starred channel IDs",
-    },
+    200: jsonContent(z.array(z.string()), "List of starred channel IDs"),
   },
 });
 
@@ -237,11 +226,11 @@ const starChannelRoute = createRoute({
   tags: ["Channels"],
   summary: "Star channel",
   description: "Stars a channel for the current user. Requires membership.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMemberManage, resolveChannel, requireChannelMember] as const,
   request: { params: channelIdParam },
   responses: {
-    200: { content: { "application/json": { schema: okSchema } }, description: "Starred" },
+    200: jsonContent(okSchema, "Starred"),
   },
 });
 
@@ -251,11 +240,11 @@ const unstarChannelRoute = createRoute({
   tags: ["Channels"],
   summary: "Unstar channel",
   description: "Removes a star from a channel for the current user.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMemberManage, resolveChannel] as const,
   request: { params: channelIdParam },
   responses: {
-    200: { content: { "application/json": { schema: okSchema } }, description: "Unstarred" },
+    200: jsonContent(okSchema, "Unstarred"),
   },
 });
 
@@ -265,17 +254,14 @@ const updateChannelRoute = createRoute({
   tags: ["Channels"],
   summary: "Update channel",
   description: "Updates a channel's description/topic. Any channel member can update.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMemberManage, resolveChannel, requireChannelMember] as const,
   request: {
     params: channelIdParam,
-    body: { content: { "application/json": { schema: updateChannelSchema } } },
+    body: jsonBody(updateChannelSchema),
   },
   responses: {
-    200: {
-      content: { "application/json": { schema: channelSchema } },
-      description: "Updated channel",
-    },
+    200: jsonContent(channelSchema, "Updated channel"),
   },
 });
 
@@ -285,16 +271,13 @@ const archiveChannelRoute = createRoute({
   tags: ["Channels"],
   summary: "Archive channel",
   description: "Archives a channel, making it read-only. Requires workspace admin/owner role.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMemberManage, resolveChannel, requireChannelMember] as const,
   request: { params: channelIdParam },
   responses: {
-    200: {
-      content: { "application/json": { schema: channelSchema } },
-      description: "Archived channel",
-    },
-    400: { content: { "application/json": { schema: errorSchema } }, description: "Cannot archive #general" },
-    403: { content: { "application/json": { schema: errorSchema } }, description: "Only admins can archive channels" },
+    200: jsonContent(channelSchema, "Archived channel"),
+    400: jsonContent(errorSchema, "Cannot archive #general"),
+    403: jsonContent(errorSchema, "Only admins can archive channels"),
   },
 });
 
@@ -304,15 +287,12 @@ const unarchiveChannelRoute = createRoute({
   tags: ["Channels"],
   summary: "Unarchive channel",
   description: "Unarchives a channel, restoring normal functionality. Requires workspace admin/owner role.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMemberManage, resolveChannel] as const,
   request: { params: channelIdParam },
   responses: {
-    200: {
-      content: { "application/json": { schema: channelSchema } },
-      description: "Unarchived channel",
-    },
-    403: { content: { "application/json": { schema: errorSchema } }, description: "Only admins can unarchive channels" },
+    200: jsonContent(channelSchema, "Unarchived channel"),
+    403: jsonContent(errorSchema, "Only admins can unarchive channels"),
   },
 });
 
@@ -324,13 +304,10 @@ const listNotificationPrefsRoute = createRoute({
   tags: ["Channels"],
   summary: "List notification preferences",
   description: "Returns all non-default per-channel notification preferences for the current user.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlRead] as const,
   responses: {
-    200: {
-      content: { "application/json": { schema: z.record(z.string(), notifyLevelSchema) } },
-      description: "Map of channel IDs to notification levels",
-    },
+    200: jsonContent(z.record(z.string(), notifyLevelSchema), "Map of channel IDs to notification levels"),
   },
 });
 
@@ -340,14 +317,11 @@ const getNotificationPrefRoute = createRoute({
   tags: ["Channels"],
   summary: "Get channel notification preference",
   description: "Returns the notification preference for a specific channel. Defaults to 'all'.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlRead, resolveChannel, requireChannelMember] as const,
   request: { params: channelIdParam },
   responses: {
-    200: {
-      content: { "application/json": { schema: z.object({ level: notifyLevelSchema }) } },
-      description: "Notification level",
-    },
+    200: jsonContent(z.object({ level: notifyLevelSchema }), "Notification level"),
   },
 });
 
@@ -357,130 +331,134 @@ const setNotificationPrefRoute = createRoute({
   tags: ["Channels"],
   summary: "Set channel notification preference",
   description: "Sets the notification preference for a specific channel. Setting to 'all' removes the override.",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMemberManage, resolveChannel, requireChannelMember] as const,
   request: {
     params: channelIdParam,
-    body: { content: { "application/json": { schema: z.object({ level: notifyLevelSchema }) } } },
+    body: jsonBody(z.object({ level: notifyLevelSchema })),
   },
   responses: {
-    200: { content: { "application/json": { schema: okSchema } }, description: "Preference saved" },
+    200: jsonContent(okSchema, "Preference saved"),
   },
 });
 
 const app = new OpenAPIHono<WorkspaceMemberEnv>()
   .openapi(listChannelsRoute, async (c) => {
-    const workspace = c.get("workspace");
-    const user = c.get("user");
+    const { workspace, user } = getWorkspaceMemberContext(c);
     const result = await listChannels(workspace.id, user.id);
     return jsonResponse(c, result, 200);
   })
   .openapi(browseChannelsRoute, async (c) => {
-    const workspace = c.get("workspace");
-    const user = c.get("user");
+    const { workspace, user } = getWorkspaceMemberContext(c);
     const { includeArchived } = c.req.valid("query");
     const result = await browsePublicChannels(workspace.id, user.id, includeArchived === "true");
     return jsonResponse(c, result, 200);
   })
   .openapi(listStarredRoute, async (c) => {
-    const user = c.get("user");
-    const workspace = c.get("workspace");
+    const { user, workspace } = getWorkspaceMemberContext(c);
     const ids = await getStarredChannelIds(user.id, workspace.id);
     return jsonResponse(c, ids, 200);
   })
   .openapi(listNotificationPrefsRoute, async (c) => {
-    const user = c.get("user");
-    const workspace = c.get("workspace");
+    const { user, workspace } = getWorkspaceMemberContext(c);
     const prefs = await getChannelNotificationPrefs(user.id, workspace.id);
     return jsonResponse(c, prefs, 200);
   })
   .openapi(getNotificationPrefRoute, async (c) => {
-    const user = c.get("user");
-    const channel = c.get("channel");
+    const { user, channel } = getChannelContext(c);
     const level = await getChannelNotificationPref(user.id, channel.id);
     return c.json({ level }, 200);
   })
   .openapi(setNotificationPrefRoute, async (c) => {
-    const user = c.get("user");
-    const channel = c.get("channel");
+    const { user, channel } = getChannelContext(c);
     const { level } = c.req.valid("json");
     await setChannelNotificationPref(user.id, channel.id, level as ChannelNotifyLevel);
     return c.json({ ok: true as const }, 200);
   })
   .openapi(createChannelRoute, async (c) => {
-    const user = c.get("user");
-    const workspace = c.get("workspace");
+    const { user, workspace } = getWorkspaceMemberContext(c);
     const { name, description, type } = c.req.valid("json");
 
     if (type === "private") {
       const memberRole = c.get("memberRole");
       if (!hasMinimumRole(memberRole, ROLES.ADMIN)) {
-        return c.json({ error: "Only admins can create private channels" }, 403);
+        throw new ForbiddenError("Only admins can create private channels");
       }
     }
 
     const channel = await createChannel(workspace.id, name, description, user.id, type);
+    emitToWorkspace(workspace.id, "channel:created", { channel });
     return jsonResponse(c, channel, 201);
   })
   .openapi(joinChannelRoute, async (c) => {
-    const user = c.get("user");
-    const channel = c.get("channel");
+    const { user, channel } = getChannelContext(c);
 
     if (channel.isArchived) {
-      return c.json({ error: "Channel is archived" }, 403);
+      throw new ForbiddenError("Channel is archived");
     }
 
     if (channel.type === CHANNEL_TYPES.PRIVATE) {
-      return c.json({ error: "Cannot self-join a private channel" }, 403);
+      throw new ForbiddenError("Cannot self-join a private channel");
     }
 
     await joinChannel(channel.id, user.id);
 
     const joinMsg = await createChannelEventMessage(channel.id, user.id, { action: "joined" });
-    const io = getIO();
-    io.to(`channel:${channel.id}`).emit("message:new", joinMsg);
+    emitToChannel(channel.id, "message:new", joinMsg);
 
     return c.json({ ok: true as const }, 200);
   })
   .openapi(leaveChannelRoute, async (c) => {
-    const user = c.get("user");
-    const channel = c.get("channel");
+    const { user, channel } = getChannelContext(c);
 
     const leaveMsg = await createChannelEventMessage(channel.id, user.id, { action: "left" });
-    const io = getIO();
-    io.to(`channel:${channel.id}`).emit("message:new", leaveMsg);
+    emitToChannel(channel.id, "message:new", leaveMsg);
+    emitToChannel(channel.id, "channel:member-removed", {
+      channelId: channel.id,
+      userId: user.id,
+    });
 
     await leaveChannel(channel.id, user.id);
+
+    // Remove the leaving user's sockets from the channel room
+    const io = getIO();
+    const socketIds = await getSocketIdsForUser(user.id);
+    for (const sid of socketIds) {
+      const socket = io.sockets.sockets.get(sid);
+      if (socket) {
+        socket.leave(`channel:${channel.id}`);
+      }
+    }
+
     return c.json({ ok: true as const }, 200);
   })
   .openapi(listChannelMembersRoute, async (c) => {
-    const channel = c.get("channel");
+    const { channel } = getChannelContext(c);
     const members = await listChannelMembers(channel.id);
     return jsonResponse(c, members, 200);
   })
   .openapi(addChannelMemberRoute, async (c) => {
-    const channel = c.get("channel");
-    const workspace = c.get("workspace");
+    const { channel, workspace } = getChannelContext(c);
     const targetUserId = asUserId(c.req.valid("json").userId);
     const targetMember = await getWorkspaceMember(workspace.id, targetUserId);
     if (!targetMember) {
-      return c.json({ error: "User is not a workspace member" }, 400);
+      throw new BadRequestError("User is not a workspace member");
     }
     await addChannelMember(channel.id, targetUserId);
 
-    const io = getIO();
-    io.to(`channel:${channel.id}`).emit("channel:member-added", {
+    emitToChannel(channel.id, "channel:member-added", {
       channelId: channel.id,
       userId: targetUserId,
     });
     webhookDispatcher.dispatch({
       type: "channel:member-added",
       channelId: channel.id,
-      workspaceId: c.get("workspace").id,
+      workspaceId: workspace.id,
       data: { channelId: channel.id, userId: targetUserId },
     });
 
     // Join the target user's sockets to the channel room
+    const io = getIO();
     const socketIds = await getSocketIdsForUser(targetUserId);
     for (const sid of socketIds) {
       const socket = io.sockets.sockets.get(sid);
@@ -491,29 +469,67 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
 
     return c.json({ ok: true as const }, 201);
   })
+  .openapi(addChannelMembersBulkRoute, async (c) => {
+    const { channel, workspace } = getChannelContext(c);
+    const { userIds } = c.req.valid("json");
+    const targetUserIds = userIds.map(asUserId);
+
+    // Filter to valid workspace members
+    const validMembers = await getWorkspaceMembersByIds(workspace.id, targetUserIds);
+    const validUserIds = validMembers.map((m) => asUserId(m.userId));
+    if (validUserIds.length === 0) {
+      throw new BadRequestError("No valid workspace members in the list");
+    }
+
+    await addChannelMembersBulk(channel.id, validUserIds);
+
+    const io = getIO();
+    for (const userId of validUserIds) {
+      emitToChannel(channel.id, "channel:member-added", {
+        channelId: channel.id,
+        userId,
+      });
+      webhookDispatcher.dispatch({
+        type: "channel:member-added",
+        channelId: channel.id,
+        workspaceId: workspace.id,
+        data: { channelId: channel.id, userId },
+      });
+
+      const socketIds = await getSocketIdsForUser(userId);
+      for (const sid of socketIds) {
+        const socket = io.sockets.sockets.get(sid);
+        if (socket) {
+          socket.join(`channel:${channel.id}`);
+        }
+      }
+    }
+
+    return c.json({ ok: true as const, added: validUserIds.length }, 201);
+  })
   .openapi(removeChannelMemberRoute, async (c) => {
-    const channel = c.get("channel");
+    const { channel, workspace } = getChannelContext(c);
     const targetUserId = c.req.valid("param").userId;
 
     if (channel.createdBy === targetUserId) {
-      return c.json({ error: "Cannot remove the channel creator" }, 400);
+      throw new BadRequestError("Cannot remove the channel creator");
     }
 
     await removeChannelMember(channel.id, targetUserId);
 
-    const io = getIO();
-    io.to(`channel:${channel.id}`).emit("channel:member-removed", {
+    emitToChannel(channel.id, "channel:member-removed", {
       channelId: channel.id,
       userId: targetUserId,
     });
     webhookDispatcher.dispatch({
       type: "channel:member-removed",
       channelId: channel.id,
-      workspaceId: c.get("workspace").id,
+      workspaceId: workspace.id,
       data: { channelId: channel.id, userId: targetUserId },
     });
 
     // Remove the target user's sockets from the channel room
+    const io = getIO();
     const socketIds = await getSocketIdsForUser(targetUserId);
     for (const sid of socketIds) {
       const socket = io.sockets.sockets.get(sid);
@@ -525,17 +541,15 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     return c.json({ ok: true as const }, 200);
   })
   .openapi(updateChannelRoute, async (c) => {
-    const channel = c.get("channel");
-    const workspace = c.get("workspace");
+    const { channel, workspace } = getChannelContext(c);
     const { description } = c.req.valid("json");
     const updated = await updateChannel(channel.id, { description });
 
-    const io = getIO();
-    io.to(`channel:${channel.id}`).emit("channel:updated", {
+    emitToChannel(channel.id, "channel:updated", {
       channelId: channel.id,
       channel: updated,
     });
-    io.to(`workspace:${workspace.id}`).emit("channel:updated", {
+    emitToWorkspace(workspace.id, "channel:updated", {
       channelId: channel.id,
       channel: updated,
     });
@@ -549,26 +563,23 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     return jsonResponse(c, updated, 200);
   })
   .openapi(archiveChannelRoute, async (c) => {
-    const channel = c.get("channel");
-    const workspace = c.get("workspace");
-    const memberRole = c.get("memberRole");
+    const { channel, workspace, memberRole } = getChannelContext(c);
 
     if (!hasMinimumRole(memberRole, ROLES.ADMIN)) {
-      return c.json({ error: "Only admins can archive channels" }, 403);
+      throw new ForbiddenError("Only admins can archive channels");
     }
 
     if (channel.name === "general" && channel.type === CHANNEL_TYPES.PUBLIC) {
-      return c.json({ error: "Cannot archive the #general channel" }, 400);
+      throw new BadRequestError("Cannot archive the #general channel");
     }
 
     const updated = await archiveChannel(channel.id);
 
-    const io = getIO();
-    io.to(`channel:${channel.id}`).emit("channel:updated", {
+    emitToChannel(channel.id, "channel:updated", {
       channelId: channel.id,
       channel: updated,
     });
-    io.to(`workspace:${workspace.id}`).emit("channel:updated", {
+    emitToWorkspace(workspace.id, "channel:updated", {
       channelId: channel.id,
       channel: updated,
     });
@@ -576,22 +587,19 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     return jsonResponse(c, updated, 200);
   })
   .openapi(unarchiveChannelRoute, async (c) => {
-    const channel = c.get("channel");
-    const workspace = c.get("workspace");
-    const memberRole = c.get("memberRole");
+    const { channel, workspace, memberRole } = getChannelContext(c);
 
     if (!hasMinimumRole(memberRole, ROLES.ADMIN)) {
-      return c.json({ error: "Only admins can unarchive channels" }, 403);
+      throw new ForbiddenError("Only admins can unarchive channels");
     }
 
     const updated = await unarchiveChannel(channel.id);
 
-    const io = getIO();
-    io.to(`channel:${channel.id}`).emit("channel:updated", {
+    emitToChannel(channel.id, "channel:updated", {
       channelId: channel.id,
       channel: updated,
     });
-    io.to(`workspace:${workspace.id}`).emit("channel:updated", {
+    emitToWorkspace(workspace.id, "channel:updated", {
       channelId: channel.id,
       channel: updated,
     });
@@ -599,30 +607,26 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     return jsonResponse(c, updated, 200);
   })
   .openapi(starChannelRoute, async (c) => {
-    const user = c.get("user");
-    const channel = c.get("channel");
+    const { user, channel } = getChannelContext(c);
     await starChannelService(user.id, channel.id);
     return c.json({ ok: true as const }, 200);
   })
   .openapi(unstarChannelRoute, async (c) => {
-    const user = c.get("user");
-    const channel = c.get("channel");
+    const { user, channel } = getChannelContext(c);
     await unstarChannelService(user.id, channel.id);
     return c.json({ ok: true as const }, 200);
   })
   .openapi(markReadRoute, async (c) => {
-    const user = c.get("user");
-    const channel = c.get("channel");
+    const { user, channel } = getChannelContext(c);
     await markChannelAsRead(user.id, channel.id);
     return c.json({ ok: true as const }, 200);
   })
   .openapi(markUnreadRoute, async (c) => {
-    const user = c.get("user");
-    const channel = c.get("channel");
+    const { user, channel } = getChannelContext(c);
     const { messageId } = c.req.valid("json");
     const result = await markChannelAsUnread(user.id, channel.id, asMessageId(messageId));
     if (!result) {
-      return c.json({ error: "Message not found in this channel" }, 404);
+      throw new NotFoundError("Message in this channel");
     }
     return c.json({ ok: true as const, unreadCount: result.unreadCount }, 200);
   });

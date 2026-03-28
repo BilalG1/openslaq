@@ -59,7 +59,7 @@ export const apiKeysCommand = defineCommand({
         const res = await client.api["api-keys"].$post({
           json: {
             name: f.name,
-            scopes: scopes as any,
+            scopes: scopes as import("@openslaq/shared").BotScope[],
             ...(f.expires ? { expiresAt: f.expires } : {}),
           },
         });
@@ -150,13 +150,13 @@ export const apiKeysCommand = defineCommand({
       flags: updateFlags,
       async action(f) {
         const client = await getAuthenticatedClient();
-        const body: Record<string, any> = {};
+        const body: Record<string, unknown> = {};
         if (f.name) body.name = f.name;
         if (f.scopes) body.scopes = f.scopes.split(",").map((s) => s.trim());
 
         const res = await client.api["api-keys"][":id"].$patch({
           param: { id: f.id },
-          json: body as any,
+          json: body as Record<string, unknown>,
         });
         if (!res.ok) {
           const data = await res.json().catch(() => null);

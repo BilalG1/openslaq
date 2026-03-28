@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { ResizeHandle } from "./ResizeHandle";
 import { UpdateBanner } from "../update/UpdateBanner";
@@ -36,6 +36,7 @@ import { usePinnedMessages } from "../../hooks/chat/usePinnedMessages";
 import { useChannelPopovers } from "../../hooks/chat/useChannelPopovers";
 import { useFileDragOverlay } from "../../hooks/useFileDragOverlay";
 import { useWorkspaceMembers } from "../../hooks/chat/useWorkspaceMembers";
+import { ComposeView } from "../compose/ComposeView";
 import { useChatSelectors, useChatStore } from "../../state/chat-store";
 import { PinnedMessagesPopover } from "../channel/PinnedMessagesPopover";
 import { ShareMessageDialog } from "../message/ShareMessageDialog";
@@ -47,11 +48,12 @@ import { ChannelFilesPopover } from "../channel/ChannelFilesPopover";
 import { BookmarksBar } from "../channel/BookmarksBar";
 import { AddBookmarkDialog } from "../channel/AddBookmarkDialog";
 import { ScheduledMessagesBanner } from "../message/ScheduledMessagesBanner";
+import { ConnectionBanner } from "./ConnectionBanner";
 import { useSavedMessageIds } from "../../hooks/chat/useSavedMessages";
 import { useSlashCommands } from "../../hooks/chat/useSlashCommands";
-import { X, Upload } from "lucide-react";
+import { X, Upload, Building2 } from "lucide-react";
 import type { SearchResultItem } from "@openslaq/shared";
-import { LoadingState, ErrorState } from "../ui";
+import { LoadingState, EmptyState, Button } from "../ui";
 
 export function AppLayout() {
   const user = useCurrentUser();
@@ -63,8 +65,8 @@ export function AppLayout() {
   const slug = workspaceSlug ?? "";
   const { state, dispatch } = useChatStore();
   const { activeChannel, activeDm, activeGroupDm, currentChannelId } = useChatSelectors();
-  const { createDm, createGroupDm } = useDmActions(user, workspaceSlug);
-  const { workspaceMembers } = useWorkspaceMembers(workspaceSlug);
+  const { createDm } = useDmActions(user, workspaceSlug);
+  const { workspaceMembers, refresh: refreshMembers } = useWorkspaceMembers(workspaceSlug);
   const channelActions = useChannelActions(workspaceSlug);
   const messageActions = useMessageActions(workspaceSlug);
   const pins = usePinnedMessages(workspaceSlug);
@@ -108,7 +110,9 @@ export function AppLayout() {
 
   const activeTypingChannelId = activeChannel?.id ?? activeDm?.channel.id ?? activeGroupDm?.channel.id;
   const { emitTyping } = useTypingEmitter(activeTypingChannelId);
-  const typingUsers = useTypingTracking(activeTypingChannelId, user?.id, workspaceMembers);
+  const typingUsers = useTypingTracking(activeTypingChannelId, user?.id, workspaceMembers, {
+    onUnknownUser: refreshMembers,
+  });
 
   const leftResize = useResizable({
     side: "right",
@@ -158,13 +162,6 @@ export function AppLayout() {
     [dispatch],
   );
 
-  const handleStartGroupDm = useCallback(
-    async (memberIds: string[]) => {
-      await createGroupDm(memberIds);
-    },
-    [createGroupDm],
-  );
-
   const handleOpenThread = useCallback(
     (messageId: string) => {
       dispatch({ type: "workspace/openThread", messageId });
@@ -195,13 +192,6 @@ export function AppLayout() {
     [createDm, dispatch],
   );
 
-  const handleStartDm = useCallback(
-    async (targetUserId: string) => {
-      await createDm(targetUserId);
-    },
-    [createDm],
-  );
-
   const handleSelectUnreadsView = useCallback(() => {
     dispatch({ type: "workspace/selectUnreadsView" });
   }, [dispatch]);
@@ -216,6 +206,10 @@ export function AppLayout() {
 
   const handleSelectFilesView = useCallback(() => {
     dispatch({ type: "workspace/selectFilesView" });
+  }, [dispatch]);
+
+  const handleSelectComposeView = useCallback(() => {
+    dispatch({ type: "workspace/selectComposeView" });
   }, [dispatch]);
 
   const handleNavigateToMessage = useCallback(
@@ -239,8 +233,10 @@ export function AppLayout() {
       dispatch({
         type: "navigation/setScrollTarget",
         scrollTarget: {
+          channelId: result.channelId,
           messageId: targetMessageId,
           highlightMessageId: targetMessageId,
+          parentMessageId: result.parentMessageId ?? null,
         },
       });
     },
@@ -269,7 +265,7 @@ export function AppLayout() {
     <div className="flex flex-col h-screen">
       <UpdateBanner />
       <div className="flex flex-1 min-h-0">
-      {sidebarVisible && (
+      {sidebarVisible && !state.ui.bootstrapLoading && !state.ui.bootstrapError && (
         <>
           <Sidebar
             activeChannelId={state.activeChannelId}
@@ -281,9 +277,7 @@ export function AppLayout() {
             groupDms={state.groupDms}
             activeGroupDmId={state.activeGroupDmId}
             onSelectGroupDm={handleSelectGroupDm}
-            onStartGroupDm={handleStartGroupDm}
             currentUserId={currentUserId}
-            onStartDm={handleStartDm}
             workspaceSlug={slug}
             workspaces={state.workspaces}
             unreadCounts={state.unreadCounts}
@@ -299,6 +293,7 @@ export function AppLayout() {
             onSelectSavedView={handleSelectSavedView}
             onSelectOutboxView={handleSelectOutboxView}
             onSelectFilesView={handleSelectFilesView}
+            onSelectComposeView={handleSelectComposeView}
             style={{ width: leftResize.width }}
           />
           <ResizeHandle
@@ -310,10 +305,21 @@ export function AppLayout() {
       )}
 
       <div ref={mainContentRef} className="flex-1 min-w-0 flex flex-col bg-surface relative" data-testid="main-content">
+        <ConnectionBanner />
         {state.ui.bootstrapLoading ? (
           <LoadingState label="Loading workspace..." className="flex-1" />
         ) : state.ui.bootstrapError ? (
-          <ErrorState message={state.ui.bootstrapError} className="flex-1" />
+          <EmptyState
+            icon={<Building2 className="w-full h-full" strokeWidth={1.5} />}
+            title={state.ui.bootstrapError}
+            subtitle={state.ui.bootstrapError.toLowerCase().includes("not found") ? "This workspace may not exist, or you may not have access to it." : undefined}
+            action={
+              <Button asChild>
+                <Link to="/">Go to workspaces</Link>
+              </Button>
+            }
+            className="flex-1"
+          />
         ) : state.activeView === "unreads" ? (
           <AllUnreadsView
             workspaceSlug={slug}
@@ -323,7 +329,12 @@ export function AppLayout() {
               if (messageId) {
                 dispatch({
                   type: "navigation/setScrollTarget",
-                  scrollTarget: { messageId, highlightMessageId: messageId },
+                  scrollTarget: {
+                    channelId,
+                    messageId,
+                    highlightMessageId: messageId,
+                    parentMessageId: null,
+                  },
                 });
               }
             }}
@@ -339,7 +350,12 @@ export function AppLayout() {
               if (messageId) {
                 dispatch({
                   type: "navigation/setScrollTarget",
-                  scrollTarget: { messageId, highlightMessageId: messageId },
+                  scrollTarget: {
+                    channelId,
+                    messageId,
+                    highlightMessageId: messageId,
+                    parentMessageId: null,
+                  },
                 });
               }
             }}
@@ -355,7 +371,12 @@ export function AppLayout() {
               if (messageId) {
                 dispatch({
                   type: "navigation/setScrollTarget",
-                  scrollTarget: { messageId, highlightMessageId: messageId },
+                  scrollTarget: {
+                    channelId,
+                    messageId,
+                    highlightMessageId: messageId,
+                    parentMessageId: null,
+                  },
                 });
               }
             }}
@@ -369,10 +390,26 @@ export function AppLayout() {
               if (messageId) {
                 dispatch({
                   type: "navigation/setScrollTarget",
-                  scrollTarget: { messageId, highlightMessageId: messageId },
+                  scrollTarget: {
+                    channelId,
+                    messageId,
+                    highlightMessageId: messageId,
+                    parentMessageId: null,
+                  },
                 });
               }
             }}
+          />
+        ) : state.activeView === "compose" ? (
+          <ComposeView
+            workspaceSlug={slug}
+            currentUserId={currentUserId}
+            channels={state.channels}
+            presence={state.presence}
+            workspaceMembers={workspaceMembers}
+            onSelectChannel={handleSelectChannel}
+            onOpenThread={handleOpenThread}
+            onOpenProfile={handleOpenProfile}
           />
         ) : activeChannel ? (
           <>
@@ -406,6 +443,7 @@ export function AppLayout() {
               onUnarchive={channelActions.unarchiveChannel}
               onAddBookmark={popovers.openAddBookmark}
               hasBookmarks={(state.channelBookmarks[activeChannel.id] ?? []).length > 0}
+              onLeaveChannel={channelActions.leaveChannel}
             />
             <BookmarksBar
               bookmarks={state.channelBookmarks[activeChannel.id] ?? []}
@@ -476,6 +514,7 @@ export function AppLayout() {
               ref={messageInputRef}
               channelId={activeDm.channel.id}
               channelName={activeDm.otherUser.displayName}
+              isDm
               externalDragDrop
               onTyping={emitTyping}
               slashCommands={slashCmds.commands}
@@ -500,6 +539,7 @@ export function AppLayout() {
               ref={messageInputRef}
               channelId={activeGroupDm.channel.id}
               channelName={activeGroupDm.channel.displayName ?? "Group DM"}
+              isDm
               externalDragDrop
               onTyping={emitTyping}
               slashCommands={slashCmds.commands}

@@ -14,6 +14,7 @@ export type BotScope =
   | "users:read"
   | "presence:read"
   | "channels:members:read"
+  | "channels:join"
   | "channels:members:write"
   | "commands:write";
 

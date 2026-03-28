@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   ActivityIndicator,
@@ -10,7 +10,8 @@ import {
   StyleSheet,
 } from "react-native";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import type { Message, ChannelId, MobileTheme } from "@openslaq/shared";
+import type { Message, ChannelId, UserId, MobileTheme } from "@openslaq/shared";
+import { asChannelId, asUserId, asMessageId } from "@openslaq/shared";
 import {
   loadChannelMessages,
   loadOlderMessages,
@@ -34,6 +35,8 @@ import { useTypingTracking } from "@/hooks/useTypingTracking";
 import { useChannelSocketEvents } from "@/hooks/useChannelSocketEvents";
 import { useFileUpload, type PendingFile } from "@/hooks/useFileUpload";
 import { ChannelMessageList } from "@/components/ChannelMessageList";
+import type { ChannelMessageListRef } from "@/components/ChannelMessageList";
+import type { MessageInputRef } from "@/components/MessageInput";
 import { MessageInput } from "@/components/MessageInput";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { MessageActionSheet } from "@/components/MessageActionSheet";
@@ -43,6 +46,7 @@ import { HuddleHeaderButton } from "@/components/huddle/HuddleHeaderButton";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { ChevronLeft } from "lucide-react-native";
+import { ReactionDetailsSheet } from "@/components/ReactionDetailsSheet";
 import { routes } from "@/lib/routes";
 import {
   ChannelModalsProvider,
@@ -67,12 +71,16 @@ function DmScreenInner() {
   const { state, dispatch } = useChatStore();
   const deps = useOperationDeps();
   const workspaceSlug = state.workspaceSlug ?? urlSlug;
-  const { joinChannel, leaveChannel } = useChannelSocketEvents(dmChannelId);
+  const dmChannelIdBranded = dmChannelId ? asChannelId(dmChannelId) : undefined;
+  const currentUserId = user?.id ? asUserId(user.id) : undefined;
+  const { joinChannel, leaveChannel } = useChannelSocketEvents(dmChannelIdBranded);
   const navigation = useNavigation();
   const router = useRouter();
   const { theme } = useMobileTheme();
   const insets = useSafeAreaInsets();
-  const { handleEditMessage, handleDeleteMessage, handleToggleReaction } = useMessageActions(user?.id);
+  const { handleEditMessage, handleDeleteMessage, handleToggleReaction } = useMessageActions(currentUserId);
+  const messageListRef = useRef<ChannelMessageListRef>(null);
+  const messageInputRef = useRef<MessageInputRef>(null);
   const styles = makeStyles(theme);
 
   const modalsState = useChannelModalsState();
@@ -80,8 +88,8 @@ function DmScreenInner() {
 
   const [members, setMembers] = useState<MentionSuggestionItem[]>([]);
 
-  const { emitTyping } = useTypingEmitter(dmChannelId);
-  const typingUsers = useTypingTracking(dmChannelId, user?.id, members);
+  const { emitTyping } = useTypingEmitter(dmChannelIdBranded);
+  const typingUsers = useTypingTracking(dmChannelIdBranded, currentUserId, members as { id: UserId; displayName: string }[]);
   const fileUpload = useFileUpload();
 
   const customEmojis = state.customEmojis;
@@ -186,7 +194,7 @@ function DmScreenInner() {
     if (!pagination?.hasOlder || pagination.loadingOlder || !pagination.olderCursor) return;
     if (!workspaceSlug || !dmChannelId) return;
     void loadOlderMessages(deps, { workspaceSlug, channelId: dmChannelId, cursor: pagination.olderCursor });
-  }, [authProvider, dmChannelId, dispatch, pagination, state, workspaceSlug]);
+  }, [authProvider, dmChannelId, dispatch, pagination, workspaceSlug]);
 
   const handlePressThread = useCallback(
     (messageId: string) => {
@@ -214,10 +222,10 @@ function DmScreenInner() {
       };
       fileUpload.addFile(file);
       const attachmentIds = await fileUpload.uploadAll(() => authProvider.requireAccessToken());
-      await coreSendMessage(deps, { channelId: dmChannelId, workspaceSlug, content: "", attachmentIds });
+      await coreSendMessage(deps, { channelId: dmChannelId, workspaceSlug, content: "", attachmentIds, userId: user?.id });
       fileUpload.reset();
     },
-    [authProvider, dmChannelId, dispatch, fileUpload, state, workspaceSlug],
+    [authProvider, dmChannelId, dispatch, fileUpload, workspaceSlug],
   );
 
   const handleAddAttachment = useCallback(() => {
@@ -229,9 +237,12 @@ function DmScreenInner() {
     ]);
   }, [fileUpload]);
 
-  // Ensure the DM channel exists in the database
+  // Ensure the DM channel exists in the database (only once per target user)
+  const ensuredDmUserRef = useRef<string | null>(null);
   useEffect(() => {
     if (!workspaceSlug || !dm?.otherUser?.id) return;
+    if (ensuredDmUserRef.current === dm.otherUser.id) return;
+    ensuredDmUserRef.current = dm.otherUser.id;
     void createDm(deps, { workspaceSlug, targetUserId: dm.otherUser.id });
   }, [workspaceSlug, dm?.otherUser?.id]);
 
@@ -247,7 +258,11 @@ function DmScreenInner() {
         workspaceSlug,
         content,
         attachmentIds,
+        userId: user?.id,
       });
+      if (ok) {
+        messageListRef.current?.scrollToBottom();
+      }
       if (!ok) {
         Alert.alert("Error", "Failed to send message. Please try again.");
         return false;
@@ -255,7 +270,7 @@ function DmScreenInner() {
       fileUpload.reset();
       return true;
     },
-    [authProvider, dmChannelId, dispatch, fileUpload, state, workspaceSlug],
+    [authProvider, dmChannelId, dispatch, fileUpload, workspaceSlug],
   );
 
   const handleStartEdit = useCallback((message: Message) => {
@@ -268,14 +283,27 @@ function DmScreenInner() {
 
   const handleSaveEdit = useCallback(
     async (messageId: string, content: string) => {
-      await handleEditMessage(messageId, content);
+      await handleEditMessage(asMessageId(messageId), content);
       modalsDispatch({ type: "setEditingMessage", message: null });
     },
     [handleEditMessage, modalsDispatch],
   );
 
   const handleLongPress = useCallback((message: Message) => {
+    messageInputRef.current?.dismissKeyboard();
     modalsDispatch({ type: "showActionSheet", message });
+  }, [modalsDispatch]);
+
+  const handleAddReaction = useCallback((message: Message) => {
+    messageInputRef.current?.dismissKeyboard();
+    modalsDispatch({ type: "showEmojiPicker", messageId: message.id });
+  }, [modalsDispatch]);
+
+  const handleLongPressReaction = useCallback((message: Message, emoji: string) => {
+    messageInputRef.current?.dismissKeyboard();
+    const reaction = message.reactions?.find((r) => r.emoji === emoji);
+    if (!reaction) return;
+    modalsDispatch({ type: "showReactionDetails", emoji, userIds: reaction.userIds, messageId: message.id });
   }, [modalsDispatch]);
 
   const handleOpenEmojiPicker = useCallback(() => {
@@ -300,7 +328,7 @@ function DmScreenInner() {
       if (!workspaceSlug || !dmChannelId) return;
       await saveMessageOp(deps, { workspaceSlug, channelId: dmChannelId, messageId });
     },
-    [authProvider, dmChannelId, dispatch, state, workspaceSlug],
+    [authProvider, dmChannelId, dispatch, workspaceSlug],
   );
 
   const handleUnsaveMessage = useCallback(
@@ -308,7 +336,7 @@ function DmScreenInner() {
       if (!workspaceSlug || !dmChannelId) return;
       await unsaveMessageOp(deps, { workspaceSlug, channelId: dmChannelId, messageId });
     },
-    [authProvider, dmChannelId, dispatch, state, workspaceSlug],
+    [authProvider, dmChannelId, dispatch, workspaceSlug],
   );
 
   const handleCopyText = useCallback(
@@ -321,7 +349,7 @@ function DmScreenInner() {
 
   const handleCopyLink = useCallback(
     (message: Message) => {
-      const link = `openslaq://${workspaceSlug}/c/${dmChannelId}/p/${message.id}`;
+      const link = routes.messageDeepLink(workspaceSlug!, dmChannelId!, message.id);
       void Clipboard.setStringAsync(link);
       Alert.alert("Copied", "Message link copied to clipboard");
     },
@@ -333,7 +361,7 @@ function DmScreenInner() {
       if (!workspaceSlug || !dmChannelId) return;
       await markChannelAsUnread(deps, { workspaceSlug, channelId: dmChannelId, messageId });
     },
-    [authProvider, dmChannelId, dispatch, state, workspaceSlug],
+    [authProvider, dmChannelId, dispatch, workspaceSlug],
   );
 
   const handleShareMessage = useCallback((message: Message) => {
@@ -361,7 +389,7 @@ function DmScreenInner() {
         Alert.alert("Error", "Failed to schedule message.");
       }
     },
-    [authProvider, dmChannelId, dispatch, fileUpload, state, workspaceSlug],
+    [authProvider, dmChannelId, dispatch, fileUpload, workspaceSlug],
   );
 
   const handleConfirmShare = useCallback(
@@ -380,7 +408,7 @@ function DmScreenInner() {
       }
       modalsDispatch({ type: "closeShareMessage" });
     },
-    [authProvider, dispatch, modalsDispatch, modalsState.shareMessage, state, workspaceSlug],
+    [authProvider, dispatch, modalsDispatch, modalsState.shareMessage, workspaceSlug],
   );
 
   return (
@@ -395,23 +423,30 @@ function DmScreenInner() {
         </View>
       ) : (
         <ChannelMessageList
-          channelId={dmChannelId}
+          ref={messageListRef}
+          channelId={dmChannelIdBranded!}
           messages={messages}
           customEmojis={customEmojis}
-          currentUserId={user?.id}
+          currentUserId={currentUserId}
           ephemeralMessages={modalsState.ephemeralMessages}
           scrollTarget={scrollTarget}
           isLoading={isLoading ?? false}
           pagination={pagination}
           onPressThread={handlePressThread}
           onPressSender={handlePressSender}
-          onToggleReaction={handleToggleReaction}
+          onToggleReaction={(messageId, emoji) => {
+            handleToggleReaction(messageId, emoji);
+            messageListRef.current?.scrollToBottom();
+          }}
           onLongPress={handleLongPress}
+          onAddReaction={handleAddReaction}
+          onLongPressReaction={handleLongPressReaction}
           onLoadOlder={handleLoadOlder}
         />
       )}
       <TypingIndicator typingUsers={typingUsers} />
       <MessageInput
+        ref={messageInputRef}
         onSend={handleSend}
         placeholder={`Message ${displayName}`}
         draftKey={dmChannelId}
@@ -431,7 +466,7 @@ function DmScreenInner() {
         <MessageActionSheet
           visible
           message={modalsState.actionSheetMessage}
-          currentUserId={user?.id}
+          currentUserId={currentUserId}
           isSaved={state.savedMessageIds.includes(modalsState.actionSheetMessage.id)}
           onReaction={handleToggleReaction}
           onOpenEmojiPicker={handleOpenEmojiPicker}
@@ -455,6 +490,15 @@ function DmScreenInner() {
           customEmojis={customEmojis}
         />
       )}
+      {modalsState.reactionDetails && (
+        <ReactionDetailsSheet
+          visible
+          emoji={modalsState.reactionDetails.emoji}
+          userIds={modalsState.reactionDetails.userIds}
+          members={members as { id: import("@openslaq/shared").UserId; displayName: string }[]}
+          onClose={() => modalsDispatch({ type: "closeReactionDetails" })}
+        />
+      )}
       {modalsState.shareMessage && (
         <ShareMessageModal
           visible
@@ -470,12 +514,6 @@ function DmScreenInner() {
   );
 }
 
-const staticStyles = StyleSheet.create({
-  flexOne: {
-    flex: 1,
-  },
-});
-
 const makeStyles = (theme: MobileTheme) =>
   StyleSheet.create({
     flexSurface: {
@@ -486,15 +524,6 @@ const makeStyles = (theme: MobileTheme) =>
       flex: 1,
       alignItems: "center",
       justifyContent: "center",
-    },
-    emptyContainer: {
-      flex: 1,
-      alignItems: "center",
-      justifyContent: "center",
-      paddingVertical: 48,
-    },
-    emptyText: {
-      color: theme.colors.textFaint,
     },
     backButton: {
       marginRight: 4,

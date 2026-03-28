@@ -1,7 +1,10 @@
 {
   "name": "openslaq",
   "private": true,
-  "workspaces": ["packages/*", "apps/*"],
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
     "dev": "bun run --filter '!@openslaq/desktop' --filter '!@openslaq/mobile' --filter '!@openslaq/cli' --filter '!@openslaq/docs' dev",
     "dev:desktop": "bun run --filter @openslaq/api dev & bun run --filter @openslaq/desktop dev",
@@ -13,14 +16,15 @@
     "pretypecheck": "bun run scripts/pretypecheck.ts",
     "typecheck": "bun run pretypecheck && bun run --filter '*' typecheck",
     "check": "bun run lint && bun run typecheck",
-    "test:core": "bun test packages/client-core",
-    "test:web": "bun test --preload ./apps/web/src/test-preload.ts apps/web/src",
+    "test:core": "cd packages/client-core && bun test",
+    "test:web": "vitest run --config apps/web/vitest.config.ts",
     "test:web:e2e": "bun run --filter @openslaq/web-e2e test",
     "test:api": "bun run --filter @openslaq/api-e2e test",
     "test:huddle": "bun run --filter @openslaq/huddle test",
     "test:sdk": "bun run --filter openslaq test",
     "test:cli": "bun run --filter @openslaq/cli test",
     "test:mobile": "bun run --filter @openslaq/mobile test",
+    "test:all": "bun run lint && bun run typecheck && bun run test:core && bun run test:web && bun run test:api && bun run test:mobile && bun run test:cli && bun run test:sdk",
     "test:mobile:e2e": "bun run --filter @openslaq/mobile e2e:test",
     "release:desktop": "export TAURI_SIGNING_PRIVATE_KEY=\"$(cat ~/.tauri/openslaq.key)\" && bash scripts/release-desktop.sh",
     "deploy:api": "bash scripts/deploy.sh api",
@@ -32,18 +36,25 @@
     "loc": "bash scripts/loc.sh",
     "coverage:mobile": "bun run --filter @openslaq/mobile test:coverage",
     "coverage:api": "bun run --filter @openslaq/api-e2e test --coverage --coverage-reporter=lcov --coverage-reporter=text && awk 'BEGIN{in_api=0;lf=lh=fnf=fnh=0} /^SF:/{in_api=($0 ~ /\\.\\.\\/api\\/src\\//)} in_api && /^LF:/{lf+=substr($0,4)} in_api && /^LH:/{lh+=substr($0,4)} in_api && /^FNF:/{fnf+=substr($0,5)} in_api && /^FNH:/{fnh+=substr($0,5)} END{printf(\"apps/api line coverage: %.2f%% (%d/%d)\\n\", (lf?100*lh/lf:0), lh, lf); printf(\"apps/api function coverage: %.2f%% (%d/%d)\\n\", (fnf?100*fnh/fnf:0), fnh, fnf)}' apps/api-e2e/coverage/lcov.info && echo 'Top 5 files by missing covered lines (apps/api/src):' && awk 'BEGIN{in_api=0;f=\"\";lines=\"\"} function flush(){if(in_api && f!=\"\") print miss+0 \"\\t\" f \"\\t\" lines} /^SF:/{flush(); f=substr($0,4); in_api=(f ~ /\\.\\.\\/api\\/src\\//); miss=0; lines=\"\"} in_api && /^DA:/{split(substr($0,4), a, \",\"); if (a[2]==0) {miss++; lines = lines (lines==\"\" ? \"\" : \",\") a[1]}} END{flush()}' apps/api-e2e/coverage/lcov.info | sort -nr | head -5 | awk -F '\\t' '{printf(\"%s missing lines | %s | lines: %s\\n\", $1, $2, ($3==\"\" ? \"none\" : $3))}'",
-    "coverage:web": "bun test --preload ./apps/web/src/test-preload.ts --coverage --coverage-reporter=lcov --coverage-reporter=text apps/web/src && awk 'BEGIN{in_web=0;lf=lh=fnf=fnh=0} /^SF:/{in_web=($0 ~ /web\\/src\\//)} in_web && /^LF:/{lf+=substr($0,4)} in_web && /^LH:/{lh+=substr($0,4)} in_web && /^FNF:/{fnf+=substr($0,5)} in_web && /^FNH:/{fnh+=substr($0,5)} END{printf(\"apps/web line coverage: %.2f%% (%d/%d)\\n\", (lf?100*lh/lf:0), lh, lf); printf(\"apps/web function coverage: %.2f%% (%d/%d)\\n\", (fnf?100*fnh/fnf:0), fnh, fnf)}' coverage/lcov.info && echo 'Top 5 files by missing covered lines (apps/web/src):' && awk 'BEGIN{in_web=0;f=\"\";lines=\"\"} function flush(){if(in_web && f!=\"\") print miss+0 \"\\t\" f \"\\t\" lines} /^SF:/{flush(); f=substr($0,4); in_web=(f ~ /web\\/src\\//); miss=0; lines=\"\"} in_web && /^DA:/{split(substr($0,4), a, \",\"); if (a[2]==0) {miss++; lines = lines (lines==\"\" ? \"\" : \",\") a[1]}} END{flush()}' coverage/lcov.info | sort -nr | head -5 | awk -F '\\t' '{printf(\"%s missing lines | %s | lines: %s\\n\", $1, $2, ($3==\"\" ? \"none\" : $3))}'",
-    "coverage:web:e2e": "rm -rf apps/web-e2e/coverage-raw apps/web-e2e/coverage && CI=true VITE_COVERAGE=true bun run --filter @openslaq/web-e2e test && cd apps/web-e2e && bun x nyc report --temp-dir $PWD/coverage-raw --report-dir $PWD/coverage --cwd ../.. --reporter lcov --reporter text && cd ../.. && awk 'BEGIN{lf=lh=fnf=fnh=0} /^SF:/{in_web=($0 ~ /web\\/src\\//)} in_web && /^LF:/{lf+=substr($0,4)} in_web && /^LH:/{lh+=substr($0,4)} in_web && /^FNF:/{fnf+=substr($0,5)} in_web && /^FNH:/{fnh+=substr($0,5)} END{printf(\"apps/web line coverage: %.2f%% (%d/%d)\\n\", (lf?100*lh/lf:0), lh, lf); printf(\"apps/web function coverage: %.2f%% (%d/%d)\\n\", (fnf?100*fnh/fnf:0), fnh, fnf)}' apps/web-e2e/coverage/lcov.info && echo 'Top 5 files by missing covered lines (apps/web/src):' && awk 'BEGIN{f=\"\";lines=\"\"} function flush(){if(in_web && f!=\"\") print miss+0 \"\\t\" f \"\\t\" lines} /^SF:/{flush(); f=substr($0,4); in_web=(f ~ /web\\/src\\//); miss=0; lines=\"\"} in_web && /^DA:/{split(substr($0,4), a, \",\"); if (a[2]==0) {miss++; lines = lines (lines==\"\" ? \"\" : \",\") a[1]}} END{flush()}' apps/web-e2e/coverage/lcov.info | sort -nr | head -5 | awk -F '\\t' '{printf(\"%s missing lines | %s | lines: %s\\n\", $1, $2, ($3==\"\" ? \"none\" : $3))}'"
+    "coverage:web": "vitest run --config apps/web/vitest.config.ts --coverage --coverage.reporter=lcov --coverage.reporter=text && awk 'BEGIN{in_web=0;lf=lh=fnf=fnh=0} /^SF:/{in_web=($0 ~ /web\\/src\\//)} in_web && /^LF:/{lf+=substr($0,4)} in_web && /^LH:/{lh+=substr($0,4)} in_web && /^FNF:/{fnf+=substr($0,5)} in_web && /^FNH:/{fnh+=substr($0,5)} END{printf(\"apps/web line coverage: %.2f%% (%d/%d)\\n\", (lf?100*lh/lf:0), lh, lf); printf(\"apps/web function coverage: %.2f%% (%d/%d)\\n\", (fnf?100*fnh/fnf:0), fnh, fnf)}' coverage/lcov.info && echo 'Top 5 files by missing covered lines (apps/web/src):' && awk 'BEGIN{in_web=0;f=\"\";lines=\"\"} function flush(){if(in_web && f!=\"\") print miss+0 \"\\t\" f \"\\t\" lines} /^SF:/{flush(); f=substr($0,4); in_web=(f ~ /web\\/src\\//); miss=0; lines=\"\"} in_web && /^DA:/{split(substr($0,4), a, \",\"); if (a[2]==0) {miss++; lines = lines (lines==\"\" ? \"\" : \",\") a[1]}} END{flush()}' coverage/lcov.info | sort -nr | head -5 | awk -F '\\t' '{printf(\"%s missing lines | %s | lines: %s\\n\", $1, $2, ($3==\"\" ? \"none\" : $3))}'",
+    "coverage:web:e2e": "rm -rf apps/web-e2e/coverage-raw apps/web-e2e/coverage && CI=true VITE_COVERAGE=true bun run --filter @openslaq/web-e2e test && cd apps/web-e2e && bun x nyc report --temp-dir $PWD/coverage-raw --report-dir $PWD/coverage --cwd ../.. --reporter lcov --reporter text && cd ../.. && awk 'BEGIN{lf=lh=fnf=fnh=0} /^SF:/{in_web=($0 ~ /web\\/src\\//)} in_web && /^LF:/{lf+=substr($0,4)} in_web && /^LH:/{lh+=substr($0,4)} in_web && /^FNF:/{fnf+=substr($0,5)} in_web && /^FNH:/{fnh+=substr($0,5)} END{printf(\"apps/web line coverage: %.2f%% (%d/%d)\\n\", (lf?100*lh/lf:0), lh, lf); printf(\"apps/web function coverage: %.2f%% (%d/%d)\\n\", (fnf?100*fnh/fnf:0), fnh, fnf)}' apps/web-e2e/coverage/lcov.info && echo 'Top 5 files by missing covered lines (apps/web/src):' && awk 'BEGIN{f=\"\";lines=\"\"} function flush(){if(in_web && f!=\"\") print miss+0 \"\\t\" f \"\\t\" lines} /^SF:/{flush(); f=substr($0,4); in_web=(f ~ /web\\/src\\//); miss=0; lines=\"\"} in_web && /^DA:/{split(substr($0,4), a, \",\"); if (a[2]==0) {miss++; lines = lines (lines==\"\" ? \"\" : \",\") a[1]}} END{flush()}' apps/web-e2e/coverage/lcov.info | sort -nr | head -5 | awk -F '\\t' '{printf(\"%s missing lines | %s | lines: %s\\n\", $1, $2, ($3==\"\" ? \"none\" : $3))}'",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "overrides": {
     "@types/react": "^19.0.0"
   },
   "devDependencies": {
     "@typescript/native-preview": "^7.0.0-dev.20260218.1",
+    "fast-check": "^4.6.0",
     "oxlint": "^0.16.6",
     "typescript": "^5.7.3"
   },
   "dependencies": {
-    "expo-file-system": "~19.0.21"
-  }
+    "expo-file-system": "~19.0.21",
+    "expo": "~54.0.33",
+    "react": "19.1.0",
+    "react-native": "0.81.5"
+  },
+  "version": "1.0.0"
 }

@@ -10,6 +10,7 @@ import type { EphemeralMessage } from "./slash-command";
 
 export interface SocketData {
   userId: UserId;
+  isBot?: boolean;
 }
 
 // Client → Server events
@@ -17,6 +18,7 @@ export interface ClientToServerEvents {
   "channel:join": (payload: { channelId: ChannelId }) => void;
   "channel:leave": (payload: { channelId: ChannelId }) => void;
   "message:typing": (payload: { channelId: ChannelId }) => void;
+  "presence:heartbeat": () => void;
 }
 
 // Server → Client events
@@ -67,6 +69,7 @@ export interface ServerToClientEvents {
   "huddle:updated": (huddle: HuddleState) => void;
   "huddle:ended": (payload: { channelId: ChannelId }) => void;
   "huddle:sync": (payload: { huddles: HuddleState[] }) => void;
+  "channel:created": (payload: { channel: Channel }) => void;
   "channel:updated": (payload: { channelId: ChannelId; channel: Channel }) => void;
   "channel:member-added": (payload: { channelId: ChannelId; userId: UserId }) => void;
   "channel:member-removed": (payload: { channelId: ChannelId; userId: UserId }) => void;
@@ -82,4 +85,9 @@ export interface ServerToClientEvents {
   "bookmark:added": (payload: { bookmark: ChannelBookmark }) => void;
   "bookmark:removed": (payload: { channelId: ChannelId; bookmarkId: BookmarkId }) => void;
   "command:ephemeral": (payload: EphemeralMessage) => void;
+  "user:profileUpdated": (payload: {
+    userId: UserId;
+    displayName: string;
+    avatarUrl: string | null;
+  }) => void;
 }

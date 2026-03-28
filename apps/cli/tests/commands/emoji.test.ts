@@ -57,7 +57,7 @@ describe("emoji command (integration)", () => {
       param: { slug },
     });
     expect(res.status).toBe(200);
-    const data = (await res.json()) as { emojis: any[] };
+    const data = (await res.json()) as { emojis: unknown[] };
     expect(data.emojis).toHaveLength(0);
   });
 
@@ -75,7 +75,7 @@ describe("emoji command (integration)", () => {
       body: formData,
     });
     expect(res.status).toBe(201);
-    const data = (await res.json()) as { emoji: any };
+    const data = (await res.json()) as { emoji: { name: string; url: string } };
     expect(data.emoji.name).toBe(name);
     expect(data.emoji.url).toBeTruthy();
   });

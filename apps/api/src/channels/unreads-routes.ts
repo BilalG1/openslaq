@@ -7,6 +7,8 @@ import { markAllChannelsAsRead } from "./read-positions-service";
 import { jsonResponse, jsonOk } from "../openapi/responses";
 import { okSchema } from "../openapi/schemas";
 import type { UserId, WorkspaceId } from "@openslaq/shared";
+import { BEARER_SECURITY, jsonContent } from "../lib/openapi-helpers";
+import { getWorkspaceMemberContext } from "../lib/context";
 
 const allUnreadsResponseSchema = z.object({
   channels: z.array(z.object({
@@ -23,13 +25,10 @@ const getAllUnreadsRoute = createRoute({
   path: "/",
   tags: ["Channels"],
   summary: "Get all unread messages across channels",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlRead] as const,
   responses: {
-    200: {
-      content: { "application/json": { schema: allUnreadsResponseSchema } },
-      description: "All unread messages grouped by channel",
-    },
+    200: jsonContent(allUnreadsResponseSchema, "All unread messages grouped by channel"),
   },
 });
 
@@ -38,26 +37,21 @@ const markAllReadRoute = createRoute({
   path: "/mark-all-read",
   tags: ["Channels"],
   summary: "Mark all channels as read",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlMarkAsRead] as const,
   responses: {
-    200: {
-      content: { "application/json": { schema: okSchema } },
-      description: "All channels marked as read",
-    },
+    200: jsonContent(okSchema, "All channels marked as read"),
   },
 });
 
 const app = new OpenAPIHono<WorkspaceMemberEnv>()
   .openapi(getAllUnreadsRoute, async (c) => {
-    const user = c.get("user");
-    const workspace = c.get("workspace");
+    const { user, workspace } = getWorkspaceMemberContext(c);
     const result = await getAllUnreads(user.id as UserId, workspace.id as WorkspaceId);
     return jsonResponse(c, result, 200);
   })
   .openapi(markAllReadRoute, async (c) => {
-    const user = c.get("user");
-    const workspace = c.get("workspace");
+    const { user, workspace } = getWorkspaceMemberContext(c);
     await markAllChannelsAsRead(user.id as UserId, workspace.id as WorkspaceId);
     return jsonOk(c);
   });

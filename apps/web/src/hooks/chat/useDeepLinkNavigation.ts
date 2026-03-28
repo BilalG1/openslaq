@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { useChatStore } from "../../state/chat-store";
 import {
   consumePendingIntent,
@@ -46,6 +46,11 @@ function applyIntent(
   navigate: ReturnType<typeof useNavigate>,
 ) {
   if (intent.type === "open") return;
+
+  if (intent.type === "invite") {
+    navigate(`/invite/${intent.code}`);
+    return;
+  }
 
   // Different workspace — navigate via URL and let bootstrap handle it
   if (intent.workspaceSlug !== currentSlug) {

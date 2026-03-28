@@ -1,8 +1,8 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import type { Attachment } from "@openslaq/shared";
-import { env } from "@/lib/env";
+import { useServer } from "@/contexts/ServerContext";
 
 export interface PendingFile {
   id: string;
@@ -32,9 +32,13 @@ function genId(): string {
 }
 
 export function useFileUpload(): UseFileUploadReturn {
+  const { apiUrl } = useServer();
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const pendingFilesRef = useRef(pendingFiles);
+  pendingFilesRef.current = pendingFiles;
+  const uploadingRef = useRef(false);
 
   const addFromImagePicker = useCallback(async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -66,7 +70,7 @@ export function useFileUpload(): UseFileUploadReturn {
     });
     if (result.canceled) return;
 
-    const asset = result.assets[0];
+    const asset = result.assets[0]!;
     const file: PendingFile = {
       id: genId(),
       uri: asset.uri,
@@ -107,15 +111,17 @@ export function useFileUpload(): UseFileUploadReturn {
 
   const uploadAll = useCallback(
     async (getToken: () => Promise<string>): Promise<string[]> => {
-      if (pendingFiles.length === 0) return [];
+      const files = pendingFilesRef.current;
+      if (files.length === 0 || uploadingRef.current) return [];
 
+      uploadingRef.current = true;
       setUploading(true);
       setError(null);
 
       try {
         const token = await getToken();
         const formData = new FormData();
-        for (const file of pendingFiles) {
+        for (const file of files) {
           formData.append("files", {
             uri: file.uri,
             name: file.name,
@@ -123,7 +129,7 @@ export function useFileUpload(): UseFileUploadReturn {
           } as unknown as Blob);
         }
 
-        const res = await fetch(`${env.EXPO_PUBLIC_API_URL}/api/uploads`, {
+        const res = await fetch(`${apiUrl}/api/uploads`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -132,21 +138,25 @@ export function useFileUpload(): UseFileUploadReturn {
         });
 
         if (!res.ok) {
-          const body = (await res.json()) as { error: string };
-          throw new Error(body.error || "Upload failed");
+          const body = await res.json().catch(() => ({}));
+          throw new Error(typeof body?.error === "string" ? body.error : "Upload failed");
         }
 
-        const data = (await res.json()) as { attachments: Attachment[] };
-        return data.attachments.map((a) => a.id);
+        const data = await res.json();
+        if (!Array.isArray(data?.attachments)) {
+          throw new Error("Invalid upload response");
+        }
+        return (data.attachments as Attachment[]).map((a) => a.id);
       } catch (err) {
         const message = err instanceof Error ? err.message : "Upload failed";
         setError(message);
         throw err;
       } finally {
+        uploadingRef.current = false;
         setUploading(false);
       }
     },
-    [pendingFiles],
+    [],
   );
 
   const reset = useCallback(() => {

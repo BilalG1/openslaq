@@ -4,6 +4,7 @@ import {
   Pressable,
   Text,
   View,
+  StyleSheet,
 } from "react-native";
 import type { TextInput } from "react-native";
 import type React from "react";
@@ -148,10 +149,7 @@ export function QuickSwitcherModal({ visible, onClose }: Props) {
         onChangeText={setFilterText}
         autoCapitalize="none"
         autoCorrect={false}
-        style={{
-          marginHorizontal: 16,
-          marginBottom: 8,
-        }}
+        style={styles.searchInput}
       />
       <FlatList
         testID="quick-switcher-list"
@@ -162,6 +160,9 @@ export function QuickSwitcherModal({ visible, onClose }: Props) {
           <Pressable
             testID={`quick-switcher-item-${item.id}`}
             onPress={() => handleSelect(item)}
+            accessibilityRole="button"
+            accessibilityLabel={`${item.type === "channel" ? "Channel" : "Conversation"} ${item.label}`}
+            accessibilityHint={`Navigates to ${item.label}`}
             style={({ pressed }) => ({
               opacity: pressed ? 0.7 : 1,
               paddingHorizontal: 16,
@@ -170,9 +171,9 @@ export function QuickSwitcherModal({ visible, onClose }: Props) {
               alignItems: "center",
             })}
           >
-            <View style={{ width: 28, alignItems: "center", justifyContent: "center" }}>
+            <View style={styles.prefixContainer}>
               {typeof item.prefix === "string" ? (
-                <Text style={{ color: theme.colors.textMuted, fontSize: 18, fontWeight: "400" }}>
+                <Text style={[styles.prefixText, { color: theme.colors.textMuted }]}>
                   {item.prefix}
                 </Text>
               ) : (
@@ -180,15 +181,16 @@ export function QuickSwitcherModal({ visible, onClose }: Props) {
               )}
             </View>
             <Text
-              style={{
-                flex: 1,
-                fontSize: 16,
-                fontWeight: item.unreadCount > 0 ? "700" : "400",
-                color:
-                  item.unreadCount > 0
-                    ? theme.colors.textPrimary
-                    : theme.colors.textSecondary,
-              }}
+              style={[
+                styles.itemLabel,
+                item.unreadCount > 0 ? styles.itemLabelUnread : styles.itemLabelRead,
+                {
+                  color:
+                    item.unreadCount > 0
+                      ? theme.colors.textPrimary
+                      : theme.colors.textSecondary,
+                },
+              ]}
               numberOfLines={1}
             >
               {item.label}
@@ -196,21 +198,15 @@ export function QuickSwitcherModal({ visible, onClose }: Props) {
             {item.type === "dm" && item.isOnline && (
               <View
                 testID={`online-dot-${item.id}`}
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: 4,
-                  backgroundColor: theme.brand.success,
-                  marginRight: 8,
-                }}
+                style={[styles.onlineDot, { backgroundColor: theme.brand.success }]}
               />
             )}
             <UnreadBadge count={item.unreadCount} />
           </Pressable>
         )}
         ListEmptyComponent={
-          <View style={{ alignItems: "center", paddingVertical: 20 }}>
-            <Text style={{ color: theme.colors.textFaint, fontSize: 14 }}>
+          <View style={styles.emptyContainer}>
+            <Text style={[styles.emptyText, { color: theme.colors.textFaint }]}>
               No results found
             </Text>
           </View>
@@ -219,3 +215,42 @@ export function QuickSwitcherModal({ visible, onClose }: Props) {
     </BottomSheet>
   );
 }
+
+const styles = StyleSheet.create({
+  searchInput: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+  },
+  prefixContainer: {
+    width: 28,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  prefixText: {
+    fontSize: 18,
+    fontWeight: "400",
+  },
+  itemLabel: {
+    flex: 1,
+    fontSize: 16,
+  },
+  itemLabelUnread: {
+    fontWeight: "700",
+  },
+  itemLabelRead: {
+    fontWeight: "400",
+  },
+  onlineDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  emptyContainer: {
+    alignItems: "center",
+    paddingVertical: 20,
+  },
+  emptyText: {
+    fontSize: 14,
+  },
+});

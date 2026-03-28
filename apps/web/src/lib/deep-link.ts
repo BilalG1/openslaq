@@ -4,6 +4,7 @@
 
 export type DeepLinkIntent =
   | { type: "open" }
+  | { type: "invite"; code: string }
   | { type: "channel"; workspaceSlug: string; channelId: string }
   | { type: "dm"; workspaceSlug: string; dmChannelId: string }
   | { type: "thread"; workspaceSlug: string; channelId: string; messageId: string };
@@ -13,6 +14,7 @@ export type DeepLinkIntent =
  *
  * Supported formats:
  *   openslaq://open
+ *   openslaq://invite/{code}
  *   openslaq://w/{slug}/c/{channelId}
  *   openslaq://w/{slug}/dm/{dmChannelId}
  *   openslaq://w/{slug}/c/{channelId}/t/{messageId}
@@ -27,6 +29,11 @@ export function parseDeepLinkUrl(raw: string): DeepLinkIntent {
   // openslaq://open or empty
   if (segments.length === 0 || (segments.length === 1 && segments[0] === "open")) {
     return { type: "open" };
+  }
+
+  // openslaq://invite/{code}
+  if (segments[0] === "invite" && segments[1]) {
+    return { type: "invite", code: segments[1] };
   }
 
   // All other recognized formats start with w/{slug}

@@ -13,7 +13,7 @@ export default defineConfig({
       },
       customCss: ["./src/styles/custom.css"],
       social: {
-        github: "https://github.com/openslaq/openslaq",
+        github: "https://github.com/bilalg1/openslaq",
       },
       sidebar: [
         {

@@ -1,10 +1,10 @@
-import { describe, test, expect, jest } from "bun:test";
+import { describe, test, expect, vi } from "vitest";
 import { renderHook, cleanup } from "../../test-utils";
 import { useAsyncEffect } from "../useAsyncEffect";
 
 describe("useAsyncEffect", () => {
   test("calls the effect on mount", () => {
-    const effect = jest.fn(async () => {});
+    const effect = vi.fn(async () => {});
     renderHook(() => useAsyncEffect(effect, []));
     expect(effect).toHaveBeenCalledTimes(1);
     cleanup();

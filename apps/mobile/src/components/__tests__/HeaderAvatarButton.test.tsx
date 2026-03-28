@@ -38,6 +38,23 @@ describe("HeaderAvatarButton", () => {
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
+  it("renders status emoji badge when statusEmoji is provided", () => {
+    render(
+      <HeaderAvatarButton displayName="Alice" onPress={jest.fn()} statusEmoji="🎉" />,
+    );
+
+    expect(screen.getByTestId("header-avatar-status-emoji")).toBeTruthy();
+    expect(screen.getByText("🎉")).toBeTruthy();
+  });
+
+  it("does not render status emoji badge when statusEmoji is not provided", () => {
+    render(
+      <HeaderAvatarButton displayName="Alice" onPress={jest.fn()} />,
+    );
+
+    expect(screen.queryByTestId("header-avatar-status-emoji")).toBeNull();
+  });
+
   it("renders image when avatarUrl is provided", () => {
     render(
       <HeaderAvatarButton

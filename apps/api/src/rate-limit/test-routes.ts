@@ -10,17 +10,33 @@ import {
   resetApnsSender,
   getApnsSentLog,
   clearApnsSentLog,
+  setRetryBaseMs,
+  resetRetryBaseMs,
 } from "../push/apns";
 import type { ApnsResult } from "../push/apns";
 import { deliverPush } from "../push/service";
-import { pendingCount } from "../push/queue";
+import { pendingCount, schedulePush, cancelPushesForUser, processDueItems } from "../push/queue";
+import { pushQueue } from "../push/schema";
 import { messages } from "../messages/schema";
 import { users } from "../users/schema";
+import { processDueReminders } from "../commands/reminder-service";
+import { reminders } from "../commands/reminder-schema";
+import { cleanupStalePresence } from "../presence/service";
+import { presenceConnections } from "../presence/schema";
+import type { Message, UserId } from "@openslaq/shared";
+import { UnauthorizedError, NotFoundError, AppError } from "../errors";
+
+interface TestGlobals {
+  __fakeApnsResponseSetter?: (r: ApnsResult) => void;
+  __fakeApnsSequenceSetter?: (seq: ApnsResult[]) => void;
+}
+
+const testGlobals = globalThis as unknown as TestGlobals;
 
 const requireTestSecret = createMiddleware(async (c, next) => {
   const auth = c.req.header("Authorization");
   if (auth !== `Bearer ${env.E2E_TEST_SECRET}`) {
-    return c.json({ error: "Unauthorized" }, 401);
+    throw new UnauthorizedError();
   }
   await next();
 });
@@ -61,17 +77,32 @@ const app = new Hono()
   // Push notification test endpoints
   .post("/push/enable-fake", (c) => {
     let fakeResponse: ApnsResult = { success: true, statusCode: 200 };
-    setApnsSender(async (_token, _payload) => fakeResponse);
-    // Store setter so /push/set-fake-response can update it
-    (globalThis as any).__fakeApnsResponseSetter = (r: ApnsResult) => {
+    let responseSequence: ApnsResult[] = [];
+    setApnsSender(async (_token, _payload) => {
+      if (responseSequence.length > 1) return responseSequence.shift()!;
+      if (responseSequence.length === 1) return responseSequence[0]!;
+      return fakeResponse;
+    });
+    // Store setters so other endpoints can update behavior
+    testGlobals.__fakeApnsResponseSetter = (r: ApnsResult) => {
       fakeResponse = r;
-      setApnsSender(async (_token, _payload) => fakeResponse);
+      responseSequence = [];
+    };
+    testGlobals.__fakeApnsSequenceSetter = (seq: ApnsResult[]) => {
+      responseSequence = seq;
     };
     return c.json({ ok: true });
   })
   .post("/push/disable-fake", (c) => {
     resetApnsSender();
-    delete (globalThis as any).__fakeApnsResponseSetter;
+    resetRetryBaseMs();
+    delete testGlobals.__fakeApnsResponseSetter;
+    delete testGlobals.__fakeApnsSequenceSetter;
+    return c.json({ ok: true });
+  })
+  .post("/push/set-retry-base-ms", async (c) => {
+    const { ms } = await c.req.json<{ ms: number }>();
+    setRetryBaseMs(ms);
     return c.json({ ok: true });
   })
   .get("/push/sent", (c) => {
@@ -105,7 +136,7 @@ const app = new Hono()
       .innerJoin(users, eq(messages.userId, users.id))
       .where(eq(messages.id, messageId))
       .limit(1);
-    if (!row) return c.json({ error: "Message not found" }, 404);
+    if (!row) throw new NotFoundError("Message");
 
     // Build minimal Message object for deliverPush
     const message = {
@@ -119,7 +150,7 @@ const app = new Hono()
       updatedAt: row.updatedAt?.toISOString() ?? null,
       senderDisplayName: row.displayName,
       senderAvatarUrl: null,
-      mentions: (row.metadata as any)?.mentions ?? null,
+      mentions: (row.metadata as Record<string, unknown>)?.mentions ?? null,
       attachments: null,
       reactions: {},
       replyCount: 0,
@@ -130,16 +161,120 @@ const app = new Hono()
       actions: null,
       botAppId: null,
     };
-    await deliverPush(message as any, userId as any, workspaceSlug);
+    await deliverPush(message as unknown as Message, userId as UserId, workspaceSlug);
     return c.json({ ok: true });
   })
-  .get("/push/pending-count", (c) => {
-    return c.json({ count: pendingCount() });
+  .get("/push/pending-count", async (c) => {
+    return c.json({ count: await pendingCount() });
   })
   .post("/push/set-fake-response", async (c) => {
     const response = await c.req.json<ApnsResult>();
-    const setter = (globalThis as any).__fakeApnsResponseSetter;
+    const setter = testGlobals.__fakeApnsResponseSetter;
     if (setter) setter(response);
+    return c.json({ ok: true });
+  })
+  .post("/push/set-fake-response-sequence", async (c) => {
+    const sequence = await c.req.json<ApnsResult[]>();
+    const setter = testGlobals.__fakeApnsSequenceSetter;
+    if (setter) setter(sequence);
+    return c.json({ ok: true });
+  })
+  .post("/push/queue/schedule", async (c) => {
+    const { messageId, userId, channelId, workspaceSlug } = await c.req.json<{
+      messageId: string;
+      userId: string;
+      channelId: string;
+      workspaceSlug: string;
+    }>();
+    await schedulePush(messageId, userId, channelId, workspaceSlug);
+    return c.json({ ok: true });
+  })
+  .post("/push/queue/schedule-immediate", async (c) => {
+    const { messageId, userId, channelId, workspaceSlug, deliverAfter } = await c.req.json<{
+      messageId: string;
+      userId: string;
+      channelId: string;
+      workspaceSlug: string;
+      deliverAfter: string;
+    }>();
+    await db.insert(pushQueue).values({
+      messageId,
+      userId,
+      channelId,
+      workspaceSlug,
+      deliverAfter: new Date(deliverAfter),
+    }).onConflictDoNothing();
+    return c.json({ ok: true });
+  })
+  .post("/push/queue/cancel", async (c) => {
+    const { userId, channelId } = await c.req.json<{
+      userId: string;
+      channelId: string;
+    }>();
+    await cancelPushesForUser(userId, channelId);
+    return c.json({ ok: true });
+  })
+  .post("/push/queue/clear", async (c) => {
+    await db.delete(pushQueue);
+    return c.json({ ok: true });
+  })
+  .get("/push/queue/items", async (c) => {
+    const items = await db.select().from(pushQueue);
+    return c.json(items);
+  })
+  .post("/push/queue/process", async (c) => {
+    await processDueItems();
+    return c.json({ ok: true });
+  })
+  .post("/reminders/insert", async (c) => {
+    const { userId, channelId, text, remindAt } = await c.req.json<{
+      userId: string;
+      channelId: string;
+      text: string;
+      remindAt: string;
+    }>();
+    const [row] = await db
+      .insert(reminders)
+      .values({ userId, channelId, text, remindAt: new Date(remindAt) })
+      .returning();
+    return c.json(row);
+  })
+  .post("/reminders/process", async (c) => {
+    await processDueReminders();
+    return c.json({ ok: true });
+  })
+  .get("/reminders/:id", async (c) => {
+    const [row] = await db
+      .select()
+      .from(reminders)
+      .where(eq(reminders.id, c.req.param("id")));
+    if (!row) throw new AppError(404, "not found");
+    return c.json(row);
+  })
+  .post("/presence/add-stale-socket", async (c) => {
+    const { userId, socketId, lastHeartbeat } = await c.req.json<{
+      userId: string;
+      socketId: string;
+      lastHeartbeat: string;
+    }>();
+    await db
+      .insert(presenceConnections)
+      .values({ userId, socketId, lastHeartbeat: new Date(lastHeartbeat) })
+      .onConflictDoUpdate({
+        target: [presenceConnections.userId, presenceConnections.socketId],
+        set: { lastHeartbeat: new Date(lastHeartbeat) },
+      });
+    return c.json({ ok: true });
+  })
+  .get("/presence/connections", async (c) => {
+    const userId = c.req.query("userId");
+    const rows = userId
+      ? await db.select().from(presenceConnections).where(eq(presenceConnections.userId, userId))
+      : await db.select().from(presenceConnections);
+    return c.json(rows);
+  })
+  .post("/presence/cleanup", async (c) => {
+    await cleanupStalePresence();
     return c.json({ ok: true });
   });
 

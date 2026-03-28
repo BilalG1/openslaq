@@ -1,4 +1,3 @@
-import { AuthError } from "../api/errors";
 import { authorizedRequest } from "../api/api-client";
 import type { ApiDeps } from "./types";
 import type { BotApp, BotEventType, BotScope } from "@openslaq/shared";
@@ -41,15 +40,10 @@ function toBotEventTypeArray(events: string[] | undefined): BotEventType[] | und
 
 export async function listBots(deps: ApiDeps, slug: string): Promise<BotApp[]> {
   const { api, auth } = deps;
-  try {
-    const response = await authorizedRequest(auth, (headers) =>
-      api.api.workspaces[":slug"].bots.$get({ param: { slug } }, { headers }),
-    );
-    return (await response.json()) as BotApp[];
-  } catch (err) {
-    if (err instanceof AuthError) auth.onAuthRequired();
-    throw err;
-  }
+  const response = await authorizedRequest(auth, (headers) =>
+    api.api.workspaces[":slug"].bots.$get({ param: { slug } }, { headers }),
+  );
+  return (await response.json()) as BotApp[];
 }
 
 export async function createBot(
@@ -65,25 +59,20 @@ export async function createBot(
   },
 ): Promise<{ bot: BotApp; apiToken: string }> {
   const { api, auth } = deps;
-  try {
-    const response = await authorizedRequest(auth, (headers) =>
-      api.api.workspaces[":slug"].bots.$post(
-        {
-          param: { slug },
-          json: {
-            ...data,
-            scopes: toBotScopeArray(data.scopes),
-            subscribedEvents: toBotEventTypeArray(data.subscribedEvents),
-          },
+  const response = await authorizedRequest(auth, (headers) =>
+    api.api.workspaces[":slug"].bots.$post(
+      {
+        param: { slug },
+        json: {
+          ...data,
+          scopes: toBotScopeArray(data.scopes),
+          subscribedEvents: toBotEventTypeArray(data.subscribedEvents),
         },
-        { headers },
-      ),
-    );
-    return (await response.json()) as { bot: BotApp; apiToken: string };
-  } catch (err) {
-    if (err instanceof AuthError) auth.onAuthRequired();
-    throw err;
-  }
+      },
+      { headers },
+    ),
+  );
+  return (await response.json()) as { bot: BotApp; apiToken: string };
 }
 
 export async function updateBot(
@@ -100,40 +89,30 @@ export async function updateBot(
   },
 ): Promise<BotApp> {
   const { api, auth } = deps;
-  try {
-    const response = await authorizedRequest(auth, (headers) =>
-      api.api.workspaces[":slug"].bots[":botId"].$put(
-        {
-          param: { slug, botId },
-          json: {
-            ...data,
-            scopes: data.scopes ? toBotScopeArray(data.scopes) : undefined,
-            subscribedEvents: toBotEventTypeArray(data.subscribedEvents),
-          },
+  const response = await authorizedRequest(auth, (headers) =>
+    api.api.workspaces[":slug"].bots[":botId"].$put(
+      {
+        param: { slug, botId },
+        json: {
+          ...data,
+          scopes: data.scopes ? toBotScopeArray(data.scopes) : undefined,
+          subscribedEvents: toBotEventTypeArray(data.subscribedEvents),
         },
-        { headers },
-      ),
-    );
-    return (await response.json()) as BotApp;
-  } catch (err) {
-    if (err instanceof AuthError) auth.onAuthRequired();
-    throw err;
-  }
+      },
+      { headers },
+    ),
+  );
+  return (await response.json()) as BotApp;
 }
 
 export async function deleteBot(deps: ApiDeps, slug: string, botId: string): Promise<void> {
   const { api, auth } = deps;
-  try {
-    await authorizedRequest(auth, (headers) =>
-      api.api.workspaces[":slug"].bots[":botId"].$delete(
-        { param: { slug, botId } },
-        { headers },
-      ),
-    );
-  } catch (err) {
-    if (err instanceof AuthError) auth.onAuthRequired();
-    throw err;
-  }
+  await authorizedRequest(auth, (headers) =>
+    api.api.workspaces[":slug"].bots[":botId"].$delete(
+      { param: { slug, botId } },
+      { headers },
+    ),
+  );
 }
 
 export async function regenerateBotToken(
@@ -142,18 +121,13 @@ export async function regenerateBotToken(
   botId: string,
 ): Promise<{ apiToken: string; apiTokenPrefix: string }> {
   const { api, auth } = deps;
-  try {
-    const response = await authorizedRequest(auth, (headers) =>
-      api.api.workspaces[":slug"].bots[":botId"]["regenerate-token"].$post(
-        { param: { slug, botId } },
-        { headers },
-      ),
-    );
-    return (await response.json()) as { apiToken: string; apiTokenPrefix: string };
-  } catch (err) {
-    if (err instanceof AuthError) auth.onAuthRequired();
-    throw err;
-  }
+  const response = await authorizedRequest(auth, (headers) =>
+    api.api.workspaces[":slug"].bots[":botId"]["regenerate-token"].$post(
+      { param: { slug, botId } },
+      { headers },
+    ),
+  );
+  return (await response.json()) as { apiToken: string; apiTokenPrefix: string };
 }
 
 export async function toggleBot(
@@ -163,15 +137,10 @@ export async function toggleBot(
   enabled: boolean,
 ): Promise<void> {
   const { api, auth } = deps;
-  try {
-    await authorizedRequest(auth, (headers) =>
-      api.api.workspaces[":slug"].bots[":botId"].toggle.$post(
-        { param: { slug, botId }, json: { enabled } },
-        { headers },
-      ),
-    );
-  } catch (err) {
-    if (err instanceof AuthError) auth.onAuthRequired();
-    throw err;
-  }
+  await authorizedRequest(auth, (headers) =>
+    api.api.workspaces[":slug"].bots[":botId"].toggle.$post(
+      { param: { slug, botId }, json: { enabled } },
+      { headers },
+    ),
+  );
 }

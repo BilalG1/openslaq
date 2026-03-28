@@ -7,17 +7,17 @@ const apiPort = parseInt(`${prefix}01`);
 export default defineConfig({
   testDir: "./tests",
   fullyParallel: true,
-  workers: 6,
-  retries: 1,
-  timeout: 60_000,
+  workers: 4,
+  retries: 0,
+  timeout: 20_000,
   reporter: "html",
   globalSetup: "./global-setup.ts",
   expect: {
-    timeout: 10_000,
+    timeout: 5_000,
   },
   use: {
     baseURL: `http://localhost:${webPort}`,
-    trace: "on-first-retry",
+    trace: "retain-on-failure",
   },
   webServer: [
     {
@@ -38,7 +38,6 @@ export default defineConfig({
       port: webPort,
       timeout: 30_000,
       reuseExistingServer: !process.env.CI,
-      env: process.env.VITE_COVERAGE ? { VITE_COVERAGE: "true" } : {},
     },
   ],
 });

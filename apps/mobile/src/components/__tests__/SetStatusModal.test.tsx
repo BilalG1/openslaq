@@ -2,6 +2,7 @@ import React from "react";
 import { render, screen, fireEvent, act } from "@testing-library/react-native";
 import { SetStatusModal } from "../SetStatusModal";
 import * as clientCore from "@openslaq/client-core";
+import { asUserId } from "@openslaq/shared";
 
 jest.mock("@openslaq/client-core", () => ({
   STATUS_PRESETS: [
@@ -62,7 +63,7 @@ function renderModal(overrides: Record<string, unknown> = {}) {
     onClose: jest.fn(),
     currentEmoji: null as string | null,
     currentText: null as string | null,
-    userId: "user-1",
+    userId: asUserId("user-1"),
     deps: mockDeps,
     dispatch: mockDispatch,
     ...overrides,

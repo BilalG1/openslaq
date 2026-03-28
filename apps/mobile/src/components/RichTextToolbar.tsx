@@ -1,8 +1,10 @@
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View, StyleSheet } from "react-native";
 import { Link } from "lucide-react-native";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { haptics } from "@/utils/haptics";
 import type { WebViewEditorRef, FormattingState } from "./WebViewEditor";
+
+import { TRANSPARENT } from "@/theme/constants";
 
 interface Props {
   editor: WebViewEditorRef;
@@ -70,13 +72,7 @@ export function RichTextToolbar({ editor, formattingState, onLinkPress }: Props)
   const renderDivider = (key: string) => (
     <View
       key={key}
-      style={{
-        width: 1,
-        height: 20,
-        backgroundColor: theme.colors.borderDefault,
-        marginHorizontal: 4,
-        alignSelf: "center",
-      }}
+      style={[styles.divider, { backgroundColor: theme.colors.borderDefault }]}
     />
   );
 
@@ -96,6 +92,9 @@ export function RichTextToolbar({ editor, formattingState, onLinkPress }: Props)
           haptics.selection();
           btn.action();
         }}
+        accessibilityRole="button"
+        accessibilityLabel={btn.testID.replace("format-btn-", "")}
+        accessibilityHint={`Toggles ${btn.testID.replace("format-btn-", "")} formatting`}
         style={({ pressed }) => ({
           width: 36,
           height: 36,
@@ -106,17 +105,19 @@ export function RichTextToolbar({ editor, formattingState, onLinkPress }: Props)
             ? theme.brand.primary + "20"
             : pressed
               ? theme.colors.surfaceTertiary
-              : "transparent",
+              : TRANSPARENT,
         })}
       >
         <Text
-          style={{
-            fontSize: 15,
-            fontWeight: btn.style?.fontWeight ?? "600",
-            fontStyle: btn.style?.fontStyle ?? "normal",
-            color: btn.active ? theme.brand.primary : theme.colors.textPrimary,
-            textDecorationLine: btn.style?.textDecorationLine ?? "none",
-          }}
+          style={[
+            styles.buttonText,
+            {
+              fontWeight: btn.style?.fontWeight ?? "600",
+              fontStyle: btn.style?.fontStyle ?? "normal",
+              color: btn.active ? theme.brand.primary : theme.colors.textPrimary,
+              textDecorationLine: btn.style?.textDecorationLine ?? "none",
+            },
+          ]}
         >
           {btn.label}
         </Text>
@@ -134,13 +135,16 @@ export function RichTextToolbar({ editor, formattingState, onLinkPress }: Props)
         haptics.selection();
         onLinkPress();
       }}
+      accessibilityRole="button"
+      accessibilityLabel="Insert link"
+      accessibilityHint="Opens the link insertion dialog"
       style={({ pressed }) => ({
         width: 36,
         height: 36,
         borderRadius: 6,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
+        backgroundColor: pressed ? theme.colors.surfaceTertiary : TRANSPARENT,
       })}
     >
       <Link size={15} color={theme.colors.textPrimary} />
@@ -150,21 +154,36 @@ export function RichTextToolbar({ editor, formattingState, onLinkPress }: Props)
   return (
     <View
       testID="formatting-toolbar"
-      style={{
-        backgroundColor: theme.colors.surfaceTertiary,
-        borderTopWidth: 1,
-        borderTopColor: theme.colors.borderDefault,
-        paddingVertical: 4,
-        paddingHorizontal: 8,
-      }}
+      style={[styles.toolbar, { backgroundColor: theme.colors.surfaceTertiary, borderTopColor: theme.colors.borderDefault }]}
     >
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ flexDirection: "row", alignItems: "center" }}
+        contentContainerStyle={styles.scrollContent}
       >
         {items}
       </ScrollView>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  toolbar: {
+    borderTopWidth: 1,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  scrollContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  divider: {
+    width: 1,
+    height: 20,
+    marginHorizontal: 4,
+    alignSelf: "center",
+  },
+  buttonText: {
+    fontSize: 15,
+  },
+});

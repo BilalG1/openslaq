@@ -9,10 +9,13 @@ import type {
   SocketData,
 } from "@openslaq/shared";
 import { asUserId, asChannelId } from "@openslaq/shared";
-import { jwks, jwtVerifyOptions, e2eTestSecret } from "../auth/jwt";
+import { jwks, jwtVerifyOptions, e2eTestSecret, builtinJwtSecret } from "../auth/jwt";
 import { env } from "../env";
 import { db } from "../db";
 import { channelMembers } from "../channels/schema";
+import { botApps } from "../bots/schema";
+import { apiKeys } from "../api-keys/schema";
+import { hashToken } from "../bots/token";
 import { isChannelMember } from "../channels/service";
 import { workspaceMembers } from "../workspaces/schema";
 import { users } from "../users/schema";
@@ -22,8 +25,7 @@ import {
   getOnlineUserIds,
   persistLastSeen,
   getUserWorkspaceIds,
-  startHeartbeat,
-  stopHeartbeat,
+  updateHeartbeat,
   getSocketCountForUser,
   MAX_SOCKETS_PER_USER,
 } from "../presence/service";
@@ -108,6 +110,50 @@ export function setupSocketHandlers(
       return next(new Error("Authentication required"));
     }
 
+    // Bot token auth: validate osb_* tokens against botApps table
+    if (token.startsWith("osb_")) {
+      try {
+        const hash = hashToken(token);
+        const bot = await db.query.botApps.findFirst({
+          where: eq(botApps.apiToken, hash),
+        });
+        if (!bot || !bot.enabled) {
+          return next(new Error("Invalid bot token"));
+        }
+        socket.data.userId = asUserId(bot.userId);
+        socket.data.isBot = true;
+        return next();
+      } catch {
+        return next(new Error("Invalid bot token"));
+      }
+    }
+
+    // API key auth: validate osk_* tokens against apiKeys table
+    if (token.startsWith("osk_")) {
+      try {
+        const hash = hashToken(token);
+        const row = await db.query.apiKeys.findFirst({
+          where: eq(apiKeys.tokenHash, hash),
+        });
+        if (!row) {
+          return next(new Error("Invalid API key"));
+        }
+        if (row.expiresAt && row.expiresAt.getTime() <= Date.now()) {
+          return next(new Error("API key expired"));
+        }
+        const user = await db.query.users.findFirst({
+          where: eq(users.id, row.userId),
+        });
+        if (!user) {
+          return next(new Error("Invalid API key"));
+        }
+        socket.data.userId = asUserId(user.id);
+        return next();
+      } catch {
+        return next(new Error("Invalid API key"));
+      }
+    }
+
     try {
       // Try HMAC first when e2e secret is configured (avoids network call)
       if (e2eTestSecret) {
@@ -119,6 +165,18 @@ export function setupSocketHandlers(
         } catch {
           // Not an HMAC token — fall through to JWKS
         }
+      }
+      // Builtin auth mode: verify against local secret
+      if (env.AUTH_MODE === "builtin" && builtinJwtSecret) {
+        const { payload } = await jose.jwtVerify(token, builtinJwtSecret);
+        const parsed = socketJwtSchema.parse(payload);
+        socket.data.userId = asUserId(parsed.sub);
+        return next();
+      }
+
+      // Stack Auth mode: verify against remote JWKS
+      if (!jwks || !jwtVerifyOptions) {
+        return next(new Error("Stack Auth not configured"));
       }
       const { payload } = await jose.jwtVerify(token, jwks, jwtVerifyOptions);
       const parsed = socketJwtSchema.parse(payload);
@@ -143,7 +201,6 @@ export function setupSocketHandlers(
     console.log(`Socket connected: ${userId}`);
 
     let workspaceIds: string[] = [];
-    let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 
     // Register event handlers synchronously so they're available immediately,
     // even if the client disconnects before the async init below completes.
@@ -155,6 +212,10 @@ export function setupSocketHandlers(
 
     socket.on("channel:leave", ({ channelId }) => {
       socket.leave(`channel:${channelId}`);
+    });
+
+    socket.on("presence:heartbeat", () => {
+      updateHeartbeat(userId, socket.id).catch(console.error);
     });
 
     socket.on("message:typing", async ({ channelId }) => {
@@ -172,7 +233,6 @@ export function setupSocketHandlers(
 
     socket.on("disconnect", async () => {
       console.log(`Socket disconnected: ${userId}`);
-      if (heartbeatInterval) stopHeartbeat(heartbeatInterval);
       const wentOffline = await removeSocket(userId, socket.id);
 
       // Only clean up huddle when user goes fully offline (no remaining sockets)
@@ -248,7 +308,6 @@ export function setupSocketHandlers(
 
       // Track presence
       const cameOnline = await addSocket(userId, socket.id);
-      heartbeatInterval = startHeartbeat(userId, socket.id);
       if (cameOnline) {
         for (const wsId of workspaceIds) {
           io.to(`workspace:${wsId}`).emit("presence:updated", {

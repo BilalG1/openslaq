@@ -1,5 +1,7 @@
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { useMemo } from "react";
+import { Pressable, ScrollView, Text, View, StyleSheet } from "react-native";
 import { Link } from "lucide-react-native";
+import type { MobileTheme } from "@openslaq/shared";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { haptics } from "@/utils/haptics";
 import type { FormatType } from "@/utils/markdown-formatting";
@@ -20,20 +22,93 @@ const BUTTONS: { label: string; format: FormatType; testID: string; group: numbe
   { label: "1.", format: "orderedList", testID: "format-btn-orderedList", group: 2 },
 ];
 
+import { TRANSPARENT } from "@/theme/constants";
+
+const makeStyles = (theme: MobileTheme) =>
+  StyleSheet.create({
+    container: {
+      backgroundColor: theme.colors.surfaceTertiary,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.borderDefault,
+      paddingVertical: 4,
+      paddingHorizontal: 8,
+    },
+    scrollContent: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    divider: {
+      width: 1,
+      height: 20,
+      backgroundColor: theme.colors.borderDefault,
+      marginHorizontal: 4,
+      alignSelf: "center",
+    },
+    formatButtonDefault: {
+      width: 36,
+      height: 36,
+      borderRadius: 6,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: TRANSPARENT,
+    },
+    formatButtonPressed: {
+      width: 36,
+      height: 36,
+      borderRadius: 6,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.colors.surfaceTertiary,
+    },
+    formatTextBold: {
+      fontSize: 15,
+      fontWeight: "700",
+      fontStyle: "normal",
+      color: theme.colors.textPrimary,
+      textDecorationLine: "none",
+    },
+    formatTextItalic: {
+      fontSize: 15,
+      fontWeight: "400",
+      fontStyle: "italic",
+      color: theme.colors.textPrimary,
+      textDecorationLine: "none",
+    },
+    formatTextStrikethrough: {
+      fontSize: 15,
+      fontWeight: "600",
+      fontStyle: "normal",
+      color: theme.colors.textPrimary,
+      textDecorationLine: "line-through",
+    },
+    formatTextDefault: {
+      fontSize: 15,
+      fontWeight: "600",
+      fontStyle: "normal",
+      color: theme.colors.textPrimary,
+      textDecorationLine: "none",
+    },
+  });
+
+function getFormatTextStyle(styles: ReturnType<typeof makeStyles>, format: FormatType) {
+  switch (format) {
+    case "bold":
+      return styles.formatTextBold;
+    case "italic":
+      return styles.formatTextItalic;
+    case "strikethrough":
+      return styles.formatTextStrikethrough;
+    default:
+      return styles.formatTextDefault;
+  }
+}
+
 export function FormattingToolbar({ onFormat, onLinkPress }: Props) {
   const { theme } = useMobileTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
 
   const renderDivider = (key: string) => (
-    <View
-      key={key}
-      style={{
-        width: 1,
-        height: 20,
-        backgroundColor: theme.colors.borderDefault,
-        marginHorizontal: 4,
-        alignSelf: "center",
-      }}
-    />
+    <View key={key} style={styles.divider} />
   );
 
   let lastGroup = 0;
@@ -52,24 +127,11 @@ export function FormattingToolbar({ onFormat, onLinkPress }: Props) {
           haptics.selection();
           onFormat(btn.format);
         }}
-        style={({ pressed }) => ({
-          width: 36,
-          height: 36,
-          borderRadius: 6,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
-        })}
+        accessibilityLabel={`Format ${btn.format}`}
+        accessibilityHint={`Applies ${btn.format} formatting to selected text`}
+        style={({ pressed }) => pressed ? styles.formatButtonPressed : styles.formatButtonDefault}
       >
-        <Text
-          style={{
-            fontSize: 15,
-            fontWeight: btn.format === "bold" ? "700" : btn.format === "italic" ? "400" : "600",
-            fontStyle: btn.format === "italic" ? "italic" : "normal",
-            color: theme.colors.textPrimary,
-            textDecorationLine: btn.format === "strikethrough" ? "line-through" : "none",
-          }}
-        >
+        <Text style={getFormatTextStyle(styles, btn.format)}>
           {btn.label}
         </Text>
       </Pressable>,
@@ -86,34 +148,20 @@ export function FormattingToolbar({ onFormat, onLinkPress }: Props) {
         haptics.selection();
         onLinkPress();
       }}
-      style={({ pressed }) => ({
-        width: 36,
-        height: 36,
-        borderRadius: 6,
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: pressed ? theme.colors.surfaceTertiary : "transparent",
-      })}
+      accessibilityLabel="Insert link"
+      accessibilityHint="Opens the link insertion dialog"
+      style={({ pressed }) => pressed ? styles.formatButtonPressed : styles.formatButtonDefault}
     >
       <Link size={15} color={theme.colors.textPrimary} />
     </Pressable>,
   );
 
   return (
-    <View
-      testID="formatting-toolbar"
-      style={{
-        backgroundColor: theme.colors.surfaceTertiary,
-        borderTopWidth: 1,
-        borderTopColor: theme.colors.borderDefault,
-        paddingVertical: 4,
-        paddingHorizontal: 8,
-      }}
-    >
+    <View testID="formatting-toolbar" style={styles.container}>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ flexDirection: "row", alignItems: "center" }}
+        contentContainerStyle={styles.scrollContent}
       >
         {items}
       </ScrollView>

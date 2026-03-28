@@ -21,6 +21,8 @@ export function getWebCssVariables(mode: ThemeMode): Record<string, string> {
     "--danger-bg": semantic.dangerBg,
     "--danger-border": semantic.dangerBorder,
     "--danger-text": semantic.dangerText,
+    "--warning-bg": semantic.warningBg,
+    "--warning-text": semantic.warningText,
     "--code-inline-bg": semantic.codeInlineBg,
     "--mark-bg": semantic.markBg,
     "--avatar-fallback-bg": semantic.avatarFallbackBg,

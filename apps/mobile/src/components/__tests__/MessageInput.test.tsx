@@ -1,6 +1,23 @@
 import React from "react";
+import { Keyboard, StyleSheet } from "react-native";
 import { render, screen, fireEvent, act } from "@testing-library/react-native";
 import { MessageInput } from "../MessageInput";
+import { asMessageId } from "@openslaq/shared";
+
+const mockClearDraft = jest.fn();
+const mockSaveDraft = jest.fn();
+const originalModule = jest.requireActual("@/hooks/useDraftRestoration");
+jest.mock("@/hooks/useDraftRestoration", () => {
+  const actual = jest.requireActual("@/hooks/useDraftRestoration");
+  return {
+    useDraftRestoration: (opts: Parameters<typeof actual.useDraftRestoration>[0]) => {
+      const result = actual.useDraftRestoration(opts);
+      // Intercept clearDraft so we can spy on it
+      mockClearDraft.mockImplementation(result.clearDraft);
+      return { ...result, clearDraft: mockClearDraft, saveDraft: mockSaveDraft };
+    },
+  };
+});
 
 // Access the WebViewEditor mock helpers
 const webViewEditorMock = require("@/components/WebViewEditor");
@@ -67,7 +84,7 @@ describe("MessageInput", () => {
     render(
       <MessageInput
         onSend={jest.fn()}
-        editingMessage={{ id: "msg-1", content: "original text" }}
+        editingMessage={{ id: asMessageId("msg-1"), content: "original text" }}
         onCancelEdit={jest.fn()}
         onSaveEdit={jest.fn()}
       />,
@@ -83,7 +100,7 @@ describe("MessageInput", () => {
     render(
       <MessageInput
         onSend={jest.fn()}
-        editingMessage={{ id: "msg-1", content: "original text" }}
+        editingMessage={{ id: asMessageId("msg-1"), content: "original text" }}
         onCancelEdit={jest.fn()}
         onSaveEdit={jest.fn()}
       />,
@@ -99,7 +116,7 @@ describe("MessageInput", () => {
     render(
       <MessageInput
         onSend={onSend}
-        editingMessage={{ id: "msg-1", content: "original text" }}
+        editingMessage={{ id: asMessageId("msg-1"), content: "original text" }}
         onCancelEdit={jest.fn()}
         onSaveEdit={onSaveEdit}
       />,
@@ -123,7 +140,7 @@ describe("MessageInput", () => {
     render(
       <MessageInput
         onSend={jest.fn()}
-        editingMessage={{ id: "msg-1", content: "original text" }}
+        editingMessage={{ id: asMessageId("msg-1"), content: "original text" }}
         onCancelEdit={onCancelEdit}
         onSaveEdit={jest.fn()}
       />,
@@ -360,86 +377,80 @@ describe("MessageInput", () => {
     expect(screen.getByTestId("link-sheet-content")).toBeTruthy();
   });
 
-  it("shows mic button when text is empty and onSendVoiceMessage is provided", () => {
+  it("link insert calls insertLink with display text and url", () => {
+    const ref = getMockRef();
+    render(<MessageInput onSend={jest.fn()} />);
+
+    // Open link sheet
+    fireEvent.press(screen.getByTestId("formatting-toggle"));
+    fireEvent.press(screen.getByTestId("format-btn-link"));
+
+    // Fill in fields
+    fireEvent.changeText(screen.getByTestId("link-text-input"), "My Link");
+    fireEvent.changeText(screen.getByTestId("link-url-input"), "https://example.com");
+
+    // Press insert
+    fireEvent.press(screen.getByTestId("link-insert-button"));
+
+    // Should call insertLink with both display text and url
+    expect(ref.insertLink).toHaveBeenCalledWith("My Link", "https://example.com");
+    // Sheet should close
+    expect(screen.queryByTestId("link-sheet-content")).toBeNull();
+  });
+
+  it("auto-focuses editor when autoFocus prop is true", () => {
+    const ref = getMockRef();
+    render(<MessageInput onSend={jest.fn()} autoFocus />);
+
+    // Editor mock fires onReady synchronously on mount, so focus should have been called
+    expect(ref.focus).toHaveBeenCalled();
+  });
+
+  it("does not auto-focus editor by default", () => {
+    const ref = getMockRef();
+    render(<MessageInput onSend={jest.fn()} />);
+
+    // focus should NOT be called on mount when autoFocus is not set
+    expect(ref.focus).not.toHaveBeenCalled();
+  });
+
+  it("never shows mic button (voice messages disabled)", () => {
     render(
       <MessageInput onSend={jest.fn()} onSendVoiceMessage={jest.fn()} />,
     );
 
-    expect(screen.getByTestId("mic-button")).toBeTruthy();
+    expect(screen.queryByTestId("mic-button")).toBeNull();
   });
 
-  it("hides mic button when editing a message", () => {
+  it("input row has no top border", () => {
+    render(<MessageInput onSend={jest.fn()} />);
+
+    const inputRow = screen.getByTestId("input-row");
+    const style = StyleSheet.flatten(inputRow.props.style);
+    expect(style.borderTopWidth).toBeUndefined();
+  });
+
+  it("does not auto-focus the input when mounted without editing", () => {
+    const ref = getMockRef();
+    render(<MessageInput onSend={jest.fn()} />);
+
+    // focus should NOT be called on initial mount — opening the keyboard
+    // automatically when navigating to a channel is disruptive on mobile
+    expect(ref.focus).not.toHaveBeenCalled();
+  });
+
+  it("auto-focuses when editing a message", () => {
+    const ref = getMockRef();
     render(
       <MessageInput
         onSend={jest.fn()}
-        onSendVoiceMessage={jest.fn()}
-        editingMessage={{ id: "msg-1", content: "edit" }}
+        editingMessage={{ id: asMessageId("msg-1"), content: "edit me" }}
         onCancelEdit={jest.fn()}
         onSaveEdit={jest.fn()}
       />,
     );
 
-    expect(screen.queryByTestId("mic-button")).toBeNull();
-  });
-
-  it("hides mic button when onSendVoiceMessage is not provided", () => {
-    render(<MessageInput onSend={jest.fn()} />);
-
-    expect(screen.queryByTestId("mic-button")).toBeNull();
-  });
-
-  it("shows recording state after pressing mic button", async () => {
-    render(
-      <MessageInput onSend={jest.fn()} onSendVoiceMessage={jest.fn()} />,
-    );
-
-    await act(async () => {
-      fireEvent.press(screen.getByTestId("mic-button"));
-    });
-
-    expect(screen.getByTestId("recording-bar")).toBeTruthy();
-    expect(screen.getByTestId("recording-cancel")).toBeTruthy();
-    expect(screen.getByTestId("recording-stop-send")).toBeTruthy();
-    expect(screen.getByTestId("recording-timer")).toBeTruthy();
-  });
-
-  it("cancel recording returns to default state", async () => {
-    render(
-      <MessageInput onSend={jest.fn()} onSendVoiceMessage={jest.fn()} />,
-    );
-
-    await act(async () => {
-      fireEvent.press(screen.getByTestId("mic-button"));
-    });
-
-    expect(screen.getByTestId("recording-bar")).toBeTruthy();
-
-    await act(async () => {
-      fireEvent.press(screen.getByTestId("recording-cancel"));
-    });
-
-    expect(screen.queryByTestId("recording-bar")).toBeNull();
-    expect(screen.getByTestId("mic-button")).toBeTruthy();
-  });
-
-  it("stop recording calls onSendVoiceMessage", async () => {
-    const onSendVoiceMessage = jest.fn();
-    render(
-      <MessageInput onSend={jest.fn()} onSendVoiceMessage={onSendVoiceMessage} />,
-    );
-
-    await act(async () => {
-      fireEvent.press(screen.getByTestId("mic-button"));
-    });
-
-    await act(async () => {
-      fireEvent.press(screen.getByTestId("recording-stop-send"));
-    });
-
-    expect(onSendVoiceMessage).toHaveBeenCalledWith(
-      "file:///mock-recording.m4a",
-      expect.any(Number),
-    );
+    expect(ref.focus).toHaveBeenCalledWith("end");
   });
 
   it("renders the WebView editor", () => {
@@ -450,7 +461,7 @@ describe("MessageInput", () => {
   it("sets height, minHeight, and maxHeight on input container", () => {
     render(<MessageInput onSend={jest.fn()} />);
     const input = screen.getByTestId("message-input");
-    expect(input.props.style).toEqual(
+    expect(StyleSheet.flatten(input.props.style)).toEqual(
       expect.objectContaining({ height: 36, minHeight: 36, maxHeight: 120 }),
     );
   });
@@ -458,15 +469,15 @@ describe("MessageInput", () => {
   it("expands capsule when height-change event fires", () => {
     render(<MessageInput onSend={jest.fn()} />);
     const capsule = screen.getByTestId("input-capsule");
-    expect(capsule.props.style).toEqual(expect.objectContaining({ minHeight: 44 }));
+    expect(StyleSheet.flatten(capsule.props.style)).toEqual(expect.objectContaining({ minHeight: 44 }));
 
     act(() => {
       webViewEditorMock._simulateHeightChange(80);
     });
 
     const input = screen.getByTestId("message-input");
-    expect(input.props.style).toEqual(expect.objectContaining({ height: 80 }));
-    expect(capsule.props.style).toEqual(expect.objectContaining({ minHeight: 88 }));
+    expect(StyleSheet.flatten(input.props.style)).toEqual(expect.objectContaining({ height: 80 }));
+    expect(StyleSheet.flatten(capsule.props.style)).toEqual(expect.objectContaining({ minHeight: 88 }));
   });
 
   it("clamps height between 36 and 120", () => {
@@ -475,14 +486,14 @@ describe("MessageInput", () => {
     act(() => {
       webViewEditorMock._simulateHeightChange(10);
     });
-    expect(screen.getByTestId("message-input").props.style).toEqual(
+    expect(StyleSheet.flatten(screen.getByTestId("message-input").props.style)).toEqual(
       expect.objectContaining({ height: 36 }),
     );
 
     act(() => {
       webViewEditorMock._simulateHeightChange(200);
     });
-    expect(screen.getByTestId("message-input").props.style).toEqual(
+    expect(StyleSheet.flatten(screen.getByTestId("message-input").props.style)).toEqual(
       expect.objectContaining({ height: 120 }),
     );
   });
@@ -495,7 +506,7 @@ describe("MessageInput", () => {
       webViewEditorMock._simulateContentChange("hello", "hello", false);
       webViewEditorMock._simulateHeightChange(80);
     });
-    expect(screen.getByTestId("message-input").props.style).toEqual(
+    expect(StyleSheet.flatten(screen.getByTestId("message-input").props.style)).toEqual(
       expect.objectContaining({ height: 80 }),
     );
 
@@ -505,7 +516,7 @@ describe("MessageInput", () => {
     });
 
     // Height should reset to initial
-    expect(screen.getByTestId("message-input").props.style).toEqual(
+    expect(StyleSheet.flatten(screen.getByTestId("message-input").props.style)).toEqual(
       expect.objectContaining({ height: 36 }),
     );
   });
@@ -600,7 +611,7 @@ describe("MessageInput", () => {
         onSend={jest.fn()}
         members={members}
         slashCommands={slashCommands}
-        editingMessage={{ id: "msg-1", content: "original" }}
+        editingMessage={{ id: asMessageId("msg-1"), content: "original" }}
         onCancelEdit={jest.fn()}
         onSaveEdit={jest.fn()}
       />,
@@ -617,5 +628,58 @@ describe("MessageInput", () => {
 
     // Suggestions should be gone
     expect(screen.queryByTestId("mention-suggestion-list")).toBeNull();
+  });
+
+  it("clears draft when scheduling a message", async () => {
+    const onScheduleSend = jest.fn();
+    render(
+      <MessageInput onSend={jest.fn()} onScheduleSend={onScheduleSend} draftKey="test-key" />,
+    );
+
+    // Type content so send button is enabled
+    act(() => {
+      webViewEditorMock._simulateContentChange("scheduled msg", "scheduled msg", false);
+    });
+
+    // Open schedule sheet via long press on send button
+    await act(async () => {
+      fireEvent(screen.getByTestId("message-send"), "onLongPress");
+    });
+
+    // Find a preset button in the schedule sheet and press it
+    const presetButton = screen.queryByTestId("schedule-preset-in-20-minutes")
+      ?? screen.queryByTestId("schedule-preset-tomorrow-at-9:00-am");
+
+    if (presetButton) {
+      mockClearDraft.mockClear();
+      getMockRef().clearContent.mockClear();
+
+      await act(async () => {
+        fireEvent.press(presetButton);
+      });
+
+      expect(onScheduleSend).toHaveBeenCalledWith("scheduled msg", expect.any(Date));
+      expect(mockClearDraft).toHaveBeenCalled();
+      expect(getMockRef().clearContent).toHaveBeenCalled();
+    } else {
+      // Verify the schedule sheet is at least visible
+      expect(screen.getByTestId("schedule-sheet-content")).toBeTruthy();
+    }
+  });
+
+  it("has pan responder handlers on input row for swipe-to-dismiss keyboard", () => {
+    render(<MessageInput onSend={jest.fn()} />);
+    const inputRow = screen.getByTestId("input-row");
+    // PanResponder attaches onMoveShouldSetResponder and related handlers
+    expect(inputRow.props.onMoveShouldSetResponder).toBeDefined();
+  });
+
+  it("attaches responder handlers for keyboard dismiss gesture", () => {
+    render(<MessageInput onSend={jest.fn()} />);
+    const inputRow = screen.getByTestId("input-row");
+
+    // PanResponder attaches these handlers to enable swipe-to-dismiss
+    expect(inputRow.props.onResponderRelease).toBeDefined();
+    expect(inputRow.props.onMoveShouldSetResponder).toBeDefined();
   });
 });

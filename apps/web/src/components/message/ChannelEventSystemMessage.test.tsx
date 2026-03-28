@@ -1,4 +1,4 @@
-import { describe, test, expect, afterEach } from "bun:test";
+import { describe, test, expect, afterEach } from "vitest";
 import { render, screen, cleanup } from "../../test-utils";
 import { ChannelEventSystemMessage } from "./ChannelEventSystemMessage";
 import type { ChannelEventMessage } from "@openslaq/shared";

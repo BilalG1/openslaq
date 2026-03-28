@@ -4,8 +4,9 @@ import { channels, channelMembers } from "../channels/schema";
 import { users } from "../users/schema";
 import { workspaceMembers } from "../workspaces/schema";
 import type { Channel, WorkspaceId, UserId } from "@openslaq/shared";
-import { asUserId, CHANNEL_TYPES } from "@openslaq/shared";
+import { asChannelId, asUserId, CHANNEL_TYPES } from "@openslaq/shared";
 import { toChannel } from "../channels/to-channel";
+import { initializeReadPositions } from "../channels/read-positions-service";
 
 export interface GroupDmMember {
   id: UserId;
@@ -131,6 +132,7 @@ export async function createGroupDm(
       userId,
     })),
   );
+  await initializeReadPositions(asChannelId(channel.id), allMemberIds.map(asUserId));
 
   const memberDetails: GroupDmMember[] = memberUsers.map((u) => ({
     id: asUserId(u.id),
@@ -242,6 +244,7 @@ export async function addGroupDmMember(
 
   // Add the member
   await db.insert(channelMembers).values({ channelId, userId: newUserId });
+  await initializeReadPositions(asChannelId(channelId), [asUserId(newUserId)]);
 
   // Regenerate display name
   const allMemberIds = [...currentMembers.map((m) => m.userId), newUserId];

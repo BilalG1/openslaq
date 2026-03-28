@@ -1,11 +1,13 @@
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, desc, sql } from "drizzle-orm";
 import { db } from "../db";
 import { channels, channelMembers } from "../channels/schema";
+import { messages } from "../messages/schema";
 import { users } from "../users/schema";
 import { workspaceMembers } from "../workspaces/schema";
 import type { Channel, WorkspaceId, UserId } from "@openslaq/shared";
-import { asUserId, CHANNEL_TYPES } from "@openslaq/shared";
+import { asChannelId, asUserId, CHANNEL_TYPES } from "@openslaq/shared";
 import { toChannel } from "../channels/to-channel";
+import { initializeReadPositions } from "../channels/read-positions-service";
 
 interface DmUser {
   id: UserId;
@@ -23,6 +25,8 @@ export interface DmResult {
 export interface DmListItem {
   channel: Channel;
   otherUser: DmUser;
+  lastMessageContent: string | null;
+  lastMessageAt: string | null;
 }
 
 export function dmChannelName(userId1: string, userId2: string): string {
@@ -81,6 +85,7 @@ export async function getOrCreateDm(
     memberValues.push({ channelId: channel.id, userId: targetUserId as string });
   }
   await db.insert(channelMembers).values(memberValues);
+  await initializeReadPositions(asChannelId(channel.id), memberValues.map((v) => asUserId(v.userId)));
 
   const otherUser = await getOtherUser(targetUserId);
   return { channel: toChannel(channel), otherUser, created: true };
@@ -152,13 +157,46 @@ export async function listDms(workspaceId: WorkspaceId, userId: UserId): Promise
     });
   }
 
+  // Batch-fetch latest message per DM channel using a lateral join
+  const channelIds = [...channelMap.keys()];
+  const lastMessageMap = new Map<string, { content: string; createdAt: Date }>();
+  if (channelIds.length > 0) {
+    const lastMessages = await db
+      .select({
+        channelId: messages.channelId,
+        content: messages.content,
+        createdAt: messages.createdAt,
+      })
+      .from(messages)
+      .where(
+        and(
+          inArray(messages.channelId, channelIds),
+          sql`${messages.parentMessageId} IS NULL`,
+        ),
+      )
+      .orderBy(desc(messages.createdAt));
+
+    // Keep only the first (latest) message per channel
+    for (const row of lastMessages) {
+      if (!lastMessageMap.has(row.channelId)) {
+        lastMessageMap.set(row.channelId, { content: row.content, createdAt: row.createdAt });
+      }
+    }
+  }
+
   const results: DmListItem[] = [];
 
   for (const { channel, memberIds } of channelMap.values()) {
     const otherUserId = memberIds.find((id) => id !== userId) ?? (userId as string);
     const otherUser = userMap.get(otherUserId);
     if (otherUser) {
-      results.push({ channel: toChannel(channel), otherUser });
+      const lastMsg = lastMessageMap.get(channel.id);
+      results.push({
+        channel: toChannel(channel),
+        otherUser,
+        lastMessageContent: lastMsg?.content ?? null,
+        lastMessageAt: lastMsg?.createdAt.toISOString() ?? null,
+      });
     }
   }
 

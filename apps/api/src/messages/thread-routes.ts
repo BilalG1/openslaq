@@ -4,6 +4,8 @@ import type { WorkspaceMemberEnv } from "../workspaces/role-middleware";
 import { rlRead } from "../rate-limit";
 import { messageSchema } from "../openapi/schemas";
 import { jsonResponse } from "../openapi/responses";
+import { BEARER_SECURITY, jsonContent } from "../lib/openapi-helpers";
+import { getWorkspaceMemberContext } from "../lib/context";
 
 const listUserThreadsRoute = createRoute({
   method: "get",
@@ -11,31 +13,23 @@ const listUserThreadsRoute = createRoute({
   tags: ["Messages"],
   summary: "List user threads",
   description: "Returns all threads the current user is participating in (authored or replied to).",
-  security: [{ Bearer: [] }],
+  security: BEARER_SECURITY,
   middleware: [rlRead] as const,
   responses: {
-    200: {
-      content: {
-        "application/json": {
-          schema: z.object({
-            threads: z.array(
-              z.object({
-                message: messageSchema,
-                channelName: z.string(),
-              }),
-            ),
-          }),
-        },
-      },
-      description: "User threads",
-    },
+    200: jsonContent(z.object({
+      threads: z.array(
+        z.object({
+          message: messageSchema,
+          channelName: z.string(),
+        }),
+      ),
+    }), "User threads"),
   },
 });
 
 const app = new OpenAPIHono<WorkspaceMemberEnv>()
   .openapi(listUserThreadsRoute, async (c) => {
-    const user = c.get("user");
-    const workspace = c.get("workspace");
+    const { user, workspace } = getWorkspaceMemberContext(c);
     const threads = await getUserThreads(user.id, workspace.id);
     return jsonResponse(c, { threads }, 200);
   });

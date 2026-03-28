@@ -1,11 +1,13 @@
-let pending: string | null = null;
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export const setPendingInvite = (code: string) => {
-  pending = code;
+const KEY = "openslaq_pending_invite";
+
+export const setPendingInvite = async (code: string): Promise<void> => {
+  await AsyncStorage.setItem(KEY, code);
 };
 
-export const consumePendingInvite = (): string | null => {
-  const c = pending;
-  pending = null;
-  return c;
+export const consumePendingInvite = async (): Promise<string | null> => {
+  const code = await AsyncStorage.getItem(KEY);
+  if (code) await AsyncStorage.removeItem(KEY);
+  return code;
 };

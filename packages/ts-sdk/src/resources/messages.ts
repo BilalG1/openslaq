@@ -1,4 +1,5 @@
-import type { HttpClient } from "../http";
+import type { RpcClient } from "../rpc";
+import { checked } from "../rpc";
 import type { Message, MessageListResponse, MessagesAroundResponse, PinCountResponse, PinnedMessagesResponse, SavedMessageIdsResponse, SavedMessagesResponse, ShareMessageOptions, ToggleReactionResponse } from "../types";
 
 export interface SendMessageOptions {
@@ -17,103 +18,180 @@ export interface EditMessageOptions {
 }
 
 export class Messages {
-  constructor(private readonly http: HttpClient) {}
+  constructor(
+    private readonly rpc: RpcClient,
+    private readonly slug: string,
+  ) {}
 
   async send(channelId: string, options: SendMessageOptions): Promise<Message> {
-    const path = this.http.workspacePath(`/channels/${channelId}/messages`);
-    return this.http.post<Message>(path, options);
+    const res = await checked(
+      await this.rpc.api.workspaces[":slug"].channels[":id"].messages.$post({
+        param: { slug: this.slug, id: channelId },
+        json: options,
+      }),
+    );
+    return await res.json();
   }
 
   async list(channelId: string, options?: ListMessagesOptions): Promise<MessageListResponse> {
-    const path = this.http.workspacePath(`/channels/${channelId}/messages`);
-    return this.http.get<MessageListResponse>(path, {
-      cursor: options?.cursor,
-      limit: options?.limit,
-      direction: options?.direction,
-    });
+    const res = await checked(
+      await this.rpc.api.workspaces[":slug"].channels[":id"].messages.$get({
+        param: { slug: this.slug, id: channelId },
+        query: {
+          cursor: options?.cursor,
+          limit: options?.limit,
+          direction: options?.direction,
+        },
+      }),
+    );
+    return await res.json();
   }
 
   async get(messageId: string): Promise<Message> {
-    const path = this.http.globalPath(`/messages/${messageId}`);
-    return this.http.get<Message>(path);
+    const res = await checked(
+      await this.rpc.api.messages[":id"].$get({
+        param: { id: messageId },
+      }),
+    );
+    return await res.json();
   }
 
   async edit(messageId: string, options: EditMessageOptions): Promise<Message> {
-    const path = this.http.globalPath(`/messages/${messageId}`);
-    return this.http.put<Message>(path, options);
+    const res = await checked(
+      await this.rpc.api.messages[":id"].$put({
+        param: { id: messageId },
+        json: options,
+      }),
+    );
+    return await res.json();
   }
 
   async delete(messageId: string): Promise<void> {
-    const path = this.http.globalPath(`/messages/${messageId}`);
-    await this.http.del(path);
+    await checked(
+      await this.rpc.api.messages[":id"].$delete({
+        param: { id: messageId },
+      }),
+    );
   }
 
   async reply(channelId: string, parentMessageId: string, options: SendMessageOptions): Promise<Message> {
-    const path = this.http.workspacePath(`/channels/${channelId}/messages/${parentMessageId}/replies`);
-    return this.http.post<Message>(path, options);
+    const res = await checked(
+      await this.rpc.api.workspaces[":slug"].channels[":id"].messages[":messageId"].replies.$post({
+        param: { slug: this.slug, id: channelId, messageId: parentMessageId },
+        json: options,
+      }),
+    );
+    return await res.json();
   }
 
   async listReplies(channelId: string, parentMessageId: string, options?: ListMessagesOptions): Promise<MessageListResponse> {
-    const path = this.http.workspacePath(`/channels/${channelId}/messages/${parentMessageId}/replies`);
-    return this.http.get<MessageListResponse>(path, {
-      cursor: options?.cursor,
-      limit: options?.limit,
-      direction: options?.direction,
-    });
+    const res = await checked(
+      await this.rpc.api.workspaces[":slug"].channels[":id"].messages[":messageId"].replies.$get({
+        param: { slug: this.slug, id: channelId, messageId: parentMessageId },
+        query: {
+          cursor: options?.cursor,
+          limit: options?.limit,
+          direction: options?.direction,
+        },
+      }),
+    );
+    return await res.json();
   }
 
   async toggleReaction(messageId: string, emoji: string): Promise<ToggleReactionResponse> {
-    const path = this.http.globalPath(`/messages/${messageId}/reactions`);
-    return this.http.post<ToggleReactionResponse>(path, { emoji });
+    const res = await checked(
+      await this.rpc.api.messages[":id"].reactions.$post({
+        param: { id: messageId },
+        json: { emoji },
+      }),
+    );
+    return await res.json();
   }
 
   async pin(channelId: string, messageId: string): Promise<void> {
-    const path = this.http.workspacePath(`/channels/${channelId}/messages/${messageId}/pin`);
-    await this.http.postVoid(path);
+    await checked(
+      await this.rpc.api.workspaces[":slug"].channels[":id"].messages[":messageId"].pin.$post({
+        param: { slug: this.slug, id: channelId, messageId },
+      }),
+    );
   }
 
   async unpin(channelId: string, messageId: string): Promise<void> {
-    const path = this.http.workspacePath(`/channels/${channelId}/messages/${messageId}/pin`);
-    await this.http.del(path);
+    await checked(
+      await this.rpc.api.workspaces[":slug"].channels[":id"].messages[":messageId"].pin.$delete({
+        param: { slug: this.slug, id: channelId, messageId },
+      }),
+    );
   }
 
   async listPinned(channelId: string): Promise<PinnedMessagesResponse> {
-    const path = this.http.workspacePath(`/channels/${channelId}/pins`);
-    return this.http.get<PinnedMessagesResponse>(path);
+    const res = await checked(
+      await this.rpc.api.workspaces[":slug"].channels[":id"].pins.$get({
+        param: { slug: this.slug, id: channelId },
+      }),
+    );
+    return await res.json();
   }
 
   async getPinCount(channelId: string): Promise<PinCountResponse> {
-    const path = this.http.workspacePath(`/channels/${channelId}/pin-count`);
-    return this.http.get<PinCountResponse>(path);
+    const res = await checked(
+      await this.rpc.api.workspaces[":slug"].channels[":id"]["pin-count"].$get({
+        param: { slug: this.slug, id: channelId },
+      }),
+    );
+    return await res.json();
   }
 
   async save(channelId: string, messageId: string): Promise<void> {
-    const path = this.http.workspacePath(`/channels/${channelId}/messages/${messageId}/save`);
-    await this.http.postVoid(path);
+    await checked(
+      await this.rpc.api.workspaces[":slug"].channels[":id"].messages[":messageId"].save.$post({
+        param: { slug: this.slug, id: channelId, messageId },
+      }),
+    );
   }
 
   async unsave(channelId: string, messageId: string): Promise<void> {
-    const path = this.http.workspacePath(`/channels/${channelId}/messages/${messageId}/save`);
-    await this.http.del(path);
+    await checked(
+      await this.rpc.api.workspaces[":slug"].channels[":id"].messages[":messageId"].save.$delete({
+        param: { slug: this.slug, id: channelId, messageId },
+      }),
+    );
   }
 
   async listSaved(): Promise<SavedMessagesResponse> {
-    const path = this.http.workspacePath("/saved-messages");
-    return this.http.get<SavedMessagesResponse>(path);
+    const res = await checked(
+      await this.rpc.api.workspaces[":slug"]["saved-messages"].$get({
+        param: { slug: this.slug },
+      }),
+    );
+    return await res.json();
   }
 
   async listSavedIds(): Promise<SavedMessageIdsResponse> {
-    const path = this.http.workspacePath("/saved-messages/ids");
-    return this.http.get<SavedMessageIdsResponse>(path);
+    const res = await checked(
+      await this.rpc.api.workspaces[":slug"]["saved-messages"].ids.$get({
+        param: { slug: this.slug },
+      }),
+    );
+    return await res.json();
   }
 
   async share(channelId: string, options: ShareMessageOptions): Promise<Message> {
-    const path = this.http.workspacePath(`/channels/${channelId}/messages/share`);
-    return this.http.post<Message>(path, options);
+    const res = await checked(
+      await this.rpc.api.workspaces[":slug"].channels[":id"].messages.share.$post({
+        param: { slug: this.slug, id: channelId },
+        json: options,
+      }),
+    );
+    return await res.json();
   }
 
   async getAround(channelId: string, messageId: string): Promise<MessagesAroundResponse> {
-    const path = this.http.workspacePath(`/channels/${channelId}/messages/around/${messageId}`);
-    return this.http.get<MessagesAroundResponse>(path);
+    const res = await checked(
+      await this.rpc.api.workspaces[":slug"].channels[":id"].messages.around[":messageId"].$get({
+        param: { slug: this.slug, id: channelId, messageId },
+      }),
+    );
+    return await res.json();
   }
 }

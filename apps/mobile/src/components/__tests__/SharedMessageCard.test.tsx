@@ -70,13 +70,25 @@ describe("SharedMessageCard", () => {
     expect(screen.queryByText(/#/)).toBeNull();
   });
 
-  it("renders ? when sender name is missing", () => {
+  it("shows fallback name and avatar when senderDisplayName is undefined", () => {
+    render(
+      <SharedMessageCard
+        sharedMessage={makeSharedMessage({ senderDisplayName: undefined })}
+      />,
+    );
+
+    expect(screen.getByText("U")).toBeTruthy(); // avatar initial from "Unknown"
+    expect(screen.getByText("Unknown")).toBeTruthy();
+  });
+
+  it("shows fallback name and avatar when senderDisplayName is empty string", () => {
     render(
       <SharedMessageCard
         sharedMessage={makeSharedMessage({ senderDisplayName: "" })}
       />,
     );
 
-    expect(screen.getByText("?")).toBeTruthy();
+    expect(screen.getByText("U")).toBeTruthy();
+    expect(screen.getByText("Unknown")).toBeTruthy();
   });
 });
