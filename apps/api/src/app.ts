@@ -17,7 +17,6 @@ import reactionRoutes from "./reactions/routes";
 import adminRoutes from "./admin/routes";
 import huddleRoutes from "./huddle/routes";
 import rateLimitTestRoutes from "./rate-limit/test-routes";
-import botApiRoutes from "./bots/bot-api-routes";
 import interactionRoutes from "./bots/interaction-routes";
 import authRoutes from "./auth/routes";
 import pushRoutes from "./push/routes";
@@ -102,7 +101,6 @@ const routes = app
   .route("/api/users", userRoutes)
   .route("/api/admin", adminRoutes)
   .route("/api", huddleRoutes)
-  .route("/api/bot", botApiRoutes)
   .route("/api/bot-interactions", interactionRoutes)
   .route("/api/auth", authRoutes)
   .route("/api", pushRoutes)

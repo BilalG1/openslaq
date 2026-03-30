@@ -2,6 +2,7 @@ import { Pressable, View, StyleSheet } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { ChevronLeft } from "lucide-react-native";
 import { WorkspaceBootstrapProvider } from "@/contexts/WorkspaceBootstrapProvider";
+import { FeatureFlagsProvider } from "@/contexts/FeatureFlagsContext";
 import { WorkspaceDrawerProvider } from "@/contexts/WorkspaceDrawerContext";
 import { WorkspaceDrawer } from "@/components/workspace/WorkspaceDrawer";
 import { HuddleFloatingBar } from "@/components/huddle/HuddleFloatingBar";
@@ -21,6 +22,7 @@ export default function WorkspaceLayout() {
 
   return (
     <WorkspaceBootstrapProvider workspaceSlug={workspaceSlug!}>
+      <FeatureFlagsProvider>
       <WorkspaceDrawerProvider>
         <WorkspaceDrawer>
           <View style={styles.flex}>
@@ -174,6 +176,7 @@ export default function WorkspaceLayout() {
           </View>
         </WorkspaceDrawer>
       </WorkspaceDrawerProvider>
+      </FeatureFlagsProvider>
     </WorkspaceBootstrapProvider>
   );
 }

@@ -93,9 +93,9 @@ const makeChannel = (id: string, name: string, type = "public") => ({
   displayName: null,
 });
 
-const makeDm = (channelId: string, userId: string, displayName: string) => ({
+const makeDm = (channelId: string, userId: string, displayName: string, avatarUrl: string | null = null) => ({
   channel: { id: channelId, name: "dm", type: "dm" as const, workspaceId: "ws-1", createdAt: "", createdBy: "u1", topic: null, description: null, displayName: null },
-  otherUser: { id: userId, displayName, avatarUrl: null },
+  otherUser: { id: userId, displayName, avatarUrl },
 });
 
 const makeGroupDm = (channelId: string, memberNames: string[], displayName?: string) => ({
@@ -300,6 +300,43 @@ describe("HomeScreen", () => {
   it("does not show huddle icon when no active huddle", () => {
     render(<HomeScreen />);
     expect(screen.queryByTestId("huddle-icon-ch-1")).toBeNull();
+  });
+
+  describe("DM avatar images", () => {
+    it("renders avatar image when otherUser has avatarUrl", () => {
+      mockState.dms = [makeDm("dm-1", "u-2", "Alice", "https://cdn.test/alice.png")];
+      render(<HomeScreen />);
+      const avatarImage = screen.getByTestId("dm-avatar-image-dm-1");
+      expect(avatarImage.props.source).toEqual({ uri: "https://cdn.test/alice.png" });
+    });
+
+    it("renders initials fallback when otherUser has no avatarUrl", () => {
+      mockState.dms = [makeDm("dm-1", "u-2", "Zara")];
+      render(<HomeScreen />);
+      expect(screen.queryByTestId("dm-avatar-image-dm-1")).toBeNull();
+      expect(screen.getByText("Z")).toBeTruthy();
+    });
+  });
+
+  describe("Group DM avatar images", () => {
+    it("renders first member avatar image when member has avatarUrl", () => {
+      mockState.groupDms = [{
+        ...makeGroupDm("gdm-1", ["Alice", "Bob"]),
+        members: [
+          { id: "gm-0", displayName: "Alice", avatarUrl: "https://cdn.test/alice.png" },
+          { id: "gm-1", displayName: "Bob", avatarUrl: "https://cdn.test/bob.png" },
+        ],
+      }];
+      render(<HomeScreen />);
+      const avatarImage = screen.getByTestId("group-dm-avatar-image-gdm-1");
+      expect(avatarImage).toBeTruthy();
+    });
+
+    it("renders fallback icon when no members have avatarUrl", () => {
+      mockState.groupDms = [makeGroupDm("gdm-1", ["Alice", "Bob"])];
+      render(<HomeScreen />);
+      expect(screen.queryByTestId("group-dm-avatar-image-gdm-1")).toBeNull();
+    });
   });
 
   it("renders search pill in header", () => {

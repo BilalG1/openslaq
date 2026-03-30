@@ -1,16 +1,16 @@
 import { defineCommand, type FlagSchema } from "../framework";
 import { printHelp, formatPresenceTable } from "../output";
-import { getAuthenticatedClient } from "../client";
+import { getAuthenticatedClient, requireWorkspace } from "../client";
 
 const presenceFlags = {
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
 export const presenceCommand = defineCommand({
   help() {
     printHelp("openslaq presence [flags]", "Show who's online in the workspace.", [
-      { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+      { name: "--workspace SLUG", desc: "Workspace slug (required)" },
       { name: "--json", desc: "Output raw JSON" },
     ]);
   },
@@ -18,7 +18,7 @@ export const presenceCommand = defineCommand({
   async action(f) {
     const client = await getAuthenticatedClient();
     const res = await client.api.workspaces[":slug"].presence.$get({
-      param: { slug: f.workspace },
+      param: { slug: requireWorkspace(f.workspace) },
     });
 
     if (!res.ok) {

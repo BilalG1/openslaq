@@ -1,7 +1,7 @@
 import type { WorkspaceListItem } from "@openslaq/client-core";
 import { defineCommand, type FlagSchema } from "../framework";
 import { printHelp, formatWorkspaceTable, formatMemberTable, formatInviteTable } from "../output";
-import { getAuthenticatedClient } from "../client";
+import { getAuthenticatedClient, requireWorkspace } from "../client";
 
 const listFlags = {
   json: { type: "boolean" },
@@ -13,25 +13,25 @@ const createFlags = {
 } as const satisfies FlagSchema;
 
 const membersFlags = {
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
 const inviteFlags = {
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   "max-uses": { type: "string" },
   "expires-in-hours": { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
 const invitesFlags = {
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
 const revokeInviteFlags = {
   invite: { type: "string", required: true },
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
@@ -101,7 +101,7 @@ export const workspacesCommand = defineCommand({
     members: defineCommand({
       help() {
         printHelp("openslaq workspaces members [flags]", "List workspace members.", [
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -109,7 +109,7 @@ export const workspacesCommand = defineCommand({
       async action(f) {
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].members.$get({
-          param: { slug: f.workspace },
+          param: { slug: requireWorkspace(f.workspace) },
           query: {},
         });
         if (!res.ok) {
@@ -128,7 +128,7 @@ export const workspacesCommand = defineCommand({
     invite: defineCommand({
       help() {
         printHelp("openslaq workspaces invite [flags]", "Create a workspace invite.", [
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--max-uses N", desc: "Maximum number of uses" },
           { name: "--expires-in-hours N", desc: "Hours until expiration (default: 168)" },
           { name: "--json", desc: "Output raw JSON" },
@@ -142,7 +142,7 @@ export const workspacesCommand = defineCommand({
         if (f["expires-in-hours"]) body.expiresInHours = parseInt(f["expires-in-hours"], 10);
 
         const res = await client.api.workspaces[":slug"].invites.$post({
-          param: { slug: f.workspace },
+          param: { slug: requireWorkspace(f.workspace) },
           json: body,
         });
         if (!res.ok) {
@@ -161,7 +161,7 @@ export const workspacesCommand = defineCommand({
     invites: defineCommand({
       help() {
         printHelp("openslaq workspaces invites [flags]", "List workspace invites.", [
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -169,7 +169,7 @@ export const workspacesCommand = defineCommand({
       async action(f) {
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].invites.$get({
-          param: { slug: f.workspace },
+          param: { slug: requireWorkspace(f.workspace) },
         });
         if (!res.ok) {
           console.error(`Failed to list invites: ${res.status}`);
@@ -188,7 +188,7 @@ export const workspacesCommand = defineCommand({
       help() {
         printHelp("openslaq workspaces revoke-invite [flags]", "Revoke a workspace invite.", [
           { name: "--invite ID", desc: "Invite ID (required)" },
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -196,7 +196,7 @@ export const workspacesCommand = defineCommand({
       async action(f) {
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].invites[":inviteId"].$delete({
-          param: { slug: f.workspace, inviteId: f.invite },
+          param: { slug: requireWorkspace(f.workspace), inviteId: f.invite },
         });
         if (!res.ok) {
           console.error(`Failed to revoke invite: ${res.status}`);

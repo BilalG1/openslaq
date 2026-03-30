@@ -1,40 +1,40 @@
 import type { Channel } from "@openslaq/shared";
 import { defineCommand, type FlagSchema } from "../framework";
 import { printHelp, formatChannelTable, formatBrowseChannelTable, formatChannelMemberTable } from "../output";
-import { getAuthenticatedClient } from "../client";
+import { getAuthenticatedClient, requireWorkspace } from "../client";
 
 const listFlags = {
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
 const createFlags = {
   name: { type: "string", required: true },
   type: { type: "string", default: "public" },
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
 const joinFlags = {
   channel: { type: "string", required: true },
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
 const leaveFlags = {
   channel: { type: "string", required: true },
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
 const markReadFlags = {
   channel: { type: "string", required: true },
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
 const browseFlags = {
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   "include-archived": { type: "boolean" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
@@ -42,57 +42,57 @@ const browseFlags = {
 const updateFlags = {
   channel: { type: "string", required: true },
   description: { type: "string", required: true },
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
 const archiveFlags = {
   channel: { type: "string", required: true },
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
 const starFlags = {
   channel: { type: "string", required: true },
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
 const starredFlags = {
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
 const membersFlags = {
   channel: { type: "string", required: true },
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
 const addMemberFlags = {
   channel: { type: "string", required: true },
   user: { type: "string", required: true },
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
 const removeMemberFlags = {
   channel: { type: "string", required: true },
   user: { type: "string", required: true },
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
 const notifyGetFlags = {
   channel: { type: "string", required: true },
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
 const notifySetFlags = {
   channel: { type: "string", required: true },
   level: { type: "string", required: true },
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
@@ -123,7 +123,7 @@ export const channelsCommand = defineCommand({
     list: defineCommand({
       help() {
         printHelp("openslaq channels list [flags]", "List channels in a workspace.", [
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -131,7 +131,7 @@ export const channelsCommand = defineCommand({
       async action(f) {
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].channels.$get({
-          param: { slug: f.workspace },
+          param: { slug: requireWorkspace(f.workspace) },
         });
         if (!res.ok) {
           console.error(`Failed to list channels: ${res.status}`);
@@ -151,7 +151,7 @@ export const channelsCommand = defineCommand({
         printHelp("openslaq channels create [flags]", "Create a new channel.", [
           { name: "--name NAME", desc: "Channel name (required)" },
           { name: "--type TYPE", desc: 'Channel type: public or private (default: "public")' },
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -159,7 +159,7 @@ export const channelsCommand = defineCommand({
       async action(f) {
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].channels.$post({
-          param: { slug: f.workspace },
+          param: { slug: requireWorkspace(f.workspace) },
           json: { name: f.name, type: f.type as "public" | "private" },
         });
         if (!res.ok) {
@@ -179,7 +179,7 @@ export const channelsCommand = defineCommand({
       help() {
         printHelp("openslaq channels join [flags]", "Join a public channel.", [
           { name: "--channel ID", desc: "Channel ID (required)" },
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -187,7 +187,7 @@ export const channelsCommand = defineCommand({
       async action(f) {
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].channels[":id"].join.$post({
-          param: { slug: f.workspace, id: f.channel },
+          param: { slug: requireWorkspace(f.workspace), id: f.channel },
         });
         if (!res.ok) {
           const body = await res.json().catch(() => null);
@@ -208,7 +208,7 @@ export const channelsCommand = defineCommand({
       help() {
         printHelp("openslaq channels leave [flags]", "Leave a channel.", [
           { name: "--channel ID", desc: "Channel ID (required)" },
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -216,7 +216,7 @@ export const channelsCommand = defineCommand({
       async action(f) {
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].channels[":id"].leave.$post({
-          param: { slug: f.workspace, id: f.channel },
+          param: { slug: requireWorkspace(f.workspace), id: f.channel },
         });
         if (!res.ok) {
           console.error(`Failed to leave channel: ${res.status}`);
@@ -235,7 +235,7 @@ export const channelsCommand = defineCommand({
       help() {
         printHelp("openslaq channels mark-read [flags]", "Mark a channel as read.", [
           { name: "--channel ID", desc: "Channel ID (required)" },
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -243,7 +243,7 @@ export const channelsCommand = defineCommand({
       async action(f) {
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].channels[":id"].read.$post({
-          param: { slug: f.workspace, id: f.channel },
+          param: { slug: requireWorkspace(f.workspace), id: f.channel },
         });
         if (!res.ok) {
           console.error(`Failed to mark channel as read: ${res.status}`);
@@ -261,7 +261,7 @@ export const channelsCommand = defineCommand({
     browse: defineCommand({
       help() {
         printHelp("openslaq channels browse [flags]", "Browse public channels.", [
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--include-archived", desc: "Include archived channels" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
@@ -270,7 +270,7 @@ export const channelsCommand = defineCommand({
       async action(f) {
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].channels.browse.$get({
-          param: { slug: f.workspace },
+          param: { slug: requireWorkspace(f.workspace) },
           query: { includeArchived: f["include-archived"] ? "true" : undefined },
         });
         if (!res.ok) {
@@ -291,7 +291,7 @@ export const channelsCommand = defineCommand({
         printHelp("openslaq channels update [flags]", "Update a channel.", [
           { name: "--channel ID", desc: "Channel ID (required)" },
           { name: "--description TEXT", desc: "New description (required)" },
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -299,7 +299,7 @@ export const channelsCommand = defineCommand({
       async action(f) {
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].channels[":id"].$patch({
-          param: { slug: f.workspace, id: f.channel },
+          param: { slug: requireWorkspace(f.workspace), id: f.channel },
           json: { description: f.description },
         });
         if (!res.ok) {
@@ -319,7 +319,7 @@ export const channelsCommand = defineCommand({
       help() {
         printHelp("openslaq channels archive [flags]", "Archive a channel.", [
           { name: "--channel ID", desc: "Channel ID (required)" },
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -327,7 +327,7 @@ export const channelsCommand = defineCommand({
       async action(f) {
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].channels[":id"].archive.$post({
-          param: { slug: f.workspace, id: f.channel },
+          param: { slug: requireWorkspace(f.workspace), id: f.channel },
         });
         if (!res.ok) {
           console.error(`Failed to archive channel: ${res.status}`);
@@ -346,7 +346,7 @@ export const channelsCommand = defineCommand({
       help() {
         printHelp("openslaq channels unarchive [flags]", "Unarchive a channel.", [
           { name: "--channel ID", desc: "Channel ID (required)" },
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -354,7 +354,7 @@ export const channelsCommand = defineCommand({
       async action(f) {
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].channels[":id"].unarchive.$post({
-          param: { slug: f.workspace, id: f.channel },
+          param: { slug: requireWorkspace(f.workspace), id: f.channel },
         });
         if (!res.ok) {
           console.error(`Failed to unarchive channel: ${res.status}`);
@@ -373,7 +373,7 @@ export const channelsCommand = defineCommand({
       help() {
         printHelp("openslaq channels star [flags]", "Star a channel.", [
           { name: "--channel ID", desc: "Channel ID (required)" },
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -381,7 +381,7 @@ export const channelsCommand = defineCommand({
       async action(f) {
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].channels[":id"].star.$post({
-          param: { slug: f.workspace, id: f.channel },
+          param: { slug: requireWorkspace(f.workspace), id: f.channel },
         });
         if (!res.ok) {
           console.error(`Failed to star channel: ${res.status}`);
@@ -400,7 +400,7 @@ export const channelsCommand = defineCommand({
       help() {
         printHelp("openslaq channels unstar [flags]", "Unstar a channel.", [
           { name: "--channel ID", desc: "Channel ID (required)" },
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -408,7 +408,7 @@ export const channelsCommand = defineCommand({
       async action(f) {
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].channels[":id"].star.$delete({
-          param: { slug: f.workspace, id: f.channel },
+          param: { slug: requireWorkspace(f.workspace), id: f.channel },
         });
         if (!res.ok) {
           console.error(`Failed to unstar channel: ${res.status}`);
@@ -427,7 +427,7 @@ export const channelsCommand = defineCommand({
       help() {
         printHelp("openslaq channels members [flags]", "List channel members.", [
           { name: "--channel ID", desc: "Channel ID (required)" },
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -435,7 +435,7 @@ export const channelsCommand = defineCommand({
       async action(f) {
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].channels[":id"].members.$get({
-          param: { slug: f.workspace, id: f.channel },
+          param: { slug: requireWorkspace(f.workspace), id: f.channel },
         });
         if (!res.ok) {
           console.error(`Failed to list members: ${res.status}`);
@@ -455,7 +455,7 @@ export const channelsCommand = defineCommand({
         printHelp("openslaq channels add-member [flags]", "Add a user to a channel.", [
           { name: "--channel ID", desc: "Channel ID (required)" },
           { name: "--user ID", desc: "User ID (required)" },
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -463,7 +463,7 @@ export const channelsCommand = defineCommand({
       async action(f) {
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].channels[":id"].members.$post({
-          param: { slug: f.workspace, id: f.channel },
+          param: { slug: requireWorkspace(f.workspace), id: f.channel },
           json: { userId: f.user },
         });
         if (!res.ok) {
@@ -484,7 +484,7 @@ export const channelsCommand = defineCommand({
         printHelp("openslaq channels remove-member [flags]", "Remove a user from a channel.", [
           { name: "--channel ID", desc: "Channel ID (required)" },
           { name: "--user ID", desc: "User ID (required)" },
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -492,7 +492,7 @@ export const channelsCommand = defineCommand({
       async action(f) {
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].channels[":id"].members[":userId"].$delete({
-          param: { slug: f.workspace, id: f.channel, userId: f.user },
+          param: { slug: requireWorkspace(f.workspace), id: f.channel, userId: f.user },
         });
         if (!res.ok) {
           console.error(`Failed to remove member: ${res.status}`);
@@ -511,7 +511,7 @@ export const channelsCommand = defineCommand({
       help() {
         printHelp("openslaq channels notify-get [flags]", "Get notification preference for a channel.", [
           { name: "--channel ID", desc: "Channel ID (required)" },
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -519,7 +519,7 @@ export const channelsCommand = defineCommand({
       async action(f) {
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].channels[":id"]["notification-pref"].$get({
-          param: { slug: f.workspace, id: f.channel },
+          param: { slug: requireWorkspace(f.workspace), id: f.channel },
         });
         if (!res.ok) {
           console.error(`Failed to get notification preference: ${res.status}`);
@@ -539,7 +539,7 @@ export const channelsCommand = defineCommand({
         printHelp("openslaq channels notify-set [flags]", "Set notification preference for a channel.", [
           { name: "--channel ID", desc: "Channel ID (required)" },
           { name: "--level LEVEL", desc: 'Notification level: "all", "mentions", or "muted" (required)' },
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -552,7 +552,7 @@ export const channelsCommand = defineCommand({
         }
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].channels[":id"]["notification-pref"].$put({
-          param: { slug: f.workspace, id: f.channel },
+          param: { slug: requireWorkspace(f.workspace), id: f.channel },
           json: { level: f.level as "all" | "mentions" | "muted" },
         });
         if (!res.ok) {
@@ -571,7 +571,7 @@ export const channelsCommand = defineCommand({
     starred: defineCommand({
       help() {
         printHelp("openslaq channels starred [flags]", "List starred channels.", [
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -579,7 +579,7 @@ export const channelsCommand = defineCommand({
       async action(f) {
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].channels.starred.$get({
-          param: { slug: f.workspace },
+          param: { slug: requireWorkspace(f.workspace) },
         });
         if (!res.ok) {
           console.error(`Failed to list starred channels: ${res.status}`);

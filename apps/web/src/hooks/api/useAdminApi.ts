@@ -10,7 +10,7 @@ import {
   updateAdminFeatureFlags as coreUpdateAdminFeatureFlags,
   bulkUpdateFeatureFlag as coreBulkUpdateFeatureFlag,
 } from "@openslaq/client-core";
-import type { WorkspaceFeatureFlags } from "@openslaq/shared";
+import type { WorkspaceFeatureFlags, FeatureFlagKey } from "@openslaq/shared";
 import { api } from "../../api";
 import { useAuthProvider } from "../../lib/api-client";
 
@@ -40,8 +40,8 @@ export function useAdminApi() {
     [auth],
   );
   const bulkUpdateFeatureFlag = useCallback(
-    (flag: keyof WorkspaceFeatureFlags, enabled: boolean) =>
-      coreBulkUpdateFeatureFlag({ api, auth }, flag, enabled),
+    (flag: FeatureFlagKey, value: string) =>
+      coreBulkUpdateFeatureFlag({ api, auth }, flag, value),
     [auth],
   );
 

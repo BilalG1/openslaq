@@ -80,10 +80,11 @@ vi.mock("../../hooks/api/useMarketplaceApi", () => ({
 }));
 
 const mockGetFeatureFlags = vi.fn(async () => ({
-  integrationGithub: false,
-  integrationLinear: false,
-  integrationSentry: false,
-  integrationVercel: false,
+  integrationGithub: "false",
+  integrationLinear: "false",
+  integrationSentry: "false",
+  integrationVercel: "false",
+  mobileMessageInput: "default",
 }));
 vi.mock("../../hooks/api/useFeatureFlagsApi", () => ({
   useFeatureFlagsApi: () => ({

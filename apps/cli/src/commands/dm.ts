@@ -1,7 +1,7 @@
 import type { Message } from "@openslaq/shared";
 import { defineCommand, type FlagSchema } from "../framework";
 import { printHelp, formatMessages, formatDmTable } from "../output";
-import { getAuthenticatedClient, type CliClient } from "../client";
+import { getAuthenticatedClient, requireWorkspace, type CliClient } from "../client";
 
 async function openDmChannel(client: CliClient, workspace: string, userId: string): Promise<{ channel: { id: string } }> {
   const res = await client.api.workspaces[":slug"].dm.$post({
@@ -19,25 +19,25 @@ async function openDmChannel(client: CliClient, workspace: string, userId: strin
 
 const openFlags = {
   user: { type: "string", required: true },
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
 const listFlags = {
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
 const sendFlags = {
   user: { type: "string", required: true },
   text: { type: "string", required: true },
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
 const messagesFlags = {
   user: { type: "string", required: true },
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   limit: { type: "string", default: "50" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
@@ -57,14 +57,14 @@ export const dmCommand = defineCommand({
       help() {
         printHelp("openslaq dm open [flags]", "Open or create a DM channel with a user.", [
           { name: "--user USER_ID", desc: "Target user ID (required)" },
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
       flags: openFlags,
       async action(f) {
         const client = await getAuthenticatedClient();
-        const data = await openDmChannel(client, f.workspace, f.user);
+        const data = await openDmChannel(client, requireWorkspace(f.workspace), f.user);
 
         if (f.json) {
           console.log(JSON.stringify(data, null, 2));
@@ -76,7 +76,7 @@ export const dmCommand = defineCommand({
     list: defineCommand({
       help() {
         printHelp("openslaq dm list [flags]", "List DM conversations.", [
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -84,7 +84,7 @@ export const dmCommand = defineCommand({
       async action(f) {
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].dm.$get({
-          param: { slug: f.workspace },
+          param: { slug: requireWorkspace(f.workspace) },
         });
         if (!res.ok) {
           console.error(`Failed to list DMs: ${res.status}`);
@@ -104,17 +104,17 @@ export const dmCommand = defineCommand({
         printHelp("openslaq dm send [flags]", "Send a direct message.", [
           { name: "--user USER_ID", desc: "Target user ID (required)" },
           { name: "--text TEXT", desc: "Message content (required)" },
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
       flags: sendFlags,
       async action(f) {
         const client = await getAuthenticatedClient();
-        const { channel } = await openDmChannel(client, f.workspace, f.user);
+        const { channel } = await openDmChannel(client, requireWorkspace(f.workspace), f.user);
 
         const msgRes = await client.api.workspaces[":slug"].channels[":id"].messages.$post({
-          param: { slug: f.workspace, id: channel.id },
+          param: { slug: requireWorkspace(f.workspace), id: channel.id },
           json: { content: f.text },
         });
         if (!msgRes.ok) {
@@ -134,7 +134,7 @@ export const dmCommand = defineCommand({
       help() {
         printHelp("openslaq dm messages [flags]", "List messages in a DM conversation.", [
           { name: "--user USER_ID", desc: "Target user ID (required)" },
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--limit N", desc: "Max messages to return (default: 50)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
@@ -142,10 +142,10 @@ export const dmCommand = defineCommand({
       flags: messagesFlags,
       async action(f) {
         const client = await getAuthenticatedClient();
-        const { channel } = await openDmChannel(client, f.workspace, f.user);
+        const { channel } = await openDmChannel(client, requireWorkspace(f.workspace), f.user);
 
         const msgRes = await client.api.workspaces[":slug"].channels[":id"].messages.$get({
-          param: { slug: f.workspace, id: channel.id },
+          param: { slug: requireWorkspace(f.workspace), id: channel.id },
           query: { limit: Number(f.limit) },
         });
         if (!msgRes.ok) {

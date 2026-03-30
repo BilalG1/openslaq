@@ -2,13 +2,13 @@
 /**
  * Tears down an isolated git worktree and its Docker services.
  *
- * Usage: bun run scripts/worktree-rm.ts <name>
+ * Usage: bun run scripts/dev/worktree-rm.ts <name>
  */
 import { $ } from "bun";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const repoRoot = join(import.meta.dirname, "..");
+const repoRoot = join(import.meta.dirname, "../..");
 const worktreesDir = join(repoRoot, ".worktrees");
 
 function listWorktrees(): string[] {

@@ -2,6 +2,7 @@ node_modules
 *.p8
 dist
 .env
+.env.production
 .vite
 test-results/
 playwright-report/
@@ -21,3 +22,4 @@ android/
 .worktrees/
 docs/slack-screenshots/
 *.pem
+.mcp.json

@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { View, Text, SectionList, ActivityIndicator, Pressable, StyleSheet, Alert } from "react-native";
+import { View, Text, SectionList, ActivityIndicator, Pressable, StyleSheet, Alert, Image } from "react-native";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { getAllDraftKeys } from "@/lib/draft-storage";
@@ -277,9 +277,17 @@ export default function HomeScreen() {
               >
                 <View style={styles.channelRow}>
                   <View style={styles.avatarMargin}>
-                    <View style={styles.groupDmAvatar}>
-                      <Users size={16} color={theme.colors.textMuted} />
-                    </View>
+                    {groupDm.members[0]?.avatarUrl ? (
+                      <Image
+                        testID={`group-dm-avatar-image-${groupDm.channel.id}`}
+                        source={{ uri: groupDm.members[0].avatarUrl }}
+                        style={styles.groupDmAvatarImage}
+                      />
+                    ) : (
+                      <View style={styles.groupDmAvatar}>
+                        <Users size={16} color={theme.colors.textMuted} />
+                      </View>
+                    )}
                   </View>
                   <Text
                     style={[
@@ -325,11 +333,19 @@ export default function HomeScreen() {
             >
               <View style={styles.channelRow}>
                 <View style={styles.avatarRelative}>
-                  <View style={styles.dmAvatar}>
-                    <Text style={styles.dmAvatarText}>
-                      {dm.otherUser.displayName?.charAt(0)?.toUpperCase() ?? "?"}
-                    </Text>
-                  </View>
+                  {dm.otherUser.avatarUrl ? (
+                    <Image
+                      testID={`dm-avatar-image-${dm.channel.id}`}
+                      source={{ uri: dm.otherUser.avatarUrl }}
+                      style={styles.dmAvatarImage}
+                    />
+                  ) : (
+                    <View style={styles.dmAvatar}>
+                      <Text style={styles.dmAvatarText}>
+                        {dm.otherUser.displayName?.charAt(0)?.toUpperCase() ?? "?"}
+                      </Text>
+                    </View>
+                  )}
                   {isOnline && (
                     <View style={styles.onlineIndicator} />
                   )}
@@ -513,6 +529,12 @@ const makeStyles = (theme: MobileTheme) =>
       justifyContent: "center",
       backgroundColor: theme.colors.avatarFallbackBg,
     },
+    groupDmAvatarImage: {
+      width: 32,
+      height: 32,
+      borderRadius: 9999,
+      backgroundColor: theme.colors.avatarFallbackBg,
+    },
     avatarRelative: {
       position: "relative",
       marginRight: 12,
@@ -523,6 +545,12 @@ const makeStyles = (theme: MobileTheme) =>
       borderRadius: 9999,
       alignItems: "center",
       justifyContent: "center",
+      backgroundColor: theme.colors.avatarFallbackBg,
+    },
+    dmAvatarImage: {
+      width: 32,
+      height: 32,
+      borderRadius: 9999,
       backgroundColor: theme.colors.avatarFallbackBg,
     },
     dmAvatarText: {

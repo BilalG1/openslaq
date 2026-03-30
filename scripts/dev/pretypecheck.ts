@@ -2,7 +2,7 @@ import { $ } from "bun";
 import { stat } from "node:fs/promises";
 import path from "node:path";
 
-const apiDir = path.resolve(import.meta.dirname, "../apps/api");
+const apiDir = path.resolve(import.meta.dirname, "../../apps/api");
 const stampFile = path.join(apiDir, "dist/.types-stamp");
 
 async function getStampTime(): Promise<number> {

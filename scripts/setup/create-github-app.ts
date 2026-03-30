@@ -3,7 +3,7 @@
  * Creates a GitHub App for local development using the manifest flow.
  * Opens browser → user approves → catches redirect → exchanges code for credentials.
  *
- * Usage: bun scripts/create-github-app.ts <tunnel-url>
+ * Usage: bun scripts/setup/create-github-app.ts <tunnel-url>
  */
 
 import { readFileSync, writeFileSync } from "node:fs";
@@ -15,8 +15,8 @@ const CALLBACK_URL = `http://localhost:${CALLBACK_PORT}/callback`;
 const tunnelBase = process.argv[2];
 if (!tunnelBase) {
   console.error(
-    "Usage: bun scripts/create-github-app.ts <tunnel-url>\n" +
-      "  e.g. bun scripts/create-github-app.ts https://my-tunnel.example.com"
+    "Usage: bun scripts/setup/create-github-app.ts <tunnel-url>\n" +
+      "  e.g. bun scripts/setup/create-github-app.ts https://my-tunnel.example.com"
   );
   process.exit(1);
 }
@@ -152,11 +152,11 @@ async function main() {
   console.log(`  URL: ${appData.html_url}\n`);
 
   // Update .env file
-  const envPath = join(import.meta.dir, "..", ".env");
+  const envPath = join(import.meta.dir, "../..", ".env");
   let envContent = readFileSync(envPath, "utf-8");
 
   const githubEnvBlock = `
-# GitHub App (created by scripts/create-github-app.ts)
+# GitHub App (created by scripts/setup/create-github-app.ts)
 GITHUB_APP_ID=${appData.id}
 GITHUB_APP_CLIENT_ID=${appData.client_id}
 GITHUB_APP_CLIENT_SECRET=${appData.client_secret}
@@ -175,7 +175,7 @@ GITHUB_APP_PRIVATE_KEY="${appData.pem.replace(/\n/g, "\\n")}"
   console.log(`Environment variables written to .env`);
 
   // Save private key as a standalone PEM file too (easier to debug)
-  const pemPath = join(import.meta.dir, "..", "github-app-private-key.pem");
+  const pemPath = join(import.meta.dir, "../..", "github-app-private-key.pem");
   writeFileSync(pemPath, appData.pem);
   console.log(`Private key saved to github-app-private-key.pem`);
 

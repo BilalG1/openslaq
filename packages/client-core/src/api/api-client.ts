@@ -20,10 +20,24 @@ export async function authorizedRequest<TResponse extends ResponseLike>(
   const response = await request(headers);
 
   if (response.status === 401) {
+    // Attempt token refresh before signing out
+    if (auth.refreshAccessToken) {
+      const newToken = await auth.refreshAccessToken();
+      if (newToken) {
+        const retryResponse = await request({ Authorization: `Bearer ${newToken}` });
+        if (retryResponse.status !== 401) {
+          return checkResponse(retryResponse);
+        }
+      }
+    }
     auth.onAuthRequired();
     throw new AuthError();
   }
 
+  return checkResponse(response);
+}
+
+async function checkResponse<TResponse extends ResponseLike>(response: TResponse): Promise<TResponse> {
   if (!response.ok) {
     let message = `Request failed with status ${response.status}`;
     try {

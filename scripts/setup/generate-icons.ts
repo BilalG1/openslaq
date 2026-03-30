@@ -1,13 +1,13 @@
 /**
  * One-time script to generate all icon assets from the canonical SVG.
- * Run: bun scripts/generate-icons.ts
+ * Run: bun scripts/setup/generate-icons.ts
  */
 import sharp from "sharp";
 import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { execSync } from "node:child_process";
 
-const ROOT = join(import.meta.dir, "..");
+const ROOT = join(import.meta.dir, "../..");
 const SVG = readFileSync(join(ROOT, "apps/web/public/icon.svg"));
 
 async function render(size: number): Promise<Buffer> {

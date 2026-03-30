@@ -4,7 +4,7 @@ Spawn agent teammates that each test a different flow in parallel using isolated
 
 ## Tools
 
-- **Mobile**: `dtx` CLI (`scripts/dtx.ts`) — run `bun scripts/dtx.ts --help` for commands
+- **Mobile**: `dtx` CLI (`scripts/mobile/dtx.ts`) — run `bun scripts/mobile/dtx.ts --help` for commands
 - **Web**: `agent-browser` CLI (preinstalled) — run `agent-browser --help` for commands
 
 ## Approach
@@ -22,17 +22,17 @@ Each agent uses a named dtx session (`dtx start --name <name>`) which clones the
 ### Prompt template
 
 ```
-You are QA-testing the mobile app via the dtx CLI. Run `bun scripts/dtx.ts --help` to see available commands.
+You are QA-testing the mobile app via the dtx CLI. Run `bun scripts/mobile/dtx.ts --help` to see available commands.
 
 Your test flow: [DESCRIBE THE SPECIFIC FLOW]
 
 Setup:
-1. Start an isolated session: `bun scripts/dtx.ts start --name [unique-session-name]`
+1. Start an isolated session: `bun scripts/mobile/dtx.ts start --name [unique-session-name]`
 2. Use `-s <session-id>` on all subsequent dtx commands.
 
 For any bugs found, take a screenshot or screen recording and describe what you did, what you expected, and what happened.
 
-Cleanup: `bun scripts/dtx.ts stop -s <id>`
+Cleanup: `bun scripts/mobile/dtx.ts stop -s <id>`
 
 Return a list of bugs found (or "no bugs found") with screenshots/recordings attached.
 ```

@@ -37,7 +37,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const DEFAULT_PORT = 9099;
-const MOBILE_DIR = `${import.meta.dir}/../apps/mobile`;
+const MOBILE_DIR = `${import.meta.dir}/../../apps/mobile`;
 const RESULTS_DIR = `${MOBILE_DIR}/e2e/test-results`;
 const SESSIONS_DIR = `${RESULTS_DIR}/.dtx-sessions`;
 

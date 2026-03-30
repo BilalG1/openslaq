@@ -4,7 +4,7 @@ import { authenticatedFetch } from "../client";
 
 const flags = {
   file: { type: "string", required: true },
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
@@ -12,7 +12,7 @@ export const uploadCommand = defineCommand({
   help() {
     printHelp("openslaq upload [flags]", "Upload a file.", [
       { name: "--file PATH", desc: "Path to file to upload (required)" },
-      { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+      { name: "--workspace SLUG", desc: "Workspace slug (required)" },
       { name: "--json", desc: "Output raw JSON" },
     ]);
   },

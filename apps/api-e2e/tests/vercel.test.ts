@@ -53,7 +53,7 @@ describe("Vercel Bot", () => {
     // Enable Vercel integration feature flag
     await superAdminClient.api.admin.workspaces[":workspaceId"]["feature-flags"].$patch({
       param: { workspaceId },
-      json: { integrationVercel: true },
+      json: { integrationVercel: "true" },
     });
   });
 
@@ -385,7 +385,7 @@ describe("Vercel Bot", () => {
       // Enable feature flag and install vercel-bot
       await superAdminClient.api.admin.workspaces[":workspaceId"]["feature-flags"].$patch({
         param: { workspaceId: ws2.id },
-        json: { integrationVercel: true },
+        json: { integrationVercel: "true" },
       });
       const listRes = await admin2.client.api.marketplace.$get({});
       const listings = (await listRes.json()) as Array<{ id: string; slug: string }>;
@@ -530,7 +530,7 @@ describe("Vercel Bot", () => {
       // Enable feature flag and install vercel-bot from marketplace
       await superAdminClient.api.admin.workspaces[":workspaceId"]["feature-flags"].$patch({
         param: { workspaceId: ws.id },
-        json: { integrationVercel: true },
+        json: { integrationVercel: "true" },
       });
       const listRes = await admin.client.api.marketplace.$get({});
       const listings = (await listRes.json()) as Array<{ id: string; slug: string }>;

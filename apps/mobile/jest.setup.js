@@ -343,6 +343,10 @@ jest.mock("@/components/WebViewEditor", () => {
     _simulateFormattingState: (state) => {
       storedProps.onFormattingState?.(state);
     },
+    // Test helper: simulate focus change
+    _simulateFocusChange: (focused) => {
+      storedProps.onFocusChange?.(focused);
+    },
   };
 });
 

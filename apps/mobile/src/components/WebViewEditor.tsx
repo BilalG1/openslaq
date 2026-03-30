@@ -63,6 +63,7 @@ interface WebViewEditorProps {
   onFormattingState?: (state: FormattingState) => void;
   onMentionQuery?: (query: string | null) => void;
   onSlashQuery?: (query: string | null) => void;
+  onFocusChange?: (focused: boolean) => void;
   onReady?: () => void;
 }
 
@@ -78,6 +79,7 @@ export const WebViewEditor = forwardRef<WebViewEditorRef, WebViewEditorProps>(
       onFormattingState,
       onMentionQuery,
       onSlashQuery,
+      onFocusChange,
       onReady,
     },
     ref,
@@ -210,6 +212,9 @@ export const WebViewEditor = forwardRef<WebViewEditorRef, WebViewEditorProps>(
             case "slash-query":
               onSlashQuery?.(data.query);
               break;
+            case "focus-change":
+              onFocusChange?.(data.focused);
+              break;
             case "markdown-result": {
               const cb = pendingCallbacks.current.get(data.callbackId);
               if (cb) {
@@ -232,6 +237,7 @@ export const WebViewEditor = forwardRef<WebViewEditorRef, WebViewEditorProps>(
         onFormattingState,
         onMentionQuery,
         onSlashQuery,
+        onFocusChange,
         onReady,
       ],
     );

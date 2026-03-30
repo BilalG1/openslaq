@@ -53,7 +53,7 @@ describe("GitHub Bot", () => {
     // Enable GitHub integration feature flag
     await superAdminClient.api.admin.workspaces[":workspaceId"]["feature-flags"].$patch({
       param: { workspaceId },
-      json: { integrationGithub: true },
+      json: { integrationGithub: "true" },
     });
   });
 
@@ -316,7 +316,7 @@ describe("GitHub Bot", () => {
       // Enable feature flag and install github-bot
       await superAdminClient.api.admin.workspaces[":workspaceId"]["feature-flags"].$patch({
         param: { workspaceId: ws2.id },
-        json: { integrationGithub: true },
+        json: { integrationGithub: "true" },
       });
       const listRes = await admin2.client.api.marketplace.$get({});
       const listings = (await listRes.json()) as Array<{ id: string; slug: string }>;
@@ -386,7 +386,7 @@ describe("GitHub Bot", () => {
       // Enable feature flag and install github-bot from marketplace
       await superAdminClient.api.admin.workspaces[":workspaceId"]["feature-flags"].$patch({
         param: { workspaceId: ws.id },
-        json: { integrationGithub: true },
+        json: { integrationGithub: "true" },
       });
       const listRes = await admin.client.api.marketplace.$get({});
       const listings = (await listRes.json()) as Array<{ id: string; slug: string }>;

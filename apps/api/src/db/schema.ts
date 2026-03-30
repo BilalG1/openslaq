@@ -1,4 +1,5 @@
 export * from "../workspaces/schema";
+export * from "../workspaces/feature-flags-schema";
 export * from "../workspaces/invite-schema";
 export * from "../users/schema";
 export * from "../channels/schema";
@@ -28,3 +29,4 @@ export * from "../integrations/linear/schema";
 export * from "../integrations/sentry/schema";
 export * from "../integrations/vercel/schema";
 export * from "../api-keys/schema";
+export * from "../socket/schema";

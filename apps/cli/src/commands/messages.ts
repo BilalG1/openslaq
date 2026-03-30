@@ -1,12 +1,12 @@
 import type { Message, SearchResult } from "@openslaq/shared";
 import { defineCommand, type FlagSchema } from "../framework";
 import { printHelp, formatMessages, formatSearchResults, formatScheduledMessages } from "../output";
-import { getAuthenticatedClient } from "../client";
+import { getAuthenticatedClient, requireWorkspace } from "../client";
 import { parseDuration } from "../parse-duration";
 
 const listFlags = {
   channel: { type: "string", required: true },
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   limit: { type: "string", default: "50" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
@@ -14,7 +14,7 @@ const listFlags = {
 const sendFlags = {
   channel: { type: "string", required: true },
   text: { type: "string", required: true },
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
@@ -25,7 +25,7 @@ const searchFlags = {
   "from-date": { type: "string" },
   "to-date": { type: "string" },
   offset: { type: "string", default: "0" },
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   limit: { type: "string", default: "20" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
@@ -45,14 +45,14 @@ const replyFlags = {
   channel: { type: "string", required: true },
   message: { type: "string", required: true },
   text: { type: "string", required: true },
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
 const threadFlags = {
   channel: { type: "string", required: true },
   message: { type: "string", required: true },
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   limit: { type: "string", default: "50" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
@@ -67,12 +67,12 @@ const scheduleFlags = {
   channel: { type: "string", required: true },
   text: { type: "string", required: true },
   at: { type: "string", required: true },
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
 const scheduledFlags = {
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
@@ -97,7 +97,7 @@ export const messagesCommand = defineCommand({
       help() {
         printHelp("openslaq messages list [flags]", "List messages in a channel.", [
           { name: "--channel ID", desc: "Channel ID (required)" },
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--limit N", desc: "Max messages to return (default: 50)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
@@ -106,7 +106,7 @@ export const messagesCommand = defineCommand({
       async action(f) {
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].channels[":id"].messages.$get({
-          param: { slug: f.workspace, id: f.channel },
+          param: { slug: requireWorkspace(f.workspace), id: f.channel },
           query: { limit: Number(f.limit) },
         });
         if (!res.ok) {
@@ -127,7 +127,7 @@ export const messagesCommand = defineCommand({
         printHelp("openslaq messages send [flags]", "Send a message to a channel.", [
           { name: "--channel ID", desc: "Channel ID (required)" },
           { name: "--text TEXT", desc: "Message content (required)" },
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -135,7 +135,7 @@ export const messagesCommand = defineCommand({
       async action(f) {
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].channels[":id"].messages.$post({
-          param: { slug: f.workspace, id: f.channel },
+          param: { slug: requireWorkspace(f.workspace), id: f.channel },
           json: { content: f.text },
         });
         if (!res.ok) {
@@ -160,7 +160,7 @@ export const messagesCommand = defineCommand({
           { name: "--from-date DATE", desc: "Start date filter (ISO datetime)" },
           { name: "--to-date DATE", desc: "End date filter (ISO datetime)" },
           { name: "--offset N", desc: "Pagination offset (default: 0)" },
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--limit N", desc: "Max results to return (default: 20)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
@@ -169,7 +169,7 @@ export const messagesCommand = defineCommand({
       async action(f) {
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].search.$get({
-          param: { slug: f.workspace },
+          param: { slug: requireWorkspace(f.workspace) },
           query: {
             q: f.query,
             limit: Number(f.limit),
@@ -253,7 +253,7 @@ export const messagesCommand = defineCommand({
           { name: "--channel ID", desc: "Channel ID (required)" },
           { name: "--message ID", desc: "Parent message ID (required)" },
           { name: "--text TEXT", desc: "Reply content (required)" },
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -261,7 +261,7 @@ export const messagesCommand = defineCommand({
       async action(f) {
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].channels[":id"].messages[":messageId"].replies.$post({
-          param: { slug: f.workspace, id: f.channel, messageId: f.message },
+          param: { slug: requireWorkspace(f.workspace), id: f.channel, messageId: f.message },
           json: { content: f.text },
         });
         if (!res.ok) {
@@ -282,7 +282,7 @@ export const messagesCommand = defineCommand({
         printHelp("openslaq messages thread [flags]", "List thread replies.", [
           { name: "--channel ID", desc: "Channel ID (required)" },
           { name: "--message ID", desc: "Parent message ID (required)" },
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--limit N", desc: "Max replies to return (default: 50)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
@@ -291,7 +291,7 @@ export const messagesCommand = defineCommand({
       async action(f) {
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].channels[":id"].messages[":messageId"].replies.$get({
-          param: { slug: f.workspace, id: f.channel, messageId: f.message },
+          param: { slug: requireWorkspace(f.workspace), id: f.channel, messageId: f.message },
           query: { limit: Number(f.limit) },
         });
         if (!res.ok) {
@@ -341,7 +341,7 @@ export const messagesCommand = defineCommand({
           { name: "--channel ID", desc: "Channel ID (required)" },
           { name: "--text TEXT", desc: "Message content (required)" },
           { name: "--at TIME", desc: 'When to send (e.g. "30m", "2h", "1d", or ISO datetime) (required)' },
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -350,7 +350,7 @@ export const messagesCommand = defineCommand({
         const scheduledFor = parseDuration(f.at);
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"]["scheduled-messages"].$post({
-          param: { slug: f.workspace },
+          param: { slug: requireWorkspace(f.workspace) },
           json: { channelId: f.channel, content: f.text, scheduledFor },
         });
         if (!res.ok) {
@@ -371,7 +371,7 @@ export const messagesCommand = defineCommand({
     scheduled: defineCommand({
       help() {
         printHelp("openslaq messages scheduled [flags]", "List scheduled messages.", [
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -379,7 +379,7 @@ export const messagesCommand = defineCommand({
       async action(f) {
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"]["scheduled-messages"].$get({
-          param: { slug: f.workspace },
+          param: { slug: requireWorkspace(f.workspace) },
         });
         if (!res.ok) {
           console.error(`Failed to list scheduled messages: ${res.status}`);

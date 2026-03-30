@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
-import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useMobileTheme } from "@/theme/ThemeProvider";
@@ -28,7 +27,6 @@ export function HomeHeader() {
 
   return (
     <View style={{ backgroundColor: theme.colors.headerBg }}>
-      <StatusBar style="light" />
       {/* Top bar */}
       <View
         style={[styles.topBar, { paddingTop: insets.top + 6 }]}

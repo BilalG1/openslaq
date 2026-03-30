@@ -1,4 +1,13 @@
-export type { Workspace, WorkspaceFeatureFlags, WorkspaceInvite } from "./types/workspace";
+export type { Workspace, WorkspaceInvite } from "./types/workspace";
+export type { FeatureFlagKey, WorkspaceFeatureFlags } from "./types/feature-flags";
+export {
+  FEATURE_FLAG_REGISTRY,
+  FEATURE_FLAG_KEYS,
+  PLUGIN_SLUG_TO_FLAG,
+  getFeatureFlagDefaults,
+  isValidFlagValue,
+  isFeatureFlagKey,
+} from "./types/feature-flags";
 export type { User, WorkspaceMember } from "./types/user";
 export type { Channel, ChannelMember, ChannelNotifyLevel } from "./types/channel";
 export type { Message, RegularMessage, BotMessage, HuddleMessage, ChannelEventMessage, ChannelEventMetadata, Mention, HuddleMessageMetadata, LinkPreview, SharedMessageInfo } from "./types/message";

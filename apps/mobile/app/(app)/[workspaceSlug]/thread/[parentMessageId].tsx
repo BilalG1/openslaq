@@ -33,7 +33,7 @@ import { useTypingEmitter } from "@/hooks/useTypingEmitter";
 import { useTypingTracking } from "@/hooks/useTypingTracking";
 import { useFileUpload, type PendingFile } from "@/hooks/useFileUpload";
 import { MessageBubble } from "@/components/MessageBubble";
-import { MessageInput } from "@/components/MessageInput";
+import { MessageInputSwitcher as MessageInput } from "@/components/MessageInputSwitcher";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { MessageActionSheet } from "@/components/MessageActionSheet";
 import { EmojiPickerSheet } from "@/components/EmojiPickerSheet";

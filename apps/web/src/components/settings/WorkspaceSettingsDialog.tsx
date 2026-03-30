@@ -3,6 +3,7 @@ import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { useAsyncEffect } from "../../hooks/useAsyncEffect";
 import clsx from "clsx";
 import type { BotApp, MarketplaceListing, WorkspaceFeatureFlags } from "@openslaq/shared";
+import { getFeatureFlagDefaults } from "@openslaq/shared";
 import { useWorkspaceMembersApi } from "../../hooks/api/useWorkspaceMembersApi";
 import { useWorkspacesApi } from "../../hooks/api/useWorkspacesApi";
 import { useBotsApi } from "../../hooks/api/useBotsApi";
@@ -73,12 +74,7 @@ export function WorkspaceSettingsDialog({ open, onOpenChange, workspaceSlug }: W
   const [listings, setListings] = useState<MarketplaceListing[]>([]);
   const [installedIds, setInstalledIds] = useState<Set<string>>(new Set());
   const [installing, setInstalling] = useState(false);
-  const [featureFlags, setFeatureFlags] = useState<WorkspaceFeatureFlags>({
-    integrationGithub: false,
-    integrationLinear: false,
-    integrationSentry: false,
-    integrationVercel: false,
-  });
+  const [featureFlags, setFeatureFlags] = useState<WorkspaceFeatureFlags>(getFeatureFlagDefaults());
 
   const { confirm, dialog: confirmDialog } = useConfirm();
   const { dispatch } = useChatStore();

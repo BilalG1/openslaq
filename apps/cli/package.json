@@ -1,6 +1,6 @@
 {
   "name": "@openslaq/cli",
-  "version": "0.0.1",
+  "version": "0.0.4",
   "type": "module",
   "bin": {
     "openslaq": "./dist/index.js"

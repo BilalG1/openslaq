@@ -65,10 +65,22 @@ export function validateWebhookUrl(url: string): { ok: true } | { ok: false; rea
     return { ok: false, reason: "URL points to a private/internal IP address" };
   }
 
-  // Block IPv6 loopback and link-local
+  // Block IPv6 loopback, link-local, ULA, and IPv4-mapped addresses
   if (hostname.startsWith("[")) {
-    const inner = hostname.slice(1, -1);
-    if (inner === "::1" || inner.startsWith("fe80:") || inner.startsWith("fc") || inner.startsWith("fd")) {
+    const inner = hostname.slice(1, -1).toLowerCase();
+    if (
+      inner === "::1" ||
+      inner === "::" ||
+      inner.startsWith("fe80:") ||
+      inner.startsWith("fc") ||
+      inner.startsWith("fd") ||
+      inner.startsWith("2001:db8:") // documentation prefix
+    ) {
+      return { ok: false, reason: "URL points to a private/internal IP address" };
+    }
+    // Block IPv4-mapped IPv6 (::ffff:x.x.x.x) — extract the embedded IPv4 and check it
+    const v4MappedMatch = inner.match(/^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/);
+    if (v4MappedMatch && isBlockedIPv4(v4MappedMatch[1]!)) {
       return { ok: false, reason: "URL points to a private/internal IP address" };
     }
   }

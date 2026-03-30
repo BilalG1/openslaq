@@ -69,6 +69,10 @@ export function createMobileAuthProvider(
       if (!token) throw new AuthError("No valid token available");
       return token;
     },
+    refreshAccessToken: async () => {
+      cachedToken = null;
+      return doRefresh();
+    },
     onAuthRequired: () => {
       cachedToken = null;
       authInvalidated = true;

@@ -1,6 +1,6 @@
 {
   "productName": "OpenSlaq",
-  "version": "0.1.0",
+  "version": "0.1.4",
   "identifier": "com.openslaq.app",
   "build": {
     "beforeDevCommand": "cd ../web && bun run dev",

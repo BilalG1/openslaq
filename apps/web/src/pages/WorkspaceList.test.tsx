@@ -84,8 +84,8 @@ describe("WorkspaceListPage", () => {
     });
     expect(screen.getByTestId("workspace-card-default")).toBeDefined();
     expect(screen.queryByTestId("sign-in-button")).toBeNull();
-    expect(screen.queryByTestId("nav-docs")).toBeNull();
-    expect(screen.queryByTestId("nav-install")).toBeNull();
-    expect(screen.queryByTestId("nav-github")).toBeNull();
+    expect(screen.getByTestId("nav-docs")).toBeDefined();
+    expect(screen.getByTestId("nav-install")).toBeDefined();
+    expect(screen.getByTestId("nav-github")).toBeDefined();
   });
 });

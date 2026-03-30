@@ -53,7 +53,7 @@ describe("Sentry Bot", () => {
     // Enable Sentry integration feature flag
     await superAdminClient.api.admin.workspaces[":workspaceId"]["feature-flags"].$patch({
       param: { workspaceId },
-      json: { integrationSentry: true },
+      json: { integrationSentry: "true" },
     });
   });
 
@@ -383,7 +383,7 @@ describe("Sentry Bot", () => {
       // Enable feature flag and install sentry-bot
       await superAdminClient.api.admin.workspaces[":workspaceId"]["feature-flags"].$patch({
         param: { workspaceId: ws2.id },
-        json: { integrationSentry: true },
+        json: { integrationSentry: "true" },
       });
       const listRes = await admin2.client.api.marketplace.$get({});
       const listings = (await listRes.json()) as Array<{ id: string; slug: string }>;
@@ -576,7 +576,7 @@ describe("Sentry Bot", () => {
       // Enable feature flag and install sentry-bot from marketplace
       await superAdminClient.api.admin.workspaces[":workspaceId"]["feature-flags"].$patch({
         param: { workspaceId: ws.id },
-        json: { integrationSentry: true },
+        json: { integrationSentry: "true" },
       });
       const listRes = await admin.client.api.marketplace.$get({});
       const listings = (await listRes.json()) as Array<{ id: string; slug: string }>;

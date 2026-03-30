@@ -5,12 +5,12 @@ export const STACK_AUTH_BASE =
   process.env.OPENSLAQ_STACK_AUTH_BASE ?? "https://api.stack-auth.com";
 
 export const STACK_PROJECT_ID =
-  process.env.VITE_STACK_PROJECT_ID ??
-  "924565c5-6377-44b7-aa75-6b7de8d311f4";
+  process.env.OPENSLAQ_STACK_PROJECT_ID ??
+  "79000fc8-b4b7-4414-8eee-3e5207d2b4e4";
 
 export const STACK_PUBLISHABLE_KEY =
-  process.env.VITE_STACK_PUBLISHABLE_CLIENT_KEY ??
-  "pck_mzrc4yyt8zgpzxcnysj55e7s6365ebs5rrtg6v14cfvrr";
+  process.env.OPENSLAQ_STACK_PUBLISHABLE_KEY ??
+  "pck_fmw6v8awqkbxen1cf97mxx4wxd86hdd008rrp33dg2400";
 
 export const WEB_URL =
   process.env.OPENSLAQ_WEB_URL ?? "https://openslaq.com";

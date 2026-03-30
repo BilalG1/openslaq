@@ -41,12 +41,61 @@ describe("authorizedRequest", () => {
     await expect(response.json()).resolves.toEqual({ ok: true });
   });
 
-  it("throws AuthError for 401", async () => {
+  it("throws AuthError for 401 when no refreshAccessToken is provided", async () => {
     const auth = makeAuth();
 
     await expect(
       authorizedRequest(auth, async () => makeResponse(401, { error: "Unauthorized" })),
     ).rejects.toBeInstanceOf(AuthError);
+  });
+
+  it("retries with refreshed token on 401", async () => {
+    let callCount = 0;
+    const onAuthRequired = mock();
+    const auth = makeAuth({
+      refreshAccessToken: async () => "refreshed-token",
+      requireAccessToken: async () => (callCount === 0 ? "expired-token" : "refreshed-token"),
+      onAuthRequired,
+    });
+
+    const response = await authorizedRequest(auth, async (headers) => {
+      callCount++;
+      if (callCount === 1) {
+        expect(headers).toEqual({ Authorization: "Bearer expired-token" });
+        return makeResponse(401, { error: "Unauthorized" });
+      }
+      expect(headers).toEqual({ Authorization: "Bearer refreshed-token" });
+      return makeResponse(200, { ok: true });
+    });
+
+    await expect(response.json()).resolves.toEqual({ ok: true });
+    expect(onAuthRequired).not.toHaveBeenCalled();
+  });
+
+  it("calls onAuthRequired when refresh returns null on 401", async () => {
+    const onAuthRequired = mock();
+    const auth = makeAuth({
+      refreshAccessToken: async () => null,
+      onAuthRequired,
+    });
+
+    await expect(
+      authorizedRequest(auth, async () => makeResponse(401, { error: "Unauthorized" })),
+    ).rejects.toBeInstanceOf(AuthError);
+    expect(onAuthRequired).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls onAuthRequired when retry also returns 401", async () => {
+    const onAuthRequired = mock();
+    const auth = makeAuth({
+      refreshAccessToken: async () => "refreshed-token",
+      onAuthRequired,
+    });
+
+    await expect(
+      authorizedRequest(auth, async () => makeResponse(401, { error: "Unauthorized" })),
+    ).rejects.toBeInstanceOf(AuthError);
+    expect(onAuthRequired).toHaveBeenCalledTimes(1);
   });
 
   it("throws ApiError with server message for non-401 failures", async () => {

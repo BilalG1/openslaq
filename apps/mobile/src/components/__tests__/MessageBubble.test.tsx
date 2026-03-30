@@ -457,6 +457,31 @@ describe("MessageBubble", () => {
     });
   });
 
+  describe("avatar image", () => {
+    it("renders avatar image when senderAvatarUrl is provided", () => {
+      const msg = makeMessage({ senderAvatarUrl: "https://cdn.test/alice.png" });
+      render(<MessageBubble message={msg} />);
+
+      const avatarImage = screen.getByTestId("message-avatar-image-msg-1");
+      expect(avatarImage.props.source).toEqual({ uri: "https://cdn.test/alice.png" });
+    });
+
+    it("renders initials fallback when senderAvatarUrl is null", () => {
+      const msg = makeMessage({ senderAvatarUrl: null });
+      render(<MessageBubble message={msg} />);
+
+      expect(screen.queryByTestId("message-avatar-image-msg-1")).toBeNull();
+      expect(screen.getByText("A")).toBeTruthy(); // "Alice" → "A"
+    });
+
+    it("renders initials fallback when senderAvatarUrl is undefined", () => {
+      const msg = makeMessage({ senderAvatarUrl: undefined });
+      render(<MessageBubble message={msg} />);
+
+      expect(screen.queryByTestId("message-avatar-image-msg-1")).toBeNull();
+    });
+  });
+
   describe("sender status emoji", () => {
     it("renders status emoji when provided", () => {
       render(<MessageBubble message={makeMessage()} senderStatusEmoji="🏠" />);

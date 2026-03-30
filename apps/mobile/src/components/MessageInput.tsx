@@ -23,7 +23,7 @@ import { parseSlashCommand } from "@/utils/message-input-utils";
 
 import { TRANSPARENT } from "@/theme/constants";
 
-interface Props {
+export interface MessageInputProps {
   onSend: (content: string) => Promise<boolean> | void;
   placeholder?: string;
   editingMessage?: { id: MessageId; content: string } | null;
@@ -47,7 +47,7 @@ export interface MessageInputRef {
   dismissKeyboard: () => void;
 }
 
-export const MessageInput = forwardRef<MessageInputRef, Props>(function MessageInput({
+export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(function MessageInput({
   onSend,
   placeholder = "Message",
   editingMessage,
@@ -65,7 +65,7 @@ export const MessageInput = forwardRef<MessageInputRef, Props>(function MessageI
   onSendVoiceMessage,
   draftKey,
   autoFocus = false,
-}: Props, ref) {
+}: MessageInputProps, ref) {
   const [showScheduleSheet, setShowScheduleSheet] = useState(false);
   const [showToolbar, setShowToolbar] = useState(false);
   const [showLinkSheet, setShowLinkSheet] = useState(false);

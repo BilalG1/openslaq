@@ -6,7 +6,7 @@ const CACHE_DIR = join(homedir(), ".openslaq");
 const CACHE_FILE = join(CACHE_DIR, "update-check.json");
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 const GITHUB_API_URL =
-  "https://api.github.com/repos/bgodil/openslaq/releases/latest";
+  "https://api.github.com/repos/bilalg1/openslaq/releases/latest";
 
 interface CacheEntry {
   checkedAt: number;

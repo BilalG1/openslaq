@@ -2,6 +2,7 @@ import { describe, test, expect, afterEach, vi } from "vitest";
 import { render, screen, cleanup } from "../../test-utils";
 import { IntegrationsTab } from "./IntegrationsTab";
 import type { MarketplaceListing, WorkspaceFeatureFlags } from "@openslaq/shared";
+import { getFeatureFlagDefaults } from "@openslaq/shared";
 
 const makeListing = (overrides: Partial<MarketplaceListing> & { id: string; slug: string; name: string }): MarketplaceListing =>
   ({
@@ -25,17 +26,19 @@ const vercelListing = makeListing({ id: "5", slug: "vercel-bot", name: "Vercel B
 const allListings = [githubListing, linearListing, pollListing, sentryListing, vercelListing];
 
 const allDisabled: WorkspaceFeatureFlags = {
-  integrationGithub: false,
-  integrationLinear: false,
-  integrationSentry: false,
-  integrationVercel: false,
+  ...getFeatureFlagDefaults(),
+  integrationGithub: "false",
+  integrationLinear: "false",
+  integrationSentry: "false",
+  integrationVercel: "false",
 };
 
 const allEnabled: WorkspaceFeatureFlags = {
-  integrationGithub: true,
-  integrationLinear: true,
-  integrationSentry: true,
-  integrationVercel: true,
+  ...getFeatureFlagDefaults(),
+  integrationGithub: "true",
+  integrationLinear: "true",
+  integrationSentry: "true",
+  integrationVercel: "true",
 };
 
 const defaultProps = {
@@ -75,10 +78,11 @@ describe("IntegrationsTab", () => {
 
   test("partially enabled flags show correct listings", () => {
     const partialFlags: WorkspaceFeatureFlags = {
-      integrationGithub: true,
-      integrationLinear: false,
-      integrationSentry: true,
-      integrationVercel: false,
+      ...getFeatureFlagDefaults(),
+      integrationGithub: "true",
+      integrationLinear: "false",
+      integrationSentry: "true",
+      integrationVercel: "false",
     };
     render(<IntegrationsTab {...defaultProps} featureFlags={partialFlags} />);
     expect(screen.getByText("GitHub Bot")).toBeTruthy();

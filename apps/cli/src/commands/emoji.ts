@@ -2,29 +2,29 @@ import path from "node:path";
 import type { CustomEmoji } from "@openslaq/shared";
 import { defineCommand, type FlagSchema } from "../framework";
 import { printHelp, formatEmojiTable } from "../output";
-import { getAuthenticatedClient, authenticatedFetch } from "../client";
+import { getAuthenticatedClient, authenticatedFetch, requireWorkspace } from "../client";
 
 const listFlags = {
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
 const uploadFlags = {
   file: { type: "string", required: true },
   name: { type: "string", required: true },
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
 const bulkUploadFlags = {
   dir: { type: "string", required: true },
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
 const deleteFlags = {
   id: { type: "string", required: true },
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
@@ -44,7 +44,7 @@ export const emojiCommand = defineCommand({
     list: defineCommand({
       help() {
         printHelp("openslaq emoji list [flags]", "List custom emoji.", [
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -52,7 +52,7 @@ export const emojiCommand = defineCommand({
       async action(f) {
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].emoji.$get({
-          param: { slug: f.workspace },
+          param: { slug: requireWorkspace(f.workspace) },
         });
         if (!res.ok) {
           console.error(`Failed to list emoji: ${res.status}`);
@@ -72,7 +72,7 @@ export const emojiCommand = defineCommand({
         printHelp("openslaq emoji upload [flags]", "Upload a custom emoji.", [
           { name: "--file PATH", desc: "Path to image file (required)" },
           { name: "--name NAME", desc: "Emoji name (required)" },
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -89,7 +89,7 @@ export const emojiCommand = defineCommand({
         formData.append("name", f.name);
 
         const res = await authenticatedFetch(
-          `/api/workspaces/${encodeURIComponent(f.workspace)}/emoji`,
+          `/api/workspaces/${encodeURIComponent(requireWorkspace(f.workspace))}/emoji`,
           { method: "POST", body: formData },
         );
 
@@ -113,7 +113,7 @@ export const emojiCommand = defineCommand({
       help() {
         printHelp("openslaq emoji bulk-upload [flags]", "Upload all emoji from a directory.", [
           { name: "--dir PATH", desc: "Directory containing image files (required)" },
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -144,7 +144,7 @@ export const emojiCommand = defineCommand({
           formData.append("name", name);
 
           const res = await authenticatedFetch(
-            `/api/workspaces/${encodeURIComponent(f.workspace)}/emoji`,
+            `/api/workspaces/${encodeURIComponent(requireWorkspace(f.workspace))}/emoji`,
             { method: "POST", body: formData },
           );
 
@@ -176,7 +176,7 @@ export const emojiCommand = defineCommand({
       help() {
         printHelp("openslaq emoji delete [flags]", "Delete a custom emoji.", [
           { name: "--id ID", desc: "Emoji ID (required)" },
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -184,7 +184,7 @@ export const emojiCommand = defineCommand({
       async action(f) {
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].emoji[":emojiId"].$delete({
-          param: { slug: f.workspace, emojiId: f.id },
+          param: { slug: requireWorkspace(f.workspace), emojiId: f.id },
         });
         if (!res.ok) {
           const body = await res.json().catch(() => null);

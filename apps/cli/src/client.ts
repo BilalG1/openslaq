@@ -39,6 +39,14 @@ export async function getAuthenticatedClient(
   });
 }
 
+export function requireWorkspace(slug: string | undefined): string {
+  if (!slug) {
+    console.error("Missing --workspace flag. Run `openslaq workspaces list` to see available workspace slugs.");
+    process.exit(1);
+  }
+  return slug;
+}
+
 export async function authenticatedFetch(
   path: string,
   init: RequestInit = {},

@@ -1,15 +1,15 @@
 import { defineCommand, type FlagSchema } from "../framework";
 import { printHelp, formatMemberTable } from "../output";
-import { getAuthenticatedClient } from "../client";
+import { getAuthenticatedClient, requireWorkspace } from "../client";
 
 const searchFlags = {
   query: { type: "string", required: true },
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
 const listFlags = {
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
@@ -33,7 +33,7 @@ export const usersCommand = defineCommand({
       help() {
         printHelp("openslaq users search [flags]", "Search members by display name.", [
           { name: "--query TEXT", desc: "Search query (required)" },
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -41,7 +41,7 @@ export const usersCommand = defineCommand({
       async action(f) {
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].members.$get({
-          param: { slug: f.workspace },
+          param: { slug: requireWorkspace(f.workspace) },
           query: { q: f.query },
         });
         if (!res.ok) {
@@ -60,7 +60,7 @@ export const usersCommand = defineCommand({
     list: defineCommand({
       help() {
         printHelp("openslaq users list [flags]", "List all workspace members.", [
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -68,7 +68,7 @@ export const usersCommand = defineCommand({
       async action(f) {
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].members.$get({
-          param: { slug: f.workspace },
+          param: { slug: requireWorkspace(f.workspace) },
           query: {},
         });
         if (!res.ok) {

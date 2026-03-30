@@ -2,14 +2,14 @@
 /**
  * Creates an isolated git worktree with a unique port prefix.
  *
- * Usage: bun run scripts/worktree-new.ts [name]
+ * Usage: bun run scripts/dev/worktree-new.ts [name]
  */
 import { $ } from "bun";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomBytes } from "node:crypto";
 
-const repoRoot = join(import.meta.dirname, "..");
+const repoRoot = join(import.meta.dirname, "../..");
 const worktreesDir = join(repoRoot, ".worktrees");
 
 function generateId(): string {

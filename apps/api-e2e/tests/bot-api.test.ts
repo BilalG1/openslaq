@@ -50,7 +50,7 @@ describe("bot-facing API", () => {
     await addBotToChannel(client, ws.slug, channel.id, bot.userId);
 
     // Send message as bot
-    const msgRes = await fetch(`${getApiUrl()}/api/bot/channels/${channel.id}/messages`, {
+    const msgRes = await fetch(`${getApiUrl()}/api/workspaces/${ws.slug}/channels/${channel.id}/messages`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiToken}`,
@@ -80,7 +80,7 @@ describe("bot-facing API", () => {
     const { bot, apiToken } = await createBotWithToken(client, ws.slug);
     await addBotToChannel(client, ws.slug, channel.id, bot.userId);
 
-    const msgRes = await fetch(`${getApiUrl()}/api/bot/channels/${channel.id}/messages`, {
+    const msgRes = await fetch(`${getApiUrl()}/api/workspaces/${ws.slug}/channels/${channel.id}/messages`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiToken}`,
@@ -122,7 +122,7 @@ describe("bot-facing API", () => {
     const { bot, apiToken } = await createBotWithToken(client, ws.slug);
     await addBotToChannel(client, ws.slug, channel.id, bot.userId);
 
-    const readRes = await fetch(`${getApiUrl()}/api/bot/channels/${channel.id}/messages`, {
+    const readRes = await fetch(`${getApiUrl()}/api/workspaces/${ws.slug}/channels/${channel.id}/messages`, {
       method: "GET",
       headers: { Authorization: `Bearer ${apiToken}` },
     });
@@ -148,7 +148,7 @@ describe("bot-facing API", () => {
     const { bot, apiToken } = await createBotWithToken(client, ws.slug);
     await addBotToChannel(client, ws.slug, channel.id, bot.userId);
 
-    const listRes = await fetch(`${getApiUrl()}/api/bot/channels`, {
+    const listRes = await fetch(`${getApiUrl()}/api/workspaces/${ws.slug}/channels`, {
       method: "GET",
       headers: { Authorization: `Bearer ${apiToken}` },
     });
@@ -158,7 +158,7 @@ describe("bot-facing API", () => {
   });
 
   test("invalid bot token → 401", async () => {
-    const res = await fetch(`${getApiUrl()}/api/bot/channels`, {
+    const res = await fetch(`${getApiUrl()}/api/workspaces/default/channels`, {
       method: "GET",
       headers: { Authorization: "Bearer osb_invalid_token" },
     });
@@ -180,7 +180,7 @@ describe("bot-facing API", () => {
     // Create bot but DON'T add to channel
     const { apiToken } = await createBotWithToken(client, ws.slug);
 
-    const msgRes = await fetch(`${getApiUrl()}/api/bot/channels/${channel.id}/messages`, {
+    const msgRes = await fetch(`${getApiUrl()}/api/workspaces/${ws.slug}/channels/${channel.id}/messages`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiToken}`,
@@ -204,7 +204,7 @@ describe("bot-facing API", () => {
       json: { enabled: false },
     });
 
-    const res = await fetch(`${getApiUrl()}/api/bot/channels`, {
+    const res = await fetch(`${getApiUrl()}/api/workspaces/${ws.slug}/channels`, {
       method: "GET",
       headers: { Authorization: `Bearer ${apiToken}` },
     });
@@ -236,7 +236,7 @@ describe("bot-facing API", () => {
     const channel = (await chanRes.json()) as { id: string };
     await addBotToChannel(client, ws.slug, channel.id, bot.userId);
 
-    const readRes = await fetch(`${getApiUrl()}/api/bot/channels/${channel.id}/messages`, {
+    const readRes = await fetch(`${getApiUrl()}/api/workspaces/${ws.slug}/channels/${channel.id}/messages`, {
       method: "GET",
       headers: { Authorization: `Bearer ${apiToken}` },
     });
@@ -259,7 +259,7 @@ describe("bot-facing API", () => {
     await addBotToChannel(client, ws.slug, channel.id, bot.userId);
 
     // Bot sends message with actions
-    const msgRes = await fetch(`${getApiUrl()}/api/bot/channels/${channel.id}/messages`, {
+    const msgRes = await fetch(`${getApiUrl()}/api/workspaces/${ws.slug}/channels/${channel.id}/messages`, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -271,7 +271,7 @@ describe("bot-facing API", () => {
     const msg = (await msgRes.json()) as { id: string };
 
     // Bot updates the message
-    const updRes = await fetch(`${getApiUrl()}/api/bot/messages/${msg.id}`, {
+    const updRes = await fetch(`${getApiUrl()}/api/messages/${msg.id}`, {
       method: "PUT",
       headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -307,7 +307,7 @@ describe("bot-facing API", () => {
     await addBotToChannel(client, ws.slug, channel.id, bot.userId);
 
     // Bot tries to update user's message → 404
-    const updRes = await fetch(`${getApiUrl()}/api/bot/messages/${userMsg.id}`, {
+    const updRes = await fetch(`${getApiUrl()}/api/messages/${userMsg.id}`, {
       method: "PUT",
       headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ content: "Hacked" }),
@@ -330,7 +330,7 @@ describe("bot-facing API", () => {
     await addBotToChannel(client, ws.slug, channel.id, bot.userId);
 
     // Bot sends message
-    const msgRes = await fetch(`${getApiUrl()}/api/bot/channels/${channel.id}/messages`, {
+    const msgRes = await fetch(`${getApiUrl()}/api/workspaces/${ws.slug}/channels/${channel.id}/messages`, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ content: "Delete me" }),
@@ -339,7 +339,7 @@ describe("bot-facing API", () => {
     const msg = (await msgRes.json()) as { id: string };
 
     // Bot deletes message
-    const delRes = await fetch(`${getApiUrl()}/api/bot/messages/${msg.id}`, {
+    const delRes = await fetch(`${getApiUrl()}/api/messages/${msg.id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${apiToken}` },
     });
@@ -355,7 +355,7 @@ describe("bot-facing API", () => {
 
     const { apiToken } = await createBotWithToken(client, ws.slug);
 
-    const delRes = await fetch(`${getApiUrl()}/api/bot/messages/00000000-0000-0000-0000-000000000000`, {
+    const delRes = await fetch(`${getApiUrl()}/api/messages/00000000-0000-0000-0000-000000000000`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${apiToken}` },
     });
@@ -376,7 +376,7 @@ describe("bot-facing API", () => {
     // Create bot but do NOT add to channel
     const { apiToken } = await createBotWithToken(client, ws.slug);
 
-    const readRes = await fetch(`${getApiUrl()}/api/bot/channels/${channel.id}/messages`, {
+    const readRes = await fetch(`${getApiUrl()}/api/workspaces/${ws.slug}/channels/${channel.id}/messages`, {
       method: "GET",
       headers: { Authorization: `Bearer ${apiToken}` },
     });
@@ -396,7 +396,7 @@ describe("bot-facing API", () => {
 
     const { apiToken } = await createBotWithToken(client, ws.slug);
 
-    const res = await fetch(`${getApiUrl()}/api/bot/channels/${channel.id}/members`, {
+    const res = await fetch(`${getApiUrl()}/api/workspaces/${ws.slug}/channels/${channel.id}/members`, {
       method: "GET",
       headers: { Authorization: `Bearer ${apiToken}` },
     });
@@ -417,7 +417,7 @@ describe("bot-facing API", () => {
     const { bot, apiToken } = await createBotWithToken(client, ws.slug);
     await addBotToChannel(client, ws.slug, channel.id, bot.userId);
 
-    const res = await fetch(`${getApiUrl()}/api/bot/channels/${channel.id}/members`, {
+    const res = await fetch(`${getApiUrl()}/api/workspaces/${ws.slug}/channels/${channel.id}/members`, {
       method: "GET",
       headers: { Authorization: `Bearer ${apiToken}` },
     });
@@ -441,7 +441,7 @@ describe("bot-facing API", () => {
     await addBotToChannel(client, ws.slug, channel.id, bot.userId);
 
     // Send a message as bot
-    const msgRes = await fetch(`${getApiUrl()}/api/bot/channels/${channel.id}/messages`, {
+    const msgRes = await fetch(`${getApiUrl()}/api/workspaces/${ws.slug}/channels/${channel.id}/messages`, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ content: "React to me" }),
@@ -449,7 +449,7 @@ describe("bot-facing API", () => {
     const msg = (await msgRes.json()) as { id: string };
 
     // Toggle reaction on
-    const reactRes = await fetch(`${getApiUrl()}/api/bot/messages/${msg.id}/reactions`, {
+    const reactRes = await fetch(`${getApiUrl()}/api/messages/${msg.id}/reactions`, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ emoji: "thumbsup" }),
@@ -459,7 +459,7 @@ describe("bot-facing API", () => {
     expect(reactData.reactions.some((r: { emoji: string; count: number }) => r.emoji === "thumbsup")).toBe(true);
 
     // Toggle reaction off
-    const offRes = await fetch(`${getApiUrl()}/api/bot/messages/${msg.id}/reactions`, {
+    const offRes = await fetch(`${getApiUrl()}/api/messages/${msg.id}/reactions`, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ emoji: "thumbsup" }),
@@ -469,7 +469,7 @@ describe("bot-facing API", () => {
     expect(offData.reactions.some((r: { emoji: string; count: number }) => r.emoji === "thumbsup" && r.count > 0)).toBe(false);
   });
 
-  test("bot reacts to message in non-member channel → 403", async () => {
+  test("bot reacts to message in non-member channel → 404", async () => {
     const id = testId();
     const { client } = await createTestClient({ id: `botapi-reactnm-${id}`, email: `botapi-reactnm-${id}@openslaq.dev` });
     const ws = await createTestWorkspace(client);
@@ -489,15 +489,15 @@ describe("bot-facing API", () => {
     // Create bot but do NOT add to channel
     const { apiToken } = await createBotWithToken(client, ws.slug);
 
-    const res = await fetch(`${getApiUrl()}/api/bot/messages/${userMsg.id}/reactions`, {
+    const res = await fetch(`${getApiUrl()}/api/messages/${userMsg.id}/reactions`, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ emoji: "thumbsup" }),
     });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(404);
   });
 
-  test("bot updates own message after leaving channel → 403", async () => {
+  test("bot updates own message after leaving channel → 404", async () => {
     const id = testId();
     const { client } = await createTestClient({ id: `botapi-updnm-${id}`, email: `botapi-updnm-${id}@openslaq.dev` });
     const ws = await createTestWorkspace(client);
@@ -512,7 +512,7 @@ describe("bot-facing API", () => {
     await addBotToChannel(client, ws.slug, channel.id, bot.userId);
 
     // Bot sends a message
-    const msgRes = await fetch(`${getApiUrl()}/api/bot/channels/${channel.id}/messages`, {
+    const msgRes = await fetch(`${getApiUrl()}/api/workspaces/${ws.slug}/channels/${channel.id}/messages`, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ content: "Will leave" }),
@@ -525,16 +525,16 @@ describe("bot-facing API", () => {
       param: { slug: ws.slug, id: channel.id, userId: bot.userId },
     });
 
-    // Bot tries to update its own message → 403
-    const updRes = await fetch(`${getApiUrl()}/api/bot/messages/${msg.id}`, {
+    // Bot tries to update its own message → 404
+    const updRes = await fetch(`${getApiUrl()}/api/messages/${msg.id}`, {
       method: "PUT",
       headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ content: "Updated" }),
     });
-    expect(updRes.status).toBe(403);
+    expect(updRes.status).toBe(404);
   });
 
-  test("bot deletes own message after leaving channel → 403", async () => {
+  test("bot deletes own message after leaving channel → 404", async () => {
     const id = testId();
     const { client } = await createTestClient({ id: `botapi-delnm-${id}`, email: `botapi-delnm-${id}@openslaq.dev` });
     const ws = await createTestWorkspace(client);
@@ -549,7 +549,7 @@ describe("bot-facing API", () => {
     await addBotToChannel(client, ws.slug, channel.id, bot.userId);
 
     // Bot sends a message
-    const msgRes = await fetch(`${getApiUrl()}/api/bot/channels/${channel.id}/messages`, {
+    const msgRes = await fetch(`${getApiUrl()}/api/workspaces/${ws.slug}/channels/${channel.id}/messages`, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ content: "Will leave" }),
@@ -562,12 +562,12 @@ describe("bot-facing API", () => {
       param: { slug: ws.slug, id: channel.id, userId: bot.userId },
     });
 
-    // Bot tries to delete its own message → 403
-    const delRes = await fetch(`${getApiUrl()}/api/bot/messages/${msg.id}`, {
+    // Bot tries to delete its own message → 404
+    const delRes = await fetch(`${getApiUrl()}/api/messages/${msg.id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${apiToken}` },
     });
-    expect(delRes.status).toBe(403);
+    expect(delRes.status).toBe(404);
   });
 
   test("bot reacts to nonexistent message → 404", async () => {
@@ -577,7 +577,7 @@ describe("bot-facing API", () => {
 
     const { apiToken } = await createBotWithToken(client, ws.slug);
 
-    const res = await fetch(`${getApiUrl()}/api/bot/messages/00000000-0000-0000-0000-000000000000/reactions`, {
+    const res = await fetch(`${getApiUrl()}/api/messages/00000000-0000-0000-0000-000000000000/reactions`, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ emoji: "thumbsup" }),
@@ -592,7 +592,7 @@ describe("bot-facing API", () => {
 
     const { apiToken } = await createBotWithToken(client, ws.slug);
 
-    const res = await fetch(`${getApiUrl()}/api/bot/users/${user.id}`, {
+    const res = await fetch(`${getApiUrl()}/api/workspaces/${ws.slug}/members/${user.id}`, {
       method: "GET",
       headers: { Authorization: `Bearer ${apiToken}` },
     });
@@ -609,7 +609,7 @@ describe("bot-facing API", () => {
 
     const { apiToken } = await createBotWithToken(client, ws.slug);
 
-    const res = await fetch(`${getApiUrl()}/api/bot/users/nonexistent-user-id`, {
+    const res = await fetch(`${getApiUrl()}/api/workspaces/${ws.slug}/members/nonexistent-user-id`, {
       method: "GET",
       headers: { Authorization: `Bearer ${apiToken}` },
     });
@@ -632,7 +632,7 @@ describe("bot-facing API", () => {
     await addBotToChannel(client, ws.slug, channel.id, bot.userId);
 
     // Bot sends message
-    await fetch(`${getApiUrl()}/api/bot/channels/${channel.id}/messages`, {
+    await fetch(`${getApiUrl()}/api/workspaces/${ws.slug}/channels/${channel.id}/messages`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiToken}`,

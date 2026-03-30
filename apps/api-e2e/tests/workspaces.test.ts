@@ -105,7 +105,7 @@ describe("workspaces", () => {
 
     // Verify bot token works — list channels
     const BASE_URL = process.env.API_BASE_URL || "http://localhost:3001";
-    const botChannelsRes = await fetch(`${BASE_URL}/api/bot/channels`, {
+    const botChannelsRes = await fetch(`${BASE_URL}/api/workspaces/${ws.slug}/channels`, {
       headers: { Authorization: `Bearer ${botToken}` },
     });
     expect(botChannelsRes.status).toBe(200);
@@ -117,7 +117,7 @@ describe("workspaces", () => {
     expect(delRes.status).toBe(200);
 
     // Bot token should no longer work
-    const botChannelsRes2 = await fetch(`${BASE_URL}/api/bot/channels`, {
+    const botChannelsRes2 = await fetch(`${BASE_URL}/api/workspaces/${ws.slug}/channels`, {
       headers: { Authorization: `Bearer ${botToken}` },
     });
     // Should get 401 (invalid token) or 404 (workspace gone)

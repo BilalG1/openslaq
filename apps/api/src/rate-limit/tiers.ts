@@ -24,7 +24,3 @@ export const rlRead = rateLimit({ bucket: "read", max: 120, windowSec: 60 });
 // Tier 4 - Brute-force (IP-based)
 export const rlInviteAccept = rateLimitByIp({ bucket: "invite-accept", max: 5, windowSec: 60 });
 export const rlInvitePreview = rateLimitByIp({ bucket: "invite-preview", max: 20, windowSec: 60 });
-
-// Tier 5 - Bot API
-export const rlBotSend = rateLimit({ bucket: "bot-send", max: 60, windowSec: 60 });
-export const rlBotRead = rateLimit({ bucket: "bot-read", max: 240, windowSec: 60 });

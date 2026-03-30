@@ -4,8 +4,8 @@ import { zValidator } from "@hono/zod-validator";
 import { auth } from "../auth/middleware";
 import { isAdmin, requireAdmin } from "./middleware";
 import { paginationSchema, activityQuerySchema } from "./validation";
-import { getStats, getActivity, getUsers, getWorkspaces, createImpersonationSnippet, bulkUpdateFeatureFlag } from "./service";
-import { getFeatureFlags, updateFeatureFlags } from "../workspaces/feature-flags";
+import { getStats, getActivity, getUsers, getWorkspaces, createImpersonationSnippet } from "./service";
+import { getFeatureFlags, updateFeatureFlags, bulkUpdateFeatureFlag } from "../workspaces/feature-flags";
 import { db } from "../db";
 import { workspaces } from "../workspaces/schema";
 import { eq } from "drizzle-orm";
@@ -55,12 +55,7 @@ const app = new Hono()
     zValidator("param", z.object({ workspaceId: z.string() })),
     zValidator(
       "json",
-      z.object({
-        integrationGithub: z.boolean().optional(),
-        integrationLinear: z.boolean().optional(),
-        integrationSentry: z.boolean().optional(),
-        integrationVercel: z.boolean().optional(),
-      }),
+      z.record(z.string(), z.string()),
     ),
     async (c) => {
       const { workspaceId } = c.req.valid("param");
@@ -77,13 +72,13 @@ const app = new Hono()
     zValidator(
       "json",
       z.object({
-        flag: z.enum(["integrationGithub", "integrationLinear", "integrationSentry", "integrationVercel"]),
-        enabled: z.boolean(),
+        flag: z.string(),
+        value: z.string(),
       }),
     ),
     async (c) => {
-      const { flag, enabled } = c.req.valid("json");
-      const count = await bulkUpdateFeatureFlag(flag, enabled);
+      const { flag, value } = c.req.valid("json");
+      const count = await bulkUpdateFeatureFlag(flag, value);
       return c.json({ updated: count });
     },
   )

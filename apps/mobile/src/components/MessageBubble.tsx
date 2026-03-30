@@ -103,11 +103,19 @@ export function MessageBubble({
           accessibilityLabel={`View profile of ${message.senderDisplayName ?? "Unknown"}`}
           accessibilityHint="Opens the sender's profile"
         >
-          <View style={styles.avatar}>
-            <Text style={styles.avatarInitials}>
-              {getInitials(message.senderDisplayName)}
-            </Text>
-          </View>
+          {message.senderAvatarUrl ? (
+            <Image
+              testID={`message-avatar-image-${message.id}`}
+              source={{ uri: message.senderAvatarUrl }}
+              style={styles.avatarImage}
+            />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarInitials}>
+                {getInitials(message.senderDisplayName)}
+              </Text>
+            </View>
+          )}
         </Pressable>
       )}
 
@@ -341,6 +349,12 @@ const makeStyles = (theme: MobileTheme) =>
       backgroundColor: theme.colors.avatarFallbackBg,
       alignItems: "center",
       justifyContent: "center",
+    },
+    avatarImage: {
+      width: 36,
+      height: 36,
+      borderRadius: 8,
+      backgroundColor: theme.colors.avatarFallbackBg,
     },
     avatarInitials: {
       fontSize: 14,

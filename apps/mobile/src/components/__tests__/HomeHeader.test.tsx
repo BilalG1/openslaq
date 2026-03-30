@@ -8,8 +8,9 @@ jest.mock("expo-router", () => ({
   useLocalSearchParams: () => ({ workspaceSlug: "acme" }),
 }));
 
+const mockStatusBar = jest.fn((_props: Record<string, unknown>) => null);
 jest.mock("expo-status-bar", () => ({
-  StatusBar: () => null,
+  StatusBar: (props: Record<string, unknown>) => mockStatusBar(props),
 }));
 
 jest.mock("react-native-safe-area-context", () => ({
@@ -75,6 +76,7 @@ import { HomeHeader } from "../home/HomeHeader";
 beforeEach(() => {
   mockPush.mockClear();
   mockToggle.mockClear();
+  mockStatusBar.mockClear();
   mockPresence = {};
 });
 
@@ -134,5 +136,10 @@ describe("HomeHeader", () => {
     render(<HomeHeader />);
     fireEvent.press(screen.getByTestId("header-avatar-button"));
     expect(mockPush).toHaveBeenCalledWith("/(app)/acme/settings");
+  });
+
+  it("does not render its own StatusBar (root layout handles it)", () => {
+    render(<HomeHeader />);
+    expect(mockStatusBar).not.toHaveBeenCalled();
   });
 });

@@ -198,6 +198,12 @@ const editor = new Editor({
       class: "tiptap",
     },
   },
+  onFocus() {
+    postToRN("focus-change", { focused: true });
+  },
+  onBlur() {
+    postToRN("focus-change", { focused: false });
+  },
   onTransaction({ editor: e }) {
     // Post content change
     const storage = e.storage.markdown;

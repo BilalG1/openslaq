@@ -24,6 +24,7 @@ const envSchema = z.object({
   APNS_KEY_ID: z.string().optional(),
   APNS_TEAM_ID: z.string().optional(),
   APNS_KEY_PATH: z.string().optional(),
+  APNS_KEY_BASE64: z.string().optional(),
   APNS_BUNDLE_ID: z.string().default("com.openslaq.mobile"),
   APNS_ENVIRONMENT: z.enum(["sandbox", "production"]).default("sandbox"),
   GITHUB_APP_ID: z.string().optional(),

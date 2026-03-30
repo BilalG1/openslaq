@@ -2,16 +2,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAdminApi } from "../../hooks/api/useAdminApi";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
-import type { WorkspaceFeatureFlags } from "@openslaq/shared";
+import type { FeatureFlagKey, WorkspaceFeatureFlags } from "@openslaq/shared";
 
-const FLAG_LABELS: Record<keyof WorkspaceFeatureFlags, string> = {
+// Only show boolean flags in the admin table (variant flags need different UI)
+const BOOLEAN_FLAG_LABELS: Record<string, string> = {
   integrationGithub: "GitHub",
   integrationLinear: "Linear",
   integrationSentry: "Sentry",
   integrationVercel: "Vercel",
 };
 
-const FLAG_KEYS = Object.keys(FLAG_LABELS) as Array<keyof WorkspaceFeatureFlags>;
+const BOOLEAN_FLAG_KEYS = Object.keys(BOOLEAN_FLAG_LABELS) as FeatureFlagKey[];
 
 interface AdminWorkspace {
   id: string;
@@ -21,10 +22,7 @@ interface AdminWorkspace {
   memberCount: number;
   channelCount: number;
   messageCount: number;
-  integrationGithub: boolean;
-  integrationLinear: boolean;
-  integrationSentry: boolean;
-  integrationVercel: boolean;
+  flags: WorkspaceFeatureFlags;
 }
 
 export function WorkspacesTab() {
@@ -33,7 +31,7 @@ export function WorkspacesTab() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState("");
-  const [bulkFlag, setBulkFlag] = useState<keyof WorkspaceFeatureFlags>("integrationGithub");
+  const [bulkFlag, setBulkFlag] = useState<FeatureFlagKey>("integrationGithub");
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const load = useCallback(
@@ -59,11 +57,16 @@ export function WorkspacesTab() {
     }, 300);
   };
 
-  const handleToggleFlag = async (workspaceId: string, flag: keyof WorkspaceFeatureFlags, enabled: boolean) => {
+  const handleToggleFlag = async (workspaceId: string, flag: FeatureFlagKey, enabled: boolean) => {
+    const value = enabled ? "true" : "false";
     try {
-      await updateAdminFeatureFlags(workspaceId, { [flag]: enabled });
+      await updateAdminFeatureFlags(workspaceId, { [flag]: value });
       setWorkspaces((prev) =>
-        prev.map((w) => (w.id === workspaceId ? { ...w, [flag]: enabled } : w)),
+        prev.map((w) =>
+          w.id === workspaceId
+            ? { ...w, flags: { ...w.flags, [flag]: value } }
+            : w,
+        ),
       );
     } catch {
       // reload to get correct state
@@ -73,7 +76,7 @@ export function WorkspacesTab() {
 
   const handleBulkUpdate = async (enabled: boolean) => {
     try {
-      await bulkUpdateFeatureFlag(bulkFlag, enabled);
+      await bulkUpdateFeatureFlag(bulkFlag, enabled ? "true" : "false");
       // Reload to reflect changes
       await load(page, search);
     } catch {
@@ -97,13 +100,13 @@ export function WorkspacesTab() {
         <span className="text-sm text-muted font-medium">Bulk Actions:</span>
         <select
           value={bulkFlag}
-          onChange={(e) => setBulkFlag(e.target.value as keyof WorkspaceFeatureFlags)}
+          onChange={(e) => setBulkFlag(e.target.value as FeatureFlagKey)}
           className="text-sm bg-surface border border-border-default rounded px-2 py-1 text-primary"
           data-testid="bulk-flag-select"
         >
-          {FLAG_KEYS.map((key) => (
+          {BOOLEAN_FLAG_KEYS.map((key) => (
             <option key={key} value={key}>
-              {FLAG_LABELS[key]}
+              {BOOLEAN_FLAG_LABELS[key]}
             </option>
           ))}
         </select>
@@ -134,9 +137,9 @@ export function WorkspacesTab() {
               <th className="pb-2 pr-4 text-right">Members</th>
               <th className="pb-2 pr-4 text-right">Channels</th>
               <th className="pb-2 pr-4 text-right">Messages</th>
-              {FLAG_KEYS.map((key) => (
+              {BOOLEAN_FLAG_KEYS.map((key) => (
                 <th key={key} className="pb-2 pr-4 text-center">
-                  {FLAG_LABELS[key]}
+                  {BOOLEAN_FLAG_LABELS[key]}
                 </th>
               ))}
               <th className="pb-2">Created</th>
@@ -157,11 +160,11 @@ export function WorkspacesTab() {
                 <td className="py-2 pr-4 text-right">{w.memberCount}</td>
                 <td className="py-2 pr-4 text-right">{w.channelCount}</td>
                 <td className="py-2 pr-4 text-right">{w.messageCount}</td>
-                {FLAG_KEYS.map((key) => (
+                {BOOLEAN_FLAG_KEYS.map((key) => (
                   <td key={key} className="py-2 pr-4 text-center">
                     <input
                       type="checkbox"
-                      checked={w[key]}
+                      checked={w.flags[key] === "true"}
                       onChange={(e) => void handleToggleFlag(w.id, key, e.target.checked)}
                       data-testid={`flag-${key}-${w.id}`}
                       className="cursor-pointer"

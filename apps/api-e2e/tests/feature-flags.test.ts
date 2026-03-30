@@ -43,16 +43,17 @@ describe("Feature Flags", () => {
     superAdminClient = superAdmin.client;
   });
 
-  test("flags default to all false for new workspaces", async () => {
+  test("flags default to expected values for new workspaces", async () => {
     const res = await adminClient.api.workspaces[":slug"]["feature-flags"].$get({
       param: { slug: workspaceSlug },
     });
     expect(res.status).toBe(200);
-    const flags = (await res.json()) as Record<string, unknown>;
-    expect(flags.integrationGithub).toBe(false);
-    expect(flags.integrationLinear).toBe(false);
-    expect(flags.integrationSentry).toBe(false);
-    expect(flags.integrationVercel).toBe(false);
+    const flags = (await res.json()) as Record<string, string>;
+    expect(flags.integrationGithub).toBe("false");
+    expect(flags.integrationLinear).toBe("false");
+    expect(flags.integrationSentry).toBe("false");
+    expect(flags.integrationVercel).toBe("false");
+    expect(flags.mobileMessageInput).toBe("default");
   });
 
   test("member can read flags", async () => {
@@ -60,8 +61,9 @@ describe("Feature Flags", () => {
       param: { slug: workspaceSlug },
     });
     expect(res.status).toBe(200);
-    const flags = (await res.json()) as Record<string, unknown>;
-    expect(flags.integrationGithub).toBe(false);
+    const flags = (await res.json()) as Record<string, string>;
+    expect(flags.integrationGithub).toBe("false");
+    expect(flags.mobileMessageInput).toBe("default");
   });
 
   test("workspace PATCH route is removed (404)", async () => {
@@ -72,7 +74,7 @@ describe("Feature Flags", () => {
         ...adminHeaders,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ integrationGithub: true }),
+      body: JSON.stringify({ integrationGithub: "true" }),
     });
     expect(res.status).toBe(404);
   });
@@ -82,26 +84,60 @@ describe("Feature Flags", () => {
       param: { workspaceId },
     });
     expect(res.status).toBe(200);
-    const flags = (await res.json()) as Record<string, unknown>;
-    expect(flags.integrationGithub).toBe(false);
+    const flags = (await res.json()) as Record<string, string>;
+    expect(flags.integrationGithub).toBe("false");
+    expect(flags.mobileMessageInput).toBe("default");
   });
 
   test("super-admin can PATCH feature flags via admin endpoint", async () => {
     const res = await superAdminClient.api.admin.workspaces[":workspaceId"]["feature-flags"].$patch({
       param: { workspaceId },
-      json: { integrationGithub: true, integrationLinear: true },
+      json: { integrationGithub: "true", integrationLinear: "true" },
     });
     expect(res.status).toBe(200);
-    const flags = (await res.json()) as Record<string, unknown>;
-    expect(flags.integrationGithub).toBe(true);
-    expect(flags.integrationLinear).toBe(true);
-    expect(flags.integrationSentry).toBe(false);
-    expect(flags.integrationVercel).toBe(false);
+    const flags = (await res.json()) as Record<string, string>;
+    expect(flags.integrationGithub).toBe("true");
+    expect(flags.integrationLinear).toBe("true");
+    expect(flags.integrationSentry).toBe("false");
+    expect(flags.integrationVercel).toBe("false");
+  });
+
+  test("super-admin can set variant flag", async () => {
+    const res = await superAdminClient.api.admin.workspaces[":workspaceId"]["feature-flags"].$patch({
+      param: { workspaceId },
+      json: { mobileMessageInput: "variant-a" },
+    });
+    expect(res.status).toBe(200);
+    const flags = (await res.json()) as Record<string, string>;
+    expect(flags.mobileMessageInput).toBe("variant-a");
+
+    // Verify it persists
+    const getRes = await adminClient.api.workspaces[":slug"]["feature-flags"].$get({
+      param: { slug: workspaceSlug },
+    });
+    const getFlags = (await getRes.json()) as Record<string, string>;
+    expect(getFlags.mobileMessageInput).toBe("variant-a");
+  });
+
+  test("invalid flag value is rejected", async () => {
+    const res = await superAdminClient.api.admin.workspaces[":workspaceId"]["feature-flags"].$patch({
+      param: { workspaceId },
+      json: { mobileMessageInput: "invalid-variant" },
+    });
+    expect(res.status).toBe(400);
+  });
+
+  test("unknown flag key is rejected", async () => {
+    const res = await superAdminClient.api.admin.workspaces[":workspaceId"]["feature-flags"].$patch({
+      param: { workspaceId },
+      json: { nonExistentFlag: "value" },
+    });
+    expect(res.status).toBe(400);
   });
 
   test("super-admin can bulk update a feature flag", async () => {
     const res = await superAdminClient.api.admin["feature-flags"].bulk.$post({
-      json: { flag: "integrationSentry", enabled: true },
+      json: { flag: "integrationSentry", value: "true" },
     });
     expect(res.status).toBe(200);
     const result = (await res.json()) as Record<string, unknown>;
@@ -111,8 +147,8 @@ describe("Feature Flags", () => {
     const flagsRes = await adminClient.api.workspaces[":slug"]["feature-flags"].$get({
       param: { slug: workspaceSlug },
     });
-    const flags = (await flagsRes.json()) as Record<string, unknown>;
-    expect(flags.integrationSentry).toBe(true);
+    const flags = (await flagsRes.json()) as Record<string, string>;
+    expect(flags.integrationSentry).toBe("true");
   });
 
   test("non-admin cannot use admin feature flag endpoints", async () => {
@@ -126,7 +162,7 @@ describe("Feature Flags", () => {
     // Disable sentry flag via admin endpoint
     await superAdminClient.api.admin.workspaces[":workspaceId"]["feature-flags"].$patch({
       param: { workspaceId },
-      json: { integrationSentry: false },
+      json: { integrationSentry: "false" },
     });
 
     // Find sentry-bot listing
@@ -146,7 +182,7 @@ describe("Feature Flags", () => {
     // Enable github integration via admin endpoint
     await superAdminClient.api.admin.workspaces[":workspaceId"]["feature-flags"].$patch({
       param: { workspaceId },
-      json: { integrationGithub: true },
+      json: { integrationGithub: "true" },
     });
 
     // Find github-bot listing

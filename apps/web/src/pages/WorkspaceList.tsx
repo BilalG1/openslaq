@@ -80,10 +80,10 @@ export function WorkspaceListPage() {
         <div className="max-w-3xl mx-auto px-6 h-14 flex items-center justify-between">
           <span className="text-lg font-bold text-primary">OpenSlaq</span>
           <div className="flex items-center gap-4">
-            {!isGallery && !user && (
+            {!isGallery && (
               <div className="flex items-center gap-3">
                 <Tooltip content="Docs">
-                  <a href={DOCS_URL} className="text-muted hover:text-primary transition-colors" data-testid="nav-docs">
+                  <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" className="text-muted hover:text-primary transition-colors" data-testid="nav-docs">
                     <BookOpen className="w-5 h-5" />
                   </a>
                 </Tooltip>

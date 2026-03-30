@@ -209,7 +209,7 @@ describe("webhook dispatcher", () => {
     await addBotToChannel(client, ws.slug, channel.id, bot.userId);
 
     // Bot sends a message (should NOT trigger webhook for itself)
-    await fetch(`${getApiUrl()}/api/bot/channels/${channel.id}/messages`, {
+    await fetch(`${getApiUrl()}/api/workspaces/${ws.slug}/channels/${channel.id}/messages`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiToken}`,
@@ -271,7 +271,7 @@ describe("webhook dispatcher", () => {
     await addBotToChannel(client, ws.slug, channel.id, bot.userId);
 
     // Bot sends message with action
-    const msgRes = await fetch(`${getApiUrl()}/api/bot/channels/${channel.id}/messages`, {
+    const msgRes = await fetch(`${getApiUrl()}/api/workspaces/${ws.slug}/channels/${channel.id}/messages`, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -282,7 +282,7 @@ describe("webhook dispatcher", () => {
     const msg = (await msgRes.json()) as { id: string };
 
     // Bot deletes the message
-    await fetch(`${getApiUrl()}/api/bot/messages/${msg.id}`, {
+    await fetch(`${getApiUrl()}/api/messages/${msg.id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${apiToken}` },
     });
@@ -312,7 +312,7 @@ describe("webhook dispatcher", () => {
     await addBotToChannel(client, ws.slug, channel.id, bot.userId);
 
     // Bot sends message with action
-    const msgRes = await fetch(`${getApiUrl()}/api/bot/channels/${channel.id}/messages`, {
+    const msgRes = await fetch(`${getApiUrl()}/api/workspaces/${ws.slug}/channels/${channel.id}/messages`, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -353,7 +353,7 @@ describe("webhook dispatcher", () => {
     await addBotToChannel(client, ws.slug, channel.id, bot.userId);
 
     // Bot sends message with action
-    const msgRes = await fetch(`${getApiUrl()}/api/bot/channels/${channel.id}/messages`, {
+    const msgRes = await fetch(`${getApiUrl()}/api/workspaces/${ws.slug}/channels/${channel.id}/messages`, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -390,7 +390,7 @@ describe("webhook dispatcher", () => {
     await addBotToChannel(owner, ws.slug, channel.id, bot.userId);
 
     // Bot sends message with action
-    const msgRes = await fetch(`${getApiUrl()}/api/bot/channels/${channel.id}/messages`, {
+    const msgRes = await fetch(`${getApiUrl()}/api/workspaces/${ws.slug}/channels/${channel.id}/messages`, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -430,7 +430,7 @@ describe("webhook dispatcher", () => {
     await addBotToChannel(client, ws.slug, channel.id, bot.userId);
 
     // Bot sends message with action
-    const msgRes = await fetch(`${getApiUrl()}/api/bot/channels/${channel.id}/messages`, {
+    const msgRes = await fetch(`${getApiUrl()}/api/workspaces/${ws.slug}/channels/${channel.id}/messages`, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -476,7 +476,7 @@ describe("webhook dispatcher", () => {
     await addBotToChannel(client, ws.slug, channel.id, bot.userId);
 
     // Bot sends message with action
-    const msgRes = await fetch(`${getApiUrl()}/api/bot/channels/${channel.id}/messages`, {
+    const msgRes = await fetch(`${getApiUrl()}/api/workspaces/${ws.slug}/channels/${channel.id}/messages`, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -520,7 +520,7 @@ describe("webhook dispatcher", () => {
     await addBotToChannel(client, ws.slug, channel.id, bot.userId);
 
     // Bot sends message with action
-    const msgRes = await fetch(`${getApiUrl()}/api/bot/channels/${channel.id}/messages`, {
+    const msgRes = await fetch(`${getApiUrl()}/api/workspaces/${ws.slug}/channels/${channel.id}/messages`, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({

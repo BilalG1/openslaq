@@ -1,15 +1,15 @@
 import type { Channel } from "@openslaq/shared";
 import { defineCommand, type FlagSchema } from "../framework";
 import { printHelp, formatUnreadCounts } from "../output";
-import { getAuthenticatedClient } from "../client";
+import { getAuthenticatedClient, requireWorkspace } from "../client";
 
 const listFlags = {
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
 const markAllReadFlags = {
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   json: { type: "boolean" },
 } as const satisfies FlagSchema;
 
@@ -25,7 +25,7 @@ export const unreadCommand = defineCommand({
     list: defineCommand({
       help() {
         printHelp("openslaq unread list [flags]", "Show unread message counts.", [
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -34,10 +34,10 @@ export const unreadCommand = defineCommand({
         const client = await getAuthenticatedClient();
         const [unreadRes, channelsRes] = await Promise.all([
           client.api.workspaces[":slug"]["unread-counts"].$get({
-            param: { slug: f.workspace },
+            param: { slug: requireWorkspace(f.workspace) },
           }),
           client.api.workspaces[":slug"].channels.$get({
-            param: { slug: f.workspace },
+            param: { slug: requireWorkspace(f.workspace) },
           }),
         ]);
 
@@ -64,7 +64,7 @@ export const unreadCommand = defineCommand({
     "mark-all-read": defineCommand({
       help() {
         printHelp("openslaq unread mark-all-read [flags]", "Mark all channels as read.", [
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--json", desc: "Output raw JSON" },
         ]);
       },
@@ -72,7 +72,7 @@ export const unreadCommand = defineCommand({
       async action(f) {
         const client = await getAuthenticatedClient();
         const res = await client.api.workspaces[":slug"].unreads["mark-all-read"].$post({
-          param: { slug: f.workspace },
+          param: { slug: requireWorkspace(f.workspace) },
         });
 
         if (!res.ok) {

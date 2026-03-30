@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Deploy a service to Railway
-# Usage: bash scripts/deploy.sh <api|web> [message]
+# Usage: bash scripts/release/deploy.sh <api|web> [message]
 
 SERVICE="${1:?Usage: deploy.sh <api|web> [message]}"
 MESSAGE="${2:-Deploy $SERVICE}"
@@ -26,8 +26,17 @@ EOF
 }
 EOF
     ;;
+  docs)
+    cat > railway.json <<'EOF'
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": { "builder": "DOCKERFILE", "dockerfilePath": "apps/docs/Dockerfile" },
+  "deploy": {}
+}
+EOF
+    ;;
   *)
-    echo "Unknown service: $SERVICE (expected api or web)" >&2
+    echo "Unknown service: $SERVICE (expected api, web, or docs)" >&2
     exit 1
     ;;
 esac

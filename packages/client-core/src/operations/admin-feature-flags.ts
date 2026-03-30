@@ -1,6 +1,6 @@
 import { authorizedRequest } from "../api/api-client";
 import type { ApiDeps } from "./types";
-import type { WorkspaceFeatureFlags } from "@openslaq/shared";
+import type { WorkspaceFeatureFlags, FeatureFlagKey } from "@openslaq/shared";
 
 export async function getAdminFeatureFlags(
   deps: ApiDeps,
@@ -33,13 +33,13 @@ export async function updateAdminFeatureFlags(
 
 export async function bulkUpdateFeatureFlag(
   deps: ApiDeps,
-  flag: keyof WorkspaceFeatureFlags,
-  enabled: boolean,
+  flag: FeatureFlagKey,
+  value: string,
 ): Promise<{ updated: number }> {
   const { api, auth } = deps;
   const response = await authorizedRequest(auth, (headers) =>
     api.api.admin["feature-flags"].bulk.$post(
-      { json: { flag, enabled } },
+      { json: { flag, value } },
       { headers },
     ),
   );

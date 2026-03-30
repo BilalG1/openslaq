@@ -1,6 +1,6 @@
 import { defineCommand, type FlagSchema } from "../framework";
 import { printHelp, formatFileTable } from "../output";
-import { getAuthenticatedClient } from "../client";
+import { getAuthenticatedClient, requireWorkspace } from "../client";
 
 const downloadUrlFlags = {
   id: { type: "string", required: true },
@@ -8,7 +8,7 @@ const downloadUrlFlags = {
 } as const satisfies FlagSchema;
 
 const listFlags = {
-  workspace: { type: "string", default: "default" },
+  workspace: { type: "string" },
   channel: { type: "string" },
   category: { type: "string" },
   limit: { type: "string" },
@@ -27,7 +27,7 @@ export const filesCommand = defineCommand({
     list: defineCommand({
       help() {
         printHelp("openslaq files list [flags]", "List files shared in workspace channels.", [
-          { name: "--workspace SLUG", desc: 'Workspace slug (default: "default")' },
+          { name: "--workspace SLUG", desc: "Workspace slug (required)" },
           { name: "--channel ID", desc: "Filter by channel ID" },
           { name: "--category TYPE", desc: "Filter by category (images/videos/documents/audio/other)" },
           { name: "--limit N", desc: "Max number of files to return" },
@@ -43,7 +43,7 @@ export const filesCommand = defineCommand({
         if (f.limit) query.limit = f.limit;
 
         const res = await client.api.workspaces[":slug"].files.$get({
-          param: { slug: f.workspace },
+          param: { slug: requireWorkspace(f.workspace) },
           query,
         });
 

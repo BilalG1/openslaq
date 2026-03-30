@@ -160,10 +160,6 @@ export async function getWorkspaces({
         memberCount: sql<number>`(${memberCountSq})`,
         channelCount: sql<number>`(${channelCountSq})`,
         messageCount: sql<number>`(${messageCountSq})`,
-        integrationGithub: workspaces.integrationGithub,
-        integrationLinear: workspaces.integrationLinear,
-        integrationSentry: workspaces.integrationSentry,
-        integrationVercel: workspaces.integrationVercel,
       })
       .from(workspaces)
       .where(searchCondition)
@@ -173,8 +169,17 @@ export async function getWorkspaces({
     db.select({ count: count() }).from(workspaces).where(searchCondition),
   ]);
 
+  // Fetch feature flags for each workspace
+  const { getFeatureFlags } = await import("../workspaces/feature-flags");
+  const workspacesWithFlags = await Promise.all(
+    rows.map(async (row) => ({
+      ...row,
+      flags: await getFeatureFlags(row.id),
+    })),
+  );
+
   return {
-    workspaces: rows,
+    workspaces: workspacesWithFlags,
     total: totalResult[0]!.count,
     page,
     pageSize,
@@ -182,26 +187,6 @@ export async function getWorkspaces({
   };
 }
 
-const FEATURE_FLAG_COLUMNS = [
-  "integrationGithub",
-  "integrationLinear",
-  "integrationSentry",
-  "integrationVercel",
-] as const;
-
-export async function bulkUpdateFeatureFlag(
-  flag: string,
-  enabled: boolean,
-): Promise<number> {
-  if (!FEATURE_FLAG_COLUMNS.includes(flag as (typeof FEATURE_FLAG_COLUMNS)[number])) {
-    throw new Error(`Invalid feature flag: ${flag}`);
-  }
-  const result = await db
-    .update(workspaces)
-    .set({ [flag]: enabled })
-    .returning({ id: workspaces.id });
-  return result.length;
-}
 
 export async function createImpersonationSnippet(
   userId: string,

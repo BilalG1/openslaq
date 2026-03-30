@@ -34,10 +34,18 @@ export function formatWorkspaceTable(
   workspaces: WorkspaceListItem[],
 ): string {
   if (workspaces.length === 0) return "No workspaces found.";
-  const header = "NAME                SLUG                ROLE        MEMBERS";
-  const rows = workspaces.map(
-    (ws) =>
-      `${ws.name.padEnd(20)}${ws.slug.padEnd(20)}${ws.role.padEnd(12)}${ws.memberCount ?? "-"}`,
+  const cols = [
+    { key: "name" as const, label: "NAME" },
+    { key: "slug" as const, label: "SLUG" },
+    { key: "role" as const, label: "ROLE" },
+    { key: "memberCount" as const, label: "MEMBERS" },
+  ];
+  const widths = cols.map((c) =>
+    Math.max(c.label.length, ...workspaces.map((ws) => String(ws[c.key] ?? "-").length)) + 2,
+  );
+  const header = cols.map((c, i) => c.label.padEnd(widths[i]!)).join("").trimEnd();
+  const rows = workspaces.map((ws) =>
+    cols.map((c, i) => String(ws[c.key] ?? "-").padEnd(widths[i]!)).join("").trimEnd(),
   );
   return [header, ...rows].join("\n");
 }

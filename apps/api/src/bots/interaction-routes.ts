@@ -14,7 +14,7 @@ import { isChannelMember } from "../channels/service";
 import { editMessage, getMessageById } from "../messages/service";
 import { setMessageActions } from "./service";
 import { emitToChannel } from "../lib/emit";
-import { rlBotSend } from "../rate-limit";
+import { rlMessageSend } from "../rate-limit";
 import { errorSchema, messageSchema } from "../openapi/schemas";
 import { jsonOk } from "../openapi/responses";
 import { NotFoundError, ForbiddenError, AppError } from "../errors";
@@ -27,7 +27,7 @@ const interactionRoute = createRoute({
   summary: "Trigger bot action",
   description: "Handle a button click on a bot message. Sends interaction to bot webhook.",
   security: BEARER_SECURITY,
-  middleware: [auth, rlBotSend] as const,
+  middleware: [auth, rlMessageSend] as const,
   request: {
     params: z.object({
       messageId: z.string().describe("Message ID"),

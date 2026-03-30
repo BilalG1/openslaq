@@ -45,7 +45,7 @@ export function DesktopPage() {
           <div className="rounded-xl border border-border-default bg-surface p-5">
             <h2 className="text-lg font-semibold text-primary mb-4">macOS</h2>
             <Button asChild className="w-full" disabled={!dmgUrl} data-testid="desktop-download-macos">
-              <a href={dmgUrl ?? "#"} rel="noopener noreferrer">
+              <a href={dmgUrl ?? "#"} target="_blank" rel="noopener noreferrer">
                 {dmgUrl ? "Download for macOS" : "Loading..."}
               </a>
             </Button>

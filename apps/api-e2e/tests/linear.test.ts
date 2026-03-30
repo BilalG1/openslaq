@@ -54,7 +54,7 @@ describe("Linear Bot", () => {
     // Enable Linear integration feature flag
     await superAdminClient.api.admin.workspaces[":workspaceId"]["feature-flags"].$patch({
       param: { workspaceId },
-      json: { integrationLinear: true },
+      json: { integrationLinear: "true" },
     });
   });
 
@@ -392,7 +392,7 @@ describe("Linear Bot", () => {
       // Enable feature flag and install linear-bot
       await superAdminClient.api.admin.workspaces[":workspaceId"]["feature-flags"].$patch({
         param: { workspaceId: ws2.id },
-        json: { integrationLinear: true },
+        json: { integrationLinear: "true" },
       });
       const listRes = await admin2.client.api.marketplace.$get({});
       const listings = (await listRes.json()) as Array<{ id: string; slug: string }>;
@@ -653,7 +653,7 @@ describe("Linear Bot", () => {
       // Enable feature flag and install linear-bot from marketplace
       await superAdminClient.api.admin.workspaces[":workspaceId"]["feature-flags"].$patch({
         param: { workspaceId: ws.id },
-        json: { integrationLinear: true },
+        json: { integrationLinear: "true" },
       });
       const listRes = await admin.client.api.marketplace.$get({});
       const listings = (await listRes.json()) as Array<{ id: string; slug: string }>;

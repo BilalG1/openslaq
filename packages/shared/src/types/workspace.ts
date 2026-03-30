@@ -8,13 +8,6 @@ export interface Workspace {
   memberCount?: number;
 }
 
-export interface WorkspaceFeatureFlags {
-  integrationGithub: boolean;
-  integrationLinear: boolean;
-  integrationSentry: boolean;
-  integrationVercel: boolean;
-}
-
 export interface WorkspaceInvite {
   id: string;
   workspaceId: WorkspaceId;

@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # Release the CLI: build cross-platform binaries and create a GitHub release.
-# Usage: ./scripts/release-cli.sh <version>
-# Example: ./scripts/release-cli.sh 0.3.0
+# Usage: ./scripts/release/release-cli.sh <version>
+# Example: ./scripts/release/release-cli.sh 0.3.0
 
 VERSION="${1:-$(bun -e "console.log(require('./apps/cli/package.json').version)")}"
 

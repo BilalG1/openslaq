@@ -40,15 +40,20 @@ export function clearApnsSentLog() {
 }
 
 export function isApnsConfigured(): boolean {
-  return fakeApnsEnabled || !!(env.APNS_KEY_ID && env.APNS_TEAM_ID && env.APNS_KEY_PATH);
+  return fakeApnsEnabled || !!(env.APNS_KEY_ID && env.APNS_TEAM_ID && (env.APNS_KEY_PATH || env.APNS_KEY_BASE64));
 }
 
 async function getSigningKey(): Promise<CryptoKey> {
   if (cachedKey) return cachedKey;
-  const keyPath = path.isAbsolute(env.APNS_KEY_PATH!)
-    ? env.APNS_KEY_PATH!
-    : path.resolve(import.meta.dirname, "../../../..", env.APNS_KEY_PATH!);
-  const keyData = fs.readFileSync(keyPath, "utf-8");
+  let keyData: string;
+  if (env.APNS_KEY_BASE64) {
+    keyData = Buffer.from(env.APNS_KEY_BASE64, "base64").toString("utf-8");
+  } else {
+    const keyPath = path.isAbsolute(env.APNS_KEY_PATH!)
+      ? env.APNS_KEY_PATH!
+      : path.resolve(import.meta.dirname, "../../../..", env.APNS_KEY_PATH!);
+    keyData = fs.readFileSync(keyPath, "utf-8");
+  }
   cachedKey = await importPKCS8(keyData, "ES256");
   return cachedKey;
 }

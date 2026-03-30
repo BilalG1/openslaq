@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Usage: bash scripts/release-desktop.sh
+# Usage: bash scripts/release/release-desktop.sh
 # Bump version in apps/desktop/src-tauri/tauri.conf.json before running.
 set -euo pipefail
 
@@ -26,6 +26,11 @@ TAG="desktop-v${VERSION}"
 BUNDLE_DIR="apps/desktop/src-tauri/target/release/bundle"
 
 echo "==> Building OpenSlaq Desktop ${TAG}"
+
+# Clean stale artifacts so we never ship leftovers from a previous build
+rm -f "$BUNDLE_DIR/macos/OpenSlaq.app.tar.gz" \
+      "$BUNDLE_DIR/macos/OpenSlaq.app.tar.gz.sig" \
+      "$BUNDLE_DIR/dmg/OpenSlaq_"*"_aarch64.dmg"
 
 # Build (may fail at DMG step — that's OK, we handle it below)
 echo "==> Running tauri build..."
@@ -61,7 +66,7 @@ APP_SIG="${APP_TAR}.sig"
 if [ ! -f "$APP_SIG" ]; then
   echo "==> Signature not found, signing manually..."
   cd apps/desktop
-  bunx @tauri-apps/cli signer sign -k "$TAURI_SIGNING_PRIVATE_KEY" -p "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" "$APP_TAR"
+  bunx @tauri-apps/cli signer sign -k "$TAURI_SIGNING_PRIVATE_KEY" -p "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" "../../$APP_TAR"
   cd ../..
 fi
 

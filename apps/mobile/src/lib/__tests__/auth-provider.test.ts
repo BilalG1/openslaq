@@ -161,6 +161,39 @@ describe("auth-provider", () => {
     expect(clearSessionMock).toHaveBeenCalledWith(TEST_SERVER_ID);
   });
 
+  it("refreshAccessToken clears cached token and refreshes from storage", async () => {
+    getSessionMock.mockResolvedValue({
+      accessToken: "old-access",
+      refreshToken: "refresh-1",
+      userId: "user-1",
+    });
+    const strategy = mockStrategy();
+    const { provider, setToken } = createMobileAuthProvider(TEST_SERVER_ID, strategy);
+    setToken("stale-cached-token");
+
+    const refreshed = await provider.refreshAccessToken!();
+    expect(refreshed).toBe("new-access");
+    expect(strategy.refreshAccessToken).toHaveBeenCalledWith("refresh-1");
+
+    // Subsequent calls should use the new cached token
+    await expect(provider.getAccessToken()).resolves.toBe("new-access");
+    expect(strategy.refreshAccessToken).toHaveBeenCalledTimes(1);
+  });
+
+  it("refreshAccessToken returns null when refresh fails", async () => {
+    getSessionMock.mockResolvedValue({
+      accessToken: "old-access",
+      refreshToken: "refresh-1",
+      userId: "user-1",
+    });
+    const strategy = failingStrategy();
+    const { provider, setToken } = createMobileAuthProvider(TEST_SERVER_ID, strategy);
+    setToken("stale-cached-token");
+
+    const refreshed = await provider.refreshAccessToken!();
+    expect(refreshed).toBeNull();
+  });
+
   it("isolates state between provider instances (server switch)", async () => {
     const strategyA = mockStrategy({ access_token: "token-A", refresh_token: "refresh-A", user_id: "user-A" });
     const strategyB = mockStrategy({ access_token: "token-B", refresh_token: "refresh-B", user_id: "user-B" });

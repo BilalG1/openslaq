@@ -1,11 +1,28 @@
 import { Button, Tooltip } from "../components/ui";
 import { Link } from "react-router-dom";
 import { BookOpen, Download, Github } from "lucide-react";
+import { useEffect, useState } from "react";
 
-const RELEASE_URL = "https://github.com/bgodil/openslaq/releases/latest";
 const DOCS_URL = import.meta.env.DEV ? "http://localhost:3008" : "https://docs.openslaq.com";
+const RELEASES_API = "https://api.github.com/repos/bilalg1/openslaq/releases";
+
+function useDesktopDmgUrl() {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    fetch(`${RELEASES_API}?per_page=20`)
+      .then((r) => r.json())
+      .then((releases: { tag_name: string; assets: { name: string; browser_download_url: string }[] }[]) => {
+        const release = releases.find((r) => r.tag_name.startsWith("desktop-v"));
+        const dmg = release?.assets.find((a) => a.name.endsWith(".dmg"));
+        if (dmg) setUrl(dmg.browser_download_url);
+      })
+      .catch(() => {});
+  }, []);
+  return url;
+}
 
 export function InstallPage() {
+  const dmgUrl = useDesktopDmgUrl();
   return (
     <div className="min-h-screen bg-surface-secondary">
       <nav className="sticky top-0 z-10 bg-surface border-b border-border-default">
@@ -13,7 +30,7 @@ export function InstallPage() {
           <Link to="/" className="text-lg font-bold text-primary no-underline">OpenSlaq</Link>
           <div className="flex items-center gap-3">
             <Tooltip content="Docs">
-              <a href={DOCS_URL} className="text-muted hover:text-primary transition-colors" data-testid="nav-docs">
+              <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" className="text-muted hover:text-primary transition-colors" data-testid="nav-docs">
                 <BookOpen className="w-5 h-5" />
               </a>
             </Tooltip>
@@ -41,9 +58,9 @@ export function InstallPage() {
           <div className="rounded-xl border border-border-default bg-surface p-5" data-testid="install-desktop">
             <h2 className="text-lg font-semibold text-primary mb-2">Desktop</h2>
             <p className="text-sm text-muted mb-4">macOS app — Windows and Linux coming soon.</p>
-            <Button asChild className="w-full">
-              <a href={RELEASE_URL} target="_blank" rel="noopener noreferrer">
-                Download for macOS
+            <Button asChild className="w-full" disabled={!dmgUrl}>
+              <a href={dmgUrl ?? "#"} target="_blank" rel="noopener noreferrer" {...(dmgUrl ? {} : { onClick: (e: React.MouseEvent) => e.preventDefault() })}>
+                {dmgUrl ? "Download for macOS" : "Loading…"}
               </a>
             </Button>
           </div>

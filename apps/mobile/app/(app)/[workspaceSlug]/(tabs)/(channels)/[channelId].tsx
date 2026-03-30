@@ -50,7 +50,7 @@ import { useChannelSocketEvents } from "@/hooks/useChannelSocketEvents";
 import { useFileUpload, type PendingFile } from "@/hooks/useFileUpload";
 import { ChannelMessageList } from "@/components/ChannelMessageList";
 import type { ChannelMessageListRef } from "@/components/ChannelMessageList";
-import { MessageInput } from "@/components/MessageInput";
+import { MessageInputSwitcher as MessageInput } from "@/components/MessageInputSwitcher";
 import type { MessageInputRef } from "@/components/MessageInput";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { MessageActionSheet } from "@/components/MessageActionSheet";

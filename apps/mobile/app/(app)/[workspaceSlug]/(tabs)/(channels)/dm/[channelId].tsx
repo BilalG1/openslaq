@@ -37,7 +37,7 @@ import { useFileUpload, type PendingFile } from "@/hooks/useFileUpload";
 import { ChannelMessageList } from "@/components/ChannelMessageList";
 import type { ChannelMessageListRef } from "@/components/ChannelMessageList";
 import type { MessageInputRef } from "@/components/MessageInput";
-import { MessageInput } from "@/components/MessageInput";
+import { MessageInputSwitcher as MessageInput } from "@/components/MessageInputSwitcher";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { MessageActionSheet } from "@/components/MessageActionSheet";
 import { EmojiPickerSheet } from "@/components/EmojiPickerSheet";

@@ -19,7 +19,8 @@
         "NSCameraUsageDescription": "OpenSlaq needs camera access for video in huddles",
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
-        }
+        },
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {

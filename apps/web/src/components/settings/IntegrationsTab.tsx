@@ -1,12 +1,6 @@
 import type { MarketplaceListing, WorkspaceFeatureFlags } from "@openslaq/shared";
+import { PLUGIN_SLUG_TO_FLAG } from "@openslaq/shared";
 import { Avatar, Badge, Button } from "../ui";
-
-const SLUG_TO_FLAG: Record<string, keyof WorkspaceFeatureFlags> = {
-  "github-bot": "integrationGithub",
-  "linear-bot": "integrationLinear",
-  "sentry-bot": "integrationSentry",
-  "vercel-bot": "integrationVercel",
-};
 
 interface IntegrationsTabProps {
   listings: MarketplaceListing[];
@@ -26,9 +20,9 @@ export function IntegrationsTab({
   featureFlags,
 }: IntegrationsTabProps) {
   const visibleListings = listings.filter((listing) => {
-    const flagKey = SLUG_TO_FLAG[listing.slug];
+    const flagKey = PLUGIN_SLUG_TO_FLAG[listing.slug];
     if (!flagKey) return true;
-    return featureFlags[flagKey];
+    return featureFlags[flagKey] === "true";
   });
 
   return (

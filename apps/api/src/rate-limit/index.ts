@@ -15,6 +15,4 @@ export {
   rlRead,
   rlInviteAccept,
   rlInvitePreview,
-  rlBotSend,
-  rlBotRead,
 } from "./tiers";

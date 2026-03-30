@@ -1,6 +1,8 @@
 export interface AuthProvider {
   getAccessToken(): Promise<string | null>;
   requireAccessToken(): Promise<string>;
+  /** Attempt to refresh the access token. Returns the new token or null if refresh failed. */
+  refreshAccessToken?: () => Promise<string | null>;
   onAuthRequired(): void;
 }
 

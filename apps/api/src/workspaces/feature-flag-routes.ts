@@ -4,12 +4,7 @@ import { rlRead } from "../rate-limit";
 import { BEARER_SECURITY, jsonContent } from "../lib/openapi-helpers";
 import { getFeatureFlags } from "./feature-flags";
 
-const featureFlagsSchema = z.object({
-  integrationGithub: z.boolean(),
-  integrationLinear: z.boolean(),
-  integrationSentry: z.boolean(),
-  integrationVercel: z.boolean(),
-});
+const featureFlagsSchema = z.record(z.string(), z.string());
 
 const getRoute = createRoute({
   method: "get",

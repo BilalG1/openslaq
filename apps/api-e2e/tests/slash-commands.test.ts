@@ -77,7 +77,7 @@ describe("Slash Commands", () => {
     // Enable feature flag and install github-bot
     await superAdminClient.api.admin.workspaces[":workspaceId"]["feature-flags"].$patch({
       param: { workspaceId: ownerWorkspaceId },
-      json: { integrationGithub: true },
+      json: { integrationGithub: "true" },
     });
     const installRes = await ownerClient.api.workspaces[":slug"].marketplace.install.$post({
       param: { slug: ownerSlug },
