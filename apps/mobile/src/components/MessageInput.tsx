@@ -21,6 +21,7 @@ import type { PendingFile } from "@/hooks/useFileUpload";
 import type { SlashCommandDefinition } from "@openslaq/shared";
 import { parseSlashCommand } from "@/utils/message-input-utils";
 
+import { KeyboardStickyView } from "react-native-keyboard-controller";
 import { TRANSPARENT } from "@/theme/constants";
 
 export interface MessageInputProps {
@@ -264,6 +265,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(funct
   // Was: onSendVoiceMessage && !editingMessage && !canSend && !isRecording;
 
   return (
+    <KeyboardStickyView offset={{ closed: 0, opened: 0 }}>
     <View style={staticStyles.wrapper}>
       {mentionSuggestions.length > 0 && (
         <MentionSuggestionList
@@ -437,6 +439,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(funct
         />
       )}
     </View>
+    </KeyboardStickyView>
   );
 });
 

@@ -20,6 +20,7 @@ import type { SlashCommandDefinition } from "@openslaq/shared";
 import { parseSlashCommand } from "@/utils/message-input-utils";
 import type { MessageInputProps, MessageInputRef } from "./MessageInput";
 
+import { KeyboardStickyView } from "react-native-keyboard-controller";
 import { TRANSPARENT } from "@/theme/constants";
 
 /**
@@ -275,6 +276,7 @@ export const MessageInputVariantA = forwardRef<MessageInputRef, MessageInputProp
   );
 
   return (
+    <KeyboardStickyView offset={{ closed: 0, opened: 0 }}>
     <View style={staticStyles.wrapper}>
       {mentionSuggestions.length > 0 && (
         <MentionSuggestionList
@@ -410,6 +412,7 @@ export const MessageInputVariantA = forwardRef<MessageInputRef, MessageInputProp
         />
       )}
     </View>
+    </KeyboardStickyView>
   );
 });
 

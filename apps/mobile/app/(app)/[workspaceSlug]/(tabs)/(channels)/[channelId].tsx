@@ -3,12 +3,12 @@ import {
   View,
   ActivityIndicator,
   Text,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   Alert,
   StyleSheet,
 } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useNavigation, useRouter } from "expo-router";
 import type { Message, ChannelId, UserId, SlashCommandDefinition } from "@openslaq/shared";
 import { asUserId, asMessageId } from "@openslaq/shared";

@@ -4,6 +4,7 @@ import { registerGlobals } from "@livekit/react-native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { LogBox } from "react-native";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import { AuthContextProvider } from "@/contexts/AuthContext";
 import { ServerProvider } from "@/contexts/ServerContext";
 import { MobileThemeProvider, useMobileTheme } from "@/theme/ThemeProvider";
@@ -24,13 +25,15 @@ function ThemedAppShell() {
 
 function RootLayout() {
   return (
-    <MobileThemeProvider>
-      <ServerProvider>
-        <AuthContextProvider>
-          <ThemedAppShell />
-        </AuthContextProvider>
-      </ServerProvider>
-    </MobileThemeProvider>
+    <KeyboardProvider>
+      <MobileThemeProvider>
+        <ServerProvider>
+          <AuthContextProvider>
+            <ThemedAppShell />
+          </AuthContextProvider>
+        </ServerProvider>
+      </MobileThemeProvider>
+    </KeyboardProvider>
   );
 }
 

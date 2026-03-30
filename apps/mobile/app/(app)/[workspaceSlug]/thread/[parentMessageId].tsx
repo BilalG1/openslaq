@@ -4,13 +4,13 @@ import {
   FlatList,
   ActivityIndicator,
   Text,
-  KeyboardAvoidingView,
   Platform,
   Alert,
   StyleSheet,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
 } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useRouter } from "expo-router";
 import type { Message, ChannelId, MessageId, UserId, ReactionGroup, MobileTheme } from "@openslaq/shared";
 import { asChannelId, asUserId, asMessageId } from "@openslaq/shared";

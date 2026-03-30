@@ -394,6 +394,25 @@ jest.mock("@/contexts/ServerContext", () => {
   };
 });
 
+// Mock react-native-keyboard-controller
+jest.mock("react-native-keyboard-controller", () => {
+  const React = require("react");
+  const { View } = require("react-native");
+  return {
+    KeyboardProvider: ({ children }) => children,
+    KeyboardStickyView: React.forwardRef(function MockKeyboardStickyView({ children, ...props }, ref) {
+      return React.createElement(View, { ...props, ref, testID: props.testID ?? "keyboard-sticky-view" }, children);
+    }),
+    KeyboardAvoidingView: React.forwardRef(function MockKCKeyboardAvoidingView({ children, ...props }, ref) {
+      return React.createElement(View, { ...props, ref, testID: props.testID ?? "kc-keyboard-avoiding-view" }, children);
+    }),
+    useKeyboardAnimation: () => ({
+      height: { interpolate: () => 0 },
+      progress: { interpolate: () => 0 },
+    }),
+  };
+});
+
 // Mock @react-navigation/native (useFocusEffect runs callback immediately in tests)
 jest.mock("@react-navigation/native", () => {
   const React = require("react");
