@@ -133,7 +133,7 @@ jest.mock("@openslaq/client-core", () => ({
   starChannelOp: jest.fn(),
   unstarChannelOp: jest.fn(),
   setChannelNotificationPrefOp: jest.fn(),
-  archiveChannel: jest.fn(),
+  leaveChannel: jest.fn(),
 }));
 
 let mockState: Record<string, unknown>;
@@ -348,5 +348,24 @@ describe("HomeScreen", () => {
     render(<HomeScreen />);
     expect(screen.getByTestId("quick-action-threads")).toBeTruthy();
     expect(screen.getByTestId("quick-action-later")).toBeTruthy();
+  });
+
+  it("opens DM action sheet on DM long press", () => {
+    render(<HomeScreen />);
+    fireEvent(screen.getByTestId("dm-row-dm-1"), "longPress");
+    expect(screen.getByTestId("dm-action-sheet-content")).toBeTruthy();
+  });
+
+  it("opens DM action sheet on group DM long press", () => {
+    mockState.groupDms = [makeGroupDm("gdm-1", ["Alice", "Bob"])];
+    render(<HomeScreen />);
+    fireEvent(screen.getByTestId("group-dm-row-gdm-1"), "longPress");
+    expect(screen.getByTestId("dm-action-sheet-content")).toBeTruthy();
+  });
+
+  it("shows starred DMs in the Starred section", () => {
+    mockState.starredChannelIds = ["dm-1"];
+    render(<HomeScreen />);
+    expect(screen.getByTestId("section-header-starred")).toBeTruthy();
   });
 });

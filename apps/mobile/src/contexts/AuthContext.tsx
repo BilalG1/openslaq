@@ -5,6 +5,7 @@ import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 import * as Crypto from "expo-crypto";
 import type { AuthProvider } from "@openslaq/client-core";
+import { getCurrentUser } from "@openslaq/client-core";
 import {
   sendOtpCode,
   verifyOtpCode,
@@ -25,12 +26,15 @@ import {
 } from "../lib/server-store";
 import { createMobileAuthProvider } from "../lib/auth-provider";
 import { performDevQuickSignIn } from "../lib/dev-auth";
+import { Sentry } from "@/sentry";
 import { useServer } from "./ServerContext";
 
 WebBrowser.maybeCompleteAuthSession();
 
 interface AuthUser {
   id: string;
+  displayName?: string | null;
+  avatarUrl?: string | null;
 }
 
 interface AuthContextValue {
@@ -58,9 +62,13 @@ function toBase64Url(base64: string): string {
 }
 
 export function AuthContextProvider({ children }: { children: ReactNode }) {
-  const { activeServer, apiUrl } = useServer();
+  const { activeServer, apiUrl, apiClient } = useServer();
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<AuthUser | null>(null);
+  const setUserWithSentry = useCallback((u: AuthUser | null) => {
+    setUser(u);
+    Sentry.setUser(u ? { id: u.id } : null);
+  }, []);
 
   const serverId = activeServer.id;
   const authType = activeServer.authType;
@@ -83,7 +91,7 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
   const authHandle = useMemo(
     () =>
       createMobileAuthProvider(serverId, authStrategy, () => {
-        setUser(null);
+        setUserWithSentry(null);
         authHandle?.setToken(null);
       }),
     [serverId, authStrategy],
@@ -95,7 +103,7 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     setIsLoading(true);
-    setUser(null);
+    setUserWithSentry(null);
     setAuthToken(null);
 
     void (async () => {
@@ -110,7 +118,7 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
           if (testToken && testUserId) {
             if (cancelled) return;
             setAuthToken(testToken);
-            setUser({ id: testUserId });
+            setUserWithSentry({ id: testUserId });
             setIsLoading(false);
             return;
           }
@@ -123,13 +131,34 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
       if (cancelled) return;
       if (session) {
         setAuthToken(session.accessToken);
-        setUser({ id: session.userId });
+        setUserWithSentry({ id: session.userId });
       }
       setIsLoading(false);
     })();
 
     return () => { cancelled = true; };
   }, [serverId]);
+
+  // Enrich user with profile data (displayName, avatarUrl) after auth
+  useEffect(() => {
+    if (!user?.id || user.displayName !== undefined) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const profile = await getCurrentUser({ api: apiClient, auth: authProvider });
+        if (!cancelled && profile) {
+          setUser((prev) =>
+            prev && prev.id === profile.id
+              ? { ...prev, displayName: profile.displayName, avatarUrl: profile.avatarUrl }
+              : prev,
+          );
+        }
+      } catch {
+        // Non-critical — optimistic messages fall back to userId
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id, apiClient, authProvider]);
 
   const handleTokens = useCallback(
     async (tokens: { access_token: string; refresh_token: string; user_id: string }) => {
@@ -139,7 +168,7 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
         userId: tokens.user_id,
       });
       setAuthToken(tokens.access_token);
-      setUser({ id: tokens.user_id });
+      setUserWithSentry({ id: tokens.user_id });
     },
     [serverId],
   );
@@ -286,14 +315,14 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
   const devQuickSignIn = useCallback(async () => {
     const result = await performDevQuickSignIn();
     setAuthToken(result.accessToken);
-    setUser({ id: result.userId });
+    setUserWithSentry({ id: result.userId });
     setIsLoading(false);
   }, [setAuthToken]);
 
   const signOut = useCallback(async () => {
     await clearServerSession(serverId);
     setAuthToken(null);
-    setUser(null);
+    setUserWithSentry(null);
   }, [serverId]);
 
   const value = useMemo(

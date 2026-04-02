@@ -6,6 +6,7 @@ import type { BotScope, WebhookEventPayload, WebhookEventType, BotEventDataMap }
 import { asChannelId, asBotAppId, asWorkspaceId } from "@openslaq/shared";
 import { validateWebhookUrl } from "./validate-url";
 import { createHmac } from "node:crypto";
+import { captureException } from "../sentry";
 
 // In test mode, use near-instant retry delays instead of seconds-long backoff
 const RETRY_BASE_MS = process.env.E2E_TEST_SECRET ? 10 : 1000;
@@ -41,7 +42,7 @@ class WebhookDispatcher {
       if (!channel) return;
       await this.dispatch({ ...event, workspaceId: channel.workspaceId });
     } catch (err) {
-      console.error("Webhook dispatchForChannel error:", err);
+      captureException(err, { channelId: event.channelId, op: "webhook:dispatch-channel" });
     }
   }
 
@@ -122,7 +123,7 @@ class WebhookDispatcher {
         void this.deliverWebhook(bot.id, bot.webhookUrl, payload, event.type, bot.apiToken);
       }
     } catch (err) {
-      console.error("Webhook dispatch error:", err);
+      captureException(err, { workspaceId: event.workspaceId, op: "webhook:dispatch" });
     }
   }
 
@@ -195,7 +196,7 @@ class WebhookDispatcher {
         lastAttemptAt: new Date(),
       });
     } catch (err) {
-      console.error("Failed to log webhook delivery:", err);
+      captureException(err, { op: "webhook:log-delivery" });
     }
   }
 }

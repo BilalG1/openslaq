@@ -27,6 +27,7 @@ import {
 import type { HuddleMessageMetadata, ChannelId, UserId } from "@openslaq/shared";
 import { rlHuddleJoin } from "../rate-limit/tiers";
 import { ForbiddenError, UnauthorizedError, ConflictError, ServiceUnavailableError } from "../errors";
+import { captureException } from "../sentry";
 
 const liveKitConfig: LiveKitConfig = {
   apiKey: env.LIVEKIT_API_KEY,
@@ -113,7 +114,7 @@ async function finalizeHuddleMessage(
       emitToChannel(asChannelId(channelId), "message:updated", updated);
     }
   } catch (err) {
-    console.error("Failed to update huddle system message:", err);
+    captureException(err, { channelId, op: "huddle:finalize-message" });
   }
 }
 
@@ -167,7 +168,7 @@ const routes = new OpenAPIHono<AuthEnv>()
         await setHuddleMessageId(channelId, sysMsg.id);
         emitToChannel(asChannelId(channelId), "message:new", sysMsg);
       } catch (err) {
-        console.error("Failed to create huddle system message:", err);
+        captureException(err, { userId: user.id, channelId, op: "huddle:system-message" });
       }
     }
 

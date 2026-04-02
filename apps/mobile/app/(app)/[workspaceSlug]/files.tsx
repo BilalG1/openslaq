@@ -17,6 +17,7 @@ import { Camera, Film, FileText, Music, Paperclip, ChevronRight, Folder } from "
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { useWorkspaceParams } from "@/hooks/useRouteParams";
 import { useOperationDeps } from "@/hooks/useOperationDeps";
+import { Sentry } from "@/sentry";
 import { env } from "@/lib/env";
 import { openSafeUrl } from "@/utils/url-validation";
 import { routes } from "@/lib/routes";
@@ -84,7 +85,8 @@ export default function FilesBrowserScreen() {
         setNextCursor(result.nextCursor);
         setLoading(false);
       })
-      .catch(() => {
+      .catch((e) => {
+        Sentry.captureException(e);
         if (cancelled) return;
         setLoading(false);
       });
@@ -103,7 +105,8 @@ export default function FilesBrowserScreen() {
         setNextCursor(result.nextCursor);
         setLoadingMore(false);
       })
-      .catch(() => {
+      .catch((e) => {
+        Sentry.captureException(e);
         setLoadingMore(false);
       });
   }, [nextCursor, loadingMore, workspaceSlug, deps, category]);

@@ -13,9 +13,12 @@ import { api } from "../../api";
 import { useAuthProvider } from "../../lib/api-client";
 import { useChatStore } from "../../state/chat-store";
 import { useGalleryMode } from "../../gallery/gallery-context";
+import { useCurrentUserProfile } from "../useCurrentUserProfile";
 
 interface AuthJsonUser {
   id: string;
+  displayName?: string | null;
+  profileImageUrl?: string | null;
   getAuthJson: () => Promise<{ accessToken?: string | null }>;
 }
 
@@ -33,6 +36,7 @@ export function useMessageMutations(user: AuthJsonUser | null | undefined) {
   const isGallery = useGalleryMode();
   const auth = useAuthProvider();
   const { workspaceSlug } = useParams<{ workspaceSlug: string }>();
+  const { profile } = useCurrentUserProfile();
 
   const toggleReaction = useCallback(
     async (messageId: string, emoji: string) => {
@@ -147,10 +151,11 @@ export function useMessageMutations(user: AuthJsonUser | null | undefined) {
         pendingAttachments: attachments.map((a) => ({ id: a.id, filename: a.filename, mimeType: a.mimeType })),
         parentMessageId: parentMessageId ?? undefined,
         userId: user.id,
-        senderDisplayName: "You",
+        senderDisplayName: user.displayName ?? user.id,
+        senderAvatarUrl: profile?.avatarUrl ?? null,
       });
     },
-    [auth, dispatch, isGallery, state, user],
+    [auth, dispatch, isGallery, profile?.avatarUrl, state, user],
   );
 
   const editMessage = useCallback(

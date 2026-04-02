@@ -38,7 +38,7 @@ import { ChannelMessageList } from "@/components/ChannelMessageList";
 import type { ChannelMessageListRef } from "@/components/ChannelMessageList";
 import type { MessageInputRef } from "@/components/MessageInput";
 import { MessageInputSwitcher as MessageInput } from "@/components/MessageInputSwitcher";
-import { TypingIndicator } from "@/components/TypingIndicator";
+import { TypingIndicator, typingIndicatorWrapperStyle } from "@/components/TypingIndicator";
 import { MessageActionSheet } from "@/components/MessageActionSheet";
 import { EmojiPickerSheet } from "@/components/EmojiPickerSheet";
 import { ShareMessageModal } from "@/components/ShareMessageModal";
@@ -222,10 +222,10 @@ function DmScreenInner() {
       };
       fileUpload.addFile(file);
       const attachmentIds = await fileUpload.uploadAll(() => authProvider.requireAccessToken());
-      await coreSendMessage(deps, { channelId: dmChannelId, workspaceSlug, content: "", attachmentIds, userId: user?.id });
+      await coreSendMessage(deps, { channelId: dmChannelId, workspaceSlug, content: "", attachmentIds, userId: user?.id, senderDisplayName: user?.displayName ?? "", senderAvatarUrl: user?.avatarUrl ?? null });
       fileUpload.reset();
     },
-    [authProvider, dmChannelId, dispatch, fileUpload, workspaceSlug],
+    [authProvider, dmChannelId, dispatch, fileUpload, user, workspaceSlug],
   );
 
   const handleAddAttachment = useCallback(() => {
@@ -259,10 +259,10 @@ function DmScreenInner() {
         content,
         attachmentIds,
         userId: user?.id,
+        senderDisplayName: user?.displayName ?? "",
+        senderAvatarUrl: user?.avatarUrl ?? null,
       });
-      if (ok) {
-        messageListRef.current?.scrollToBottom();
-      }
+      // Auto-scroll is handled by ChannelMessageList's useEffect
       if (!ok) {
         Alert.alert("Error", "Failed to send message. Please try again.");
         return false;
@@ -444,24 +444,26 @@ function DmScreenInner() {
           onLoadOlder={handleLoadOlder}
         />
       )}
-      <TypingIndicator typingUsers={typingUsers} />
-      <MessageInput
-        ref={messageInputRef}
-        onSend={handleSend}
-        placeholder={`Message ${displayName}`}
-        draftKey={dmChannelId}
-        editingMessage={modalsState.editingMessage}
-        onCancelEdit={handleCancelEdit}
-        onSaveEdit={handleSaveEdit}
-        members={members}
-        onTyping={emitTyping}
-        pendingFiles={fileUpload.pendingFiles}
-        onAddAttachment={handleAddAttachment}
-        onRemoveFile={fileUpload.removeFile}
-        uploading={fileUpload.uploading}
-        onScheduleSend={handleScheduleSend}
-        onSendVoiceMessage={handleSendVoiceMessage}
-      />
+      <View style={typingIndicatorWrapperStyle}>
+        <TypingIndicator typingUsers={typingUsers} />
+        <MessageInput
+          ref={messageInputRef}
+          onSend={handleSend}
+          placeholder={`Message ${displayName}`}
+          draftKey={dmChannelId}
+          editingMessage={modalsState.editingMessage}
+          onCancelEdit={handleCancelEdit}
+          onSaveEdit={handleSaveEdit}
+          members={members}
+          onTyping={emitTyping}
+          pendingFiles={fileUpload.pendingFiles}
+          onAddAttachment={handleAddAttachment}
+          onRemoveFile={fileUpload.removeFile}
+          uploading={fileUpload.uploading}
+          onScheduleSend={handleScheduleSend}
+          onSendVoiceMessage={handleSendVoiceMessage}
+        />
+      </View>
       {modalsState.actionSheetMessage && (
         <MessageActionSheet
           visible

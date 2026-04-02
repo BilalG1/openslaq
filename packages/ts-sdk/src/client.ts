@@ -14,7 +14,7 @@ import { Users } from "./resources/users";
 export interface OpenSlaqOptions {
   apiKey: string;
   baseUrl?: string;
-  workspaceSlug?: string;
+  workspaceSlug: string;
   fetch?: typeof globalThis.fetch;
 }
 
@@ -35,7 +35,10 @@ export class OpenSlaq {
     }
 
     const baseUrl = options.baseUrl ?? "https://api.openslaq.com";
-    const slug = options.workspaceSlug ?? "default";
+    if (!options.workspaceSlug) {
+      throw new OpenSlaqError("workspaceSlug is required");
+    }
+    const slug = options.workspaceSlug;
     const customFetch = options.fetch ?? globalThis.fetch;
 
     const rpc = createRpcClient(baseUrl, options.apiKey, customFetch);

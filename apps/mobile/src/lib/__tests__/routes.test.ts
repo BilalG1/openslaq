@@ -33,9 +33,9 @@ describe("routes", () => {
     expect(routes.channels("ws")).toBe("/(app)/ws/(tabs)/(channels)");
   });
 
-  it("generates message deep link with web-compatible format", () => {
+  it("generates message deep link as HTTP URL", () => {
     expect(routes.messageDeepLink("my-ws", "ch-123", "msg-456")).toBe(
-      "openslaq://w/my-ws/c/ch-123/t/msg-456",
+      "http://localhost:3000/w/my-ws/c/ch-123/t/msg-456",
     );
   });
 });

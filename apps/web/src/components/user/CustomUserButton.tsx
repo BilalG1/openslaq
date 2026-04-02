@@ -4,6 +4,7 @@ import { UserSettingsDialog } from "../settings/UserSettingsDialog";
 import { SetStatusDialog } from "./SetStatusDialog";
 import { useChatStore } from "../../state/chat-store";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
+import { useCurrentUserProfile } from "../../hooks/useCurrentUserProfile";
 import { redirectToAuth } from "../../lib/auth";
 import {
   DropdownMenu,
@@ -26,6 +27,7 @@ export function CustomUserButton({ showUserInfo }: CustomUserButtonProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
   const user = useCurrentUser();
+  const { profile } = useCurrentUserProfile();
   const { state } = useChatStore();
 
   const userId = user?.id;
@@ -42,7 +44,7 @@ export function CustomUserButton({ showUserInfo }: CustomUserButtonProps) {
   }, []);
 
   const displayName = user?.displayName || user?.primaryEmail || "User";
-  const avatarUrl = user?.profileImageUrl;
+  const avatarUrl = profile?.avatarUrl ?? null;
   const initials = displayName.charAt(0).toUpperCase();
 
   return (

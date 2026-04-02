@@ -7,6 +7,7 @@ import { getOrCreateDm } from "../dm/service";
 import { createMessage } from "../messages/service";
 import { emitToChannel } from "../lib/emit";
 import { asChannelId, asUserId, asWorkspaceId } from "@openslaq/shared";
+import { captureException } from "../sentry";
 
 let isProcessing = false;
 
@@ -69,7 +70,7 @@ export async function processDueReminders(): Promise<void> {
           .set({ status: "sent" })
           .where(eq(reminders.id, reminder.id));
       } catch (err) {
-        console.error(`Failed to process reminder ${reminder.id}:`, err);
+        captureException(err, { userId: reminder.userId, channelId: reminder.channelId, workspaceId, op: "reminder:process" });
       }
     }
   } finally {
@@ -83,7 +84,7 @@ export function startReminderProcessor(): void {
   if (reminderInterval) return;
   reminderInterval = setInterval(() => {
     processDueReminders().catch((err) =>
-      console.error("Reminder processor error:", err),
+      captureException(err, { op: "reminder:poll" }),
     );
   }, 30_000);
   console.log("Reminder processor started (30s interval)");

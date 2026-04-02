@@ -168,13 +168,15 @@ export function ComposeView({
             onOpenProfile={onOpenProfile}
             ephemeralMessages={[]}
           />
-          <TypingIndicator typingUsers={typingUsers} />
-          <MessageInput
-            channelId={previewChannelId}
-            channelName={selectedUsers.map((u) => u.displayName).join(", ")}
-            isDm
-            onTyping={emitTyping}
-          />
+          <div className="relative">
+            <TypingIndicator typingUsers={typingUsers} />
+            <MessageInput
+              channelId={previewChannelId}
+              channelName={selectedUsers.map((u) => u.displayName).join(", ")}
+              isDm
+              onTyping={emitTyping}
+            />
+          </div>
         </>
       ) : (
         <div className="flex-1 flex items-center justify-center text-faint">

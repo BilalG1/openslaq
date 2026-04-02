@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { HuddleClient, type HuddleMediaState } from "@openslaq/huddle/client";
 import { notifyHuddleLeave } from "@openslaq/client-core";
+import * as Sentry from "@sentry/react";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useAuthProvider, authorizedHeaders } from "../lib/api-client";
 import { api } from "../api";
@@ -63,6 +64,7 @@ export function HuddlePage() {
         try {
           await client.connect(wsUrl, token);
         } catch (connectErr) {
+          Sentry.captureException(connectErr);
           console.warn("LiveKit connection failed, running in degraded mode:", connectErr);
         }
 
@@ -77,6 +79,7 @@ export function HuddlePage() {
         setError(null);
       } catch (err) {
         if (abortController.signal.aborted) return;
+        Sentry.captureException(err);
         console.error("Failed to join huddle:", err);
         setError(err instanceof Error ? err.message : "Failed to join huddle");
       }
@@ -107,7 +110,6 @@ export function HuddlePage() {
     if (!client) return;
     try {
       await client.toggleMicrophone();
-      setIsMuted((prev) => !prev);
     } catch (err) {
       const alert = classifyMediaError(err, "microphone");
       if (alert) setPermissionAlert(alert);
@@ -119,7 +121,6 @@ export function HuddlePage() {
     if (!client) return;
     try {
       await client.toggleCamera();
-      setIsCameraOn((prev) => !prev);
     } catch (err) {
       const alert = classifyMediaError(err, "camera");
       if (alert) setPermissionAlert(alert);
@@ -134,14 +135,13 @@ export function HuddlePage() {
     if (sharing) {
       try {
         await client.stopScreenShare();
-        setIsScreenSharing(false);
       } catch (err) {
+        Sentry.captureException(err);
         console.error("Failed to stop screen share:", err);
       }
     } else {
       try {
         await client.startScreenShare();
-        setIsScreenSharing(true);
       } catch (err) {
         const alert = classifyMediaError(err, "screen");
         if (alert) setPermissionAlert(alert);

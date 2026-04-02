@@ -18,6 +18,7 @@ import { messageListSchema, messageSchema, messagesAroundSchema, errorSchema, ok
 import { jsonResponse } from "../openapi/responses";
 import { BEARER_SECURITY, jsonBody, jsonContent } from "../lib/openapi-helpers";
 import { webhookDispatcher } from "../bots/webhook-dispatcher";
+import { captureException } from "../sentry";
 import { scheduleMessagePush } from "../push/service";
 import { BadRequestError, ForbiddenError, NotFoundError } from "../errors";
 
@@ -270,8 +271,12 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
       data: emitMessage,
       ...(tokenMeta.isBot ? { excludeBotUserId: user.id } : {}),
     });
-    unfurlMessageLinks(message.id, channel.id, content).catch(console.error);
-    scheduleMessagePush(emitMessage, c.get("workspace").slug).catch(console.error);
+    unfurlMessageLinks(message.id, channel.id, content).catch((err) =>
+      captureException(err, { userId: user.id, channelId: channel.id, op: "message:unfurl" }),
+    );
+    scheduleMessagePush(emitMessage, c.get("workspace").slug).catch((err) =>
+      captureException(err, { userId: user.id, channelId: channel.id, op: "message:push" }),
+    );
     return jsonResponse(c, emitMessage, 201);
   })
   .openapi(getMessagesAroundRoute, async (c) => {
@@ -312,8 +317,12 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
     emitToChannel(channel.id, "message:new", result.reply);
     emitToChannel(channel.id, "thread:updated", result.threadUpdate);
     webhookDispatcher.dispatch({ type: "message:new", channelId: channel.id, workspaceId: c.get("workspace").id, data: result.reply });
-    unfurlMessageLinks(result.reply.id, channel.id, content).catch(console.error);
-    scheduleMessagePush(result.reply, c.get("workspace").slug).catch(console.error);
+    unfurlMessageLinks(result.reply.id, channel.id, content).catch((err) =>
+      captureException(err, { userId: user.id, channelId: channel.id, op: "message:unfurl-thread" }),
+    );
+    scheduleMessagePush(result.reply, c.get("workspace").slug).catch((err) =>
+      captureException(err, { userId: user.id, channelId: channel.id, op: "message:push-thread" }),
+    );
 
     return jsonResponse(c, result.reply, 201);
   })

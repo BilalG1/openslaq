@@ -4,6 +4,7 @@ import { ChannelMessageList } from "../ChannelMessageList";
 import type { ChannelMessageListRef } from "../ChannelMessageList";
 import type { Message, EphemeralMessage } from "@openslaq/shared";
 import { asMessageId, asChannelId, asUserId } from "@openslaq/shared";
+import { computeLayout } from "@openslaq/rn-layout-testing";
 
 const mockDispatch = jest.fn();
 
@@ -122,15 +123,16 @@ beforeEach(() => {
 });
 
 describe("ChannelMessageList", () => {
-  it("applies bottom spacing via paddingTop on inverted list when messages exist", () => {
+  it("applies consistent contentContainerStyle with bottom spacing and flexGrow", () => {
     const messages = [makeMessage({ id: "m1" })];
     render(
       <ChannelMessageList {...defaultProps} messages={messages} ephemeralMessages={[]} />,
     );
     const flatList = screen.getByTestId("message-list");
     const style = flatList.props.contentContainerStyle;
-    // In an inverted FlatList, paddingTop = visual bottom padding
-    expect(style).toEqual(expect.objectContaining({ paddingTop: 8 }));
+    // contentContainerStyle should always have flexGrow:1 (so empty state fills screen)
+    // and paddingTop:24 (visual bottom padding for typing indicator overlay in inverted list)
+    expect(style).toEqual(expect.objectContaining({ flexGrow: 1, paddingTop: 24 }));
   });
 
   it("auto-scrolls to bottom when new messages arrive and user is near bottom", () => {
@@ -342,5 +344,47 @@ describe("ChannelMessageList", () => {
     );
     // ActivityIndicator exists when loadingOlder is true
     expect(screen.getByTestId("message-list")).toBeTruthy();
+  });
+
+  it("does not layout-shift when first message arrives in empty channel", async () => {
+    const { rerender, toJSON } = render(
+      <ChannelMessageList {...defaultProps} messages={[]} ephemeralMessages={[]} />,
+    );
+
+    // FlatList's contentContainerStyle is not rendered into toJSON() — it's applied
+    // internally to the content container View. We inject it manually to compute layout.
+    function injectContentContainerStyle(tree: any): any {
+      const flatList = screen.getByTestId("message-list");
+      const ccs = flatList.props.contentContainerStyle;
+      if (tree?.children?.[0] && typeof tree.children[0] !== "string") {
+        tree.children[0].props = { ...tree.children[0].props, style: ccs };
+      }
+      return tree;
+    }
+
+    const emptyLayout = await computeLayout(
+      injectContentContainerStyle(toJSON()),
+      { width: 390, height: 844 },
+    );
+    const emptyContainer = emptyLayout.root.children[0]!;
+
+    rerender(
+      <ChannelMessageList
+        {...defaultProps}
+        messages={[makeMessage({ id: "m1" })]}
+        ephemeralMessages={[]}
+      />,
+    );
+
+    const msgLayout = await computeLayout(
+      injectContentContainerStyle(toJSON()),
+      { width: 390, height: 844 },
+    );
+    const msgContainer = msgLayout.root.children[0]!;
+
+    // The content container height should be consistent between empty and populated states.
+    // A style switch from {flex:1} to {paddingTop:24} causes it to shrink from full-screen
+    // to content-wrapping, producing a visible layout shift.
+    expect(msgContainer.height).toBe(emptyContainer.height);
   });
 });

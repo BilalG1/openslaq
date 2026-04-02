@@ -173,7 +173,23 @@ describe("useHuddleMedia", () => {
   // ── Toggling Microphone ─────────────────────────────────────
 
   describe("toggling microphone", () => {
-    test("scenario 7: toggle succeeds — state updates", async () => {
+    test("scenario 7: toggle succeeds — state updates via subscription", async () => {
+      let subscribeCb!: Function;
+      (mockSubscribe as ReturnType<typeof vi.fn>).mockImplementation((cb: Function) => {
+        subscribeCb = cb;
+        return vi.fn();
+      });
+
+      mockToggleMicrophone.mockImplementation(async () => {
+        subscribeCb({
+          localParticipant: {
+            userId: "user-1", isMuted: true, isCameraOn: false,
+            isScreenSharing: false, isSpeaking: false, cameraTrack: null, screenTrack: null,
+          },
+          participants: [],
+        });
+      });
+
       const { result } = renderHook(() => useHuddleMedia());
       await act(() => Promise.resolve());
 
@@ -247,7 +263,23 @@ describe("useHuddleMedia", () => {
   // ── Toggling Camera ─────────────────────────────────────────
 
   describe("toggling camera", () => {
-    test("scenario 11: camera on succeeds — state updates", async () => {
+    test("scenario 11: camera on succeeds — state updates via subscription", async () => {
+      let subscribeCb!: Function;
+      (mockSubscribe as ReturnType<typeof vi.fn>).mockImplementation((cb: Function) => {
+        subscribeCb = cb;
+        return vi.fn();
+      });
+
+      mockToggleCamera.mockImplementation(async () => {
+        subscribeCb({
+          localParticipant: {
+            userId: "user-1", isMuted: false, isCameraOn: true,
+            isScreenSharing: false, isSpeaking: false, cameraTrack: null, screenTrack: null,
+          },
+          participants: [],
+        });
+      });
+
       const { result } = renderHook(() => useHuddleMedia());
       await act(() => Promise.resolve());
 
@@ -349,7 +381,23 @@ describe("useHuddleMedia", () => {
   // ── Screen Share ────────────────────────────────────────────
 
   describe("toggling screen share", () => {
-    test("scenario 17: screen share succeeds — state updates", async () => {
+    test("scenario 17: screen share succeeds — state updates via subscription", async () => {
+      let subscribeCb!: Function;
+      (mockSubscribe as ReturnType<typeof vi.fn>).mockImplementation((cb: Function) => {
+        subscribeCb = cb;
+        return vi.fn();
+      });
+
+      mockStartScreenShare.mockImplementation(async () => {
+        subscribeCb({
+          localParticipant: {
+            userId: "user-1", isMuted: false, isCameraOn: false,
+            isScreenSharing: true, isSpeaking: false, cameraTrack: null, screenTrack: null,
+          },
+          participants: [],
+        });
+      });
+
       const { result } = renderHook(() => useHuddleMedia());
       await act(() => Promise.resolve());
 
@@ -494,6 +542,216 @@ describe("useHuddleMedia", () => {
         result.current.dismissPermissionAlert();
       });
       expect(result.current.permissionAlert).toBeNull();
+    });
+  });
+
+  // ── State sync: controls must match LiveKit ground truth ───
+
+  describe("control state sync with LiveKit", () => {
+    function fp(overrides: Record<string, unknown> = {}) {
+      return {
+        userId: "user-1",
+        isMuted: false,
+        isCameraOn: false,
+        isScreenSharing: false,
+        isSpeaking: false,
+        cameraTrack: null,
+        screenTrack: null,
+        ...overrides,
+      };
+    }
+
+    function setupSubscriptionCapture() {
+      let subscribeCb!: (s: { localParticipant: ReturnType<typeof fp> | null; participants: unknown[] }) => void;
+      (mockSubscribe as ReturnType<typeof vi.fn>).mockImplementation((cb: Function) => {
+        subscribeCb = cb as typeof subscribeCb;
+        return vi.fn();
+      });
+      return { getCb: () => subscribeCb };
+    }
+
+    test("on disconnect, isMuted reflects last LiveKit state, not stale localMuted", async () => {
+      const { getCb } = setupSubscriptionCapture();
+      const { result } = renderHook(() => useHuddleMedia());
+      await act(() => Promise.resolve());
+      const cb = getCb();
+
+      // Connected, unmuted
+      act(() => cb({ localParticipant: fp({ isMuted: false }), participants: [] }));
+      expect(result.current.isMuted).toBe(false);
+
+      // Toggle mute → localMuted flips to true
+      await act(async () => { result.current.toggleMute(); });
+
+      // External unmute (e.g. admin action) — LiveKit says unmuted
+      act(() => cb({ localParticipant: fp({ isMuted: false }), participants: [] }));
+      expect(result.current.isMuted).toBe(false);
+
+      // Disconnect — localParticipant becomes null, falls back to localMuted
+      act(() => cb({ localParticipant: null, participants: [] }));
+
+      // Should reflect last known LiveKit state (unmuted), not stale localMuted (muted)
+      expect(result.current.isMuted).toBe(false);
+    });
+
+    test("on disconnect, isCameraOn reflects last LiveKit state, not stale localCameraOn", async () => {
+      const { getCb } = setupSubscriptionCapture();
+      const { result } = renderHook(() => useHuddleMedia());
+      await act(() => Promise.resolve());
+      const cb = getCb();
+
+      // Connected, camera off
+      act(() => cb({ localParticipant: fp({ isCameraOn: false }), participants: [] }));
+      expect(result.current.isCameraOn).toBe(false);
+
+      // Toggle camera on → localCameraOn flips to true
+      await act(async () => { result.current.toggleCamera(); });
+
+      // External camera off (e.g. admin action)
+      act(() => cb({ localParticipant: fp({ isCameraOn: false }), participants: [] }));
+      expect(result.current.isCameraOn).toBe(false);
+
+      // Disconnect
+      act(() => cb({ localParticipant: null, participants: [] }));
+
+      // Should reflect last known LiveKit state (off), not stale localCameraOn (on)
+      expect(result.current.isCameraOn).toBe(false);
+    });
+
+    test("on disconnect, isScreenSharing reflects last LiveKit state, not stale localScreenSharing", async () => {
+      const { getCb } = setupSubscriptionCapture();
+      const { result } = renderHook(() => useHuddleMedia());
+      await act(() => Promise.resolve());
+      const cb = getCb();
+
+      // Connected, not sharing
+      act(() => cb({ localParticipant: fp({ isScreenSharing: false }), participants: [] }));
+      expect(result.current.isScreenSharing).toBe(false);
+
+      // Start screen share → localScreenSharing set to true
+      mockGetState.mockReturnValue({ localParticipant: { isScreenSharing: false }, participants: [] });
+      await act(async () => { result.current.toggleScreenShare(); });
+
+      // External stop (e.g. admin action)
+      act(() => cb({ localParticipant: fp({ isScreenSharing: false }), participants: [] }));
+      expect(result.current.isScreenSharing).toBe(false);
+
+      // Disconnect
+      act(() => cb({ localParticipant: null, participants: [] }));
+
+      // Should reflect last known LiveKit state (not sharing), not stale localScreenSharing (sharing)
+      expect(result.current.isScreenSharing).toBe(false);
+    });
+  });
+
+  // ── Race conditions ────────────────────────────────────────
+
+  describe("race conditions", () => {
+    function fp(overrides: Record<string, unknown> = {}) {
+      return {
+        userId: "user-1",
+        isMuted: false,
+        isCameraOn: false,
+        isScreenSharing: false,
+        isSpeaking: false,
+        cameraTrack: null,
+        screenTrack: null,
+        ...overrides,
+      };
+    }
+
+    test("rapid mute toggles: final state matches LiveKit, not accumulated flips", async () => {
+      let subscribeCb!: (s: { localParticipant: ReturnType<typeof fp> | null; participants: unknown[] }) => void;
+      (mockSubscribe as ReturnType<typeof vi.fn>).mockImplementation((cb: Function) => {
+        subscribeCb = cb as typeof subscribeCb;
+        return vi.fn();
+      });
+
+      // First toggle resolves slowly, second resolves immediately
+      let resolveFirst!: () => void;
+      mockToggleMicrophone
+        .mockImplementationOnce(() => new Promise<void>((r) => { resolveFirst = r; }))
+        .mockImplementationOnce(async () => {});
+
+      const { result } = renderHook(() => useHuddleMedia());
+      await act(() => Promise.resolve());
+
+      // Start with LiveKit showing unmuted
+      act(() => subscribeCb({ localParticipant: fp({ isMuted: false }), participants: [] }));
+
+      // First toggle starts (hangs on await)
+      act(() => { result.current.toggleMute(); });
+
+      // Second toggle starts and completes (localMuted flips once: false → true)
+      await act(async () => { result.current.toggleMute(); });
+
+      // First toggle now completes (localMuted flips again: true → false)
+      await act(async () => { resolveFirst(); });
+
+      // LiveKit sees two toggles: unmuted → muted → unmuted. Final LiveKit state = unmuted.
+      act(() => subscribeCb({ localParticipant: fp({ isMuted: false }), participants: [] }));
+
+      // Now disconnect to expose localMuted
+      act(() => subscribeCb({ localParticipant: null, participants: [] }));
+
+      // localMuted should match LiveKit's final state (false/unmuted)
+      // BUG: localMuted accumulated two blind flips and may be wrong
+      expect(result.current.isMuted).toBe(false);
+    });
+  });
+
+  // ── Error recovery ─────────────────────────────────────────
+
+  describe("error recovery", () => {
+    function fp(overrides: Record<string, unknown> = {}) {
+      return {
+        userId: "user-1",
+        isMuted: false,
+        isCameraOn: false,
+        isScreenSharing: false,
+        isSpeaking: false,
+        cameraTrack: null,
+        screenTrack: null,
+        ...overrides,
+      };
+    }
+
+    test("after toggle failure, state matches LiveKit not optimistic flip", async () => {
+      let subscribeCb!: (s: { localParticipant: ReturnType<typeof fp> | null; participants: unknown[] }) => void;
+      (mockSubscribe as ReturnType<typeof vi.fn>).mockImplementation((cb: Function) => {
+        subscribeCb = cb as typeof subscribeCb;
+        return vi.fn();
+      });
+
+      const { result } = renderHook(() => useHuddleMedia());
+      await act(() => Promise.resolve());
+
+      // Connected, unmuted
+      act(() => subscribeCb({ localParticipant: fp({ isMuted: false }), participants: [] }));
+      expect(result.current.isMuted).toBe(false);
+
+      // Toggle fails
+      mockToggleMicrophone.mockRejectedValueOnce(notAllowedError());
+      await act(async () => { result.current.toggleMute(); });
+
+      // State should still be unmuted (toggle failed, LiveKit didn't change)
+      expect(result.current.isMuted).toBe(false);
+
+      // Dismiss alert and try again — this time succeeds
+      act(() => { result.current.dismissPermissionAlert(); });
+
+      // LiveKit subscription confirms muted
+      mockToggleMicrophone.mockImplementationOnce(async () => {
+        subscribeCb({ localParticipant: fp({ isMuted: true }), participants: [] });
+      });
+      await act(async () => { result.current.toggleMute(); });
+
+      // Should now be muted
+      expect(result.current.isMuted).toBe(true);
+
+      // Disconnect — should remember muted, not some stale value
+      act(() => subscribeCb({ localParticipant: null, participants: [] }));
+      expect(result.current.isMuted).toBe(true);
     });
   });
 });

@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { SignJWT, importPKCS8 } from "jose";
 import { env } from "../env";
+import { captureException } from "../sentry";
 
 const SANDBOX_URL = "https://api.sandbox.push.apple.com";
 const PRODUCTION_URL = "https://api.push.apple.com";
@@ -113,7 +114,7 @@ function getSession(): Promise<http2.ClientHttp2Session> {
     });
 
     s.on("error", (err) => {
-      console.error("[APNs] HTTP/2 session error:", err.message);
+      captureException(err, { op: "apns:session" });
       sessionConnecting = false;
       session = null;
       reject(err);
@@ -189,7 +190,7 @@ async function sendApnsNotificationReal(
     });
 
     req.on("error", (err) => {
-      console.error("[APNs] Request error:", err.message);
+      captureException(err, { op: "apns:request" });
       resolve({ success: false, statusCode: 0, reason: err.message });
     });
 

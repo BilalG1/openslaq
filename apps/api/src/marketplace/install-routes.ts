@@ -18,6 +18,7 @@ import { marketplaceListings } from "./schema";
 import { eq } from "drizzle-orm";
 import { validateWebhookUrl } from "../bots/validate-url";
 import { NotFoundError, ForbiddenError, ConflictError, BadRequestError, AppError } from "../errors";
+import { captureException } from "../sentry";
 import { getWorkspaceMemberContext } from "../lib/context";
 
 const installRoute = createRoute({
@@ -124,7 +125,7 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
       body: JSON.stringify({ code, workspace_id: workspace.id }),
       signal: AbortSignal.timeout(5000),
     }).catch((err) => {
-      console.error(`[marketplace] Failed to POST auth code to ${listing.redirectUri}:`, err);
+      captureException(err, { workspaceId: workspace.id, op: "marketplace:post-auth-code" });
     });
 
     return c.json({ ok: true as const }, 200);

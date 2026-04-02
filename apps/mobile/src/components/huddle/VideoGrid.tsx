@@ -94,17 +94,17 @@ export function VideoGrid({ participants, safeAreaTop = 0, safeAreaBottom = 0 }:
     );
   }
 
-  // 2 participants: side-by-side (landscape split)
+  // 2 participants: vertical stack
   if (count === 2) {
-    const tileWidth2 = (availableWidth - 6) / 2;
+    const tileHeight2 = (availableHeight - 6) / 2;
     return (
       <View style={styles.fixedContainer}>
-        <View style={styles.sideBySide}>
+        <View style={styles.verticalStack}>
           {participants.map((p) => (
             <VideoTile
               key={p.userId}
               {...p}
-              style={{ width: tileWidth2, height: availableHeight }}
+              style={{ width: availableWidth, height: tileHeight2 }}
             />
           ))}
         </View>
@@ -112,7 +112,31 @@ export function VideoGrid({ participants, safeAreaTop = 0, safeAreaBottom = 0 }:
     );
   }
 
-  // 3-4: 2x2 grid
+  // 3 participants: 1 on top + 2 on bottom
+  if (count === 3) {
+    const halfHeight = (availableHeight - 6) / 2;
+    const halfWidth = (availableWidth - 6) / 2;
+    return (
+      <View style={styles.fixedContainer}>
+        <VideoTile
+          {...participants[0]!}
+          style={{ width: availableWidth, height: halfHeight }}
+        />
+        <View style={styles.bottomRow}>
+          <VideoTile
+            {...participants[1]!}
+            style={{ width: halfWidth, height: halfHeight }}
+          />
+          <VideoTile
+            {...participants[2]!}
+            style={{ width: halfWidth, height: halfHeight }}
+          />
+        </View>
+      </View>
+    );
+  }
+
+  // 4: 2x2 grid
   const tileWidth = (availableWidth - 6) / 2;
   const tileHeight = (availableHeight - 6) / 2;
   return (
@@ -148,10 +172,14 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 6,
   },
-  sideBySide: {
-    flexDirection: "row",
+  verticalStack: {
+    flexDirection: "column",
     gap: 6,
     flex: 1,
+  },
+  bottomRow: {
+    flexDirection: "row",
+    gap: 6,
   },
   stripContainer: {
     flexGrow: 0,

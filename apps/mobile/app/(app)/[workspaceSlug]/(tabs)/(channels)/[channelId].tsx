@@ -52,7 +52,7 @@ import { ChannelMessageList } from "@/components/ChannelMessageList";
 import type { ChannelMessageListRef } from "@/components/ChannelMessageList";
 import { MessageInputSwitcher as MessageInput } from "@/components/MessageInputSwitcher";
 import type { MessageInputRef } from "@/components/MessageInput";
-import { TypingIndicator } from "@/components/TypingIndicator";
+import { TypingIndicator, typingIndicatorWrapperStyle } from "@/components/TypingIndicator";
 import { MessageActionSheet } from "@/components/MessageActionSheet";
 import { EmojiPickerSheet } from "@/components/EmojiPickerSheet";
 import { PinnedMessagesSheet } from "@/components/PinnedMessagesSheet";
@@ -66,6 +66,7 @@ import { ChannelInfoPanel } from "@/components/ChannelInfoPanel.variant-a";
 import { ReactionDetailsSheet } from "@/components/ReactionDetailsSheet";
 import { useMobileTheme } from "@/theme/ThemeProvider";
 import { routes } from "@/lib/routes";
+import { Sentry } from "@/sentry";
 import { env } from "@/lib/env";
 import { useChannelParams } from "@/hooks/useRouteParams";
 import {
@@ -270,6 +271,7 @@ function ChannelScreenInner() {
     .map((id) => state.messagesById[id])
     .filter((m): m is Message => Boolean(m));
 
+
   const pinCount = messages.filter((m) => m.isPinned).length;
 
   const handleOpenPinnedMessages = useCallback(async () => {
@@ -427,10 +429,10 @@ function ChannelScreenInner() {
       };
       fileUpload.addFile(file);
       const attachmentIds = await fileUpload.uploadAll(() => authProvider.requireAccessToken());
-      await coreSendMessage(deps, { channelId, workspaceSlug, content: "", attachmentIds, userId: user?.id });
+      await coreSendMessage(deps, { channelId, workspaceSlug, content: "", attachmentIds, userId: user?.id, senderDisplayName: user?.displayName ?? "", senderAvatarUrl: user?.avatarUrl ?? null });
       fileUpload.reset();
     },
-    [authProvider, channelId, dispatch, fileUpload, workspaceSlug],
+    [authProvider, channelId, dispatch, fileUpload, user, workspaceSlug],
   );
 
   const handleAddAttachment = useCallback(() => {
@@ -462,10 +464,13 @@ function ChannelScreenInner() {
           attachmentIds,
           pendingAttachments,
           userId: user?.id,
+          senderDisplayName: user?.displayName ?? "",
+          senderAvatarUrl: user?.avatarUrl ?? null,
         });
         if (ok) {
           fileUpload.reset();
-          messageListRef.current?.scrollToBottom();
+          // Auto-scroll is handled by ChannelMessageList's useEffect
+          // when it detects messages.length increased — no manual scroll needed.
         }
         return ok;
       } catch {
@@ -586,10 +591,10 @@ function ChannelScreenInner() {
           },
         );
         if (!res.ok) {
-          console.error("Bot action failed:", res.status);
+          Sentry.captureException(new Error(`Bot action failed: ${res.status}`));
         }
       } catch (err) {
-        console.error("Bot action error:", err);
+        Sentry.captureException(err);
       }
     },
     [authProvider, deps],
@@ -637,32 +642,34 @@ function ChannelScreenInner() {
           onBotAction={handleBotAction}
         />
       )}
-      <TypingIndicator typingUsers={typingUsers} />
-      {channel.isArchived ? (
-        <View style={styles.archivedBanner} testID="archived-banner">
-          <Text style={styles.archivedText}>This channel has been archived</Text>
-        </View>
-      ) : (
-        <MessageInput
-          ref={messageInputRef}
-          onSend={handleSend}
-          placeholder={channel ? `Message #${channel.name}` : "Message"}
-          draftKey={channelId}
-          editingMessage={modalsState.editingMessage}
-          onCancelEdit={handleCancelEdit}
-          onSaveEdit={handleSaveEdit}
-          members={members}
-          onTyping={emitTyping}
-          pendingFiles={fileUpload.pendingFiles}
-          onAddAttachment={handleAddAttachment}
-          onRemoveFile={fileUpload.removeFile}
-          uploading={fileUpload.uploading}
-          slashCommands={slashCommands}
-          onSlashCommand={handleSlashCommand}
-          onScheduleSend={handleScheduleSend}
-          onSendVoiceMessage={handleSendVoiceMessage}
-        />
-      )}
+      <View style={typingIndicatorWrapperStyle}>
+        <TypingIndicator typingUsers={typingUsers} />
+        {channel.isArchived ? (
+          <View style={styles.archivedBanner} testID="archived-banner">
+            <Text style={styles.archivedText}>This channel has been archived</Text>
+          </View>
+        ) : (
+          <MessageInput
+            ref={messageInputRef}
+            onSend={handleSend}
+            placeholder={channel ? `Message #${channel.name}` : "Message"}
+            draftKey={channelId}
+            editingMessage={modalsState.editingMessage}
+            onCancelEdit={handleCancelEdit}
+            onSaveEdit={handleSaveEdit}
+            members={members}
+            onTyping={emitTyping}
+            pendingFiles={fileUpload.pendingFiles}
+            onAddAttachment={handleAddAttachment}
+            onRemoveFile={fileUpload.removeFile}
+            uploading={fileUpload.uploading}
+            slashCommands={slashCommands}
+            onSlashCommand={handleSlashCommand}
+            onScheduleSend={handleScheduleSend}
+            onSendVoiceMessage={handleSendVoiceMessage}
+          />
+        )}
+      </View>
       {modalsState.actionSheetMessage && (
         <MessageActionSheet
           visible

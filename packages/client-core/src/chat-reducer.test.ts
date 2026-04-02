@@ -614,6 +614,35 @@ describe("message mutations", () => {
     expect(state.channelMessageIds[reply.channelId]).toBeUndefined();
   });
 
+  it("upsert replaces matching optimistic message to avoid duplicates", () => {
+    const tempId = "optimistic-abc";
+    const temp = makeMessage({
+      id: asMessageId(tempId),
+      channelId: asChannelId("ch-1"),
+      userId: asUserId("u1"),
+      content: "Hello",
+      createdAt: "2024-01-01T00:00:01Z",
+    });
+    const prev: ChatStoreState = {
+      ...initialState,
+      messagesById: { [tempId]: temp },
+      channelMessageIds: { "ch-1": [tempId] },
+    };
+    // Real message arrives via socket with same userId + content
+    const real = makeMessage({
+      id: asMessageId("m-real"),
+      channelId: asChannelId("ch-1"),
+      userId: asUserId("u1"),
+      content: "Hello",
+      createdAt: "2024-01-01T00:00:01Z",
+    });
+    const state = chatReducer(prev, { type: "messages/upsert", message: real });
+    // Optimistic should be gone, real should be present — no duplicate
+    expect(state.messagesById[tempId]).toBeUndefined();
+    expect(state.messagesById["m-real"]).toEqual(real);
+    expect(state.channelMessageIds["ch-1"]).toEqual(["m-real"]);
+  });
+
   it("replaceOptimistic swaps temp message with real message in channel", () => {
     const tempId = "optimistic-123";
     const temp = makeMessage({ id: asMessageId(tempId), channelId: asChannelId("ch-1"), content: "hello" });

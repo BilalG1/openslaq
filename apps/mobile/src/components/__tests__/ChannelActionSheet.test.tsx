@@ -48,12 +48,9 @@ describe("ChannelActionSheet", () => {
     isStarred: false,
     isMuted: false,
     notifyLevel: "all" as const,
-    isAdmin: false,
     onStar: jest.fn(),
     onUnstar: jest.fn(),
     onSetNotificationPref: jest.fn(),
-    onArchive: jest.fn(),
-    onChannelInfo: jest.fn(),
     onLeaveChannel: jest.fn(),
     onClose: jest.fn(),
   };
@@ -113,44 +110,6 @@ describe("ChannelActionSheet", () => {
       expect.any(Array),
     );
     alertSpy.mockRestore();
-  });
-
-  it("does not show archive for non-admin", () => {
-    render(<ChannelActionSheet {...defaultProps} />);
-    expect(screen.queryByTestId("action-archive-channel")).toBeNull();
-  });
-
-  it("shows archive for admin", () => {
-    render(<ChannelActionSheet {...defaultProps} isAdmin />);
-    expect(screen.getByTestId("action-archive-channel")).toBeTruthy();
-  });
-
-  it("shows confirmation before archiving", () => {
-    const alertSpy = jest.spyOn(Alert, "alert");
-    render(<ChannelActionSheet {...defaultProps} isAdmin />);
-    fireEvent.press(screen.getByTestId("action-archive-channel"));
-    expect(alertSpy).toHaveBeenCalledWith(
-      "Archive Channel",
-      expect.stringContaining("general"),
-      expect.arrayContaining([
-        expect.objectContaining({ text: "Cancel" }),
-        expect.objectContaining({ text: "Archive", style: "destructive" }),
-      ]),
-    );
-    alertSpy.mockRestore();
-  });
-
-  it("shows Channel Info action", () => {
-    render(<ChannelActionSheet {...defaultProps} />);
-    expect(screen.getByTestId("action-channel-info")).toBeTruthy();
-    expect(screen.getByText("Channel Info")).toBeTruthy();
-  });
-
-  it("calls onChannelInfo when Channel Info is pressed", () => {
-    render(<ChannelActionSheet {...defaultProps} />);
-    fireEvent.press(screen.getByTestId("action-channel-info"));
-    expect(defaultProps.onChannelInfo).toHaveBeenCalledWith("ch-1");
-    expect(defaultProps.onClose).toHaveBeenCalled();
   });
 
   it("shows Leave Channel action", () => {

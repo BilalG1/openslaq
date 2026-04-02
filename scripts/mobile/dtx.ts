@@ -130,6 +130,88 @@ function listSessions(): Array<{ id: string; state: SessionState; alive: boolean
   return results;
 }
 
+// ── Headless simulator ──
+
+const DETOX_DEVICE_NAME = "iPhone 17-Detox";
+
+/**
+ * Ensure a simulator is booted headlessly (without Simulator.app).
+ * Looks for an existing "iPhone 17-Detox" device, creates one if missing,
+ * and boots it if not already booted. Returns the UDID.
+ */
+async function ensureHeadlessSimulator(): Promise<string> {
+  // List all devices to find our Detox simulator
+  const listProc = Bun.spawn(["xcrun", "simctl", "list", "devices", "available", "-j"], {
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const listJson = JSON.parse(await new Response(listProc.stdout).text());
+  await listProc.exited;
+
+  let targetUdid: string | null = null;
+  let targetState: string | null = null;
+
+  for (const [, devices] of Object.entries(listJson.devices) as [string, Array<{ udid: string; state: string; name: string }>][]) {
+    for (const d of devices) {
+      if (d.name === DETOX_DEVICE_NAME) {
+        targetUdid = d.udid;
+        targetState = d.state;
+        break;
+      }
+    }
+    if (targetUdid) break;
+  }
+
+  if (!targetUdid) {
+    // Create the simulator — find a suitable device type and runtime
+    const dtProc = Bun.spawn(["xcrun", "simctl", "list", "devicetypes", "-j"], { stdout: "pipe", stderr: "pipe" });
+    const dtJson = JSON.parse(await new Response(dtProc.stdout).text());
+    await dtProc.exited;
+
+    const rtProc = Bun.spawn(["xcrun", "simctl", "list", "runtimes", "available", "-j"], { stdout: "pipe", stderr: "pipe" });
+    const rtJson = JSON.parse(await new Response(rtProc.stdout).text());
+    await rtProc.exited;
+
+    // Find iPhone 17 device type
+    const deviceType = dtJson.devicetypes?.find((dt: { name: string; identifier: string }) => dt.name === "iPhone 17");
+    const runtime = rtJson.runtimes?.[rtJson.runtimes.length - 1]; // latest iOS runtime
+
+    if (!deviceType || !runtime) {
+      console.error("Could not find iPhone 17 device type or iOS runtime to create simulator.");
+      process.exit(1);
+    }
+
+    console.log(`Creating simulator "${DETOX_DEVICE_NAME}"...`);
+    const createProc = Bun.spawn(
+      ["xcrun", "simctl", "create", DETOX_DEVICE_NAME, deviceType.identifier, runtime.identifier],
+      { stdout: "pipe", stderr: "pipe" },
+    );
+    const createOut = await new Response(createProc.stdout).text();
+    const createErr = await new Response(createProc.stderr).text();
+    if ((await createProc.exited) !== 0) {
+      console.error(`Failed to create simulator: ${createErr.trim()}`);
+      process.exit(1);
+    }
+    targetUdid = createOut.trim();
+    targetState = "Shutdown";
+  }
+
+  // Boot if not already booted
+  if (targetState !== "Booted") {
+    console.log(`Booting ${DETOX_DEVICE_NAME} headlessly...`);
+    const bootProc = Bun.spawn(["xcrun", "simctl", "boot", targetUdid!], { stdout: "pipe", stderr: "pipe" });
+    const bootErr = await new Response(bootProc.stderr).text();
+    if ((await bootProc.exited) !== 0 && !bootErr.includes("already booted")) {
+      console.error(`Failed to boot simulator: ${bootErr.trim()}`);
+      process.exit(1);
+    }
+  } else {
+    console.log(`${DETOX_DEVICE_NAME} already booted.`);
+  }
+
+  return targetUdid!;
+}
+
 // ── Helpers ──
 
 async function send(cmd: Record<string, unknown>, port: number): Promise<unknown> {
@@ -281,6 +363,9 @@ if (action === "list") {
 if (action === "start") {
   const isMultiSession = sessionName !== null || sessionId !== null;
   const sid = sessionName || sessionId || null;
+
+  // Ensure a headless simulator is booted (needed for both default and multi-session)
+  const headlessUdid = await ensureHeadlessSimulator();
 
   if (isMultiSession) {
     // Multi-session start: clone simulator, allocate port
@@ -454,6 +539,10 @@ if (action === "start") {
       cwd: MOBILE_DIR,
       stdout: "pipe",
       stderr: "pipe",
+      env: {
+        ...process.env,
+        DTX_DEVICE_UDID: headlessUdid,
+      },
     },
   );
 

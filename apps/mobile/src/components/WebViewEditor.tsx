@@ -249,7 +249,7 @@ export const WebViewEditor = forwardRef<WebViewEditorRef, WebViewEditorProps>(
           testID="webview-editor"
           source={{ html: MOBILE_EDITOR_HTML }}
           style={staticStyles.webview}
-          scrollEnabled={false}
+          scrollEnabled
           keyboardDisplayRequiresUserAction={false}
           hideKeyboardAccessoryView
           onMessage={handleMessage}

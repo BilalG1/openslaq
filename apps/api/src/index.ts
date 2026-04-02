@@ -1,4 +1,5 @@
 import "./sentry";
+import { captureException } from "./sentry";
 import { createAdaptorServer } from "@hono/node-server";
 import { Server } from "socket.io";
 import { createAdapter } from "@socket.io/postgres-adapter";
@@ -57,11 +58,11 @@ httpServer.listen(port, "0.0.0.0", () => {
   startReminderProcessor();
   startPushQueuePoller();
   setInterval(() => {
-    cleanupStalePresence().catch((err) => console.error("Stale presence cleanup error:", err));
+    cleanupStalePresence().catch((err) => captureException(err, { op: "server:cleanup-presence" }));
   }, 60_000);
   closeOrphanedHuddleMessages()
     .then((count) => {
       if (count > 0) console.log(`Closed ${count} orphaned huddle message(s)`);
     })
-    .catch((err) => console.error("Failed to close orphaned huddle messages:", err));
+    .catch((err) => captureException(err, { op: "server:cleanup-huddles" }));
 });

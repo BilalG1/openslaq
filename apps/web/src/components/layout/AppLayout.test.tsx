@@ -165,10 +165,10 @@ describe("AppLayout", () => {
     expect(link.getAttribute("href")).toBe("/");
   });
 
-  test("hides sidebar while bootstrap is loading", () => {
+  test("shows sidebar while bootstrap is loading", () => {
     mockState.ui.bootstrapLoading = true;
     render(<AppLayout />);
-    expect(screen.queryByTestId("sidebar-stub")).toBeNull();
+    expect(screen.getByTestId("sidebar-stub")).toBeTruthy();
     expect(screen.getByTestId("loading-state")).toBeTruthy();
   });
 

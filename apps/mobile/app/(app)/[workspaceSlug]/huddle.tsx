@@ -1,6 +1,6 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { View, Text, Pressable, Platform, StyleSheet } from "react-native";
-import { useRouter } from "expo-router";
+import { useNavigation, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Track } from "livekit-client";
 import {
@@ -42,11 +42,15 @@ function HuddleModalContent() {
     onlySubscribed: false,
   });
 
+  const navigation = useNavigation();
+  const leavingRef = useRef(false);
+
   const channel = state.channels.find((c) => c.id === channelId);
   const dm = state.dms.find((d) => d.channel.id === channelId);
   const label = channel ? `# ${channel.name}` : dm?.otherUser.displayName ?? "Huddle";
 
   const handleLeave = useCallback(() => {
+    leavingRef.current = true;
     leaveHuddle();
     router.back();
   }, [leaveHuddle, router]);
@@ -55,6 +59,16 @@ function HuddleModalContent() {
     setMinimized(true);
     router.back();
   }, [setMinimized, router]);
+
+  // When the modal is dismissed (swipe down or programmatic back) without
+  // explicitly leaving, minimize the huddle so the floating bar appears.
+  useEffect(() => {
+    return navigation.addListener("beforeRemove", () => {
+      if (!leavingRef.current) {
+        setMinimized(true);
+      }
+    });
+  }, [navigation, setMinimized]);
 
   const gridParticipants = lkParticipants.map((p) => {
     const isLocal = p.isLocal;

@@ -352,6 +352,16 @@
         "typescript": "^5.7.3",
       },
     },
+    "packages/rn-layout-testing": {
+      "name": "@openslaq/rn-layout-testing",
+      "version": "0.0.1",
+      "dependencies": {
+        "yoga-layout": "^3.2.1",
+      },
+      "devDependencies": {
+        "typescript": "^5.7.3",
+      },
+    },
     "packages/shared": {
       "name": "@openslaq/shared",
       "version": "0.0.1",
@@ -1069,6 +1079,8 @@
     "@openslaq/huddle": ["@openslaq/huddle@workspace:packages/huddle"],
 
     "@openslaq/mobile": ["@openslaq/mobile@workspace:apps/mobile"],
+
+    "@openslaq/rn-layout-testing": ["@openslaq/rn-layout-testing@workspace:packages/rn-layout-testing"],
 
     "@openslaq/shared": ["@openslaq/shared@workspace:packages/shared"],
 
@@ -4555,6 +4567,8 @@
     "yocto-spinner": ["yocto-spinner@0.2.3", "", { "dependencies": { "yoctocolors": "^2.1.1" } }, "sha512-sqBChb33loEnkoXte1bLg45bEBsOP9N1kzQh5JZNKj/0rik4zAPTNSAVPj3uQAdc6slYJ0Ksc403G2XgxsJQFQ=="],
 
     "yoctocolors": ["yoctocolors@2.1.2", "", {}, "sha512-CzhO+pFNo8ajLM2d2IW/R93ipy99LWjtwblvC1RsoSUMZgyLbYFr221TnSNT7GjGdYui6P459mw9JH/g/zW2ug=="],
+
+    "yoga-layout": ["yoga-layout@3.2.1", "", {}, "sha512-0LPOt3AxKqMdFBZA3HBAt/t/8vIKq7VaQYbuA8WxCgung+p9TVyKRYdpvCb80HcdTN2NkbIKbhNwKUfm3tQywQ=="],
 
     "yup": ["yup@1.7.1", "", { "dependencies": { "property-expr": "^2.0.5", "tiny-case": "^1.0.3", "toposort": "^2.0.2", "type-fest": "^2.19.0" } }, "sha512-GKHFX2nXul2/4Dtfxhozv701jLQHdf6J34YDh2cEkpqoo8le5Mg6/LrdseVLrFarmFygZTlfIhHx/QKfb/QWXw=="],
 

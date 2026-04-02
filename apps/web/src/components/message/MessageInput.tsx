@@ -7,6 +7,7 @@ import { useFileUpload } from "../../hooks/useFileUpload";
 import { useDraftMessage } from "../../hooks/useDraftMessage";
 import { useMessageMutations } from "../../hooks/chat/useMessageMutations";
 import { useWorkspaceMembersApi } from "../../hooks/api/useWorkspaceMembersApi";
+import * as Sentry from "@sentry/react";
 import { AuthError } from "../../lib/errors";
 import { redirectToAuth } from "../../lib/auth";
 import { ScheduleMessageDialog } from "./ScheduleMessageDialog";
@@ -93,6 +94,8 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(
           } catch (err) {
             if (err instanceof AuthError) {
               redirectToAuth();
+            } else {
+              Sentry.captureException(err);
             }
             return;
           }
@@ -118,6 +121,8 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(
         } catch (err) {
           if (err instanceof AuthError) {
             redirectToAuth();
+          } else {
+            Sentry.captureException(err);
           }
         }
       } finally {
@@ -198,8 +203,8 @@ export const MessageInput = forwardRef<MessageInputHandle, MessageInputProps>(
           clearDraft();
           contentRef.current = "";
           setEditorResetKey((k) => k + 1);
-        } catch {
-          // TODO: show error
+        } catch (err) {
+          Sentry.captureException(err);
         }
       },
       [user, workspaceSlug, channelId, upload, clearDraft, auth, dispatch, state],

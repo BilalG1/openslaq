@@ -31,7 +31,7 @@ export function TypingIndicator({ typingUsers }: TypingIndicatorProps) {
   return (
     <div
       data-testid="typing-indicator"
-      className={hasTypers ? "px-4 py-1 text-xs italic text-muted h-6" : "h-0 overflow-hidden"}
+      className={`absolute bottom-full left-0 right-0 px-4 py-1 text-xs italic text-muted${hasTypers ? "" : " invisible"}`}
     >
       {hasTypers && (
         <>

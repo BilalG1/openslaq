@@ -13,6 +13,10 @@ vi.mock("../../hooks/useCurrentUser", () => ({
   useCurrentUser: () => mockUser,
 }));
 
+vi.mock("../../hooks/useCurrentUserProfile", () => ({
+  useCurrentUserProfile: () => ({ profile: { avatarUrl: "https://example.com/avatar.png" }, refresh: async () => {} }),
+}));
+
 const mockRedirectToAuth = vi.fn(async () => {});
 vi.mock("../../lib/auth", () => ({
   get redirectToAuth() { return mockRedirectToAuth; },

@@ -7,6 +7,7 @@ import { createMessage } from "./service";
 import { emitToChannel, emitToUser } from "../lib/emit";
 import { unfurlMessageLinks } from "./link-preview-service";
 import { webhookDispatcher } from "../bots/webhook-dispatcher";
+import { captureException } from "../sentry";
 import type { ScheduledMessage } from "@openslaq/shared";
 import { asChannelId, asUserId, asMessageId, asScheduledMessageId, asAttachmentId } from "@openslaq/shared";
 
@@ -263,7 +264,9 @@ export async function processDueScheduledMessages(): Promise<void> {
           workspaceId: channel.workspaceId,
           data: message,
         });
-        unfurlMessageLinks(message.id, asChannelId(scheduled.channelId), scheduled.content).catch(console.error);
+        unfurlMessageLinks(message.id, asChannelId(scheduled.channelId), scheduled.content).catch((err) =>
+          captureException(err, { userId: scheduled.userId, channelId: scheduled.channelId, op: "scheduled-message:unfurl" }),
+        );
 
         // Mark as sent
         await db
@@ -282,7 +285,7 @@ export async function processDueScheduledMessages(): Promise<void> {
           messageId: asMessageId(message.id),
         });
       } catch (err) {
-        console.error(`Failed to process scheduled message ${scheduled.id}:`, err);
+        captureException(err, { userId: scheduled.userId, channelId: scheduled.channelId, op: "scheduled-message:process" });
         await db
           .update(scheduledMessages)
           .set({
@@ -310,7 +313,7 @@ export function startScheduledMessageProcessor(): void {
   if (schedulerInterval) return;
   schedulerInterval = setInterval(() => {
     processDueScheduledMessages().catch((err) =>
-      console.error("Scheduled message processor error:", err),
+      captureException(err, { op: "scheduled-message:poll" }),
     );
   }, 10_000);
   console.log("Scheduled message processor started (10s interval)");

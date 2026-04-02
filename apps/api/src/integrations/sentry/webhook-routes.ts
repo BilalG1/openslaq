@@ -8,6 +8,7 @@ import { createMessage } from "../../messages/service";
 import { setMessageActions } from "../../bots/service";
 import { emitToChannel } from "../../lib/emit";
 import { asChannelId, asUserId } from "@openslaq/shared";
+import { captureException } from "../../sentry";
 
 const app = new Hono();
 
@@ -37,7 +38,7 @@ app.post("/webhook", async (c) => {
 
   // Process in background
   processWebhook(payload).catch((err) => {
-    console.error("[sentry] Webhook processing error:", err);
+    captureException(err, { op: "sentry-integration:webhook" });
   });
 
   return c.json({ ok: true });

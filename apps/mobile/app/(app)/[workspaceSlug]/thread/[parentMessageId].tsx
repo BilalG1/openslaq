@@ -34,7 +34,7 @@ import { useTypingTracking } from "@/hooks/useTypingTracking";
 import { useFileUpload, type PendingFile } from "@/hooks/useFileUpload";
 import { MessageBubble } from "@/components/MessageBubble";
 import { MessageInputSwitcher as MessageInput } from "@/components/MessageInputSwitcher";
-import { TypingIndicator } from "@/components/TypingIndicator";
+import { TypingIndicator, typingIndicatorWrapperStyle } from "@/components/TypingIndicator";
 import { MessageActionSheet } from "@/components/MessageActionSheet";
 import { EmojiPickerSheet } from "@/components/EmojiPickerSheet";
 import { ShareMessageModal } from "@/components/ShareMessageModal";
@@ -155,9 +155,9 @@ export default function ThreadScreen() {
     const file: PendingFile = { id: `voice-${Date.now()}`, uri, name: `voice-message-${Date.now()}.m4a`, mimeType: "audio/mp4", isImage: false };
     fileUpload.addFile(file);
     const attachmentIds = await fileUpload.uploadAll(() => authProvider.requireAccessToken());
-    await coreSendMessage(deps, { channelId, workspaceSlug, content: "", attachmentIds, parentMessageId, userId: user?.id });
+    await coreSendMessage(deps, { channelId, workspaceSlug, content: "", attachmentIds, parentMessageId, userId: user?.id, senderDisplayName: user?.displayName ?? "", senderAvatarUrl: user?.avatarUrl ?? null });
     fileUpload.reset();
-  }, [authProvider, channelId, dispatch, fileUpload, parentMessageId, workspaceSlug]);
+  }, [authProvider, channelId, dispatch, fileUpload, parentMessageId, user, workspaceSlug]);
 
   const handleAddAttachment = useCallback(() => {
     Alert.alert("Attach", undefined, [
@@ -172,10 +172,10 @@ export default function ThreadScreen() {
     if (!workspaceSlug || !channelId || !parentMessageId) return false;
     let attachmentIds: string[] = [];
     if (fileUpload.hasFiles) { attachmentIds = await fileUpload.uploadAll(() => authProvider.requireAccessToken()); }
-    const ok = await coreSendMessage(deps, { channelId, workspaceSlug, content, attachmentIds, parentMessageId, userId: user?.id });
+    const ok = await coreSendMessage(deps, { channelId, workspaceSlug, content, attachmentIds, parentMessageId, userId: user?.id, senderDisplayName: user?.displayName ?? "", senderAvatarUrl: user?.avatarUrl ?? null });
     if (ok) fileUpload.reset();
     return ok;
-  }, [authProvider, channelId, dispatch, fileUpload, parentMessageId, workspaceSlug]);
+  }, [authProvider, channelId, dispatch, fileUpload, parentMessageId, user, workspaceSlug]);
 
   const handleLoadOlder = useCallback(() => {
     if (!workspaceSlug || !channelId || !parentMessageId || !pagination?.hasOlder || pagination.loadingOlder || !pagination.olderCursor) return;
@@ -292,8 +292,10 @@ export default function ThreadScreen() {
           maintainVisibleContentPosition={{ minIndexForVisible: 1 }}
         />
       )}
-      <TypingIndicator typingUsers={typingUsers} />
-      <MessageInput onSend={handleSend} placeholder="Reply in thread" draftKey={parentMessageId ? `thread-${parentMessageId}` : undefined} editingMessage={editingMessage} onCancelEdit={handleCancelEdit} onSaveEdit={handleSaveEdit} members={members} onTyping={emitTyping} pendingFiles={fileUpload.pendingFiles} onAddAttachment={handleAddAttachment} onRemoveFile={fileUpload.removeFile} uploading={fileUpload.uploading} onSendVoiceMessage={handleSendVoiceMessage} autoFocus />
+      <View style={typingIndicatorWrapperStyle}>
+        <TypingIndicator typingUsers={typingUsers} />
+        <MessageInput onSend={handleSend} placeholder="Reply in thread" draftKey={parentMessageId ? `thread-${parentMessageId}` : undefined} editingMessage={editingMessage} onCancelEdit={handleCancelEdit} onSaveEdit={handleSaveEdit} members={members} onTyping={emitTyping} pendingFiles={fileUpload.pendingFiles} onAddAttachment={handleAddAttachment} onRemoveFile={fileUpload.removeFile} uploading={fileUpload.uploading} onSendVoiceMessage={handleSendVoiceMessage} autoFocus />
+      </View>
       <View style={{ height: insets.bottom }} />
       {actionSheetMessage && (
         <MessageActionSheet visible message={actionSheetMessage} currentUserId={currentUserId} onReaction={handleToggleReaction} onOpenEmojiPicker={handleOpenEmojiPicker} onEditMessage={handleStartEdit} onDeleteMessage={handleDeleteMessage} onMarkAsUnread={handleMarkAsUnread} onShareMessage={handleShareMessage} onClose={() => setActionSheetMessage(null)} />

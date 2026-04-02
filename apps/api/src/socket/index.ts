@@ -37,6 +37,7 @@ import {
 import { updateHuddleMessage } from "../messages/service";
 import type { HuddleMessageMetadata } from "@openslaq/shared";
 import { webhookDispatcher } from "../bots/webhook-dispatcher";
+import { captureException } from "../sentry";
 
 const socketJwtSchema = z.object({ sub: z.string() });
 
@@ -215,7 +216,7 @@ export function setupSocketHandlers(
     });
 
     socket.on("presence:heartbeat", () => {
-      updateHeartbeat(userId, socket.id).catch(console.error);
+      updateHeartbeat(userId, socket.id).catch((err) => captureException(err, { userId, op: "socket:heartbeat" }));
     });
 
     socket.on("message:typing", async ({ channelId }) => {
@@ -256,7 +257,7 @@ export function setupSocketHandlers(
                   io.to(`channel:${huddleResult.channelId}`).emit("message:updated", updated);
                 }
               } catch (err) {
-                console.error("Failed to update huddle system message on disconnect:", err);
+                captureException(err, { userId, channelId: huddleResult.channelId, op: "socket:huddle-disconnect" });
               }
             }
             io.to(`channel:${huddleResult.channelId}`).emit("huddle:ended", {
@@ -348,7 +349,7 @@ export function setupSocketHandlers(
         socket.emit("huddle:sync", { huddles: activeHuddles });
       }
     } catch (err) {
-      console.error(`Socket connection init failed for ${userId}:`, err);
+      captureException(err, { userId, op: "socket:init" });
       socket.disconnect(true);
       return;
     }

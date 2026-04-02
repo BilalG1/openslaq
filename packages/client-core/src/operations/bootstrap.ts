@@ -6,6 +6,7 @@ import {
   normalizeGroupDmConversation,
   normalizeWorkspaceInfo,
 } from "./normalize";
+import { loadChannelMessages } from "./messages";
 import type { OperationDeps } from "./types";
 
 interface BootstrapParams {
@@ -22,6 +23,17 @@ export async function bootstrapWorkspace(
   const { workspaceSlug: slug, urlChannelId, urlDmChannelId } = params;
 
   dispatch({ type: "workspace/bootstrapStart", workspaceSlug: slug });
+
+  // Eagerly select the URL channel and prefetch its messages in parallel with bootstrap
+  const prefetchChannelId = urlChannelId ?? urlDmChannelId;
+  if (prefetchChannelId) {
+    if (urlDmChannelId) {
+      dispatch({ type: "workspace/selectDm", channelId: urlDmChannelId });
+    } else if (urlChannelId) {
+      dispatch({ type: "workspace/selectChannel", channelId: urlChannelId });
+    }
+    void loadChannelMessages(deps, { workspaceSlug: slug, channelId: prefetchChannelId });
+  }
 
   try {
     const [channelsRes, workspacesRes, dmsRes, groupDmsRes, unreadRes, presenceRes, starredRes, notifyPrefsRes, emojiRes] = await withRetry(() => Promise.all([

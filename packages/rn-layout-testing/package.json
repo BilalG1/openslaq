@@ -1,0 +1,19 @@
+{
+  "name": "@openslaq/rn-layout-testing",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsgo --noEmit"
+  },
+  "dependencies": {
+    "yoga-layout": "^3.2.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

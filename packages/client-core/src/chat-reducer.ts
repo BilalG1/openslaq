@@ -900,19 +900,47 @@ export function chatReducer(state: ChatStoreState, action: ChatAction): ChatStor
         [message.id]: message,
       };
 
+      // If a real message arrives (e.g. via socket) and we have a matching
+      // optimistic message, replace the optimistic one to avoid a brief duplicate.
+      let replacedOptimisticId: string | null = null;
+      if (!message.id.startsWith("optimistic-")) {
+        const channelIds = message.parentMessageId
+          ? state.threadReplyIds[message.parentMessageId]
+          : state.channelMessageIds[message.channelId];
+        if (channelIds) {
+          for (const id of channelIds) {
+            if (
+              id.startsWith("optimistic-") &&
+              state.messagesById[id]?.userId === message.userId &&
+              state.messagesById[id]?.content === message.content
+            ) {
+              replacedOptimisticId = id;
+              delete nextById[id];
+              break;
+            }
+          }
+        }
+      }
+
       const nextState: ChatStoreState = {
         ...state,
         messagesById: nextById,
       };
 
       if (message.parentMessageId) {
-        const currentReplies = nextState.threadReplyIds[message.parentMessageId] ?? [];
+        let currentReplies = nextState.threadReplyIds[message.parentMessageId] ?? [];
+        if (replacedOptimisticId) {
+          currentReplies = currentReplies.filter((id) => id !== replacedOptimisticId);
+        }
         nextState.threadReplyIds = {
           ...nextState.threadReplyIds,
           [message.parentMessageId]: insertSortedByCreatedAt(nextState, currentReplies, message.id),
         };
       } else {
-        const currentChannelIds = nextState.channelMessageIds[message.channelId] ?? [];
+        let currentChannelIds = nextState.channelMessageIds[message.channelId] ?? [];
+        if (replacedOptimisticId) {
+          currentChannelIds = currentChannelIds.filter((id) => id !== replacedOptimisticId);
+        }
         nextState.channelMessageIds = {
           ...nextState.channelMessageIds,
           [message.channelId]: insertSortedByCreatedAt(nextState, currentChannelIds, message.id),

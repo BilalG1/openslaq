@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/react";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Search, Check, MoreHorizontal, Lock, LogIn, LogOut, Archive, ArchiveRestore, Plus } from "lucide-react";
 import type { Channel } from "@openslaq/shared";
@@ -62,7 +63,7 @@ export function BrowseChannelsDialog({
     showArchivedRef.current = false;
     browseChannels(deps, workspaceSlug, false)
       .then(setChannels)
-      .catch(() => setChannels([]))
+      .catch((err) => { Sentry.captureException(err); setChannels([]); })
       .finally(() => setLoading(false));
   }, [open, deps, workspaceSlug]);
 
@@ -73,7 +74,7 @@ export function BrowseChannelsDialog({
     setLoading(true);
     browseChannels(deps, workspaceSlug, next)
       .then(setChannels)
-      .catch(() => setChannels([]))
+      .catch((err) => { Sentry.captureException(err); setChannels([]); })
       .finally(() => setLoading(false));
   };
 

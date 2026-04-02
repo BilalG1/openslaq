@@ -10,6 +10,7 @@ import { SetStatusModal } from "@/components/SetStatusModal";
 import { useOperationDeps, useApiDeps } from "@/hooks/useOperationDeps";
 import { useProfileParams } from "@/hooks/useRouteParams";
 import { routes } from "@/lib/routes";
+import { Sentry } from "@/sentry";
 import type { MobileTheme, UserId } from "@openslaq/shared";
 
 function getInitials(name?: string | null): string {
@@ -77,7 +78,8 @@ export default function ProfileScreen() {
       const found = members.find((m) => m.id === userId);
       setMember(found ?? null);
       setLoading(false);
-    }).catch(() => {
+    }).catch((e) => {
+      Sentry.captureException(e);
       if (!cancelled) setLoading(false);
     });
     return () => { cancelled = true; };

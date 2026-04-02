@@ -5,9 +5,9 @@
   "main": "expo-router/entry",
   "scripts": {
     "dev": "expo start",
-    "ios": "expo run:ios",
-    "ios:device": "expo run:ios --device --no-bundler",
-    "ios:device:metro": "lsof -ti :8081 | xargs kill -9 2>/dev/null; EXPO_PUBLIC_API_URL=https://tunnel.qual.dev expo start",
+    "ios": "APP_VARIANT=development expo run:ios",
+    "ios:device": "APP_VARIANT=development expo run:ios --device --no-bundler",
+    "ios:device:metro": "lsof -ti :8081 | xargs kill -9 2>/dev/null; APP_VARIANT=development EXPO_PUBLIC_API_URL=https://tunnel.qual.dev expo start",
     "ios:device:release": "EXPO_PUBLIC_API_URL=https://tunnel.qual.dev expo run:ios --device --configuration Release",
     "android": "expo run:android",
     "lint": "eslint .",
@@ -65,6 +65,7 @@
     "rn-emoji-keyboard": "^1.7.0"
   },
   "devDependencies": {
+    "@openslaq/rn-layout-testing": "workspace:*",
     "@babel/core": "^7.25.0",
     "@babel/preset-env": "^7.25.0",
     "@babel/preset-typescript": "^7.25.0",

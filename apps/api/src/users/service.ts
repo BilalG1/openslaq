@@ -39,13 +39,19 @@ export function sanitizeUserStatus<
   };
 }
 
-export async function upsertUser(id: string, email: string, displayName: string) {
+export async function upsertUser(
+  id: string,
+  email: string,
+  displayName: string,
+  avatarUrl?: string | null,
+) {
   await db
     .insert(users)
     .values({
       id,
       email,
       displayName,
+      ...(avatarUrl ? { avatarUrl } : {}),
       updatedAt: new Date(),
     })
     .onConflictDoUpdate({

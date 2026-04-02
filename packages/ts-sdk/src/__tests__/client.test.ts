@@ -5,23 +5,21 @@ describe("OpenSlaq client", () => {
   const mockFetch = (() => {}) as unknown as typeof fetch;
 
   test("throws on missing API key", () => {
-    expect(() => new OpenSlaq({ apiKey: "", fetch: mockFetch })).toThrow(OpenSlaqError);
+    expect(() => new OpenSlaq({ apiKey: "", workspaceSlug: "test", fetch: mockFetch })).toThrow(OpenSlaqError);
   });
 
   test("throws on invalid API key prefix", () => {
-    expect(() => new OpenSlaq({ apiKey: "sk_abc123", fetch: mockFetch })).toThrow("must start with 'osk_'");
+    expect(() => new OpenSlaq({ apiKey: "sk_abc123", workspaceSlug: "test", fetch: mockFetch })).toThrow("must start with 'osk_'");
+  });
+
+  test("throws on missing workspaceSlug", () => {
+    expect(() => new OpenSlaq({ apiKey: "osk_test123", workspaceSlug: "", fetch: mockFetch })).toThrow("workspaceSlug is required");
   });
 
   test("accepts valid osk_ key", () => {
-    const client = new OpenSlaq({ apiKey: "osk_test123", fetch: mockFetch });
+    const client = new OpenSlaq({ apiKey: "osk_test123", workspaceSlug: "test", fetch: mockFetch });
     expect(client).toBeDefined();
     expect(client.messages).toBeDefined();
-  });
-
-  test("applies default baseUrl and workspaceSlug", () => {
-    // Just verifying construction succeeds with defaults
-    const client = new OpenSlaq({ apiKey: "osk_test123", fetch: mockFetch });
-    expect(client).toBeDefined();
   });
 
   test("accepts custom baseUrl and workspaceSlug", () => {
@@ -35,7 +33,7 @@ describe("OpenSlaq client", () => {
   });
 
   test("exposes dms, files, and search resources", () => {
-    const client = new OpenSlaq({ apiKey: "osk_test123", fetch: mockFetch });
+    const client = new OpenSlaq({ apiKey: "osk_test123", workspaceSlug: "test", fetch: mockFetch });
     expect(client.dms).toBeDefined();
     expect(client.files).toBeDefined();
     expect(client.search).toBeDefined();

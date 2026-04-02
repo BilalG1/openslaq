@@ -123,10 +123,13 @@ export const ChannelMessageList = forwardRef<ChannelMessageListRef, Props>(funct
   const isNearBottomRef = useRef(true);
   const prevMessageCountRef = useRef(messages.length);
 
-  // Auto-scroll to new messages when user is near bottom of the inverted list
+  // Auto-scroll to new messages when user is near bottom of the inverted list.
+  // Use animated: false to avoid a visual glitch where the list jumps up then
+  // back down — the new message appears at offset 0 in the inverted list, so
+  // an animated scroll is unnecessary and conflicts with maintainVisibleContentPosition.
   useEffect(() => {
     if (messages.length > prevMessageCountRef.current && isNearBottomRef.current) {
-      flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+      flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
     }
     prevMessageCountRef.current = messages.length;
   }, [messages.length]);
@@ -168,7 +171,7 @@ export const ChannelMessageList = forwardRef<ChannelMessageListRef, Props>(funct
           });
         }, 50);
       }}
-      maintainVisibleContentPosition={{ minIndexForVisible: 1 }}
+      maintainVisibleContentPosition={reversedMessages.length >= 2 ? { minIndexForVisible: 1 } : undefined}
       ListHeaderComponent={
         ephemeralMessages.length > 0 ? (
           <View testID="ephemeral-messages">
@@ -228,9 +231,7 @@ export const ChannelMessageList = forwardRef<ChannelMessageListRef, Props>(funct
           <Text style={styles.emptyText}>No messages yet</Text>
         </View>
       }
-      contentContainerStyle={
-        messages.length === 0 ? staticStyles.flexOne : staticStyles.invertedBottomPadding
-      }
+      contentContainerStyle={staticStyles.contentContainer}
     />
   );
 });
@@ -264,11 +265,9 @@ const daySepStyles = StyleSheet.create({
 });
 
 const staticStyles = StyleSheet.create({
-  flexOne: {
-    flex: 1,
-  },
-  invertedBottomPadding: {
-    paddingTop: 8,
+  contentContainer: {
+    flexGrow: 1,
+    paddingTop: 24,
   },
 });
 

@@ -5,7 +5,7 @@ import { useMobileTheme } from "@/theme/ThemeProvider";
 import { haptics } from "@/utils/haptics";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { confirmAction } from "@/lib/confirm";
-import { Star, StarOff, Bell, Info, LogOut, Archive } from "lucide-react-native";
+import { Star, StarOff, Bell, LogOut } from "lucide-react-native";
 
 interface Props {
   visible: boolean;
@@ -13,12 +13,9 @@ interface Props {
   isStarred: boolean;
   isMuted: boolean;
   notifyLevel: ChannelNotifyLevel;
-  isAdmin: boolean;
   onStar: (channelId: ChannelId) => void;
   onUnstar: (channelId: ChannelId) => void;
   onSetNotificationPref: (channelId: ChannelId, level: ChannelNotifyLevel) => void;
-  onArchive: (channelId: ChannelId) => void;
-  onChannelInfo: (channelId: ChannelId) => void;
   onLeaveChannel: (channelId: ChannelId) => void;
   onClose: () => void;
 }
@@ -83,12 +80,9 @@ export function ChannelActionSheet({
   isStarred,
   isMuted: _isMuted,
   notifyLevel,
-  isAdmin,
   onStar,
   onUnstar,
   onSetNotificationPref,
-  onArchive,
-  onChannelInfo,
   onLeaveChannel,
   onClose,
 }: Props) {
@@ -126,12 +120,6 @@ export function ChannelActionSheet({
     );
   };
 
-  const handleChannelInfo = () => {
-    haptics.selection();
-    onClose();
-    onChannelInfo(channel.id);
-  };
-
   const handleLeaveChannel = () => {
     haptics.selection();
     onClose();
@@ -139,16 +127,6 @@ export function ChannelActionSheet({
       "Leave Channel",
       () => onLeaveChannel(channel.id),
       { message: `Are you sure you want to leave #${channel.name}?`, confirmLabel: "Leave", destructive: true },
-    );
-  };
-
-  const handleArchive = () => {
-    haptics.selection();
-    onClose();
-    confirmAction(
-      "Archive Channel",
-      () => onArchive(channel.id),
-      { message: `Are you sure you want to archive #${channel.name}?`, confirmLabel: "Archive", destructive: true },
     );
   };
 
@@ -194,20 +172,6 @@ export function ChannelActionSheet({
         </View>
       </Pressable>
 
-      {/* Channel Info */}
-      <Pressable
-        testID="action-channel-info"
-        onPress={handleChannelInfo}
-        accessibilityLabel="Channel info"
-        accessibilityHint="Opens channel information panel"
-        style={({ pressed }) => pressed ? styles.actionButtonPressed : styles.actionButtonDefault}
-      >
-        <View style={styles.actionRow}>
-          <Info size={20} color={theme.colors.textPrimary} />
-          <Text style={styles.actionText}>Channel Info</Text>
-        </View>
-      </Pressable>
-
       {/* Leave Channel */}
       <View style={styles.dividerVertical} />
       <Pressable
@@ -222,25 +186,6 @@ export function ChannelActionSheet({
           <Text style={styles.dangerText}>Leave Channel</Text>
         </View>
       </Pressable>
-
-      {/* Archive — admin only */}
-      {isAdmin && (
-        <>
-          <View style={styles.dividerVertical} />
-          <Pressable
-            testID="action-archive-channel"
-            onPress={handleArchive}
-            accessibilityLabel="Archive channel"
-            accessibilityHint="Archives this channel permanently"
-            style={({ pressed }) => pressed ? styles.actionButtonPressed : styles.actionButtonDefault}
-          >
-            <View style={styles.actionRow}>
-              <Archive size={20} color={theme.brand.danger} />
-              <Text style={styles.dangerText}>Archive Channel</Text>
-            </View>
-          </Pressable>
-        </>
-      )}
     </BottomSheet>
   );
 }

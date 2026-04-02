@@ -103,11 +103,6 @@ describe("HomeHeader", () => {
     expect(screen.getByText("Jump to or search...")).toBeTruthy();
   });
 
-  it("renders filter icon in search pill", () => {
-    render(<HomeHeader />);
-    expect(screen.getByTestId("filter-icon")).toBeTruthy();
-  });
-
   it("navigates to search when search pill is pressed", () => {
     render(<HomeHeader />);
     fireEvent.press(screen.getByTestId("search-pill"));

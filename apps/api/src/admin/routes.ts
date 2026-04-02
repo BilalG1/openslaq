@@ -11,6 +11,7 @@ import { workspaces } from "../workspaces/schema";
 import { eq } from "drizzle-orm";
 import { env } from "../env";
 import { NotFoundError, AppError, ServiceUnavailableError } from "../errors";
+import { captureException } from "../sentry";
 
 const app = new Hono()
   .use(auth)
@@ -97,7 +98,7 @@ const app = new Hono()
         );
         return c.json({ snippet });
       } catch (err) {
-        console.error("Impersonation failed:", err);
+        captureException(err, { userId, op: "admin:impersonate" });
         throw new AppError(500, "Impersonation failed");
       }
     },

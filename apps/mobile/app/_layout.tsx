@@ -2,25 +2,20 @@ import "@/sentry";
 import * as Sentry from "@sentry/react-native";
 import { registerGlobals } from "@livekit/react-native";
 import { Stack } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 import { LogBox } from "react-native";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { AuthContextProvider } from "@/contexts/AuthContext";
 import { ServerProvider } from "@/contexts/ServerContext";
-import { MobileThemeProvider, useMobileTheme } from "@/theme/ThemeProvider";
+import { MobileThemeProvider } from "@/theme/ThemeProvider";
+import { useStatusBar } from "@/hooks/useStatusBar";
 
 LogBox.ignoreAllLogs();
 registerGlobals();
 
 function ThemedAppShell() {
-  const { mode } = useMobileTheme();
+  useStatusBar();
 
-  return (
-    <>
-      <StatusBar style={mode === "dark" ? "light" : "dark"} />
-      <Stack screenOptions={{ headerShown: false }} />
-    </>
-  );
+  return <Stack screenOptions={{ headerShown: false }} />;
 }
 
 function RootLayout() {

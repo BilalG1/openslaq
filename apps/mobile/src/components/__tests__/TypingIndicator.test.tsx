@@ -14,9 +14,29 @@ function makeTypingUser(overrides: Omit<Partial<TypingUser>, "userId"> & { userI
 }
 
 describe("TypingIndicator", () => {
-  it("returns null when no users are typing", () => {
+  it("always renders a container (never returns null)", () => {
     const { toJSON } = render(<TypingIndicator typingUsers={[]} />);
-    expect(toJSON()).toBeNull();
+    expect(toJSON()).not.toBeNull();
+  });
+
+  it("is invisible when no users are typing", () => {
+    render(<TypingIndicator typingUsers={[]} />);
+    const container = screen.getByTestId("typing-indicator");
+    const style = container.props.style;
+    const flatStyle = Array.isArray(style) ? Object.assign({}, ...style) : style;
+    expect(flatStyle.opacity).toBe(0);
+  });
+
+  it("uses absolute positioning to avoid layout shift", () => {
+    render(
+      <TypingIndicator
+        typingUsers={[makeTypingUser({ userId: "u1", displayName: "Alice" })]}
+      />,
+    );
+    const container = screen.getByTestId("typing-indicator");
+    const style = container.props.style;
+    const flatStyle = Array.isArray(style) ? Object.assign({}, ...style) : style;
+    expect(flatStyle.position).toBe("absolute");
   });
 
   it("shows single user typing", () => {

@@ -21,7 +21,6 @@ import type { PendingFile } from "@/hooks/useFileUpload";
 import type { SlashCommandDefinition } from "@openslaq/shared";
 import { parseSlashCommand } from "@/utils/message-input-utils";
 
-import { KeyboardStickyView } from "react-native-keyboard-controller";
 import { TRANSPARENT } from "@/theme/constants";
 
 export interface MessageInputProps {
@@ -143,7 +142,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(funct
   );
 
   const handleHeightChange = useCallback((height: number) => {
-    setEditorHeight(Math.min(Math.max(height, 36), 120));
+    setEditorHeight(Math.min(Math.max(height, 36), 160));
   }, []);
 
   const canSend = !isEmpty || pendingFiles.length > 0;
@@ -265,7 +264,6 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(funct
   // Was: onSendVoiceMessage && !editingMessage && !canSend && !isRecording;
 
   return (
-    <KeyboardStickyView offset={{ closed: 0, opened: 0 }}>
     <View style={staticStyles.wrapper}>
       {mentionSuggestions.length > 0 && (
         <MentionSuggestionList
@@ -439,7 +437,6 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(funct
         />
       )}
     </View>
-    </KeyboardStickyView>
   );
 });
 
@@ -457,7 +454,7 @@ const staticStyles = StyleSheet.create({
   editorContainer: {
     flex: 1,
     minHeight: 36,
-    maxHeight: 120,
+    maxHeight: 160,
   },
 });
 

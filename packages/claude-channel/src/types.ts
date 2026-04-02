@@ -14,7 +14,10 @@ export function loadConfig(): ChannelConfig {
     throw new Error("OPENSLAQ_BOT_TOKEN must start with osb_");
   }
 
-  const workspaceSlug = process.env.OPENSLAQ_WORKSPACE_SLUG || "default";
+  const workspaceSlug = process.env.OPENSLAQ_WORKSPACE_SLUG;
+  if (!workspaceSlug) {
+    throw new Error("OPENSLAQ_WORKSPACE_SLUG is required");
+  }
   const apiUrl = process.env.OPENSLAQ_URL || "http://localhost:3001";
   const allowedRaw = process.env.OPENSLAQ_ALLOWED_USERS || "";
   const allowedUserIds = new Set(

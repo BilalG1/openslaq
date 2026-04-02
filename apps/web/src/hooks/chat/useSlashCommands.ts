@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { fetchSlashCommands, executeSlashCommand } from "@openslaq/client-core";
@@ -18,7 +19,7 @@ export function useSlashCommands() {
 
     fetchSlashCommands({ api, auth }, { workspaceSlug })
       .then(setCommands)
-      .catch(() => {});
+      .catch((err) => { Sentry.captureException(err); });
 
     return () => {
       fetchedRef.current = false;
@@ -60,8 +61,8 @@ export function useSlashCommands() {
             ],
           }));
         }
-      } catch {
-        // Silently fail
+      } catch (err) {
+        Sentry.captureException(err);
       }
     },
     [workspaceSlug, auth],

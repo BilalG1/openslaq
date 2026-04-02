@@ -1,3 +1,5 @@
+import { env } from "./env";
+
 export const routes = {
   channel: (ws: string, id: string) => `/(app)/${ws}/(tabs)/(channels)/${id}` as const,
   dm: (ws: string, id: string) => `/(app)/${ws}/(tabs)/(channels)/dm/${id}` as const,
@@ -18,5 +20,5 @@ export const routes = {
   preferences: (ws: string) => `/(app)/${ws}/preferences` as const,
   channels: (ws: string) => `/(app)/${ws}/(tabs)/(channels)` as const,
   messageDeepLink: (ws: string, channelId: string, messageId: string) =>
-    `openslaq://w/${ws}/c/${channelId}/t/${messageId}` as const,
+    `${env.EXPO_PUBLIC_WEB_URL}/w/${ws}/c/${channelId}/t/${messageId}`,
 };

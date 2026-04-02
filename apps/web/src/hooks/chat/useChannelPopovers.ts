@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchBookmarks, addBookmarkOp, removeBookmarkOp } from "@openslaq/client-core";
 import { useChatSelectors, useChatStore } from "../../state/chat-store";
@@ -75,7 +76,7 @@ export function useChannelPopovers(workspaceSlug: string | undefined) {
   // Fetch bookmarks when channel changes
   useEffect(() => {
     if (isGallery || !workspaceSlug || !activeChannel) return;
-    fetchBookmarks(deps, { workspaceSlug, channelId: activeChannel.id }).catch(() => {});
+    fetchBookmarks(deps, { workspaceSlug, channelId: activeChannel.id }).catch((err) => { Sentry.captureException(err); });
   }, [deps, isGallery, workspaceSlug, activeChannel?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {

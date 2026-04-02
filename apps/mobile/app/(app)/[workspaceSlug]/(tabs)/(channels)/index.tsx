@@ -13,13 +13,13 @@ import { CollapsibleSectionHeader } from "@/components/CollapsibleSectionHeader"
 import { HomeHeader } from "@/components/home/HomeHeader";
 import { QuickActionsRow } from "@/components/home/QuickActionsRow";
 import { ChannelActionSheet } from "@/components/ChannelActionSheet";
+import { DmActionSheet } from "@/components/DmActionSheet";
 import { useHomeActions } from "@/contexts/HomeActionsContext";
 import { haptics } from "@/utils/haptics";
 import {
   starChannelOp,
   unstarChannelOp,
   setChannelNotificationPrefOp,
-  archiveChannel,
   leaveChannel,
 } from "@openslaq/client-core";
 import { useSocket } from "@/contexts/SocketProvider";
@@ -53,6 +53,8 @@ export default function HomeScreen() {
   const [draftSet, setDraftSet] = useState<Set<string>>(new Set());
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
+  const [selectedDmChannelId, setSelectedDmChannelId] = useState<string | null>(null);
+  const [dmActionSheetVisible, setDmActionSheetVisible] = useState(false);
   const styles = makeStyles(theme);
 
   // Ref for getState callback (avoids stale closures)
@@ -66,13 +68,16 @@ export default function HomeScreen() {
     getState: () => stateRef.current,
   };
 
-  const workspace = state.workspaces?.find((w) => w.slug === workspaceSlug);
-  const isAdmin = workspace?.role === "owner" || workspace?.role === "admin";
-
   const handleLongPressChannel = (channel: Channel) => {
     haptics.heavy();
     setSelectedChannel(channel);
     setActionSheetVisible(true);
+  };
+
+  const handleLongPressDm = (channelId: string) => {
+    haptics.heavy();
+    setSelectedDmChannelId(channelId);
+    setDmActionSheetVisible(true);
   };
 
   const handleStar = (channelId: string) => {
@@ -85,14 +90,6 @@ export default function HomeScreen() {
 
   const handleSetNotificationPref = (channelId: string, level: ChannelNotifyLevel) => {
     void setChannelNotificationPrefOp(operationDeps, { slug: workspaceSlug, channelId, level });
-  };
-
-  const handleArchiveChannel = (channelId: string) => {
-    void archiveChannel(operationDeps, { workspaceSlug, channelId: channelId as ChannelId });
-  };
-
-  const handleChannelInfo = (channelId: string) => {
-    router.push({ pathname: routes.channel(workspaceSlug, channelId as ChannelId) as any, params: { showInfo: "true" } });
   };
 
   const handleLeaveChannel = (channelId: string) => {
@@ -146,20 +143,28 @@ export default function HomeScreen() {
     }
   }
 
-  // Starred channels
-  const starredItems: HomeItem[] = state.channels
-    .filter((c) => starredSet.has(c.id) && !c.isArchived)
-    .map((channel) => ({ kind: "channel" as const, channel }));
+  // Starred items (channels + DMs + group DMs)
+  const starredItems: HomeItem[] = [
+    ...state.channels
+      .filter((c) => starredSet.has(c.id) && !c.isArchived)
+      .map((channel) => ({ kind: "channel" as const, channel })),
+    ...state.dms
+      .filter((dm) => starredSet.has(dm.channel.id))
+      .map((dm) => ({ kind: "dm" as const, dm })),
+    ...state.groupDms
+      .filter((gd) => starredSet.has(gd.channel.id))
+      .map((groupDm) => ({ kind: "groupDm" as const, groupDm })),
+  ];
 
   // Regular channels (non-starred)
   const channelItems: HomeItem[] = state.channels
     .filter((c) => !starredSet.has(c.id) && !c.isArchived)
     .map((channel) => ({ kind: "channel" as const, channel }));
 
-  // DMs + Group DMs
+  // DMs + Group DMs (non-starred)
   const dmItems: HomeItem[] = [
-    ...state.dms.map((dm) => ({ kind: "dm" as const, dm })),
-    ...state.groupDms.map((groupDm) => ({ kind: "groupDm" as const, groupDm })),
+    ...state.dms.filter((dm) => !starredSet.has(dm.channel.id)).map((dm) => ({ kind: "dm" as const, dm })),
+    ...state.groupDms.filter((gd) => !starredSet.has(gd.channel.id)).map((groupDm) => ({ kind: "groupDm" as const, groupDm })),
   ];
 
   const sections: HomeSection[] = [
@@ -271,6 +276,7 @@ export default function HomeScreen() {
                 onPress={() =>
                   router.push(routes.dm(workspaceSlug, groupDm.channel.id))
                 }
+                onLongPress={() => handleLongPressDm(groupDm.channel.id)}
                 accessibilityRole="button"
                 accessibilityLabel={`Group message ${label}${unread > 0 ? `, ${unread} unread` : ""}`}
                 accessibilityHint="Opens the group conversation"
@@ -327,6 +333,7 @@ export default function HomeScreen() {
               onPress={() =>
                 router.push(routes.dm(workspaceSlug, dm.channel.id))
               }
+              onLongPress={() => handleLongPressDm(dm.channel.id)}
               accessibilityRole="button"
               accessibilityLabel={`Direct message with ${dm.otherUser.displayName ?? "Unknown"}${unread > 0 ? `, ${unread} unread` : ""}`}
               accessibilityHint="Opens the conversation"
@@ -430,14 +437,27 @@ export default function HomeScreen() {
         isStarred={selectedChannel ? starredSet.has(selectedChannel.id) : false}
         isMuted={selectedChannel ? mutedSet.has(selectedChannel.id) : false}
         notifyLevel={selectedChannel ? (state.channelNotificationPrefs[selectedChannel.id] ?? "all") : "all"}
-        isAdmin={isAdmin}
         onStar={handleStar}
         onUnstar={handleUnstar}
         onSetNotificationPref={handleSetNotificationPref}
-        onArchive={handleArchiveChannel}
-        onChannelInfo={handleChannelInfo}
         onLeaveChannel={handleLeaveChannel}
         onClose={() => setActionSheetVisible(false)}
+      />
+      <DmActionSheet
+        visible={dmActionSheetVisible}
+        channelId={selectedDmChannelId}
+        displayName={(() => {
+          if (!selectedDmChannelId) return "";
+          const dm = state.dms.find((d) => d.channel.id === selectedDmChannelId);
+          if (dm) return dm.otherUser.displayName ?? "Unknown";
+          const groupDm = state.groupDms.find((g) => g.channel.id === selectedDmChannelId);
+          if (groupDm) return groupDm.channel.displayName ?? groupDm.members.map((m) => m.displayName).join(", ");
+          return "";
+        })()}
+        isStarred={selectedDmChannelId ? starredSet.has(selectedDmChannelId) : false}
+        onStar={handleStar}
+        onUnstar={handleUnstar}
+        onClose={() => setDmActionSheetVisible(false)}
       />
     </View>
   );
@@ -469,7 +489,8 @@ const makeStyles = (theme: MobileTheme) =>
       alignItems: "center",
     },
     iconContainer: {
-      width: 28,
+      width: 32,
+      marginRight: 12,
       alignItems: "center",
       justifyContent: "center",
     },

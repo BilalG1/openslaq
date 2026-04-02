@@ -10,6 +10,7 @@ import { getUnreadCounts } from "../channels/read-positions-service";
 import { isApnsConfigured, sendApnsNotification } from "./apns";
 import type { ApnsPayload } from "./apns";
 import { schedulePush, cancelPushesForUser } from "./queue";
+import { captureException } from "../sentry";
 
 export async function scheduleMessagePush(
   message: Message,
@@ -68,7 +69,7 @@ export async function scheduleMessagePush(
 
   for (const userId of recipientUserIds) {
     schedulePush(message.id, userId, channelId, workspaceSlug).catch((err) =>
-      console.error("[push] failed to schedule push:", err),
+      captureException(err, { userId, channelId, op: "push:schedule" }),
     );
   }
 }
@@ -204,6 +205,6 @@ export async function deliverPush(
 
 export function onReadPositionUpdated(userId: UserId, channelId: ChannelId): void {
   cancelPushesForUser(userId, channelId).catch((err) =>
-    console.error("[push] failed to cancel pushes:", err),
+    captureException(err, { userId, channelId, op: "push:cancel" }),
   );
 }

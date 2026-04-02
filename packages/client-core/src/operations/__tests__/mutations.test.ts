@@ -255,6 +255,52 @@ describe("operations/mutations", () => {
     expect(actions[3]).toEqual({ type: "mutations/error", error: "Server error" });
   });
 
+  it("sendMessage optimistic message uses provided senderAvatarUrl", async () => {
+    const serverMessage = makeMessage({ id: asMessageId("m-server") });
+    const { deps, actions } = makeDeps({
+      postMessage: () => jsonResponse(201, serverMessage),
+    });
+
+    await sendMessage(deps, {
+      channelId: "ch-1",
+      workspaceSlug: "ws",
+      content: "hello",
+      userId: "u-1",
+      senderDisplayName: "Alice",
+      senderAvatarUrl: "https://example.com/alice.jpg",
+    });
+
+    const optimistic = actions[0] as Extract<ChatAction, { type: "messages/upsert" }>;
+    expect(optimistic.message.senderAvatarUrl).toBe("https://example.com/alice.jpg");
+  });
+
+  it("sendMessage optimistic message never uses hardcoded placeholder names", async () => {
+    const serverMessage = makeMessage({
+      id: asMessageId("m-server"),
+      senderDisplayName: "Alice Johnson",
+      senderAvatarUrl: "https://example.com/alice.jpg",
+    });
+    const { deps, actions } = makeDeps({
+      postMessage: () => jsonResponse(201, serverMessage),
+    });
+
+    await sendMessage(deps, {
+      channelId: "ch-1",
+      workspaceSlug: "ws",
+      content: "hello",
+      userId: "u-1",
+      senderDisplayName: "Alice Johnson",
+      senderAvatarUrl: "https://example.com/alice.jpg",
+    });
+
+    const optimistic = actions[0] as Extract<ChatAction, { type: "messages/upsert" }>;
+    const replace = actions[2] as Extract<ChatAction, { type: "messages/replaceOptimistic" }>;
+
+    // Optimistic and server messages should show the same sender info — no visible glitch
+    expect(optimistic.message.senderDisplayName).toBe(replace.message.senderDisplayName);
+    expect(optimistic.message.senderAvatarUrl).toBe(replace.message.senderAvatarUrl);
+  });
+
   it("sendMessage without userId skips optimistic update (backward compat)", async () => {
     const { deps, actions } = makeDeps({
       postMessage: () => jsonResponse(201, { id: "m-2" }),

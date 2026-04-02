@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
+import { useCurrentUserProfile } from "../../hooks/useCurrentUserProfile";
 import clsx from "clsx";
 import { api } from "../../api";
 import { authorizedRequest } from "../../lib/api-client";
@@ -35,6 +36,7 @@ const tabMeta: Record<Tab, { label: string; icon: typeof User; description: stri
 
 export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogProps) {
   const user = useCurrentUser();
+  const { profile, refresh: refreshProfile } = useCurrentUserProfile();
   const { mode, setMode } = useTheme();
   const [displayName, setDisplayName] = useState("");
   const [saving, setSaving] = useState(false);
@@ -68,13 +70,15 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
   };
 
   const handleSaveProfileImage = async (base64Url: string) => {
-    await user.update?.({ profileImageUrl: base64Url });
     await authorizedRequest(user, (headers) =>
       api.api.users.me.$patch(
         { json: { avatarUrl: base64Url } },
         { headers },
       ),
     );
+    await refreshProfile();
+    // Also update Stack Auth so the OAuth profile stays in sync
+    await user.update?.({ profileImageUrl: base64Url });
   };
 
   const tabs: Tab[] = [
@@ -137,7 +141,7 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
               {activeTab === "profile" && (
                 <div className="flex flex-col items-center gap-6">
                   <ProfileImageEditor
-                    currentImageUrl={user.profileImageUrl ?? null}
+                    currentImageUrl={profile?.avatarUrl ?? null}
                     displayName={user.displayName ?? ""}
                     onSave={handleSaveProfileImage}
                   />

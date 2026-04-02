@@ -216,7 +216,7 @@ export function MessageList({ channelId, onOpenThread, onOpenProfile, onJoinHudd
 
   return (
     <MessageActionsProvider value={actionsContextValue}>
-      <div ref={scrollContainerRef} data-testid="message-list-scroll" className="flex-1 overflow-y-auto p-4 flex flex-col-reverse">
+      <div ref={scrollContainerRef} data-testid="message-list-scroll" className="flex-1 overflow-y-auto p-4 pb-6 flex flex-col-reverse">
         {loading ? (
           <LoadingState label="Loading messages..." className="h-full" />
         ) : error ? (

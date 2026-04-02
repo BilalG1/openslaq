@@ -15,6 +15,7 @@ export function HomePage() {
 
   return (
     <Routes>
+      <Route path="c/:channelId/t/:messageId" element={<AppLayout />} />
       <Route path="c/:channelId" element={<AppLayout />} />
       <Route path="dm/:dmChannelId" element={<AppLayout />} />
       <Route path="*" element={<AppLayout />} />

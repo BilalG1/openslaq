@@ -50,6 +50,10 @@ jest.mock("../../lib/dev-auth", () => ({
   performDevQuickSignIn: jest.fn(),
 }));
 
+jest.mock("@openslaq/client-core", () => ({
+  getCurrentUser: jest.fn(() => Promise.resolve(null)),
+}));
+
 const { getServerSession, setServerSession, clearServerSession } =
   require("../../lib/server-store") as {
     getServerSession: jest.Mock;
@@ -82,6 +86,10 @@ const { performDevQuickSignIn } = require("../../lib/dev-auth") as {
   performDevQuickSignIn: jest.Mock;
 };
 
+const { getCurrentUser } = require("@openslaq/client-core") as {
+  getCurrentUser: jest.Mock;
+};
+
 function TestConsumer() {
   const { isLoading, isAuthenticated, user, sendOtp, verifyOtp, signInWithApple, signOut, signInWithOAuth, devQuickSignIn } =
     useAuth();
@@ -96,6 +104,8 @@ function TestConsumer() {
       <Text testID="loading">{String(isLoading)}</Text>
       <Text testID="authenticated">{String(isAuthenticated)}</Text>
       <Text testID="user-id">{user?.id ?? "none"}</Text>
+      <Text testID="display-name">{user?.displayName ?? "none"}</Text>
+      <Text testID="avatar-url">{user?.avatarUrl ?? "none"}</Text>
       <TouchableOpacity
         testID="send-otp"
         onPress={() => handleSendOtp().catch(() => undefined)}
@@ -131,6 +141,7 @@ describe("AuthContext", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     getServerSession.mockResolvedValue(null);
+    getCurrentUser.mockResolvedValue(null);
     getOAuthAuthorizeUrl.mockReturnValue(
       "https://api.stack-auth.com/api/v1/auth/oauth/authorize/google",
     );
@@ -367,5 +378,74 @@ describe("AuthContext", () => {
     expect(performDevQuickSignIn).toHaveBeenCalled();
     expect(getTestIdText("authenticated")).toBe("true");
     expect(getTestIdText("user-id")).toBe("dev-user-123");
+  });
+
+  // ── Profile enrichment ─────────────────────────────────────
+
+  it("populates displayName and avatarUrl after session restore", async () => {
+    getServerSession.mockResolvedValue({
+      accessToken: "stored-token",
+      refreshToken: "stored-refresh",
+      userId: "user-123",
+    });
+    getCurrentUser.mockResolvedValue({
+      id: "user-123",
+      displayName: "Alice Johnson",
+      avatarUrl: "https://img.test/alice.png",
+      email: "alice@test.com",
+      statusEmoji: null,
+      statusText: null,
+      statusExpiresAt: null,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    });
+
+    render(
+      <AuthContextProvider>
+        <TestConsumer />
+      </AuthContextProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getTestIdText("display-name")).toBe("Alice Johnson");
+    });
+    expect(getTestIdText("avatar-url")).toBe("https://img.test/alice.png");
+    expect(getTestIdText("user-id")).toBe("user-123");
+  });
+
+  it("handles profile fetch failure gracefully — user stays authenticated", async () => {
+    getServerSession.mockResolvedValue({
+      accessToken: "token",
+      refreshToken: "refresh",
+      userId: "user-456",
+    });
+    getCurrentUser.mockRejectedValue(new Error("Network error"));
+
+    render(
+      <AuthContextProvider>
+        <TestConsumer />
+      </AuthContextProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getTestIdText("loading")).toBe("false");
+    });
+    expect(getTestIdText("authenticated")).toBe("true");
+    expect(getTestIdText("user-id")).toBe("user-456");
+    expect(getTestIdText("display-name")).toBe("none");
+  });
+
+  it("does not fetch profile when not authenticated", async () => {
+    render(
+      <AuthContextProvider>
+        <TestConsumer />
+      </AuthContextProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getTestIdText("loading")).toBe("false");
+    });
+    expect(getTestIdText("authenticated")).toBe("false");
+    expect(getCurrentUser).not.toHaveBeenCalled();
   });
 });

@@ -72,4 +72,37 @@ describe("parseDeepLinkUrl", () => {
   test("handles w/ with no slug gracefully", () => {
     expect(parseDeepLinkUrl("openslaq://w/")).toEqual({ type: "open" });
   });
+
+  // HTTP URL support
+  test("parses HTTP channel URL", () => {
+    expect(parseDeepLinkUrl("http://localhost:3000/w/default/c/ch_123")).toEqual({
+      type: "channel",
+      workspaceSlug: "default",
+      channelId: "ch_123",
+    });
+  });
+
+  test("parses HTTPS thread URL", () => {
+    expect(parseDeepLinkUrl("https://openslaq.com/w/default/c/ch_123/t/msg_789")).toEqual({
+      type: "thread",
+      workspaceSlug: "default",
+      channelId: "ch_123",
+      messageId: "msg_789",
+    });
+  });
+
+  test("parses HTTPS DM URL", () => {
+    expect(parseDeepLinkUrl("https://openslaq.com/w/my-team/dm/dm_456")).toEqual({
+      type: "dm",
+      workspaceSlug: "my-team",
+      dmChannelId: "dm_456",
+    });
+  });
+
+  test("parses HTTPS invite URL", () => {
+    expect(parseDeepLinkUrl("https://openslaq.com/invite/abc123")).toEqual({
+      type: "invite",
+      code: "abc123",
+    });
+  });
 });

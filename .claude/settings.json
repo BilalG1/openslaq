@@ -9,7 +9,6 @@
       "Bash(bun run typecheck:*)",
       "Bash(bun run lint:*)",
       "Bash(bun run check:*)",
-      "Bash(bun run:*)",
       "Bash(curl:*)",
       "Bash(bun add:*)",
       "WebFetch(domain:localhost)",

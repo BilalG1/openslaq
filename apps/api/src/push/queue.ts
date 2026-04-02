@@ -4,6 +4,7 @@ import { db } from "../db";
 import { pushQueue } from "./schema";
 import { deliverPush } from "./service";
 import { isApnsConfigured } from "./apns";
+import { captureException } from "../sentry";
 
 const POLL_INTERVAL_MS = 1000;
 const PUSH_DELAY_MS = 3000;
@@ -113,7 +114,7 @@ export async function processDueItems(): Promise<void> {
 
           await deliverPush(message as unknown as Message, item.userId as UserId, item.workspaceSlug);
         } catch (err) {
-          console.error("[push-queue] delivery failed:", err);
+          captureException(err, { userId: item.userId, channelId: item.channelId, op: "push:deliver" });
         }
       }),
     );
@@ -128,7 +129,7 @@ export function startPushQueuePoller(): void {
 
   pollTimer = setInterval(() => {
     processDueItems().catch((err) =>
-      console.error("[push-queue] poll error:", err),
+      captureException(err, { op: "push:poll" }),
     );
   }, POLL_INTERVAL_MS);
 }

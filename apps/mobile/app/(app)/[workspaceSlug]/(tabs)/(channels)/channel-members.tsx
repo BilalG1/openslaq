@@ -18,6 +18,7 @@ import {
   type ChannelMember,
   type WorkspaceMember,
 } from "@openslaq/client-core";
+import { Sentry } from "@/sentry";
 import { useAuth } from "@/contexts/AuthContext";
 import { useChatStore } from "@/contexts/ChatStoreProvider";
 import { useMobileTheme } from "@/theme/ThemeProvider";
@@ -68,7 +69,7 @@ export default function ChannelMembersScreen() {
   useEffect(() => {
     setLoading(true);
     Promise.all([fetchMembers(), fetchWorkspaceMembers()])
-      .catch(() => {})
+      .catch((e) => { Sentry.captureException(e); })
       .finally(() => setLoading(false));
   }, [fetchMembers, fetchWorkspaceMembers]);
 

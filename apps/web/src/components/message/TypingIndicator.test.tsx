@@ -17,21 +17,31 @@ describe("TypingIndicator", () => {
     expect(container.firstChild!.textContent).toBe("");
   });
 
-  it("has zero rendered height when no users are typing", () => {
+  it("is hidden when no users are typing", () => {
     const { container } = render(<TypingIndicator typingUsers={[]} />);
     const el = container.firstChild as HTMLElement;
-    expect(el.className).toContain("h-0");
-    expect(el.className).toContain("overflow-hidden");
-    expect(el.className).not.toContain("h-6");
+    expect(el.className).toContain("invisible");
   });
 
-  it("has visible height when users are typing", () => {
+  it("is visible and absolutely positioned when users are typing", () => {
     const { container } = render(
       <TypingIndicator typingUsers={[makeUser("u1", "Alice")]} />,
     );
     const el = container.firstChild as HTMLElement;
-    expect(el.className).toContain("h-6");
+    expect(el.className).not.toContain("invisible");
+    expect(el.className).toContain("absolute");
+  });
+
+  it("does not shift layout (no h-0/h-6 toggling)", () => {
+    const { container, rerender } = render(<TypingIndicator typingUsers={[]} />);
+    const el = container.firstChild as HTMLElement;
     expect(el.className).not.toContain("h-0");
+    expect(el.className).not.toContain("h-6");
+
+    rerender(<TypingIndicator typingUsers={[makeUser("u1", "Alice")]} />);
+    const el2 = container.firstChild as HTMLElement;
+    expect(el2.className).not.toContain("h-0");
+    expect(el2.className).not.toContain("h-6");
   });
 
   it("shows display name for one user typing", () => {

@@ -6,6 +6,7 @@ import type { ChannelId } from "@openslaq/shared";
 import { isValidSlug, isValidId } from "@/utils/deep-link-validation";
 import { registerPushToken, unregisterPushToken } from "@openslaq/client-core";
 import type { ApiDeps } from "@openslaq/client-core";
+import { Sentry } from "@/sentry";
 import { routes } from "@/lib/routes";
 
 interface UsePushNotificationsOptions {
@@ -57,6 +58,7 @@ export function usePushNotifications({
         tokenRef.current = token;
         await registerPushToken(deps, token, "ios");
       } catch (err) {
+        Sentry.captureException(err);
         console.warn("[push] Failed to get/register device token:", err);
       }
     })();
@@ -113,6 +115,7 @@ export function usePushNotifications({
     try {
       await unregisterPushToken(deps, token);
     } catch (err) {
+      Sentry.captureException(err);
       console.warn("[push] Failed to unregister token:", err);
     }
     tokenRef.current = null;

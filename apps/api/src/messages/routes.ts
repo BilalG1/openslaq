@@ -14,6 +14,7 @@ import { messageSchema, errorSchema, okSchema } from "../openapi/schemas";
 import { jsonResponse } from "../openapi/responses";
 import { BEARER_SECURITY, jsonBody, jsonContent } from "../lib/openapi-helpers";
 import { webhookDispatcher } from "../bots/webhook-dispatcher";
+import { captureException } from "../sentry";
 import { NotFoundError } from "../errors";
 import { getMessageContext } from "../lib/context";
 
@@ -95,7 +96,9 @@ const app = new OpenAPIHono()
 
     emitToChannel(updated.channelId, "message:updated", emitMessage);
     webhookDispatcher.dispatchForChannel({ type: "message:updated", channelId: updated.channelId, data: emitMessage });
-    reUnfurlMessageLinks(updated.id, updated.channelId, content).catch(console.error);
+    reUnfurlMessageLinks(updated.id, updated.channelId, content).catch((err) =>
+      captureException(err, { userId: user.id, channelId: updated.channelId, op: "message:re-unfurl" }),
+    );
 
     return jsonResponse(c, emitMessage, 200);
   })

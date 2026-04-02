@@ -7,6 +7,7 @@ export function useViewRouteSync(
   workspaceSlug: string | undefined,
   urlChannelId: string | undefined,
   urlDmChannelId: string | undefined,
+  urlMessageId?: string,
 ) {
   const navigate = useNavigate();
   const { state, dispatch } = useChatStore();
@@ -15,6 +16,15 @@ export function useViewRouteSync(
   // Deep-link support: URL → store sync
   useEffect(() => {
     if (isGallery || state.ui.bootstrapLoading || !workspaceSlug) return;
+
+    // Message deep link: select channel and open thread, then strip /t/{id} from URL
+    if (urlMessageId && urlChannelId) {
+      dispatch({ type: "workspace/selectChannel", channelId: urlChannelId });
+      dispatch({ type: "workspace/openThread", messageId: urlMessageId });
+      navigate(`/w/${workspaceSlug}/c/${urlChannelId}`, { replace: true });
+      return;
+    }
+
     if (window.location.pathname.endsWith("/unreads") && state.activeView !== "unreads") {
       dispatch({ type: "workspace/selectUnreadsView" });
     }

@@ -8,7 +8,7 @@ import { useCurrentUserProfile } from "@/hooks/useCurrentUserProfile";
 import { HeaderAvatarButton } from "@/components/HeaderAvatarButton";
 import { QuickSwitcherModal } from "@/components/QuickSwitcherModal";
 import { WorkspaceIconButton } from "@/components/workspace/WorkspaceIconButton";
-import { Search, SlidersHorizontal } from "lucide-react-native";
+import { Search } from "lucide-react-native";
 import { routes } from "@/lib/routes";
 import { getActiveStatusEmoji } from "@/utils/message-list-utils";
 
@@ -60,7 +60,6 @@ export function HomeHeader() {
         <Text style={[styles.searchText, { color: theme.colors.headerText }]}>
           Jump to or search...
         </Text>
-        <SlidersHorizontal testID="filter-icon" size={16} color={theme.colors.headerText} />
       </Pressable>
       <QuickSwitcherModal visible={quickSwitcherOpen} onClose={() => setQuickSwitcherOpen(false)} />
     </View>

@@ -34,6 +34,10 @@ const mockRoom = {
 
 jest.mock("livekit-client", () => ({
   Room: jest.fn(() => mockRoom),
+  VideoPresets: {
+    h720: { resolution: { width: 1280, height: 720 }, encoding: { maxBitrate: 2_500_000 } },
+    h1080: { resolution: { width: 1920, height: 1080 }, encoding: { maxBitrate: 4_000_000 } },
+  },
   RoomEvent: {
     ParticipantConnected: "participantConnected",
     ParticipantDisconnected: "participantDisconnected",

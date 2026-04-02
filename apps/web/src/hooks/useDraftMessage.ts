@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { upsertDraftOp, deleteDraftByKeyOp, fetchDraftForChannel } from "@openslaq/client-core";
 import { useChatStore } from "../state/chat-store";
@@ -152,7 +153,7 @@ export function useDraftMessage(
               channelId,
               content: trimmed,
               parentMessageId,
-            }).catch(() => {});
+            }).catch((err) => { Sentry.captureException(err); });
           }, SERVER_DEBOUNCE_MS);
         } else {
           // Empty draft — delete from server so stale content doesn't reappear
@@ -161,7 +162,7 @@ export function useDraftMessage(
               workspaceSlug,
               channelId,
               parentMessageId,
-            }).catch(() => {});
+            }).catch((err) => { Sentry.captureException(err); });
           }, SERVER_DEBOUNCE_MS);
         }
       }
@@ -182,7 +183,7 @@ export function useDraftMessage(
         workspaceSlug,
         channelId,
         parentMessageId,
-      }).catch(() => {});
+      }).catch((err) => { Sentry.captureException(err); });
     }
   }, [draftKey, options?.workspaceSlug, options?.channelId, options?.parentMessageId]); // eslint-disable-line react-hooks/exhaustive-deps
 

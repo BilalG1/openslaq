@@ -115,6 +115,11 @@ export function useHuddleMedia(): UseHuddleMediaReturn {
 
     const unsubscribe = client.subscribe((s) => {
       setMediaState(s);
+      if (s.localParticipant) {
+        setLocalMuted(s.localParticipant.isMuted);
+        setLocalCameraOn(s.localParticipant.isCameraOn);
+        setLocalScreenSharing(s.localParticipant.isScreenSharing);
+      }
     });
 
     // Fetch token and connect
@@ -198,7 +203,6 @@ export function useHuddleMedia(): UseHuddleMediaReturn {
     if (!client) return;
     try {
       await client.toggleMicrophone();
-      setLocalMuted((prev) => !prev);
     } catch (err) {
       const alert = classifyMediaError(err, "microphone");
       if (alert) setPermissionAlert(alert);
@@ -210,7 +214,6 @@ export function useHuddleMedia(): UseHuddleMediaReturn {
     if (!client) return;
     try {
       await client.toggleCamera();
-      setLocalCameraOn((prev) => !prev);
     } catch (err) {
       const alert = classifyMediaError(err, "camera");
       if (alert) setPermissionAlert(alert);
@@ -225,14 +228,12 @@ export function useHuddleMedia(): UseHuddleMediaReturn {
     if (isSharing) {
       try {
         await client.stopScreenShare();
-        setLocalScreenSharing(false);
       } catch (err) {
         console.error("Failed to stop screen share:", err);
       }
     } else {
       try {
         await client.startScreenShare();
-        setLocalScreenSharing(true);
       } catch (err) {
         const alert = classifyMediaError(err, "screen");
         if (alert) setPermissionAlert(alert);

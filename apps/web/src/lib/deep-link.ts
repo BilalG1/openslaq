@@ -22,8 +22,17 @@ export type DeepLinkIntent =
  * Unrecognized paths fall back to { type: "open" }.
  */
 export function parseDeepLinkUrl(raw: string): DeepLinkIntent {
-  // Strip the scheme — handle both openslaq:// and openslaq: (no double slash)
-  const stripped = raw.replace(/^openslaq:\/\//, "");
+  // Handle both openslaq:// custom scheme and HTTP(S) URLs
+  let stripped: string;
+  if (raw.startsWith("openslaq://")) {
+    stripped = raw.replace(/^openslaq:\/\//, "");
+  } else {
+    try {
+      stripped = new URL(raw).pathname.replace(/^\//, "");
+    } catch {
+      stripped = raw;
+    }
+  }
   const segments = stripped.split("/").filter(Boolean);
 
   // openslaq://open or empty

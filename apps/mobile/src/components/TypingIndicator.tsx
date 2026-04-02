@@ -18,24 +18,35 @@ function formatTypingText(users: TypingUser[]): string {
 
 export function TypingIndicator({ typingUsers }: Props) {
   const { theme } = useMobileTheme();
-
-  if (typingUsers.length === 0) return null;
+  const hasTypers = typingUsers.length > 0;
 
   return (
-    <View testID="typing-indicator" style={staticStyles.container}>
-      <Text
-        style={[staticStyles.text, { color: theme.colors.textMuted }]}
-      >
-        {formatTypingText(typingUsers)}
-      </Text>
+    <View testID="typing-indicator" style={[staticStyles.container, !hasTypers && staticStyles.hidden]}>
+      {hasTypers && (
+        <Text
+          style={[staticStyles.text, { color: theme.colors.textMuted }]}
+        >
+          {formatTypingText(typingUsers)}
+        </Text>
+      )}
     </View>
   );
 }
 
+/** Apply to the View wrapping TypingIndicator + MessageInput so absolute positioning works. */
+export const typingIndicatorWrapperStyle = { position: "relative" as const };
+
 const staticStyles = StyleSheet.create({
   container: {
+    position: "absolute",
+    bottom: "100%",
+    left: 0,
+    right: 0,
     paddingHorizontal: 16,
     paddingVertical: 4,
+  },
+  hidden: {
+    opacity: 0,
   },
   text: {
     fontSize: 12,

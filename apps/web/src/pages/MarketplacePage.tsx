@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/react";
 import { useEffect, useState, useCallback } from "react";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { redirectToAuth } from "../lib/auth";
@@ -36,6 +37,7 @@ export function MarketplacePage() {
       setListings(allListings);
       setWorkspaces(allWorkspaces);
     } catch (err) {
+      Sentry.captureException(err);
       console.error("Failed to load marketplace data:", err);
     } finally {
       setLoading(false);

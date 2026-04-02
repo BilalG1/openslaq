@@ -48,6 +48,7 @@ export async function launchApp(
 ): Promise<void> {
   await device.launchApp({
     newInstance: true,
+    permissions: { notifications: "YES" },
     launchArgs: {
       detoxTestToken: token,
       detoxTestUserId: userId,

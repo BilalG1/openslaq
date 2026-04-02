@@ -19,16 +19,16 @@ module.exports = {
     "ios.sim.debug": {
       type: "ios.app",
       binaryPath:
-        "ios/build/Build/Products/Debug-iphonesimulator/OpenSlaq.app",
+        "ios/build/Build/Products/Debug-iphonesimulator/OpenSlaqDev.app",
       build:
-        "xcodebuild -workspace ios/OpenSlaq.xcworkspace -scheme OpenSlaq -configuration Debug -sdk iphonesimulator -derivedDataPath ios/build",
+        "xcodebuild -workspace ios/OpenSlaqDev.xcworkspace -scheme OpenSlaqDev -configuration Debug -sdk iphonesimulator -derivedDataPath ios/build",
     },
     "ios.sim.release": {
       type: "ios.app",
       binaryPath:
-        "ios/build/Build/Products/Release-iphonesimulator/OpenSlaq.app",
+        "ios/build/Build/Products/Release-iphonesimulator/OpenSlaqDev.app",
       build:
-        "xcodebuild -workspace ios/OpenSlaq.xcworkspace -scheme OpenSlaq -configuration Release -sdk iphonesimulator -derivedDataPath ios/build",
+        "xcodebuild -workspace ios/OpenSlaqDev.xcworkspace -scheme OpenSlaqDev -configuration Release -sdk iphonesimulator -derivedDataPath ios/build",
     },
   },
   devices: {

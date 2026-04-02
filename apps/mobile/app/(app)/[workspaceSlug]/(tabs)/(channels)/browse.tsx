@@ -22,6 +22,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useChatStore } from "@/contexts/ChatStoreProvider";
 import { useSocket } from "@/contexts/SocketProvider";
 import { useMobileTheme } from "@/theme/ThemeProvider";
+import { Sentry } from "@/sentry";
 import { useServer } from "@/contexts/ServerContext";
 import { useWorkspaceParams } from "@/hooks/useRouteParams";
 import { routes } from "@/lib/routes";
@@ -66,6 +67,7 @@ export default function BrowseChannelsScreen() {
     setError(null);
     fetchChannels(showArchived)
       .catch((e) => {
+        Sentry.captureException(e);
         if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load channels");
       })
       .finally(() => {

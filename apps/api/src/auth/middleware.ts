@@ -5,7 +5,8 @@ import { eq } from "drizzle-orm";
 import { asUserId, type BotScope } from "@openslaq/shared";
 import { jwks, jwtVerifyOptions, e2eTestSecret, builtinJwtSecret } from "./jwt";
 import { env } from "../env";
-import { upsertUser } from "../users/service";
+import { getUserById, upsertUser, updateUser } from "../users/service";
+import { captureException } from "../sentry";
 import { db } from "../db";
 import { apiKeys } from "../api-keys/schema";
 import { users } from "../users/schema";
@@ -92,6 +93,33 @@ async function resolveBotToken(token: string) {
   };
 }
 
+/**
+ * If the user has no avatarUrl in our DB, try to fetch their profile image
+ * from Stack Auth and store it. Runs in the background (fire-and-forget)
+ * so it doesn't slow down requests.
+ */
+function seedAvatarFromStackAuth(userId: string) {
+  if (env.AUTH_MODE !== "stack-auth" || !env.STACK_SECRET_SERVER_KEY) return;
+
+  // Fire-and-forget — don't await
+  void (async () => {
+    try {
+      const existing = await getUserById(userId);
+      if (existing?.avatarUrl) return; // already has an avatar
+
+      const { getStackServerApp } = await import("../admin/stack-server");
+      const stackServer = getStackServerApp();
+      const stackUser = await stackServer.getUser(userId);
+      const profileImageUrl = stackUser?.profileImageUrl;
+      if (profileImageUrl) {
+        await updateUser(userId, { avatarUrl: profileImageUrl });
+      }
+    } catch (err) {
+      captureException(err, { userId, op: "seedAvatarFromStackAuth" });
+    }
+  })();
+}
+
 const JWT_TOKEN_META: TokenMeta = {
   kind: "jwt",
   scopes: null,
@@ -157,6 +185,10 @@ export const auth = createMiddleware<AuthEnv>(async (c, next) => {
     const displayName = parsed.name ?? email;
 
     await upsertUser(userId, email, displayName);
+
+    // Seed avatar from Stack Auth for users who don't have one yet.
+    // Runs in the background to avoid blocking the request.
+    seedAvatarFromStackAuth(userId);
 
     c.set("user", { id: asUserId(userId), email, displayName });
     c.set("tokenMeta", JWT_TOKEN_META);

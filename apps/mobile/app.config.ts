@@ -1,0 +1,63 @@
+import { ExpoConfig, ConfigContext } from "expo/config";
+
+const IS_DEV = process.env.APP_VARIANT === "development";
+
+export default ({ config }: ConfigContext): ExpoConfig => ({
+  ...config,
+  name: IS_DEV ? "OpenSlaq Dev" : "OpenSlaq",
+  slug: "openslaq",
+  version: "1.0.0",
+  icon: "./assets/icon.png",
+  scheme: "openslaq",
+  platforms: ["ios"],
+  ios: {
+    bundleIdentifier: IS_DEV
+      ? "com.openslaq.mobile.dev"
+      : "com.openslaq.mobile",
+    supportsTablet: true,
+    icon: "./assets/icon.png",
+    associatedDomains: ["applinks:openslaq.com"],
+    infoPlist: {
+      UIBackgroundModes: ["audio", "remote-notification", "voip"],
+      NSMicrophoneUsageDescription:
+        "OpenSlaq needs microphone access for huddles and voice messages",
+      NSCameraUsageDescription:
+        "OpenSlaq needs camera access for video in huddles",
+      NSAppTransportSecurity: {
+        NSAllowsLocalNetworking: true,
+      },
+      ITSAppUsesNonExemptEncryption: false,
+    },
+  },
+  android: {
+    adaptiveIcon: {
+      foregroundImage: "./assets/adaptive-icon.png",
+      backgroundColor: "#1264a3",
+    },
+  },
+  plugins: [
+    "expo-router",
+    "expo-secure-store",
+    "expo-asset",
+    "expo-web-browser",
+    "expo-apple-authentication",
+    "expo-notifications",
+    "@config-plugins/react-native-webrtc",
+    "expo-av",
+    [
+      "expo-media-library",
+      {
+        photosPermission:
+          "Allow OpenSlaq to save images to your photo library.",
+        savePhotosPermission:
+          "Allow OpenSlaq to save images to your photo library.",
+      },
+    ],
+  ],
+  experiments: {
+    typedRoutes: true,
+  },
+  web: {
+    bundler: "metro",
+  },
+});

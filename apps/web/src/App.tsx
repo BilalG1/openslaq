@@ -17,6 +17,7 @@ import { ThemeProvider } from "./theme/ThemeProvider";
 import { TooltipProvider } from "./components/ui";
 import { DeepLinkListener } from "./hooks/useDeepLink";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { SentryUserSync } from "./components/SentryUserSync";
 
 const GalleryPage = import.meta.env.DEV
   ? lazy(() => import("./gallery/GalleryPage").then((m) => ({ default: m.GalleryPage })))
@@ -61,6 +62,7 @@ export function App() {
           <ThemeProvider>
             <TooltipProvider>
               <StackProvider app={stackApp}>
+                <SentryUserSync />
                 <ShowcasePage />
               </StackProvider>
             </TooltipProvider>
@@ -78,6 +80,7 @@ export function App() {
           <ThemeProvider>
             <TooltipProvider>
               <StackProvider app={stackApp}>
+                <SentryUserSync />
                 <GalleryPage />
               </StackProvider>
             </TooltipProvider>
@@ -101,6 +104,7 @@ export function App() {
                 path="/huddle/:channelId"
                 element={
                   <StackProvider app={stackApp}>
+                    <SentryUserSync />
                     <HuddlePage />
                   </StackProvider>
                 }
@@ -109,6 +113,7 @@ export function App() {
                 path="/admin/*"
                 element={
                   <StackProvider app={stackApp}>
+                    <SentryUserSync />
                     <AdminPage />
                   </StackProvider>
                 }
@@ -117,6 +122,7 @@ export function App() {
                 path="/marketplace/*"
                 element={
                   <StackProvider app={stackApp}>
+                    <SentryUserSync />
                     <MarketplacePage />
                   </StackProvider>
                 }
@@ -125,6 +131,7 @@ export function App() {
                 path="*"
                 element={
                   <StackProvider app={stackApp}>
+                    <SentryUserSync />
                     <DeepLinkListener />
                     <SocketProvider>
                       <ChatStoreProvider>

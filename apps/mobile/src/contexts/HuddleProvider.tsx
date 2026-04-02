@@ -10,9 +10,11 @@ import {
 import {
   Room,
   RoomEvent,
+  VideoPresets,
 } from "livekit-client";
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import { Audio } from "expo-av";
+import { Sentry } from "@/sentry";
 import { Alert, Linking } from "react-native";
 import type { ChannelId, UserId } from "@openslaq/shared";
 import { authorizedHeaders, notifyHuddleLeave } from "@openslaq/client-core";
@@ -111,7 +113,17 @@ export function HuddleProvider({ children }: { children: ReactNode }) {
     }
 
     let cancelled = false;
-    const room = new Room();
+    const room = new Room({
+      adaptiveStream: true,
+      dynacast: true,
+      videoCaptureDefaults: {
+        resolution: VideoPresets.h720.resolution,
+      },
+      publishDefaults: {
+        videoEncoding: VideoPresets.h720.encoding,
+        screenShareEncoding: VideoPresets.h1080.encoding,
+      },
+    });
     roomRef.current = room;
 
     const notify = () => refreshParticipants();
@@ -188,6 +200,7 @@ export function HuddleProvider({ children }: { children: ReactNode }) {
             setIsMuted(true);
           }
         } catch (micErr) {
+          Sentry.captureException(micErr);
           console.warn("Failed to enable microphone:", micErr);
           setIsMuted(true);
         }
@@ -198,6 +211,7 @@ export function HuddleProvider({ children }: { children: ReactNode }) {
         activateKeepAwakeAsync("huddle");
       } catch (err) {
         if (cancelled) return;
+        Sentry.captureException(err);
         console.error("Failed to join huddle:", err);
         setError(err instanceof Error ? err.message : "Failed to join huddle");
         dispatch({ type: "huddle/ended", channelId: channelId as ChannelId });
@@ -259,6 +273,7 @@ export function HuddleProvider({ children }: { children: ReactNode }) {
       await room.localParticipant.setMicrophoneEnabled(!enabled);
       refreshParticipants();
     } catch (err) {
+      Sentry.captureException(err);
       console.warn("Failed to toggle microphone:", err);
     }
   }, [refreshParticipants]);
@@ -271,6 +286,7 @@ export function HuddleProvider({ children }: { children: ReactNode }) {
       await room.localParticipant.setCameraEnabled(!enabled);
       refreshParticipants();
     } catch (err) {
+      Sentry.captureException(err);
       console.warn("Failed to toggle camera:", err);
       Alert.alert(
         "Camera Access",

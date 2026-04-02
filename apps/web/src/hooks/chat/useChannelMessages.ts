@@ -22,6 +22,8 @@ export function useChannelMessages(
       // Skip fetching latest messages when a scrollTarget is active —
       // useScrollToMessage will load messages around the target instead.
       if (isGallery || !workspaceSlug || !channelId || scrollTargetRef.current) return;
+      // Skip if messages are already loaded or currently loading (e.g. prefetched during bootstrap)
+      if (state.channelMessageIds[channelId] || state.ui.channelMessagesLoading[channelId]) return;
       void loadChannelMessages(deps, { workspaceSlug, channelId });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps

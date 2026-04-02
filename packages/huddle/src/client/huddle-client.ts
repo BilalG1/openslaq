@@ -3,6 +3,7 @@ import {
   RoomEvent,
   Track,
   ConnectionState,
+  VideoPresets,
   type Participant,
 } from "livekit-client";
 import type { HuddleMediaState, ParticipantTrackInfo } from "./types";
@@ -52,6 +53,13 @@ export class HuddleClient {
     this.room = new Room({
       adaptiveStream: true,
       dynacast: true,
+      videoCaptureDefaults: {
+        resolution: VideoPresets.h720.resolution,
+      },
+      publishDefaults: {
+        videoEncoding: VideoPresets.h720.encoding,
+        screenShareEncoding: VideoPresets.h1080.encoding,
+      },
     });
     this.setupEventListeners();
   }

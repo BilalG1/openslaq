@@ -70,8 +70,13 @@ vi.mock("../components/ui", () => ({
 }));
 
 vi.mock("../components/huddle/VideoGrid", () => ({
-  VideoGrid: ({ localParticipant, remoteParticipants }: { localParticipant: unknown; remoteParticipants: unknown[] }) => (
-    <div data-testid="video-grid">
+  VideoGrid: ({ localParticipant, remoteParticipants }: { localParticipant: { isMuted?: boolean; isCameraOn?: boolean; isScreenSharing?: boolean } | null; remoteParticipants: unknown[] }) => (
+    <div
+      data-testid="video-grid"
+      data-local-muted={localParticipant ? String(localParticipant.isMuted) : ""}
+      data-local-camera={localParticipant ? String(localParticipant.isCameraOn) : ""}
+      data-local-screenshare={localParticipant ? String(localParticipant.isScreenSharing) : ""}
+    >
       {remoteParticipants.length + (localParticipant ? 1 : 0)} tiles
     </div>
   ),
@@ -438,5 +443,255 @@ describe("HuddlePage", () => {
     await act(() => Promise.resolve());
 
     expect(screen.getByText("2 participants")).toBeTruthy();
+  });
+
+  // ── Control state sync with LiveKit ────────────────────────
+
+  describe("control state sync", () => {
+    test("mute button matches LiveKit state after toggle, not blind !prev flip", async () => {
+      let subscribeCb!: (s: { localParticipant: ReturnType<typeof fullParticipant> | null; participants: unknown[] }) => void;
+      (mockSubscribe as import("vitest").Mock).mockImplementation((cb: Function) => {
+        subscribeCb = cb as typeof subscribeCb;
+        return vi.fn();
+      });
+
+      // toggleMicrophone triggers subscription (simulates LiveKit state change) before resolving
+      mockToggleMicrophone.mockImplementation(async () => {
+        subscribeCb({
+          localParticipant: fullParticipant({ isMuted: true }),
+          participants: [],
+        });
+      });
+
+      await act(async () => { render(<HuddlePage />); });
+      await act(() => Promise.resolve());
+
+      // Set initial state: unmuted
+      act(() => {
+        subscribeCb({
+          localParticipant: fullParticipant({ isMuted: false }),
+          participants: [],
+        });
+      });
+
+      const muteBtn = screen.getByTestId("huddle-mute-toggle");
+      // Verify initially unmuted (white bg, not red)
+      expect(muteBtn.className).toContain("bg-white/10");
+
+      // Click mute
+      await act(async () => { fireEvent.click(muteBtn); });
+
+      // Button should show muted state (red background) matching LiveKit
+      expect(muteBtn.className).toContain("bg-red-500");
+    });
+
+    test("camera button matches LiveKit state after toggle, not blind !prev flip", async () => {
+      let subscribeCb!: (s: { localParticipant: ReturnType<typeof fullParticipant> | null; participants: unknown[] }) => void;
+      (mockSubscribe as import("vitest").Mock).mockImplementation((cb: Function) => {
+        subscribeCb = cb as typeof subscribeCb;
+        return vi.fn();
+      });
+
+      mockToggleCamera.mockImplementation(async () => {
+        subscribeCb({
+          localParticipant: fullParticipant({ isCameraOn: true }),
+          participants: [],
+        });
+      });
+
+      await act(async () => { render(<HuddlePage />); });
+      await act(() => Promise.resolve());
+
+      // Set initial state: camera off
+      act(() => {
+        subscribeCb({
+          localParticipant: fullParticipant({ isCameraOn: false }),
+          participants: [],
+        });
+      });
+
+      const cameraBtn = screen.getByTestId("huddle-camera-toggle");
+      // Camera off shows red bg
+      expect(cameraBtn.className).toContain("bg-red-500");
+
+      // Click to turn camera on
+      await act(async () => { fireEvent.click(cameraBtn); });
+
+      // Button should show camera ON state (white bg) matching LiveKit
+      expect(cameraBtn.className).toContain("bg-white/10");
+    });
+
+    test("mute button state agrees with VideoGrid localParticipant after toggle", async () => {
+      let subscribeCb!: (s: { localParticipant: ReturnType<typeof fullParticipant> | null; participants: unknown[] }) => void;
+      (mockSubscribe as import("vitest").Mock).mockImplementation((cb: Function) => {
+        subscribeCb = cb as typeof subscribeCb;
+        return vi.fn();
+      });
+
+      mockToggleMicrophone.mockImplementation(async () => {
+        subscribeCb({
+          localParticipant: fullParticipant({ isMuted: true }),
+          participants: [],
+        });
+      });
+
+      await act(async () => { render(<HuddlePage />); });
+      await act(() => Promise.resolve());
+
+      // Set initial state: unmuted
+      act(() => {
+        subscribeCb({
+          localParticipant: fullParticipant({ isMuted: false }),
+          participants: [],
+        });
+      });
+
+      // Click mute
+      const muteBtn = screen.getByTestId("huddle-mute-toggle");
+      await act(async () => { fireEvent.click(muteBtn); });
+
+      // VideoGrid receives localParticipant from mediaState (LiveKit truth)
+      const grid = screen.getByTestId("video-grid");
+      const gridShowsMuted = grid.getAttribute("data-local-muted") === "true";
+
+      // Mute button shows muted via red bg
+      const buttonShowsMuted = muteBtn.className.includes("bg-red-500");
+
+      // These MUST agree — the user's tile and control button should never contradict
+      expect(buttonShowsMuted).toBe(gridShowsMuted);
+    });
+
+    test("screen share button matches LiveKit state after toggle", async () => {
+      let subscribeCb!: (s: { localParticipant: ReturnType<typeof fullParticipant> | null; participants: unknown[] }) => void;
+      (mockSubscribe as import("vitest").Mock).mockImplementation((cb: Function) => {
+        subscribeCb = cb as typeof subscribeCb;
+        return vi.fn();
+      });
+
+      mockStartScreenShare.mockImplementation(async () => {
+        subscribeCb({
+          localParticipant: fullParticipant({ isScreenSharing: true }),
+          participants: [],
+        });
+      });
+
+      await act(async () => { render(<HuddlePage />); });
+      await act(() => Promise.resolve());
+
+      // Set initial state: not sharing
+      act(() => {
+        subscribeCb({
+          localParticipant: fullParticipant({ isScreenSharing: false }),
+          participants: [],
+        });
+      });
+
+      const shareBtn = screen.getByTestId("huddle-screenshare-toggle");
+      expect(shareBtn.className).toContain("bg-white/10");
+
+      // Click to start sharing
+      await act(async () => { fireEvent.click(shareBtn); });
+
+      // Button should show sharing state (blue bg) matching LiveKit
+      expect(shareBtn.className).toContain("bg-blue-500");
+    });
+  });
+
+  // ── Race conditions ────────────────────────────────────────
+
+  describe("race conditions", () => {
+    test("rapid mute double-click: final state matches LiveKit", async () => {
+      let subscribeCb!: (s: { localParticipant: ReturnType<typeof fullParticipant> | null; participants: unknown[] }) => void;
+      (mockSubscribe as import("vitest").Mock).mockImplementation((cb: Function) => {
+        subscribeCb = cb as typeof subscribeCb;
+        return vi.fn();
+      });
+
+      // First toggle is slow, second is fast
+      let resolveFirst!: () => void;
+      mockToggleMicrophone
+        .mockImplementationOnce(() => new Promise<void>((r) => { resolveFirst = r; }))
+        .mockImplementationOnce(async () => {});
+
+      await act(async () => { render(<HuddlePage />); });
+      await act(() => Promise.resolve());
+
+      // Initial: unmuted
+      act(() => {
+        subscribeCb({
+          localParticipant: fullParticipant({ isMuted: false }),
+          participants: [],
+        });
+      });
+
+      const muteBtn = screen.getByTestId("huddle-mute-toggle");
+
+      // Rapid double-click
+      await act(async () => { fireEvent.click(muteBtn); });
+      await act(async () => { fireEvent.click(muteBtn); });
+
+      // Resolve the slow first toggle
+      await act(async () => { resolveFirst(); });
+
+      // LiveKit: muted → unmuted. Final state = unmuted.
+      act(() => {
+        subscribeCb({
+          localParticipant: fullParticipant({ isMuted: false }),
+          participants: [],
+        });
+      });
+
+      // Button should show unmuted (matching LiveKit)
+      expect(muteBtn.className).toContain("bg-white/10");
+    });
+  });
+
+  // ── Error recovery ─────────────────────────────────────────
+
+  describe("error recovery", () => {
+    test("after mute toggle failure then retry success, button matches LiveKit", async () => {
+      let subscribeCb!: (s: { localParticipant: ReturnType<typeof fullParticipant> | null; participants: unknown[] }) => void;
+      (mockSubscribe as import("vitest").Mock).mockImplementation((cb: Function) => {
+        subscribeCb = cb as typeof subscribeCb;
+        return vi.fn();
+      });
+
+      await act(async () => { render(<HuddlePage />); });
+      await act(() => Promise.resolve());
+
+      // Initial: unmuted
+      act(() => {
+        subscribeCb({
+          localParticipant: fullParticipant({ isMuted: false }),
+          participants: [],
+        });
+      });
+
+      const muteBtn = screen.getByTestId("huddle-mute-toggle");
+
+      // First toggle fails
+      mockToggleMicrophone.mockRejectedValueOnce(
+        new DOMException("Permission denied", "NotAllowedError"),
+      );
+      await act(async () => { fireEvent.click(muteBtn); });
+
+      // Button should still show unmuted (toggle failed, LiveKit unchanged)
+      expect(muteBtn.className).toContain("bg-white/10");
+
+      // Dismiss alert
+      await act(async () => { fireEvent.click(screen.getByTestId("permission-alert-ok")); });
+
+      // Retry — this time succeeds and LiveKit confirms muted
+      mockToggleMicrophone.mockImplementationOnce(async () => {
+        subscribeCb({
+          localParticipant: fullParticipant({ isMuted: true }),
+          participants: [],
+        });
+      });
+      await act(async () => { fireEvent.click(muteBtn); });
+
+      // Button should now show muted
+      expect(muteBtn.className).toContain("bg-red-500");
+    });
   });
 });

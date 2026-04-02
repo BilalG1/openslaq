@@ -1,6 +1,6 @@
 import { Tabs } from "expo-router";
 import { useMobileTheme } from "@/theme/ThemeProvider";
-import { HomeIcon, DmsIcon, ActivityIcon, MoreIcon } from "@/components/ui/TabIcons";
+import { HomeIcon, DmsIcon, MoreIcon } from "@/components/ui/TabIcons";
 
 export default function TabsLayout() {
   const { theme } = useMobileTheme();
@@ -30,13 +30,6 @@ export default function TabsLayout() {
         options={{
           title: "DMs",
           tabBarIcon: ({ color, size }) => <DmsIcon color={color} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="activity"
-        options={{
-          title: "Activity",
-          tabBarIcon: ({ color, size }) => <ActivityIcon color={color} size={size} />,
         }}
       />
       <Tabs.Screen

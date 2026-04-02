@@ -31,11 +31,19 @@ import { AppError } from "./errors";
 const app = new OpenAPIHono();
 
 app.onError((err, c) => {
+  const shouldCapture = err instanceof AppError ? err.status >= 500 : true;
+  if (shouldCapture) {
+    Sentry.withScope((scope) => {
+      const user = c.get("user" as never) as { id: string } | undefined;
+      const workspace = c.get("workspace" as never) as { id: string } | undefined;
+      if (user?.id) scope.setUser({ id: user.id });
+      if (workspace?.id) scope.setTag("workspaceId", workspace.id);
+      Sentry.captureException(err);
+    });
+  }
   if (err instanceof AppError) {
-    if (err.status >= 500) Sentry.captureException(err);
     return c.json({ error: err.message }, err.status as ContentfulStatusCode);
   }
-  Sentry.captureException(err);
   return c.json({ error: "Internal Server Error" }, 500);
 });
 

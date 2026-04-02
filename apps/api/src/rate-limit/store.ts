@@ -1,5 +1,6 @@
 import postgres from "postgres";
 import { env } from "../env";
+import { captureException } from "../sentry";
 
 const sql = postgres(env.DATABASE_URL, { max: 3 });
 
@@ -67,7 +68,7 @@ export async function cleanupExpiredEntries(): Promise<void> {
 
 export function startCleanup() {
   return setInterval(() => {
-    cleanupExpiredEntries().catch(console.error);
+    cleanupExpiredEntries().catch((err) => captureException(err, { op: "rate-limit:cleanup" }));
   }, 60_000);
 }
 

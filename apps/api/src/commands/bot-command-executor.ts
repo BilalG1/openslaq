@@ -8,6 +8,7 @@ import type { WebhookEventPayload, EphemeralMessage } from "@openslaq/shared";
 import { asChannelId, asUserId, asBotAppId, asWorkspaceId } from "@openslaq/shared";
 import { randomUUID } from "node:crypto";
 import { createHmac } from "node:crypto";
+import { captureException } from "../sentry";
 
 export async function executeBotCommand(
   commandName: string,
@@ -95,7 +96,7 @@ export async function executeBotCommand(
       statusCode: String(res.status),
       attempts: "1",
       lastAttemptAt: new Date(),
-    }).catch(console.error);
+    }).catch((err) => captureException(err, { op: "bot-command:log-ok" }));
 
     if (res.ok) {
       const responseBody = (await res.json().catch(() => null)) as { text?: string } | null;
@@ -113,7 +114,8 @@ export async function executeBotCommand(
         ];
       }
     }
-  } catch {
+  } catch (err) {
+    captureException(err, { userId, channelId, workspaceId, op: "bot-command:execute" });
     // Log failed delivery
     await db.insert(webhookDeliveries).values({
       botAppId: row.botAppId,
@@ -122,7 +124,7 @@ export async function executeBotCommand(
       statusCode: "error",
       attempts: "1",
       lastAttemptAt: new Date(),
-    }).catch(console.error);
+    }).catch((logErr) => captureException(logErr, { op: "bot-command:log-fail" }));
   }
 
   return [];

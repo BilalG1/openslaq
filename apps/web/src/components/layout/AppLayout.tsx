@@ -57,10 +57,11 @@ import { LoadingState, EmptyState, Button } from "../ui";
 
 export function AppLayout() {
   const user = useCurrentUser();
-  const { workspaceSlug, channelId: urlChannelId, dmChannelId: urlDmChannelId } = useParams<{
+  const { workspaceSlug, channelId: urlChannelId, dmChannelId: urlDmChannelId, messageId: urlMessageId } = useParams<{
     workspaceSlug: string;
     channelId: string;
     dmChannelId: string;
+    messageId: string;
   }>();
   const slug = workspaceSlug ?? "";
   const { state, dispatch } = useChatStore();
@@ -88,7 +89,7 @@ export function AppLayout() {
   });
 
   useWorkspaceBootstrap(workspaceSlug, urlChannelId, urlDmChannelId);
-  useViewRouteSync(workspaceSlug, urlChannelId, urlDmChannelId);
+  useViewRouteSync(workspaceSlug, urlChannelId, urlDmChannelId, urlMessageId);
   useUnreadTracking(user, workspaceSlug);
   usePresenceTracking();
   useHuddleTracking();
@@ -265,7 +266,7 @@ export function AppLayout() {
     <div className="flex flex-col h-screen">
       <UpdateBanner />
       <div className="flex flex-1 min-h-0">
-      {sidebarVisible && !state.ui.bootstrapLoading && !state.ui.bootstrapError && (
+      {sidebarVisible && !state.ui.bootstrapError && (
         <>
           <Sidebar
             activeChannelId={state.activeChannelId}
@@ -306,9 +307,7 @@ export function AppLayout() {
 
       <div ref={mainContentRef} className="flex-1 min-w-0 flex flex-col bg-surface relative" data-testid="main-content">
         <ConnectionBanner />
-        {state.ui.bootstrapLoading ? (
-          <LoadingState label="Loading workspace..." className="flex-1" />
-        ) : state.ui.bootstrapError ? (
+        {state.ui.bootstrapError ? (
           <EmptyState
             icon={<Building2 className="w-full h-full" strokeWidth={1.5} />}
             title={state.ui.bootstrapError}
@@ -482,19 +481,21 @@ export function AppLayout() {
               </div>
             )}
             <MessageList channelId={activeChannel.id} onOpenThread={handleOpenThread} onOpenProfile={handleOpenProfile} onJoinHuddle={handleJoinHuddle} onPinMessage={pins.pinMessage} onUnpinMessage={pins.unpinMessage} onShareMessage={messageActions.shareMessage} onSaveMessage={messageActions.saveMessage} onUnsaveMessage={messageActions.unsaveMessage} savedMessageIds={state.savedMessageIds} ephemeralMessages={slashCmds.getEphemeralMessages(activeChannel.id)} onEphemeralMessage={slashCmds.addEphemeral} />
-            <TypingIndicator typingUsers={typingUsers} />
-            {activeChannel.isArchived ? (
-              <div data-testid="archived-channel-banner" className="px-4 pb-4">
-                <div className="rounded-lg border border-border-default bg-surface-raised px-4 py-3 text-sm text-secondary text-center">
-                  This channel has been archived
+            <div className="relative">
+              <TypingIndicator typingUsers={typingUsers} />
+              {activeChannel.isArchived ? (
+                <div data-testid="archived-channel-banner" className="px-4 pb-4">
+                  <div className="rounded-lg border border-border-default bg-surface-raised px-4 py-3 text-sm text-secondary text-center">
+                    This channel has been archived
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <>
-                <ScheduledMessagesBanner channelId={activeChannel.id} workspaceSlug={slug} onViewScheduled={handleSelectOutboxView} />
-                <MessageInput ref={messageInputRef} channelId={activeChannel.id} channelName={activeChannel.name} externalDragDrop onTyping={emitTyping} slashCommands={slashCmds.commands} onSlashCommand={slashCmds.execute} />
-              </>
-            )}
+              ) : (
+                <>
+                  <ScheduledMessagesBanner channelId={activeChannel.id} workspaceSlug={slug} onViewScheduled={handleSelectOutboxView} />
+                  <MessageInput ref={messageInputRef} channelId={activeChannel.id} channelName={activeChannel.name} externalDragDrop onTyping={emitTyping} slashCommands={slashCmds.commands} onSlashCommand={slashCmds.execute} />
+                </>
+              )}
+            </div>
           </>
         ) : activeDm ? (
           <>
@@ -508,18 +509,20 @@ export function AppLayout() {
               onJoinHuddle={() => handleJoinHuddle(activeDm.channel.id, activeDm.otherUser.displayName)}
             />
             <MessageList channelId={activeDm.channel.id} onOpenThread={handleOpenThread} onOpenProfile={handleOpenProfile} onJoinHuddle={handleJoinHuddle} onShareMessage={messageActions.shareMessage} onSaveMessage={messageActions.saveMessage} onUnsaveMessage={messageActions.unsaveMessage} savedMessageIds={state.savedMessageIds} ephemeralMessages={slashCmds.getEphemeralMessages(activeDm.channel.id)} onEphemeralMessage={slashCmds.addEphemeral} />
-            <TypingIndicator typingUsers={typingUsers} />
-            <ScheduledMessagesBanner channelId={activeDm.channel.id} workspaceSlug={slug} onViewScheduled={handleSelectOutboxView} />
-            <MessageInput
-              ref={messageInputRef}
-              channelId={activeDm.channel.id}
-              channelName={activeDm.otherUser.displayName}
-              isDm
-              externalDragDrop
-              onTyping={emitTyping}
-              slashCommands={slashCmds.commands}
-              onSlashCommand={slashCmds.execute}
-            />
+            <div className="relative">
+              <TypingIndicator typingUsers={typingUsers} />
+              <ScheduledMessagesBanner channelId={activeDm.channel.id} workspaceSlug={slug} onViewScheduled={handleSelectOutboxView} />
+              <MessageInput
+                ref={messageInputRef}
+                channelId={activeDm.channel.id}
+                channelName={activeDm.otherUser.displayName}
+                isDm
+                externalDragDrop
+                onTyping={emitTyping}
+                slashCommands={slashCmds.commands}
+                onSlashCommand={slashCmds.execute}
+              />
+            </div>
           </>
         ) : activeGroupDm ? (
           <>
@@ -533,19 +536,23 @@ export function AppLayout() {
               onJoinHuddle={() => handleJoinHuddle(activeGroupDm.channel.id, activeGroupDm.channel.displayName ?? "Group DM")}
             />
             <MessageList channelId={activeGroupDm.channel.id} onOpenThread={handleOpenThread} onOpenProfile={handleOpenProfile} onJoinHuddle={handleJoinHuddle} onShareMessage={messageActions.shareMessage} onSaveMessage={messageActions.saveMessage} onUnsaveMessage={messageActions.unsaveMessage} savedMessageIds={state.savedMessageIds} ephemeralMessages={slashCmds.getEphemeralMessages(activeGroupDm.channel.id)} onEphemeralMessage={slashCmds.addEphemeral} />
-            <TypingIndicator typingUsers={typingUsers} />
-            <ScheduledMessagesBanner channelId={activeGroupDm.channel.id} workspaceSlug={slug} onViewScheduled={handleSelectOutboxView} />
-            <MessageInput
-              ref={messageInputRef}
-              channelId={activeGroupDm.channel.id}
-              channelName={activeGroupDm.channel.displayName ?? "Group DM"}
-              isDm
-              externalDragDrop
-              onTyping={emitTyping}
-              slashCommands={slashCmds.commands}
-              onSlashCommand={slashCmds.execute}
-            />
+            <div className="relative">
+              <TypingIndicator typingUsers={typingUsers} />
+              <ScheduledMessagesBanner channelId={activeGroupDm.channel.id} workspaceSlug={slug} onViewScheduled={handleSelectOutboxView} />
+              <MessageInput
+                ref={messageInputRef}
+                channelId={activeGroupDm.channel.id}
+                channelName={activeGroupDm.channel.displayName ?? "Group DM"}
+                isDm
+                externalDragDrop
+                onTyping={emitTyping}
+                slashCommands={slashCmds.commands}
+                onSlashCommand={slashCmds.execute}
+              />
+            </div>
           </>
+        ) : state.ui.bootstrapLoading ? (
+          <LoadingState label="Loading messages..." className="flex-1" />
         ) : (
           <div className="flex-1 flex items-center justify-center text-faint">
             Select a channel or DM to start chatting

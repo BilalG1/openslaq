@@ -16,8 +16,8 @@ module.exports = {
     "^react$": "<rootDir>/../../node_modules/react",
   },
   transformIgnorePatterns: [
-    "node_modules/(?!\\.bun/)(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|jose|@openslaq/.*))",
-    "node_modules/\\.bun/(?!.*node_modules/((jest-)?react-native|@react-native(-community)?|@react-native/.*|expo(nent)?|@expo(nent)?/.*|jose|@openslaq/.*))",
+    "node_modules/(?!\\.bun/)(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|jose|yoga-layout|@openslaq/.*))",
+    "node_modules/\\.bun/(?!.*node_modules/((jest-)?react-native|@react-native(-community)?|@react-native/.*|expo(nent)?|@expo(nent)?/.*|jose|yoga-layout|@openslaq/.*))",
   ],
   collectCoverageFrom: [
     "src/**/*.{ts,tsx}",

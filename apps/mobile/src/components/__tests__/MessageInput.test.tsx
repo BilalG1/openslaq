@@ -462,7 +462,7 @@ describe("MessageInput", () => {
     render(<MessageInput onSend={jest.fn()} />);
     const input = screen.getByTestId("message-input");
     expect(StyleSheet.flatten(input.props.style)).toEqual(
-      expect.objectContaining({ height: 36, minHeight: 36, maxHeight: 120 }),
+      expect.objectContaining({ height: 36, minHeight: 36, maxHeight: 160 }),
     );
   });
 
@@ -480,7 +480,7 @@ describe("MessageInput", () => {
     expect(StyleSheet.flatten(capsule.props.style)).toEqual(expect.objectContaining({ minHeight: 88 }));
   });
 
-  it("clamps height between 36 and 120", () => {
+  it("clamps height between 36 and 160", () => {
     render(<MessageInput onSend={jest.fn()} />);
 
     act(() => {
@@ -494,7 +494,7 @@ describe("MessageInput", () => {
       webViewEditorMock._simulateHeightChange(200);
     });
     expect(StyleSheet.flatten(screen.getByTestId("message-input").props.style)).toEqual(
-      expect.objectContaining({ height: 120 }),
+      expect.objectContaining({ height: 160 }),
     );
   });
 

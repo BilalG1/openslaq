@@ -16,7 +16,12 @@ function aasaJson(): string {
       details: [
         {
           appIDs: [`${teamId}.com.openslaq.mobile`],
-          components: [{ "/": "/invite/*" }],
+          components: [
+            { "/": "/invite/*" },
+            { "/": "/w/*/c/*/t/*" },
+            { "/": "/w/*/c/*" },
+            { "/": "/w/*/dm/*" },
+          ],
         },
       ],
     },
