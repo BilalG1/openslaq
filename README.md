@@ -14,11 +14,12 @@
 | **Desktop** | [openslaq.com/install](https://openslaq.com/install) (macOS) |
 | **iOS** | [TestFlight](https://testflight.apple.com/join/BUHUUBzA) |
 | **CLI** | `curl -fsSL https://openslaq.com/install.sh \| sh` |
+| **Docs** | [docs.openslaq.com](https://docs.openslaq.com) |
 
 ## Why OpenSlaq
 
 - **Open source** — MIT licensed, read every line of code
-- **Fast and lightweight** — built on Bun and Hono, starts in seconds
+- **Fast and lightweight** — no bloat, no lag
 - **No tracking** — zero analytics, no telemetry, your data stays yours
 - **Multi-platform** — native apps for desktop, iOS, and a full CLI
 - **Easy to leave** — self-host anytime, export your data, no lock-in
@@ -28,7 +29,7 @@
 ### Prerequisites
 
 - [Git](https://git-scm.com/)
-- [Bun](https://bun.sh/) (installer requires `unzip`)
+- [Bun](https://bun.sh/)
 - [Docker](https://docs.docker.com/get-docker/)
 
 ```bash
@@ -40,7 +41,7 @@ bun run --filter @openslaq/api db:migrate
 bun run dev
 ```
 
-Open [localhost:3000](http://localhost:3000). See [docs](docs/README.md) for configuration and deployment.
+Open [localhost:3000](http://localhost:3000).
 
 ## License
 
