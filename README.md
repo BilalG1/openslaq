@@ -1,25 +1,32 @@
-# OpenSlaq
-
-**Open-source Slaq**
-
-[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Built with Bun](https://img.shields.io/badge/built%20with-Bun-f9f1e1.svg)](https://bun.sh)
-[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg)](https://www.typescriptlang.org/)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/BilalG1/openslaq/pulls)
-
 <p align="center">
-  <img src="docs/assets/screenshots/channel-rich-text.png" alt="OpenSlaq — channels with rich text, code blocks, and editor toolbar" width="100%" />
+  <img src="apps/web/public/icon.svg" alt="OpenSlaq" width="80" height="80" />
 </p>
 
-Real-time team messaging with channels, threads, DMs, huddles, search, and file sharing. Self-host in minutes with Docker.
+<h1 align="center">OpenSlaq</h1>
 
-## Quick Start
+<p align="center">Open-source team messaging — web, desktop, iOS, and CLI.</p>
 
-Prerequisites: [Bun](https://bun.sh) (v1.1+), [Docker](https://www.docker.com/)
+## Get Started
+
+| Platform | |
+| --- | --- |
+| **Web** | [openslaq.com](https://openslaq.com) |
+| **Desktop** | [openslaq.com/install](https://openslaq.com/install) (macOS) |
+| **iOS** | [TestFlight](https://testflight.apple.com/join/BUHUUBzA) |
+| **CLI** | `curl -fsSL https://openslaq.com/install.sh \| sh` |
+
+## Why OpenSlaq
+
+- **Open source** — MIT licensed, read every line of code
+- **Fast and lightweight** — built on Bun and Hono, starts in seconds
+- **No tracking** — zero analytics, no telemetry, your data stays yours
+- **Multi-platform** — native apps for desktop, iOS, and a full CLI
+- **Easy to leave** — self-host anytime, export your data, no lock-in
+
+## Self-Host
 
 ```bash
-git clone https://github.com/BilalG1/openslaq.git
-cd openslaq
+git clone https://github.com/BilalG1/openslaq.git && cd openslaq
 bun install
 cp .env.example .env
 docker compose up -d
@@ -27,61 +34,7 @@ bun run --filter @openslaq/api db:migrate
 bun run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
-
-## Feature Comparison
-
-| Feature | Slaq | OpenSlaq |
-| --- | :---: | :---: |
-| **Messaging** | | |
-| Channels (public & private) | :white_check_mark: | :white_check_mark: |
-| Direct messages | :white_check_mark: | :white_check_mark: |
-| Threaded replies | :white_check_mark: | :white_check_mark: |
-| Rich text editor | :white_check_mark: | :white_check_mark: |
-| Emoji reactions | :white_check_mark: | :white_check_mark: |
-| Message edit & delete | :white_check_mark: | :white_check_mark: |
-| File uploads & previews | :white_check_mark: | :white_check_mark: |
-| Message search | :white_check_mark: | :white_check_mark: |
-| @mentions | :white_check_mark: | — |
-| **Real-time** | | |
-| Typing indicators | :white_check_mark: | :white_check_mark: |
-| Presence (online/offline) | :white_check_mark: | :white_check_mark: |
-| Unread counts | :white_check_mark: | :white_check_mark: |
-| Desktop notifications | :white_check_mark: | :white_check_mark: |
-| **Huddles** | | |
-| Voice huddles | :white_check_mark: | :white_check_mark: |
-| Video huddles | :white_check_mark: | — |
-| Screen sharing | :white_check_mark: | — |
-| **Organization** | | |
-| Workspaces | :white_check_mark: | :white_check_mark: |
-| Invite links | :white_check_mark: | :white_check_mark: |
-| Member roles | :white_check_mark: | :white_check_mark: |
-| **UI** | | |
-| Dark mode | :white_check_mark: | :white_check_mark: |
-| Syntax-highlighted code blocks | - | :white_check_mark: |
-| **Platform** | | |
-| Self-hosted | — | :white_check_mark: |
-| Open source | — | :white_check_mark: |
-| Bots & integrations | :white_check_mark: | — |
-
-## Screenshots
-
-<table>
-  <tr>
-    <td align="center"><strong>Threads</strong></td>
-    <td align="center"><strong>Direct Messages</strong></td>
-  </tr>
-  <tr>
-    <td><img src="docs/assets/screenshots/thread-panel.png" alt="Thread panel" width="100%" /></td>
-    <td><img src="docs/assets/screenshots/direct-messages.png" alt="Direct messages" width="100%" /></td>
-  </tr>
-  <tr>
-    <td align="center" colspan="2"><strong>Search</strong></td>
-  </tr>
-  <tr>
-    <td colspan="2"><img src="docs/assets/screenshots/search-modal.png" alt="Search modal" width="100%" /></td>
-  </tr>
-</table>
+Open [localhost:3000](http://localhost:3000). See [docs](docs/README.md) for configuration and deployment.
 
 ## License
 
