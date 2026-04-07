@@ -25,6 +25,12 @@
 
 ## Self-Host
 
+### Prerequisites
+
+- [Git](https://git-scm.com/)
+- [Bun](https://bun.sh/) (installer requires `unzip`)
+- [Docker](https://docs.docker.com/get-docker/)
+
 ```bash
 git clone https://github.com/BilalG1/openslaq.git && cd openslaq
 bun install
