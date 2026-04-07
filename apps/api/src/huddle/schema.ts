@@ -10,6 +10,7 @@ export const activeHuddles = pgTable("active_huddles", {
   livekitRoom: text("livekit_room").notNull(),
   messageId: uuid("message_id"),
   screenShareUserId: text("screen_share_user_id"),
+  callUuid: text("call_uuid"),
   participantHistory: text("participant_history").array().notNull().default([]),
 });
 

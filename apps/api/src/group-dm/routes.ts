@@ -8,6 +8,8 @@ import { groupDmResponseSchema, groupDmListItemSchema, groupDmMemberSchema, erro
 import { jsonResponse, jsonOk } from "../openapi/responses";
 import { BadRequestError } from "../errors";
 import { getWorkspaceMemberContext } from "../lib/context";
+import { emitToUser } from "../lib/emit";
+import { asUserId } from "@openslaq/shared";
 
 const createGroupDmRoute = createRoute({
   method: "post",
@@ -100,6 +102,15 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
 
     const body = { channel: result.channel, members: result.members };
     if (result.created) {
+      // Notify all other members about the new group DM
+      for (const member of result.members) {
+        if (member.id !== user.id) {
+          emitToUser(asUserId(member.id), "group-dm:created", {
+            channel: result.channel,
+            members: result.members,
+          });
+        }
+      }
       return jsonResponse(c, body, 201);
     }
     return jsonResponse(c, body, 200);

@@ -154,24 +154,20 @@ export function Sidebar({
               <LayoutGrid className="w-4 h-4" />
               All workspaces
             </DropdownMenuItem>
-            {canManage && (
-              <DropdownMenuItem
-                onSelect={() => setInviteDialogOpen(true)}
-                className="text-text-secondary text-[13px] flex items-center gap-2"
-              >
-                <UserPlus className="w-4 h-4" />
-                Invite People
-              </DropdownMenuItem>
-            )}
-            {canManage && (
-              <DropdownMenuItem
-                onSelect={() => setWorkspaceSettingsOpen(true)}
-                className="text-text-secondary text-[13px] flex items-center gap-2"
-              >
-                <Settings className="w-4 h-4" />
-                Settings
-              </DropdownMenuItem>
-            )}
+            <DropdownMenuItem
+              onSelect={() => setInviteDialogOpen(true)}
+              className="text-text-secondary text-[13px] flex items-center gap-2"
+            >
+              <UserPlus className="w-4 h-4" />
+              Invite People
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => setWorkspaceSettingsOpen(true)}
+              className="text-text-secondary text-[13px] flex items-center gap-2"
+            >
+              <Settings className="w-4 h-4" />
+              Settings
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -307,8 +303,8 @@ export function Sidebar({
           activeGroupDmId={activeGroupDmId}
           onSelectDm={onSelectDm}
           onSelectGroupDm={onSelectGroupDm}
-          dms={dms}
-          groupDms={groupDms}
+          dms={dms.filter((dm) => !starredChannelIds?.includes(dm.channel.id))}
+          groupDms={groupDms.filter((g) => !starredChannelIds?.includes(g.channel.id))}
           currentUserId={currentUserId}
           onNewDm={() => onSelectComposeView?.()}
           unreadCounts={unreadCounts}

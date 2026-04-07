@@ -12,6 +12,7 @@ export function DeviceSelector({ onSelectDevice, onSelectVideoDevice }: DeviceSe
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!navigator.mediaDevices?.enumerateDevices) return;
     navigator.mediaDevices.enumerateDevices().then((allDevices) => {
       setAudioDevices(allDevices.filter((d) => d.kind === "audioinput"));
       setVideoDevices(allDevices.filter((d) => d.kind === "videoinput"));

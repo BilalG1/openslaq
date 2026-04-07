@@ -267,7 +267,7 @@ describe("bot admin API", () => {
     expect(noEvents?.subscribedEvents.length).toBe(0);
   });
 
-  test("non-admin cannot list bots → 403", async () => {
+  test("non-admin can list bots → 200", async () => {
     const id2 = testId();
     const { client: memberClient } = await createTestClient({ id: `bot-member-${id2}`, email: `bot-member-${id2}@openslaq.dev` });
     await addToWorkspace(client, slug, memberClient);
@@ -275,7 +275,7 @@ describe("bot admin API", () => {
     const res = await memberClient.api.workspaces[":slug"].bots.$get({
       param: { slug },
     });
-    expect(res.status as number).toBe(403);
+    expect(res.status as number).toBe(200);
   });
 
   test("cross-workspace bot IDs are not accessible → 404", async () => {

@@ -4,6 +4,8 @@ import type { ReactionGroup, CustomEmoji } from "@openslaq/shared";
 import { parseCustomEmojiName, findCustomEmoji } from "@openslaq/client-core";
 import emojiData from "@emoji-mart/data";
 import { EmojiPicker } from "./EmojiPicker";
+import { Tooltip } from "../ui/tooltip";
+import { useMessageActionsContext } from "./MessageActionsContext";
 
 const emojiDataTyped = emojiData as {
   emojis: Record<string, { skins: { native: string }[] }>;
@@ -39,9 +41,40 @@ function EmojiDisplay({ emoji, customEmojis }: { emoji: string; customEmojis?: C
   return <span>{emoji}</span>;
 }
 
+const MAX_TOOLTIP_NAMES = 5;
+
+export function buildReactionTooltip(
+  userIds: string[],
+  members: Array<{ id: string; displayName: string }>,
+  currentUserId: string,
+): string {
+  const names = userIds.map((id) => {
+    if (id === currentUserId) return "You";
+    const member = members.find((m) => m.id === id);
+    return member?.displayName ?? "Someone";
+  });
+
+  // Put "You" first if present
+  const youIndex = names.indexOf("You");
+  if (youIndex > 0) {
+    names.splice(youIndex, 1);
+    names.unshift("You");
+  }
+
+  if (names.length <= MAX_TOOLTIP_NAMES) {
+    if (names.length === 1) return names[0]!;
+    return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  }
+
+  const shown = names.slice(0, MAX_TOOLTIP_NAMES);
+  const remaining = names.length - MAX_TOOLTIP_NAMES;
+  return `${shown.join(", ")}, and ${remaining} ${remaining === 1 ? "other" : "others"}`;
+}
+
 export function ReactionBar({ reactions, currentUserId, onToggleReaction, customEmojis }: ReactionBarProps) {
   const [showPicker, setShowPicker] = useState(false);
   const addButtonRef = useRef<HTMLButtonElement>(null);
+  const { workspaceMembers } = useMessageActionsContext();
 
   if (reactions.length === 0 && !showPicker) return null;
 
@@ -52,7 +85,11 @@ export function ReactionBar({ reactions, currentUserId, onToggleReaction, custom
     >
       {reactions.map((r) => {
         const isActive = r.userIds.some((userId) => userId === currentUserId);
-        return (
+        const tooltipText = workspaceMembers?.length
+          ? buildReactionTooltip(r.userIds.map(String), workspaceMembers, currentUserId)
+          : undefined;
+
+        const pill = (
           <button
             key={r.emoji}
             data-testid={`reaction-pill-${r.emoji}`}
@@ -67,6 +104,14 @@ export function ReactionBar({ reactions, currentUserId, onToggleReaction, custom
             <EmojiDisplay emoji={r.emoji} customEmojis={customEmojis} />
             <span className="text-[11px] text-muted">{r.count}</span>
           </button>
+        );
+
+        return tooltipText ? (
+          <Tooltip key={r.emoji} content={tooltipText} side="top">
+            {pill}
+          </Tooltip>
+        ) : (
+          pill
         );
       })}
       <button

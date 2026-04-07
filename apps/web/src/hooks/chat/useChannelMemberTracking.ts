@@ -4,6 +4,8 @@ import {
   handleChannelMemberAdded,
   handleChannelMemberRemoved,
   normalizeChannel,
+  normalizeDmConversation,
+  normalizeGroupDmConversation,
 } from "@openslaq/client-core";
 import { api } from "../../api";
 import { useAuthProvider } from "../../lib/api-client";
@@ -68,8 +70,32 @@ export function useChannelMemberTracking(workspaceSlug?: string) {
     [dispatch],
   );
 
+  const onDmCreated = useCallback(
+    (payload: { channel: Channel; otherUser: { id: UserId; displayName: string; avatarUrl: string | null } }) => {
+      dispatch({
+        type: "workspace/addDm",
+        dm: normalizeDmConversation(payload as Parameters<typeof normalizeDmConversation>[0]),
+      });
+      socket?.emit("channel:join", { channelId: payload.channel.id as ChannelId });
+    },
+    [dispatch, socket],
+  );
+
+  const onGroupDmCreated = useCallback(
+    (payload: { channel: Channel; members: { id: string; displayName: string; avatarUrl: string | null }[] }) => {
+      dispatch({
+        type: "workspace/addGroupDm",
+        groupDm: normalizeGroupDmConversation(payload as Parameters<typeof normalizeGroupDmConversation>[0]),
+      });
+      socket?.emit("channel:join", { channelId: payload.channel.id as ChannelId });
+    },
+    [dispatch, socket],
+  );
+
   useSocketEvent("channel:created", onChannelCreated);
   useSocketEvent("channel:updated", onChannelUpdated);
   useSocketEvent("channel:member-added", onMemberAdded);
   useSocketEvent("channel:member-removed", onMemberRemoved);
+  useSocketEvent("dm:created", onDmCreated);
+  useSocketEvent("group-dm:created", onGroupDmCreated);
 }

@@ -15,6 +15,7 @@
     "test": "NODE_OPTIONS='--require ./jest-bun-resolver.js' jest",
     "test:watch": "NODE_OPTIONS='--require ./jest-bun-resolver.js' jest --watch",
     "test:coverage": "NODE_OPTIONS='--require ./jest-bun-resolver.js' jest --coverage",
+    "prebuild": "expo prebuild --platform ios --clean",
     "e2e:prebuild": "expo prebuild --platform ios --clean",
     "e2e:build": "detox build --configuration ios.sim.release",
     "e2e:test": "detox test --configuration ios.sim.release"
@@ -60,6 +61,8 @@
     "react-native-screens": "~4.16.0",
     "react-native-svg": "15.12.1",
     "react-native-syntax-highlighter": "^2.1.0",
+    "react-native-callkeep": "^4.3.16",
+    "react-native-voip-push-notification": "^3.3.3",
     "react-native-webrtc": "^124.0.7",
     "react-native-webview": "^13.16.1",
     "rn-emoji-keyboard": "^1.7.0"
@@ -88,6 +91,7 @@
     "jose": "^6.0.0",
     "react-test-renderer": "19.1.0",
     "typescript": "^5.7.3",
+    "@config-plugins/react-native-callkeep": "^12.0.0",
     "typescript-eslint": "^8.57.1"
   }
 }

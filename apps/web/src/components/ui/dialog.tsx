@@ -19,6 +19,11 @@ const DialogOverlay = forwardRef<
 ));
 DialogOverlay.displayName = "DialogOverlay";
 
+const positionClasses = {
+  center: "fixed inset-0 z-50 flex items-center justify-center",
+  top: "fixed inset-0 z-50 flex justify-center items-start pt-[10vh]",
+} as const;
+
 const dialogContentVariants = cva(
   "bg-surface rounded-xl shadow-2xl flex flex-col overflow-hidden focus:outline-none",
   {
@@ -47,20 +52,18 @@ const DialogContent = forwardRef<
 >(({ className, size, position, children, ...props }, ref) => (
   <DialogPrimitive.Portal>
     <DialogOverlay />
-    <DialogPrimitive.Content
-      ref={ref}
-      className={clsx(
-        "fixed z-50",
-        position === "top"
-          ? "left-1/2 top-[10vh] -translate-x-1/2"
-          : "left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
-        dialogContentVariants({ size, position }),
-        className,
-      )}
-      {...props}
-    >
-      {children}
-    </DialogPrimitive.Content>
+    <div className={positionClasses[position ?? "center"]}>
+      <DialogPrimitive.Content
+        ref={ref}
+        className={clsx(
+          dialogContentVariants({ size, position }),
+          className,
+        )}
+        {...props}
+      >
+        {children}
+      </DialogPrimitive.Content>
+    </div>
   </DialogPrimitive.Portal>
 ));
 DialogContent.displayName = "DialogContent";

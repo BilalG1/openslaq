@@ -1,41 +1,50 @@
-import { describe, test, expect, afterEach } from "vitest";
+import { describe, test, expect, afterEach, vi } from "vitest";
 import { render, screen, cleanup } from "../../test-utils";
-import type { ParticipantTrackInfo } from "@openslaq/huddle/client";
+import type { HuddleParticipant } from "./VideoTile";
+import type { TrackReferenceOrPlaceholder } from "@livekit/components-react";
+import { Track } from "livekit-client";
 
-// Provide browser APIs needed by VideoTile in happy-dom
-class MockMediaStream {
-  tracks: unknown[];
-  constructor(tracks?: unknown[]) { this.tracks = tracks ?? []; }
-}
-(globalThis as unknown as { MediaStream: unknown }).MediaStream = MockMediaStream;
-Object.defineProperty(HTMLVideoElement.prototype, "srcObject", {
-  set(value: unknown) { (this as unknown as { _srcObject: unknown })._srcObject = value; },
-  get() { return (this as unknown as { _srcObject: unknown })._srcObject ?? null; },
-  configurable: true,
-});
+vi.mock("@livekit/components-react", () => ({
+  VideoTrack: ({ className }: { className: string }) => (
+    <video data-testid="lk-video-track" className={className} />
+  ),
+  isTrackReference: (ref: unknown) =>
+    ref !== null && typeof ref === "object" && "publication" in (ref as Record<string, unknown>),
+}));
+
+vi.mock("livekit-client", () => ({
+  Track: { Source: { Camera: "camera", ScreenShare: "screen_share" } },
+}));
 
 import { VideoGrid } from "./VideoGrid";
 
-function makeParticipant(userId: string, overrides?: Partial<ParticipantTrackInfo>): ParticipantTrackInfo {
+function makeParticipant(identity: string, overrides?: Partial<HuddleParticipant>): HuddleParticipant {
   return {
-    userId,
+    identity,
+    name: identity,
     isMuted: false,
     isSpeaking: false,
-    isCameraOn: false,
-    isScreenSharing: false,
-    cameraTrack: null,
-    screenTrack: null,
     ...overrides,
-  } as ParticipantTrackInfo;
+  };
+}
+
+function makeEntry(identity: string, isLocal = false) {
+  return { participant: makeParticipant(identity), isLocal };
+}
+
+function makeTrackRef(identity: string, source: string) {
+  return {
+    participant: { identity },
+    source,
+    publication: {},
+  };
 }
 
 describe("VideoGrid", () => {
   afterEach(cleanup);
 
   test("gallery layout: 1 participant → grid-cols-1", () => {
-    render(
-      <VideoGrid localParticipant={makeParticipant("local-1")} remoteParticipants={[]} />,
-    );
+    render(<VideoGrid participants={[makeEntry("local-1", true)]} trackRefs={[]} />);
     const grid = screen.getByTestId("video-grid");
     expect(grid.className).toContain("grid-cols-1");
   });
@@ -43,8 +52,8 @@ describe("VideoGrid", () => {
   test("gallery layout: 2 participants → grid-cols-2", () => {
     render(
       <VideoGrid
-        localParticipant={makeParticipant("local-1")}
-        remoteParticipants={[makeParticipant("remote-1")]}
+        participants={[makeEntry("local-1", true), makeEntry("remote-1")]}
+        trackRefs={[]}
       />,
     );
     const grid = screen.getByTestId("video-grid");
@@ -54,12 +63,13 @@ describe("VideoGrid", () => {
   test("gallery layout: 4 participants → grid-cols-2 grid-rows-2", () => {
     render(
       <VideoGrid
-        localParticipant={makeParticipant("local-1")}
-        remoteParticipants={[
-          makeParticipant("remote-1"),
-          makeParticipant("remote-2"),
-          makeParticipant("remote-3"),
+        participants={[
+          makeEntry("local-1", true),
+          makeEntry("r-1"),
+          makeEntry("r-2"),
+          makeEntry("r-3"),
         ]}
+        trackRefs={[]}
       />,
     );
     const grid = screen.getByTestId("video-grid");
@@ -68,7 +78,7 @@ describe("VideoGrid", () => {
   });
 
   test("empty participants: renders empty grid", () => {
-    render(<VideoGrid localParticipant={null} remoteParticipants={[]} />);
+    render(<VideoGrid participants={[]} trackRefs={[]} />);
     const grid = screen.getByTestId("video-grid");
     expect(grid.children.length).toBe(0);
   });
@@ -76,30 +86,27 @@ describe("VideoGrid", () => {
   test("local + remote participants both rendered", () => {
     render(
       <VideoGrid
-        localParticipant={makeParticipant("local-1")}
-        remoteParticipants={[makeParticipant("remote-1")]}
+        participants={[makeEntry("local-1", true), makeEntry("remote-1")]}
+        trackRefs={[]}
       />,
     );
     const grid = screen.getByTestId("video-grid");
-    // Both participants should be rendered (2 children)
     expect(grid.children.length).toBe(2);
   });
 
   test("screen share layout: renders main area + thumbnail strip", () => {
-    const screenSharer = makeParticipant("remote-1", {
-      isScreenSharing: true,
-      screenTrack: {} as MediaStreamTrack,
-    });
+    const trackRefs = [
+      makeTrackRef("remote-1", Track.Source.ScreenShare),
+    ];
 
     render(
       <VideoGrid
-        localParticipant={makeParticipant("local-1")}
-        remoteParticipants={[screenSharer]}
+        participants={[makeEntry("local-1", true), makeEntry("remote-1")]}
+        trackRefs={trackRefs as unknown as TrackReferenceOrPlaceholder[]}
       />,
     );
 
     const grid = screen.getByTestId("video-grid");
-    // Screen share layout uses flex, not grid
     expect(grid.className).toContain("flex");
     expect(grid.className).not.toContain("grid-cols");
   });
@@ -107,14 +114,15 @@ describe("VideoGrid", () => {
   test("gallery layout: 6 participants → grid-cols-3 grid-rows-2", () => {
     render(
       <VideoGrid
-        localParticipant={makeParticipant("local-1")}
-        remoteParticipants={[
-          makeParticipant("r-1"),
-          makeParticipant("r-2"),
-          makeParticipant("r-3"),
-          makeParticipant("r-4"),
-          makeParticipant("r-5"),
+        participants={[
+          makeEntry("local-1", true),
+          makeEntry("r-1"),
+          makeEntry("r-2"),
+          makeEntry("r-3"),
+          makeEntry("r-4"),
+          makeEntry("r-5"),
         ]}
+        trackRefs={[]}
       />,
     );
     const grid = screen.getByTestId("video-grid");

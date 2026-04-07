@@ -128,6 +128,29 @@ describe("SocketManager", () => {
     expect(manager.getSnapshot().status).toBe("connected");
   });
 
+  it("fetches fresh token on reconnect_attempt", async () => {
+    const socket = new MockSocket();
+    let tokenCallCount = 0;
+    const manager = new SocketManager({
+      apiUrl: "http://test",
+      createSocket: () => socket as never,
+    });
+
+    await manager.connect(async () => {
+      tokenCallCount += 1;
+      return `token-${tokenCallCount}`;
+    });
+
+    expect(socket.auth).toEqual({ token: "token-1" });
+
+    // Simulate reconnect attempt
+    socket.io.emit("reconnect_attempt");
+    await tick();
+
+    expect(tokenCallCount).toBe(2);
+    expect(socket.auth).toEqual({ token: "token-2" });
+  });
+
   it("emits leave when connected and removes channel from desired set", async () => {
     const socket = new MockSocket();
     const manager = new SocketManager({

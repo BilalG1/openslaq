@@ -42,7 +42,11 @@ async function verifyAndExtract(token: string) {
   if (!jwks || !jwtVerifyOptions) {
     throw new Error("Stack Auth not configured");
   }
-  const { payload } = await jose.jwtVerify(token, jwks, jwtVerifyOptions);
+  // DEV_FAST_TOKEN_EXPIRY: reject tokens older than 60s (instead of the normal 1hr)
+  const verifyOpts = env.DEV_FAST_TOKEN_EXPIRY
+    ? { ...jwtVerifyOptions, maxTokenAge: "60s" }
+    : jwtVerifyOptions;
+  const { payload } = await jose.jwtVerify(token, jwks, verifyOpts);
   return payload;
 }
 

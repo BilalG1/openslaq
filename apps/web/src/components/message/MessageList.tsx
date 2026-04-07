@@ -20,6 +20,7 @@ import { useScrollAnchor } from "../../hooks/chat/useScrollAnchor";
 import { useBotActions } from "../../hooks/chat/useBotActions";
 import { EphemeralMessageItem } from "./EphemeralMessage";
 import { useChatStore } from "../../state/chat-store";
+import { useWorkspaceMembers } from "../../hooks/chat/useWorkspaceMembers";
 import type { EphemeralMessage } from "@openslaq/shared";
 
 interface MessageListProps {
@@ -44,6 +45,7 @@ export function MessageList({ channelId, onOpenThread, onOpenProfile, onJoinHudd
   const { state, dispatch } = useChatStore();
   const { toggleReaction, editMessage, deleteMessage, markAsUnread } = useMessageMutations(user);
   const { triggerAction } = useBotActions();
+  const { workspaceMembers } = useWorkspaceMembers(workspaceSlug);
 
   useChannelMessages(workspaceSlug, channelId);
 
@@ -210,8 +212,9 @@ export function MessageList({ channelId, onOpenThread, onOpenProfile, onJoinHudd
       onBotAction: triggerAction,
       savedMessageIds,
       customEmojis: state.customEmojis,
+      workspaceMembers,
     }),
-    [user?.id, onOpenThread, toggleReaction, onOpenProfile, editMessage, deleteMessage, markAsUnread, onPinMessage, onUnpinMessage, onShareMessage, onSaveMessage, onUnsaveMessage, triggerAction, savedMessageIds, state.customEmojis],
+    [user?.id, onOpenThread, toggleReaction, onOpenProfile, editMessage, deleteMessage, markAsUnread, onPinMessage, onUnpinMessage, onShareMessage, onSaveMessage, onUnsaveMessage, triggerAction, savedMessageIds, state.customEmojis, workspaceMembers],
   );
 
   return (
@@ -264,6 +267,7 @@ export function MessageList({ channelId, onOpenThread, onOpenProfile, onJoinHudd
                     <HuddleSystemMessage
                       message={msg}
                       activeHuddle={state.activeHuddles[msg.channelId] ?? null}
+                      currentUserId={user?.id}
                       onJoinHuddle={onJoinHuddle}
                     />
                   ) : (

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Platform } from "react-native";
 import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
@@ -25,7 +25,8 @@ import {
   clearServerSession,
 } from "../lib/server-store";
 import { createMobileAuthProvider } from "../lib/auth-provider";
-import { performDevQuickSignIn } from "../lib/dev-auth";
+import type { MobileAuthHandle } from "../lib/auth-provider";
+import { performDevQuickSignIn, performDemoSignIn } from "../lib/dev-auth";
 import { Sentry } from "@/sentry";
 import { useServer } from "./ServerContext";
 
@@ -88,16 +89,20 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
     return createBuiltinAuthStrategy(apiUrl);
   }, [authType, stackAuthConfig, apiUrl]);
 
-  const authHandle = useMemo(
-    () =>
-      createMobileAuthProvider(serverId, authStrategy, () => {
-        setUserWithSentry(null);
-        authHandle?.setToken(null);
-      }),
-    [serverId, authStrategy],
-  );
+  const authHandleRef = useRef<MobileAuthHandle | null>(null);
+  const authHandle = useMemo(() => {
+    const handle = createMobileAuthProvider(serverId, authStrategy, () => {
+      setUserWithSentry(null);
+      authHandleRef.current?.setToken(null);
+    });
+    authHandleRef.current = handle;
+    return handle;
+  }, [serverId, authStrategy, setUserWithSentry]);
   const authProvider = authHandle.provider;
   const setAuthToken = authHandle.setToken;
+
+  // Clean up proactive refresh timer when auth handle changes
+  useEffect(() => () => { authHandle.destroy(); }, [authHandle]);
 
   // Restore session on mount or when server changes
   useEffect(() => {
@@ -137,7 +142,7 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
     })();
 
     return () => { cancelled = true; };
-  }, [serverId]);
+  }, [serverId, setAuthToken, setUserWithSentry]);
 
   // Enrich user with profile data (displayName, avatarUrl) after auth
   useEffect(() => {
@@ -170,12 +175,19 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
       setAuthToken(tokens.access_token);
       setUserWithSentry({ id: tokens.user_id });
     },
-    [serverId],
+    [serverId, setAuthToken, setUserWithSentry],
   );
 
   // --- Stack Auth methods ---
 
+  const isDemoEmail = (email: string) =>
+    !!env.EXPO_PUBLIC_DEMO_EMAIL &&
+    email.toLowerCase() === env.EXPO_PUBLIC_DEMO_EMAIL.toLowerCase();
+
   const sendOtp = useCallback(async (email: string): Promise<string> => {
+    if (isDemoEmail(email)) {
+      return "__demo__";
+    }
     if (!stackAuthConfig) throw new Error("Stack Auth not configured for this server");
     const { nonce } = await sendOtpCode(stackAuthConfig, email, `${env.EXPO_PUBLIC_WEB_URL}/auth/otp-callback`);
     return nonce;
@@ -183,11 +195,20 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
 
   const verifyOtp = useCallback(
     async (code: string, nonce: string) => {
+      if (nonce === "__demo__" && env.EXPO_PUBLIC_DEMO_EMAIL) {
+        const result = await performDemoSignIn(apiUrl, env.EXPO_PUBLIC_DEMO_EMAIL, code);
+        await handleTokens({
+          access_token: result.accessToken,
+          refresh_token: result.refreshToken,
+          user_id: result.userId,
+        });
+        return;
+      }
       if (!stackAuthConfig) throw new Error("Stack Auth not configured for this server");
       const tokens = await verifyOtpCode(stackAuthConfig, code, nonce);
       await handleTokens(tokens);
     },
-    [stackAuthConfig, handleTokens],
+    [stackAuthConfig, handleTokens, apiUrl],
   );
 
   const signInWithApple = useCallback(async () => {
@@ -317,13 +338,13 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
     setAuthToken(result.accessToken);
     setUserWithSentry({ id: result.userId });
     setIsLoading(false);
-  }, [setAuthToken]);
+  }, [setAuthToken, setUserWithSentry]);
 
   const signOut = useCallback(async () => {
     await clearServerSession(serverId);
     setAuthToken(null);
     setUserWithSentry(null);
-  }, [serverId]);
+  }, [serverId, setUserWithSentry]);
 
   const value = useMemo(
     () => ({

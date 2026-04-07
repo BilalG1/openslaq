@@ -1,63 +1,58 @@
-import { describe, test, expect, afterEach } from "vitest";
+import { describe, test, expect, afterEach, vi } from "vitest";
 import { render, screen, cleanup } from "../../test-utils";
-import type { ParticipantTrackInfo } from "@openslaq/huddle/client";
+import type { HuddleParticipant } from "./VideoTile";
+import type { TrackReferenceOrPlaceholder } from "@livekit/components-react";
 
-// Mock MediaStream so that `new MediaStream([track])` works in happy-dom
-class MockMediaStream {
-  tracks: unknown[];
-  constructor(tracks?: unknown[]) {
-    this.tracks = tracks ?? [];
-  }
-}
-(globalThis as unknown as { MediaStream: unknown }).MediaStream = MockMediaStream;
-
-// happy-dom's HTMLMediaElement rejects non-real MediaStream for srcObject.
-// Override to accept our mock.
-Object.defineProperty(HTMLVideoElement.prototype, "srcObject", {
-  set(value: unknown) {
-    (this as unknown as { _srcObject: unknown })._srcObject = value;
-  },
-  get() {
-    return (this as unknown as { _srcObject: unknown })._srcObject ?? null;
-  },
-  configurable: true,
-});
+vi.mock("@livekit/components-react", () => ({
+  VideoTrack: ({ className, muted }: { trackRef: unknown; className: string; muted?: boolean }) => (
+    <video data-testid="lk-video-track" className={className} muted={muted ?? false} />
+  ),
+  isTrackReference: (ref: unknown) => ref !== null && typeof ref === "object" && "publication" in (ref as Record<string, unknown>),
+}));
 
 import { VideoTile } from "./VideoTile";
 
-function makeParticipant(overrides?: Partial<ParticipantTrackInfo>): ParticipantTrackInfo {
+function makeParticipant(overrides?: Partial<HuddleParticipant>): HuddleParticipant {
   return {
-    userId: "user-abc",
+    identity: "user-abc",
+    name: "Alice Park",
     isMuted: false,
     isSpeaking: false,
-    isCameraOn: false,
-    isScreenSharing: false,
-    cameraTrack: null,
-    screenTrack: null,
     ...overrides,
-  } as ParticipantTrackInfo;
+  };
+}
+
+function makeTrackRef() {
+  return {
+    participant: { identity: "user-abc" },
+    source: "camera",
+    publication: {},
+  } as unknown;
 }
 
 describe("VideoTile", () => {
   afterEach(cleanup);
 
-  test("renders initials fallback when no camera track", () => {
+  test("renders initials fallback when no track ref", () => {
     render(<VideoTile participant={makeParticipant()} />);
     const tile = screen.getByTestId("video-tile-user-abc");
-    expect(tile.textContent).toContain("US");
-    // No video element
-    expect(tile.querySelector("video")).toBeNull();
+    expect(tile.textContent).toContain("AL");
+    expect(tile.querySelector("[data-testid='lk-video-track']")).toBeNull();
   });
 
-  test("renders video element when camera track exists", () => {
-    const fakeTrack = {} as MediaStreamTrack;
+  test("shows displayName instead of identity", () => {
+    render(<VideoTile participant={makeParticipant()} />);
+    const tile = screen.getByTestId("video-tile-user-abc");
+    expect(tile.textContent).toContain("Alice Park");
+    expect(tile.textContent).not.toContain("user-abc");
+  });
+
+  test("renders VideoTrack when track ref exists", () => {
     render(
-      <VideoTile participant={makeParticipant({ cameraTrack: fakeTrack })} />,
+      <VideoTile participant={makeParticipant()} trackRef={makeTrackRef() as TrackReferenceOrPlaceholder} />,
     );
     const tile = screen.getByTestId("video-tile-user-abc");
-    const video = tile.querySelector("video");
-    expect(video).toBeTruthy();
-    expect((video as HTMLVideoElement).srcObject).toBeInstanceOf(MockMediaStream);
+    expect(tile.querySelector("[data-testid='lk-video-track']")).toBeTruthy();
   });
 
   test("shows (You) label when isLocal", () => {
@@ -75,7 +70,6 @@ describe("VideoTile", () => {
   test("shows muted icon when participant.isMuted", () => {
     render(<VideoTile participant={makeParticipant({ isMuted: true })} />);
     const tile = screen.getByTestId("video-tile-user-abc");
-    // Muted icon has text-red-400 class
     const muteIcon = tile.querySelector(".text-red-400");
     expect(muteIcon).toBeTruthy();
   });
@@ -91,19 +85,5 @@ describe("VideoTile", () => {
     render(<VideoTile participant={makeParticipant({ isSpeaking: true })} />);
     const tile = screen.getByTestId("video-tile-user-abc");
     expect(tile.className).toContain("ring-blue-400/70");
-  });
-
-  test("cleans up MediaStream on unmount", () => {
-    const fakeTrack = {} as MediaStreamTrack;
-    const { unmount } = render(
-      <VideoTile participant={makeParticipant({ cameraTrack: fakeTrack })} />,
-    );
-
-    const tile = screen.getByTestId("video-tile-user-abc");
-    const video = tile.querySelector("video") as HTMLVideoElement;
-    expect(video.srcObject).toBeInstanceOf(MockMediaStream);
-
-    unmount();
-    expect(video.srcObject).toBeNull();
   });
 });

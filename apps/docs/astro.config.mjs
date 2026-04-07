@@ -4,6 +4,7 @@ import starlight from "@astrojs/starlight";
 export default defineConfig({
   site: "https://docs.openslaq.com",
   server: { port: 3008 },
+  vite: { server: { strictPort: true } },
   integrations: [
     starlight({
       title: "OpenSlaq Docs",

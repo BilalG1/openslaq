@@ -46,8 +46,8 @@ type Tab = "members" | "bots" | "integrations" | "emoji" | "danger";
 
 const tabMeta: Record<Tab, { label: string; icon: LucideIcon; description: string; ownerOnly?: boolean; adminOnly?: boolean }> = {
   members: { label: "Members", icon: Users, description: "View and manage workspace members" },
-  bots: { label: "Bots", icon: Bot, description: "Install and configure bot integrations", adminOnly: true },
-  integrations: { label: "Integrations", icon: Puzzle, description: "Browse and install marketplace integrations", adminOnly: true },
+  bots: { label: "Bots", icon: Bot, description: "Install and configure bot integrations" },
+  integrations: { label: "Integrations", icon: Puzzle, description: "Browse and install marketplace integrations" },
   emoji: { label: "Emoji", icon: Smile, description: "Manage custom emoji for this workspace" },
   danger: { label: "Danger Zone", icon: AlertTriangle, description: "Irreversible workspace actions" },
 };
@@ -384,7 +384,7 @@ export function WorkspaceSettingsDialog({ open, onOpenChange, workspaceSlug }: W
                   </div>
                 )}
 
-                {activeTab === "bots" && canManage && (
+                {activeTab === "bots" && (
                   <div>
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="text-sm font-semibold text-primary m-0">Bots ({bots.length})</h3>
@@ -421,13 +421,13 @@ export function WorkspaceSettingsDialog({ open, onOpenChange, workspaceSlug }: W
                   </div>
                 )}
 
-                {activeTab === "integrations" && canManage && (
+                {activeTab === "integrations" && (
                   <IntegrationsTab
                     listings={listings}
                     installedIds={installedIds}
                     installing={installing}
-                    onInstall={(id) => { void handleInstall(id); }}
-                    onUninstall={(id) => { void handleUninstall(id); }}
+                    onInstall={canManage ? (id) => { void handleInstall(id); } : undefined}
+                    onUninstall={canManage ? (id) => { void handleUninstall(id); } : undefined}
                     featureFlags={featureFlags}
                   />
                 )}

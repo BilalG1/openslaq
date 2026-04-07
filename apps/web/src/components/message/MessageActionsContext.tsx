@@ -17,6 +17,7 @@ export interface MessageActionsContextValue {
   savedMessageIds?: string[];
   customEmojis?: CustomEmoji[];
   currentUserId?: string;
+  workspaceMembers?: Array<{ id: string; displayName: string }>;
 }
 
 const MessageActionsContext = createContext<MessageActionsContextValue>({});

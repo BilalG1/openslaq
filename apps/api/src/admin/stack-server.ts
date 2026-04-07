@@ -14,6 +14,7 @@ export function getStackServerApp(): StackServerApp {
     instance = new StackServerApp({
       projectId: env.VITE_STACK_PROJECT_ID,
       secretServerKey: env.STACK_SECRET_SERVER_KEY,
+      publishableClientKey: env.VITE_STACK_PUBLISHABLE_CLIENT_KEY ?? undefined,
       tokenStore: "memory",
     });
   }

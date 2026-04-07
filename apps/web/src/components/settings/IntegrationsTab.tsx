@@ -6,8 +6,8 @@ interface IntegrationsTabProps {
   listings: MarketplaceListing[];
   installedIds: Set<string>;
   installing: boolean;
-  onInstall: (listingId: string) => void;
-  onUninstall: (listingId: string) => void;
+  onInstall?: (listingId: string) => void;
+  onUninstall?: (listingId: string) => void;
   featureFlags: WorkspaceFeatureFlags;
 }
 
@@ -71,23 +71,27 @@ export function IntegrationsTab({
                   )}
                 </div>
                 {isInstalled ? (
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    disabled={installing}
-                    onClick={() => onUninstall(listing.id)}
-                  >
-                    Uninstall
-                  </Button>
+                  onUninstall && (
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      disabled={installing}
+                      onClick={() => onUninstall(listing.id)}
+                    >
+                      Uninstall
+                    </Button>
+                  )
                 ) : (
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    disabled={installing}
-                    onClick={() => onInstall(listing.id)}
-                  >
-                    Install
-                  </Button>
+                  onInstall && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      disabled={installing}
+                      onClick={() => onInstall(listing.id)}
+                    >
+                      Install
+                    </Button>
+                  )
                 )}
               </div>
             );

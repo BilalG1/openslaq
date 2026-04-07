@@ -472,13 +472,13 @@ describe("WorkspaceSettingsDialog", () => {
 
   // ── Bots section visibility ────────────────────────────────────
 
-  test("does NOT show Bots tab for regular members", async () => {
+  test("shows Bots tab for regular members", async () => {
     mockListMembers.mockImplementation(async () => [
       { id: "user-1", displayName: "Me", email: "me@test.com", avatarUrl: null, role: "member" },
     ]);
 
     await renderDialog();
-    // Bots tab should not be visible for regular members
-    expect(screen.queryByText("Bots")).toBeNull();
+    // Bots tab should be visible for all members
+    expect(screen.queryByText("Bots")).not.toBeNull();
   });
 });

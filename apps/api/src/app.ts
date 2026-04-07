@@ -25,6 +25,7 @@ import marketplaceTokenRoutes from "./marketplace/token-routes";
 import apiKeyRoutes from "./api-keys/routes";
 import serverInfoRoutes from "./server-info/routes";
 import builtinAuthRoutes from "./auth/builtin-routes";
+import demoAuthRoutes from "./auth/demo-routes";
 import { INTEGRATION_PLUGINS } from "./integrations/registry";
 import { AppError } from "./errors";
 
@@ -116,7 +117,8 @@ const routes = app
   .route("/api/marketplace/oauth", marketplaceTokenRoutes)
   .route("/api/api-keys", apiKeyRoutes)
   .route("/api", serverInfoRoutes)
-  .route("/api/auth", env.AUTH_MODE === "builtin" ? builtinAuthRoutes : new Hono());
+  .route("/api/auth", env.AUTH_MODE === "builtin" ? builtinAuthRoutes : new Hono())
+  .route("/api/auth", demoAuthRoutes);
 
 // Mount integration plugin webhook routes
 for (const plugin of INTEGRATION_PLUGINS) {

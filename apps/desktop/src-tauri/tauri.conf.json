@@ -1,11 +1,11 @@
 {
   "productName": "OpenSlaq",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "identifier": "com.openslaq.app",
   "build": {
     "beforeDevCommand": "cd ../web && bun run dev",
     "devUrl": "http://localhost:3000",
-    "beforeBuildCommand": "cd ../web && bun run build",
+    "beforeBuildCommand": "cd ../web && VITE_SENTRY_DSN=https://4d5e7906b50d3ca4031efbe48205f6d1@o4511066422181888.ingest.us.sentry.io/4511176197144576 bun run build",
     "frontendDist": "../../web/dist"
   },
   "app": {
@@ -21,10 +21,7 @@
     "security": {
       "csp": null
     },
-    "trayIcon": {
-      "iconPath": "icons/icon.png",
-      "iconAsTemplate": true
-    }
+    "trayIcon": null
   },
   "bundle": {
     "active": true,

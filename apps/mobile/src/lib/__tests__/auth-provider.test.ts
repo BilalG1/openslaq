@@ -41,6 +41,11 @@ function failingStrategy(): AuthStrategy {
 describe("auth-provider", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   it("returns a cached token without reading storage", async () => {
@@ -192,6 +197,59 @@ describe("auth-provider", () => {
 
     const refreshed = await provider.refreshAccessToken!();
     expect(refreshed).toBeNull();
+  });
+
+  it("refreshes when cached token is expired", async () => {
+    getSessionMock.mockResolvedValue({
+      accessToken: "old-access",
+      refreshToken: "refresh-1",
+      userId: "user-1",
+    });
+    const strategy = mockStrategy();
+    const { provider, setToken } = createMobileAuthProvider(TEST_SERVER_ID, strategy);
+
+    // Create a JWT-shaped token that expires in the past (exp = now - 60s)
+    const expiredPayload = btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) - 60 }));
+    const expiredToken = `header.${expiredPayload}.signature`;
+    setToken(expiredToken);
+
+    // getAccessToken should detect the expired token and refresh
+    const token = await provider.getAccessToken();
+    expect(token).toBe("new-access");
+    expect(strategy.refreshAccessToken).toHaveBeenCalledTimes(1);
+  });
+
+  it("deduplicates concurrent refreshAccessToken calls", async () => {
+    let resolveRefresh: ((value: { access_token: string; refresh_token: string; user_id: string }) => void) | null = null;
+    const strategy: AuthStrategy = {
+      refreshAccessToken: jest.fn().mockImplementation(() =>
+        new Promise((resolve) => { resolveRefresh = resolve; }),
+      ),
+    };
+    getSessionMock.mockResolvedValue({
+      accessToken: "old-access",
+      refreshToken: "refresh-1",
+      userId: "user-1",
+    });
+
+    const { provider, setToken } = createMobileAuthProvider(TEST_SERVER_ID, strategy);
+    setToken("stale-token");
+
+    // Fire two concurrent refreshAccessToken calls
+    const p1 = provider.refreshAccessToken!();
+    const p2 = provider.refreshAccessToken!();
+
+    // Let getServerSession resolve so doRefresh calls strategy.refreshAccessToken
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(strategy.refreshAccessToken).toHaveBeenCalledTimes(1);
+
+    // Resolve the single refresh
+    resolveRefresh!({ access_token: "new-access", refresh_token: "new-refresh", user_id: "user-1" });
+
+    const [t1, t2] = await Promise.all([p1, p2]);
+    expect(t1).toBe("new-access");
+    expect(t2).toBe("new-access");
   });
 
   it("isolates state between provider instances (server switch)", async () => {

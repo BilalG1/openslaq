@@ -19,7 +19,6 @@
       "Bash(bun test:*)",
       "Bash(grep:*)",
       "Bash(echo:*)",
-      "Bash(node -e:*)",
       "WebFetch(domain:github.com)",
       "Bash(xargs:*)",
       "Bash(bun remove:*)",

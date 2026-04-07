@@ -18,6 +18,7 @@ import { TooltipProvider } from "./components/ui";
 import { DeepLinkListener } from "./hooks/useDeepLink";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { SentryUserSync } from "./components/SentryUserSync";
+import { isTauri } from "./lib/tauri";
 
 const GalleryPage = import.meta.env.DEV
   ? lazy(() => import("./gallery/GalleryPage").then((m) => ({ default: m.GalleryPage })))
@@ -31,6 +32,10 @@ const DevQuickSignInButton = import.meta.env.DEV
   ? lazy(() => import("./components/dev/DevQuickSignInButton").then((m) => ({ default: m.DevQuickSignInButton })))
   : () => null;
 
+const DesktopSignIn = lazy(() =>
+  import("./components/DesktopSignIn").then((m) => ({ default: m.DesktopSignIn })),
+);
+
 const AdminPage = lazy(() =>
   import("./pages/admin/AdminPage").then((m) => ({ default: m.AdminPage })),
 );
@@ -41,6 +46,16 @@ const MarketplacePage = lazy(() =>
 
 function HandlerRoutes() {
   const location = useLocation();
+
+  // In Tauri desktop, use device flow sign-in (opens system browser)
+  if (isTauri() && location.pathname === "/handler/sign-in") {
+    return (
+      <Suspense fallback={null}>
+        <DesktopSignIn />
+      </Suspense>
+    );
+  }
+
   return (
     <>
       {import.meta.env.DEV && location.pathname === "/handler/sign-in" && (

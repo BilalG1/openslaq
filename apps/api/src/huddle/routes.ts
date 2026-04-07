@@ -28,6 +28,10 @@ import type { HuddleMessageMetadata, ChannelId, UserId } from "@openslaq/shared"
 import { rlHuddleJoin } from "../rate-limit/tiers";
 import { ForbiddenError, UnauthorizedError, ConflictError, ServiceUnavailableError } from "../errors";
 import { captureException } from "../sentry";
+import { sendHuddleRing, cancelHuddleRing } from "./ring-service";
+import { channels } from "../channels/schema";
+import { db } from "../db";
+import { eq } from "drizzle-orm";
 
 const liveKitConfig: LiveKitConfig = {
   apiKey: env.LIVEKIT_API_KEY,
@@ -174,6 +178,36 @@ const routes = new OpenAPIHono<AuthEnv>()
 
     emitToChannel(asChannelId(channelId), "huddle:started", huddle);
 
+    // Send VoIP push (CallKit ring) to channel members for new huddles
+    if (huddle.participants.length === 1) {
+      (async () => {
+        const [channelRow] = await db
+          .select({ name: channels.name, workspaceId: channels.workspaceId })
+          .from(channels)
+          .where(eq(channels.id, channelId))
+          .limit(1);
+
+        let workspaceSlug = "default";
+        if (channelRow?.workspaceId) {
+          const { workspaces } = await import("../workspaces/schema");
+          const [ws] = await db
+            .select({ slug: workspaces.slug })
+            .from(workspaces)
+            .where(eq(workspaces.id, channelRow.workspaceId))
+            .limit(1);
+          if (ws) workspaceSlug = ws.slug;
+        }
+
+        await sendHuddleRing(
+          channelId,
+          user.id,
+          channelRow?.name ?? "Huddle",
+          user.displayName,
+          workspaceSlug,
+        );
+      })().catch((err) => captureException(err, { channelId, op: "huddle:ring" }));
+    }
+
     const wsUrl = env.LIVEKIT_PUBLIC_WS_URL ?? env.LIVEKIT_WS_URL;
     return c.json({ token, wsUrl, roomName }, 200);
   })
@@ -186,6 +220,9 @@ const routes = new OpenAPIHono<AuthEnv>()
         if (result.messageId && result.startedAt) {
           await finalizeHuddleMessage(result.messageId, result.startedAt, result.participantHistory, result.channelId);
         }
+        cancelHuddleRing(result.channelId, result.callUuid, result.participantHistory).catch((err) =>
+          captureException(err, { channelId: result.channelId!, op: "huddle:cancel-ring" }),
+        );
         emitToChannel(asChannelId(result.channelId), "huddle:ended", {
           channelId: result.channelId,
         });
@@ -214,6 +251,9 @@ const routes = new OpenAPIHono<AuthEnv>()
       // Clean up server-side state
       const huddle = await getHuddleForChannel(channelId);
       if (huddle) {
+        cancelHuddleRing(channelId).catch((err) =>
+          captureException(err, { channelId, op: "huddle:cancel-ring" }),
+        );
         // Participants have all left, end the huddle
         emitToChannel(asChannelId(channelId), "huddle:ended", { channelId: asChannelId(channelId) });
       }
@@ -248,6 +288,9 @@ const routes = new OpenAPIHono<AuthEnv>()
           if (result.messageId && result.startedAt) {
             await finalizeHuddleMessage(result.messageId, result.startedAt, result.participantHistory, result.channelId);
           }
+          cancelHuddleRing(result.channelId, result.callUuid, result.participantHistory).catch((err) =>
+            captureException(err, { channelId: result.channelId!, op: "huddle:cancel-ring" }),
+          );
           emitToChannel(asChannelId(result.channelId), "huddle:ended", {
             channelId: result.channelId,
           });

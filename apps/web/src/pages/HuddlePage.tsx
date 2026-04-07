@@ -1,174 +1,77 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams } from "react-router-dom";
-import { HuddleClient, type HuddleMediaState } from "@openslaq/huddle/client";
+import {
+  LiveKitRoom,
+  RoomAudioRenderer,
+  useLocalParticipant,
+  useRemoteParticipants,
+  useConnectionState,
+  useRoomContext,
+  useTracks,
+  useIsSpeaking,
+} from "@livekit/components-react";
+import { Track, ConnectionState, VideoPresets, type RoomOptions, type Participant } from "livekit-client";
 import { notifyHuddleLeave } from "@openslaq/client-core";
 import * as Sentry from "@sentry/react";
 import { useCurrentUser } from "../hooks/useCurrentUser";
-import { useAuthProvider, authorizedHeaders } from "../lib/api-client";
+import { useAuthProvider } from "../lib/api-client";
 import { api } from "../api";
-import { env } from "../env";
+import { useHuddleToken } from "../hooks/chat/useHuddleToken";
 import { VideoGrid } from "../components/huddle/VideoGrid";
 import { DeviceSelector } from "../components/huddle/DeviceSelector";
+import { classifyMediaError, type PermissionAlert } from "../lib/huddle-errors";
+import type { HuddleParticipant } from "../components/huddle/VideoTile";
 import { Radio, VolumeX, Mic, Video, VideoOff, Monitor, PhoneOff } from "lucide-react";
 import { Tooltip } from "../components/ui";
-import { classifyMediaError, type PermissionAlert } from "../hooks/chat/useHuddleMedia";
+import { isTauri } from "../lib/tauri";
 
-const API_URL = env.VITE_API_URL;
+function closeWindow() {
+  if (isTauri()) {
+    import("@tauri-apps/api/webviewWindow").then(({ getCurrentWebviewWindow }) => {
+      getCurrentWebviewWindow().close();
+    });
+  } else {
+    window.close();
+  }
+}
+
+const ROOM_OPTIONS: RoomOptions = {
+  adaptiveStream: true,
+  dynacast: true,
+  videoCaptureDefaults: {
+    resolution: VideoPresets.h720.resolution,
+  },
+  publishDefaults: {
+    videoEncoding: VideoPresets.h720.encoding,
+    screenShareEncoding: VideoPresets.h1080.encoding,
+  },
+};
+
+function toHuddleParticipant(p: Participant, isSpeaking: boolean): HuddleParticipant {
+  let isMuted = true;
+  for (const pub of p.trackPublications.values()) {
+    if (pub.source === Track.Source.Microphone) {
+      isMuted = pub.isMuted;
+      break;
+    }
+  }
+  return {
+    identity: p.identity,
+    name: p.name || p.identity,
+    isMuted,
+    isSpeaking,
+  };
+}
 
 export function HuddlePage() {
   const { channelId } = useParams<{ channelId: string }>();
   const user = useCurrentUser();
-  const clientRef = useRef<HuddleClient | null>(null);
-  const [mediaState, setMediaState] = useState<HuddleMediaState | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [permissionAlert, setPermissionAlert] = useState<PermissionAlert | null>(null);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isCameraOn, setIsCameraOn] = useState(false);
-  const [isScreenSharing, setIsScreenSharing] = useState(false);
-  const channelName = new URLSearchParams(window.location.search).get("name") ?? channelId ?? "Huddle";
+  const channelName = new URLSearchParams(window.location.search).get("name") ?? "Huddle";
 
-  useEffect(() => {
-    if (!channelId || !user) return;
+  const { token, wsUrl, error: tokenError } = useHuddleToken(channelId, user);
+  const [connectError, setConnectError] = useState<string | null>(null);
 
-    const client = new HuddleClient();
-    clientRef.current = client;
-
-    const unsubscribe = client.subscribe((s) => {
-      setMediaState(s);
-      if (s.localParticipant) {
-        setIsMuted(s.localParticipant.isMuted);
-        setIsCameraOn(s.localParticipant.isCameraOn);
-        setIsScreenSharing(s.localParticipant.isScreenSharing);
-      }
-    });
-
-    const abortController = new AbortController();
-
-    (async () => {
-      try {
-        const headers = await authorizedHeaders(user);
-        const res = await fetch(`${API_URL}/api/huddle/join`, {
-          method: "POST",
-          headers: { ...headers, "Content-Type": "application/json" },
-          body: JSON.stringify({ channelId }),
-          signal: abortController.signal,
-        });
-
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({ error: "Unknown error" }));
-          throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`);
-        }
-
-        const { token, wsUrl } = (await res.json()) as { token: string; wsUrl: string };
-
-        try {
-          await client.connect(wsUrl, token);
-        } catch (connectErr) {
-          Sentry.captureException(connectErr);
-          console.warn("LiveKit connection failed, running in degraded mode:", connectErr);
-        }
-
-        // Enable mic — if it fails, join muted
-        try {
-          await client.enableMicrophone();
-        } catch (micErr) {
-          console.warn("Microphone unavailable, joining muted:", micErr);
-          setIsMuted(true);
-        }
-
-        setError(null);
-      } catch (err) {
-        if (abortController.signal.aborted) return;
-        Sentry.captureException(err);
-        console.error("Failed to join huddle:", err);
-        setError(err instanceof Error ? err.message : "Failed to join huddle");
-      }
-    })();
-
-    return () => {
-      abortController.abort();
-      unsubscribe();
-      client.destroy();
-      if (clientRef.current === client) {
-        clientRef.current = null;
-      }
-    };
-  }, [channelId, user]);
-
-  const auth = useAuthProvider();
-  const apiDeps = useMemo(() => ({ api, auth }), [auth]);
-
-  const handleLeave = useCallback(() => {
-    clientRef.current?.destroy();
-    clientRef.current = null;
-    notifyHuddleLeave(apiDeps);
-    window.close();
-  }, [apiDeps]);
-
-  const toggleMute = useCallback(async () => {
-    const client = clientRef.current;
-    if (!client) return;
-    try {
-      await client.toggleMicrophone();
-    } catch (err) {
-      const alert = classifyMediaError(err, "microphone");
-      if (alert) setPermissionAlert(alert);
-    }
-  }, []);
-
-  const toggleCamera = useCallback(async () => {
-    const client = clientRef.current;
-    if (!client) return;
-    try {
-      await client.toggleCamera();
-    } catch (err) {
-      const alert = classifyMediaError(err, "camera");
-      if (alert) setPermissionAlert(alert);
-    }
-  }, []);
-
-  const toggleScreenShare = useCallback(async () => {
-    const client = clientRef.current;
-    if (!client) return;
-    const s = client.getState();
-    const sharing = s.localParticipant?.isScreenSharing ?? false;
-    if (sharing) {
-      try {
-        await client.stopScreenShare();
-      } catch (err) {
-        Sentry.captureException(err);
-        console.error("Failed to stop screen share:", err);
-      }
-    } else {
-      try {
-        await client.startScreenShare();
-      } catch (err) {
-        const alert = classifyMediaError(err, "screen");
-        if (alert) setPermissionAlert(alert);
-      }
-    }
-  }, []);
-
-  const switchAudioDevice = useCallback(async (deviceId: string) => {
-    try {
-      await clientRef.current?.switchAudioDevice(deviceId);
-    } catch {
-      setPermissionAlert({
-        title: "Could not switch device",
-        description: "The selected device is unavailable. Try a different one.",
-      });
-    }
-  }, []);
-
-  // beforeunload to disconnect and notify server
-  useEffect(() => {
-    const handler = () => {
-      clientRef.current?.destroy();
-      notifyHuddleLeave(apiDeps);
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [apiDeps]);
+  const error = tokenError ?? connectError;
 
   if (error) {
     return (
@@ -177,7 +80,7 @@ export function HuddlePage() {
           <p className="text-red-400 mb-4">{error}</p>
           <button
             type="button"
-            onClick={() => window.close()}
+            onClick={() => closeWindow()}
             className="px-4 py-2 bg-white/10 backdrop-blur-xl rounded-full hover:bg-white/20 text-white border-none cursor-pointer"
           >
             Close
@@ -187,7 +90,134 @@ export function HuddlePage() {
     );
   }
 
-  const participantCount = (mediaState?.participants.length ?? 0) + (mediaState?.localParticipant ? 1 : 0);
+  return (
+    <LiveKitRoom
+      serverUrl={wsUrl ?? undefined}
+      token={token ?? undefined}
+      connect={!!token && !!wsUrl}
+      options={ROOM_OPTIONS}
+      onError={(err) => {
+        Sentry.captureException(err);
+        setConnectError(`Could not connect to voice server (${err.message})`);
+      }}
+      // Render as a plain div wrapper
+      data-lk-theme="default"
+      style={{ height: "100vh" }}
+    >
+      <RoomAudioRenderer />
+      <HuddlePageContent channelName={channelName} />
+    </LiveKitRoom>
+  );
+}
+
+function HuddlePageContent({ channelName }: { channelName: string }) {
+  const room = useRoomContext();
+  const connectionState = useConnectionState();
+  const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } = useLocalParticipant();
+  const remoteParticipants = useRemoteParticipants();
+  const trackRefs = useTracks([Track.Source.Camera, Track.Source.ScreenShare]);
+  const localIsSpeaking = useIsSpeaking(localParticipant);
+
+  const [permissionAlert, setPermissionAlert] = useState<PermissionAlert | null>(null);
+  const [micInitialized, setMicInitialized] = useState(false);
+
+  const connected = connectionState === ConnectionState.Connected;
+
+  const auth = useAuthProvider();
+  const apiDeps = useMemo(() => ({ api, auth }), [auth]);
+
+  // Auto-enable mic on first connect — if permission denied, join muted
+  useEffect(() => {
+    if (!connected || micInitialized) return;
+    setMicInitialized(true);
+    localParticipant.setMicrophoneEnabled(true).catch((err) => {
+      console.warn("Microphone unavailable, joining muted:", err);
+    });
+  }, [connected, micInitialized, localParticipant]);
+
+  const handleLeave = useCallback(() => {
+    room.disconnect();
+    notifyHuddleLeave(apiDeps);
+    closeWindow();
+  }, [room, apiDeps]);
+
+  const toggleMute = useCallback(async () => {
+    try {
+      await localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
+    } catch (err) {
+      const alert = classifyMediaError(err, "microphone");
+      if (alert) setPermissionAlert(alert);
+    }
+  }, [localParticipant, isMicrophoneEnabled]);
+
+  const toggleCamera = useCallback(async () => {
+    try {
+      await localParticipant.setCameraEnabled(!isCameraEnabled);
+    } catch (err) {
+      const alert = classifyMediaError(err, "camera");
+      if (alert) setPermissionAlert(alert);
+    }
+  }, [localParticipant, isCameraEnabled]);
+
+  const toggleScreenShare = useCallback(async () => {
+    if (isScreenShareEnabled) {
+      try {
+        await localParticipant.setScreenShareEnabled(false);
+      } catch (err) {
+        Sentry.captureException(err);
+        console.error("Failed to stop screen share:", err);
+      }
+    } else {
+      try {
+        await localParticipant.setScreenShareEnabled(true);
+      } catch (err) {
+        const alert = classifyMediaError(err, "screen");
+        if (alert) setPermissionAlert(alert);
+      }
+    }
+  }, [localParticipant, isScreenShareEnabled]);
+
+  const switchAudioDevice = useCallback(async (deviceId: string) => {
+    try {
+      await room.switchActiveDevice("audioinput", deviceId);
+    } catch {
+      setPermissionAlert({
+        title: "Could not switch device",
+        description: "The selected device is unavailable. Try a different one.",
+      });
+    }
+  }, [room]);
+
+  // beforeunload cleanup
+  useEffect(() => {
+    const handler = () => {
+      room.disconnect();
+      notifyHuddleLeave(apiDeps);
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [room, apiDeps]);
+
+  // Build participant list for VideoGrid
+  const participants = useMemo(() => {
+    const entries = [];
+    if (connected) {
+      entries.push({
+        participant: toHuddleParticipant(localParticipant, localIsSpeaking),
+        isLocal: true,
+      });
+    }
+    for (const rp of remoteParticipants) {
+      entries.push({
+        participant: toHuddleParticipant(rp, rp.isSpeaking),
+        isLocal: false,
+      });
+    }
+    return entries;
+  }, [connected, localParticipant, localIsSpeaking, remoteParticipants]);
+
+  const participantCount = participants.length;
+  const isMuted = !isMicrophoneEnabled;
 
   return (
     <div className="flex flex-col h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-950 text-white relative">
@@ -211,25 +241,24 @@ export function HuddlePage() {
         </div>
       )}
 
-      {/* Floating header badge */}
-      <div className="absolute top-4 left-4 z-10 flex items-center gap-2 backdrop-blur-md bg-white/10 rounded-full px-3 py-1.5 border border-white/10">
-        <Radio className="w-4 h-4 text-blue-400" />
-        <span className="text-sm font-medium">{channelName}</span>
-        <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-        {mediaState && (
-          <span className="text-xs text-white/50 ml-1">
-            {participantCount} participant{participantCount !== 1 ? "s" : ""}
-          </span>
-        )}
+      {/* Header badge */}
+      <div className="shrink-0 px-4 py-2">
+        <div className="inline-flex items-center gap-2 backdrop-blur-md bg-white/10 rounded-full px-3 py-1.5 border border-white/10" data-testid="huddle-badge">
+          <Radio className="w-4 h-4 text-blue-400" />
+          <span className="text-sm font-medium">{channelName}</span>
+          <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+          {connected && (
+            <span className="text-xs text-white/50 ml-1">
+              {participantCount} participant{participantCount !== 1 ? "s" : ""}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Video grid */}
       <div className="flex-1 min-h-0">
-        {mediaState ? (
-          <VideoGrid
-            localParticipant={mediaState.localParticipant}
-            remoteParticipants={mediaState.participants}
-          />
+        {connected ? (
+          <VideoGrid participants={participants} trackRefs={trackRefs} />
         ) : (
           <div className="flex items-center justify-center h-full text-white/40 text-sm">
             Connecting...
@@ -255,14 +284,14 @@ export function HuddlePage() {
             </button>
           </Tooltip>
 
-          <Tooltip content={isCameraOn ? "Turn off camera" : "Turn on camera"}>
+          <Tooltip content={isCameraEnabled ? "Turn off camera" : "Turn on camera"}>
             <button
               type="button"
               onClick={toggleCamera}
-              className={`p-2 rounded-full transition-colors ${!isCameraOn ? "bg-red-500/80 hover:bg-red-500" : "bg-white/10 hover:bg-white/20"}`}
+              className={`p-2 rounded-full transition-colors ${!isCameraEnabled ? "bg-red-500/80 hover:bg-red-500" : "bg-white/10 hover:bg-white/20"}`}
               data-testid="huddle-camera-toggle"
             >
-              {isCameraOn ? (
+              {isCameraEnabled ? (
                 <Video className="w-5 h-5" />
               ) : (
                 <VideoOff className="w-5 h-5" />
@@ -270,11 +299,11 @@ export function HuddlePage() {
             </button>
           </Tooltip>
 
-          <Tooltip content={isScreenSharing ? "Stop sharing" : "Share screen"}>
+          <Tooltip content={isScreenShareEnabled ? "Stop sharing" : "Share screen"}>
             <button
               type="button"
               onClick={toggleScreenShare}
-              className={`p-2 rounded-full transition-colors ${isScreenSharing ? "bg-blue-500/80 hover:bg-blue-500" : "bg-white/10 hover:bg-white/20"}`}
+              className={`p-2 rounded-full transition-colors ${isScreenShareEnabled ? "bg-blue-500/80 hover:bg-blue-500" : "bg-white/10 hover:bg-white/20"}`}
               data-testid="huddle-screenshare-toggle"
             >
               <Monitor className="w-5 h-5" />

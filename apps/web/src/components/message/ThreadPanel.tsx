@@ -17,6 +17,7 @@ import { useScrollAnchor } from "../../hooks/chat/useScrollAnchor";
 import { useBotActions } from "../../hooks/chat/useBotActions";
 import { useTypingEmitter } from "../../hooks/chat/useTypingEmitter";
 import { useChatStore } from "../../state/chat-store";
+import { useWorkspaceMembers } from "../../hooks/chat/useWorkspaceMembers";
 
 interface ThreadPanelProps {
   channelId: string;
@@ -32,6 +33,7 @@ export function ThreadPanel({ channelId, parentMessageId, onClose, onOpenProfile
   const { state, dispatch } = useChatStore();
   const { toggleReaction, editMessage, deleteMessage } = useMessageMutations(user);
   const { triggerAction } = useBotActions();
+  const { workspaceMembers } = useWorkspaceMembers(workspaceSlug);
   const { emitTyping } = useTypingEmitter(channelId);
 
   useThreadMessages(workspaceSlug, channelId, parentMessageId);
@@ -121,8 +123,9 @@ export function ThreadPanel({ channelId, parentMessageId, onClose, onOpenProfile
       onDeleteMessage: deleteMessage,
       onBotAction: triggerAction,
       customEmojis: state.customEmojis,
+      workspaceMembers,
     }),
-    [user?.id, toggleReaction, onOpenProfile, editMessage, deleteMessage, triggerAction, state.customEmojis],
+    [user?.id, toggleReaction, onOpenProfile, editMessage, deleteMessage, triggerAction, state.customEmojis, workspaceMembers],
   );
 
   return (

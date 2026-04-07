@@ -96,7 +96,7 @@ const listBotsRoute = createRoute({
   summary: "List bots",
   description: "Lists all bot apps in the workspace.",
   security: BEARER_SECURITY,
-  middleware: [rlRead, requireRole(ROLES.ADMIN)] as const,
+  middleware: [rlRead, requireRole(ROLES.MEMBER)] as const,
   responses: {
     200: jsonContent(z.array(botAppSchema), "List of bots"),
   },
@@ -109,7 +109,7 @@ const createBotRoute = createRoute({
   summary: "Create bot app",
   description: "Creates a new bot app. Returns the API token once.",
   security: BEARER_SECURITY,
-  middleware: [rlMemberManage, requireRole(ROLES.ADMIN)] as const,
+  middleware: [rlMemberManage, requireRole(ROLES.MEMBER)] as const,
   request: {
     body: jsonBody(createBotSchema),
   },

@@ -70,6 +70,8 @@ export interface ServerToClientEvents {
   "huddle:ended": (payload: { channelId: ChannelId }) => void;
   "huddle:sync": (payload: { huddles: HuddleState[] }) => void;
   "channel:created": (payload: { channel: Channel }) => void;
+  "dm:created": (payload: { channel: Channel; otherUser: { id: UserId; displayName: string; avatarUrl: string | null } }) => void;
+  "group-dm:created": (payload: { channel: Channel; members: { id: string; displayName: string; avatarUrl: string | null }[] }) => void;
   "channel:updated": (payload: { channelId: ChannelId; channel: Channel }) => void;
   "channel:member-added": (payload: { channelId: ChannelId; userId: UserId }) => void;
   "channel:member-removed": (payload: { channelId: ChannelId; userId: UserId }) => void;

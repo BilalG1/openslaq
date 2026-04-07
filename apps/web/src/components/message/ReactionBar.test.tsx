@@ -1,6 +1,8 @@
 import { describe, expect, test, afterEach, vi } from "vitest";
 import { render, screen, cleanup } from "../../test-utils";
-import { ReactionBar } from "./ReactionBar";
+import { ReactionBar, buildReactionTooltip } from "./ReactionBar";
+import { MessageActionsProvider } from "./MessageActionsContext";
+import { TooltipProvider } from "../ui";
 import type { ReactionGroup, UserId, CustomEmoji } from "@openslaq/shared";
 import { asEmojiId, asWorkspaceId, asUserId } from "@openslaq/shared";
 
@@ -122,5 +124,81 @@ describe("ReactionBar", () => {
     const img = container.querySelector("img");
     expect(img).toBeFalsy();
     expect(container.textContent).toContain(":unknown-emoji:");
+  });
+
+  describe("buildReactionTooltip", () => {
+    const members = [
+      { id: "u-1", displayName: "Alice" },
+      { id: "u-2", displayName: "Bob" },
+      { id: "u-3", displayName: "Carol" },
+      { id: "u-4", displayName: "Dave" },
+      { id: "u-5", displayName: "Eve" },
+      { id: "u-6", displayName: "Frank" },
+      { id: "u-7", displayName: "Grace" },
+    ];
+
+    test("single user", () => {
+      expect(buildReactionTooltip(["u-2"], members, "u-1")).toBe("Bob");
+    });
+
+    test("current user shows as 'You'", () => {
+      expect(buildReactionTooltip(["u-1"], members, "u-1")).toBe("You");
+    });
+
+    test("two users with current user first", () => {
+      expect(buildReactionTooltip(["u-2", "u-1"], members, "u-1")).toBe("You and Bob");
+    });
+
+    test("three users", () => {
+      expect(buildReactionTooltip(["u-2", "u-3", "u-4"], members, "u-1")).toBe("Bob, Carol and Dave");
+    });
+
+    test("more than 5 users truncates with 'others'", () => {
+      const ids = ["u-1", "u-2", "u-3", "u-4", "u-5", "u-6", "u-7"];
+      const result = buildReactionTooltip(ids, members, "u-1");
+      expect(result).toBe("You, Bob, Carol, Dave, Eve, and 2 others");
+    });
+
+    test("unknown user shows as 'Someone'", () => {
+      expect(buildReactionTooltip(["u-999"], members, "u-1")).toBe("Someone");
+    });
+  });
+
+  test("shows tooltip with user names when workspaceMembers provided", () => {
+    const members = [
+      { id: "u-1", displayName: "Alice" },
+      { id: "u-2", displayName: "Bob" },
+      { id: "u-3", displayName: "Carol" },
+    ];
+    const reactions: ReactionGroup[] = [
+      { emoji: "👍", count: 3, userIds: [uid("u-1"), uid("u-2"), uid("u-3")] },
+    ];
+    render(
+      <TooltipProvider>
+        <MessageActionsProvider value={{ workspaceMembers: members }}>
+          <ReactionBar reactions={reactions} currentUserId="u-1" onToggleReaction={noop} />
+        </MessageActionsProvider>
+      </TooltipProvider>,
+    );
+    const pill = screen.getByTestId("reaction-pill-👍");
+    expect(pill).toBeTruthy();
+  });
+
+  test("tooltip puts 'You' first when current user reacted", () => {
+    const members = [
+      { id: "u-1", displayName: "Alice" },
+      { id: "u-2", displayName: "Bob" },
+    ];
+    const reactions: ReactionGroup[] = [
+      { emoji: "👍", count: 2, userIds: [uid("u-2"), uid("u-1")] },
+    ];
+    render(
+      <TooltipProvider>
+        <MessageActionsProvider value={{ workspaceMembers: members }}>
+          <ReactionBar reactions={reactions} currentUserId="u-1" onToggleReaction={noop} />
+        </MessageActionsProvider>
+      </TooltipProvider>,
+    );
+    expect(screen.getByTestId("reaction-pill-👍")).toBeTruthy();
   });
 });

@@ -70,7 +70,10 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
-      external: [/^@tauri-apps\//],
+      // @tauri-apps packages must NOT be externalized — the localhost plugin
+      // serves assets over plain HTTP so dynamic imports need to be bundled.
+      // The code already guards all Tauri calls behind isTauri() checks so
+      // these modules are tree-shaken in regular web builds.
     },
   },
 });

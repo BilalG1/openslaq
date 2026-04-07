@@ -330,23 +330,23 @@ describe("member roles", () => {
     expect(res.status).toBe(404);
   });
 
-  test("member cannot create invite → 403", async () => {
+  test("member can create invite → 201", async () => {
     const { memberClient, slug } = await setupWorkspaceWithMember();
 
     const res = await memberClient.api.workspaces[":slug"].invites.$post({
       param: { slug },
       json: {},
     });
-    expect(res.status as number).toBe(403);
+    expect(res.status as number).toBe(201);
   });
 
-  test("member cannot list invites → 403", async () => {
+  test("member can list invites → 200", async () => {
     const { memberClient, slug } = await setupWorkspaceWithMember();
 
     const res = await memberClient.api.workspaces[":slug"].invites.$get({
       param: { slug },
     });
-    expect(res.status as number).toBe(403);
+    expect(res.status as number).toBe(200);
   });
 
   test("owner can delete workspace", async () => {

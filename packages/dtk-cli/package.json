@@ -1,0 +1,19 @@
+{
+  "name": "@openslaq/dtk-cli",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "bin": {
+    "dtk": "./src/dtk.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.10",
+    "typescript": "^5.7.3"
+  }
+}

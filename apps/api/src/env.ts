@@ -42,6 +42,9 @@ const envSchema = z.object({
   VERCEL_CLIENT_ID: z.string().optional(),
   VERCEL_CLIENT_SECRET: z.string().optional(),
   VERCEL_WEBHOOK_SECRET: z.string().optional(),
+  DEMO_EMAIL: z.string().email().optional(),
+  DEMO_OTP_CODE: z.string().optional(),
+  DEV_FAST_TOKEN_EXPIRY: z.coerce.boolean().default(false),
 });
 
 const parsed = envSchema.parse(process.env);
@@ -58,6 +61,14 @@ if (parsed.AUTH_MODE === "stack-auth" && !parsed.VITE_STACK_PROJECT_ID) {
 
 if (parsed.AUTH_MODE === "builtin" && !parsed.AUTH_JWT_SECRET) {
   throw new Error("AUTH_JWT_SECRET is required when AUTH_MODE=builtin");
+}
+
+if (parsed.DEMO_EMAIL && !parsed.DEMO_OTP_CODE) {
+  throw new Error("DEMO_OTP_CODE is required when DEMO_EMAIL is set");
+}
+
+if (parsed.DEMO_EMAIL && !parsed.STACK_SECRET_SERVER_KEY) {
+  throw new Error("STACK_SECRET_SERVER_KEY is required when DEMO_EMAIL is set");
 }
 
 export const env = {

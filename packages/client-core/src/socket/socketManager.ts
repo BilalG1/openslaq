@@ -40,6 +40,7 @@ export class SocketManager {
   private intentionallyDisconnected = true;
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
   private readonly createSocket: () => TypedSocket;
+  private tokenProvider: TokenProvider | null = null;
 
   constructor(options: SocketManagerOptions) {
     this.apiUrl = options.apiUrl;
@@ -76,6 +77,7 @@ export class SocketManager {
   }
 
   async connect(tokenProvider: TokenProvider): Promise<void> {
+    this.tokenProvider = tokenProvider;
     const attempt = ++this.connectAttempt;
     this.intentionallyDisconnected = false;
     this.updateStatus("connecting", null);
@@ -158,9 +160,16 @@ export class SocketManager {
       this.updateStatus("reconnecting", this.lastError);
     });
 
-    socket.io.on("reconnect_attempt", () => {
+    socket.io.on("reconnect_attempt", async () => {
       if (!this.intentionallyDisconnected) {
         this.updateStatus("reconnecting", this.lastError);
+        // Fetch a fresh token so reconnections don't reuse an expired one
+        if (this.tokenProvider) {
+          const freshToken = await this.tokenProvider();
+          if (freshToken && this.socket) {
+            this.socket.auth = { token: freshToken };
+          }
+        }
       }
     });
 

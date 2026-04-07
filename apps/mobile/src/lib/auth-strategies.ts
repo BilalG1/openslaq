@@ -25,18 +25,25 @@ export function createStackAuthStrategy(config: StackAuthConfig): AuthStrategy {
     async refreshAccessToken(refreshToken: string): Promise<AuthTokens> {
       const res = await fetch(`${STACK_API_BASE}/auth/sessions/current/refresh`, {
         method: "POST",
-        headers: stackHeaders(),
-        body: JSON.stringify({ refresh_token: refreshToken }),
+        headers: {
+          "X-Stack-Project-Id": config.projectId,
+          "X-Stack-Access-Type": "client",
+          "X-Stack-Publishable-Client-Key": config.publishableKey,
+          "X-Stack-Refresh-Token": refreshToken,
+        },
       });
       if (!res.ok) {
         throw new Error(`Token refresh failed (${res.status})`);
       }
       const json = (await res.json()) as Record<string, unknown>;
       const accessToken = json.access_token;
-      const newRefreshToken = json.refresh_token;
-      if (typeof accessToken !== "string" || typeof newRefreshToken !== "string") {
-        throw new Error("Invalid token response");
+      if (typeof accessToken !== "string") {
+        throw new Error("Invalid token response: missing access_token");
       }
+      // Stack Auth doesn't rotate refresh tokens — reuse the original
+      const newRefreshToken = typeof json.refresh_token === "string"
+        ? json.refresh_token
+        : refreshToken;
       // Extract user_id from JWT sub claim
       const { decodeJwt } = await import("jose");
       const { sub } = decodeJwt(accessToken);

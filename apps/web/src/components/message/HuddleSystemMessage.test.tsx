@@ -27,7 +27,7 @@ function makeHuddleMessage(overrides?: Partial<HuddleMessage>): HuddleMessage {
   } as unknown as HuddleMessage;
 }
 
-function makeActiveHuddle(participants: string[]): HuddleState {
+function makeActiveHuddle(participants: string[], messageId = "msg-1"): HuddleState {
   return {
     channelId: "ch-1" as ChannelId,
     participants: participants.map((userId) => ({
@@ -36,6 +36,7 @@ function makeActiveHuddle(participants: string[]): HuddleState {
     })),
     startedAt: "2026-03-01T10:00:00Z",
     startedBy: "user-1" as UserId,
+    messageId,
   } as unknown as HuddleState;
 }
 
@@ -70,6 +71,7 @@ describe("HuddleSystemMessage", () => {
       <HuddleSystemMessage
         message={makeHuddleMessage()}
         activeHuddle={makeActiveHuddle(["user-1", "user-2"])}
+        currentUserId="other-user"
         onJoinHuddle={onJoin}
       />,
     );
@@ -84,6 +86,7 @@ describe("HuddleSystemMessage", () => {
       <HuddleSystemMessage
         message={makeHuddleMessage()}
         activeHuddle={makeActiveHuddle(["user-1"])}
+        currentUserId="other-user"
         onJoinHuddle={onJoin}
       />,
     );
@@ -97,6 +100,32 @@ describe("HuddleSystemMessage", () => {
       <HuddleSystemMessage
         message={makeHuddleMessage()}
         activeHuddle={makeActiveHuddle(["user-1"])}
+      />,
+    );
+
+    expect(screen.queryByTestId("huddle-join-from-message")).toBeNull();
+  });
+
+  test("no Join button when current user is already a participant", () => {
+    render(
+      <HuddleSystemMessage
+        message={makeHuddleMessage()}
+        activeHuddle={makeActiveHuddle(["user-1", "user-2"])}
+        currentUserId="user-1"
+        onJoinHuddle={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByTestId("huddle-join-from-message")).toBeNull();
+  });
+
+  test("no Join button when activeHuddle messageId does not match message id", () => {
+    render(
+      <HuddleSystemMessage
+        message={makeHuddleMessage({ id: "msg-old" as MessageId })}
+        activeHuddle={makeActiveHuddle(["user-1"], "msg-current")}
+        currentUserId="other-user"
+        onJoinHuddle={vi.fn()}
       />,
     );
 
@@ -180,11 +209,25 @@ describe("HuddleSystemMessage", () => {
     expect(screen.queryByTestId("huddle-join-from-message")).toBeNull();
   });
 
+  test("shows timestamp from createdAt", () => {
+    render(
+      <HuddleSystemMessage
+        message={makeHuddleMessage({ createdAt: "2026-03-01T10:30:00Z" })}
+      />,
+    );
+
+    const timeEl = screen.getByTestId("huddle-message-time");
+    expect(timeEl).toBeTruthy();
+    // The exact format depends on locale, but it should contain the minutes
+    expect(timeEl.textContent).toContain("30");
+  });
+
   test("1 participant shows singular form", () => {
     render(
       <HuddleSystemMessage
         message={makeHuddleMessage()}
         activeHuddle={makeActiveHuddle(["user-1"])}
+        currentUserId="other-user"
         onJoinHuddle={vi.fn()}
       />,
     );

@@ -3,6 +3,7 @@ import type { HuddleMessage, HuddleState } from "@openslaq/shared";
 interface HuddleSystemMessageProps {
   message: HuddleMessage;
   activeHuddle?: HuddleState | null;
+  currentUserId?: string;
   onJoinHuddle?: (channelId: string) => void;
 }
 
@@ -15,10 +16,12 @@ function formatDuration(seconds: number): string {
   return remainMins > 0 ? `${hours}h ${remainMins}m` : `${hours}h`;
 }
 
-export function HuddleSystemMessage({ message, activeHuddle, onJoinHuddle }: HuddleSystemMessageProps) {
+export function HuddleSystemMessage({ message, activeHuddle, currentUserId, onJoinHuddle }: HuddleSystemMessageProps) {
   const meta = message.metadata;
-  const isActive = Boolean(activeHuddle) && (!activeHuddle?.messageId || activeHuddle.messageId === message.id);
+  const isActive = Boolean(activeHuddle) && activeHuddle?.messageId === message.id;
+  const isCurrentUserInHuddle = activeHuddle?.participants.some((p) => p.userId === currentUserId) ?? false;
   const senderName = message.senderDisplayName ?? message.userId;
+  const time = new Date(message.createdAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 
   return (
     <div className="flex items-center gap-3 py-2 px-4 -mx-4 my-1 rounded-lg bg-surface-raised" data-testid="huddle-system-message">
@@ -33,6 +36,7 @@ export function HuddleSystemMessage({ message, activeHuddle, onJoinHuddle }: Hud
         <div className={`text-sm ${isActive ? "text-primary" : "text-faint"}`}>
           <span className="font-semibold">{senderName}</span>
           {" started a huddle"}
+          <span className="text-[11px] text-faint ml-2" data-testid="huddle-message-time">{time}</span>
         </div>
 
         {isActive && activeHuddle ? (
@@ -77,8 +81,8 @@ export function HuddleSystemMessage({ message, activeHuddle, onJoinHuddle }: Hud
         ) : null}
       </div>
 
-      {/* Join button for active huddles */}
-      {isActive && onJoinHuddle && (
+      {/* Join button for active huddles (hidden if current user is already in the huddle) */}
+      {isActive && onJoinHuddle && !isCurrentUserInHuddle && (
         <button
           type="button"
           onClick={() => onJoinHuddle(message.channelId)}

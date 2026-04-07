@@ -22,6 +22,12 @@ let customSender: ApnsSendFn | null = null;
 let fakeApnsEnabled = false;
 const sentLog: Array<{ token: string; payload: ApnsPayload; result: ApnsResult }> = [];
 
+// Injectable VoIP sender for testing
+type VoipSendFn = (token: string, payload: VoipPayload) => Promise<ApnsResult>;
+let customVoipSender: VoipSendFn | null = null;
+let fakeVoipEnabled = false;
+const voipSentLog: Array<{ token: string; payload: VoipPayload; result: ApnsResult }> = [];
+
 export function setApnsSender(fn: ApnsSendFn): void {
   customSender = fn;
   fakeApnsEnabled = true;
@@ -38,6 +44,24 @@ export function getApnsSentLog() {
 
 export function clearApnsSentLog() {
   sentLog.length = 0;
+}
+
+export function setVoipSender(fn: VoipSendFn): void {
+  customVoipSender = fn;
+  fakeVoipEnabled = true;
+}
+
+export function resetVoipSender(): void {
+  customVoipSender = null;
+  fakeVoipEnabled = false;
+}
+
+export function getVoipSentLog() {
+  return voipSentLog;
+}
+
+export function clearVoipSentLog() {
+  voipSentLog.length = 0;
 }
 
 export function isApnsConfigured(): boolean {
@@ -254,4 +278,101 @@ export function closeApnsSession(): void {
     session.close();
   }
   session = null;
+}
+
+// --- VoIP Push Notifications ---
+
+export interface VoipPayload {
+  type: "huddle_ring" | "huddle_cancel";
+  uuid: string;
+  channelId: string;
+  channelName: string;
+  callerName: string;
+  callerUserId: string;
+  workspaceSlug: string;
+}
+
+export function isVoipConfigured(): boolean {
+  return fakeVoipEnabled || isApnsConfigured();
+}
+
+async function sendVoipPushNotificationReal(
+  deviceToken: string,
+  payload: VoipPayload,
+): Promise<ApnsResult> {
+  const jwt = await getJwt();
+  const s = await getSession();
+
+  return new Promise((resolve) => {
+    const req = s.request({
+      ":method": "POST",
+      ":path": `/3/device/${deviceToken}`,
+      authorization: `bearer ${jwt}`,
+      "apns-topic": `${env.APNS_BUNDLE_ID}.voip`,
+      "apns-push-type": "voip",
+      "apns-priority": "10",
+    });
+
+    const body = JSON.stringify(payload);
+    let responseData = "";
+
+    req.on("response", (headers) => {
+      const statusCode = headers[":status"] as number;
+
+      req.on("data", (chunk: Buffer) => {
+        responseData += chunk.toString();
+      });
+
+      req.on("end", () => {
+        if (statusCode === 200) {
+          resolve({ success: true, statusCode });
+        } else {
+          let reason = "Unknown";
+          try {
+            const parsed = JSON.parse(responseData) as { reason?: string };
+            reason = parsed.reason ?? "Unknown";
+          } catch {
+            // ignore parse error
+          }
+          resolve({ success: false, statusCode, reason });
+        }
+      });
+    });
+
+    req.on("error", (err) => {
+      captureException(err, { op: "apns:voip-request" });
+      resolve({ success: false, statusCode: 0, reason: err.message });
+    });
+
+    req.end(body);
+  });
+}
+
+export async function sendVoipPushNotification(
+  deviceToken: string,
+  payload: VoipPayload,
+): Promise<ApnsResult> {
+  const sender = customVoipSender ?? sendVoipPushNotificationReal;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      const backoffMs = retryBaseMs * 2 ** (attempt - 1);
+      await sleep(backoffMs);
+    }
+
+    const result = await sender(deviceToken, payload);
+    voipSentLog.push({ token: deviceToken, payload, result });
+
+    if (result.success || !isTransientError(result)) {
+      return result;
+    }
+
+    if (attempt < MAX_RETRIES) {
+      console.warn(
+        `[APNs VoIP] Transient error (status ${result.statusCode}), retrying (${attempt + 1}/${MAX_RETRIES})...`,
+      );
+    }
+  }
+
+  return voipSentLog[voipSentLog.length - 1]!.result;
 }

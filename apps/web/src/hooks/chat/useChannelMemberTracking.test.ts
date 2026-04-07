@@ -12,11 +12,13 @@ vi.mock("../useCurrentUser", () => ({
 
 // Mock socket with on/off that captures handlers (used by the real useSocketEvent)
 const socketHandlers: Record<string, Function> = {};
+const mockEmit = vi.fn();
 const mockSocket = {
   on: (event: string, handler: Function) => {
     socketHandlers[event] = handler;
   },
   off: () => {},
+  emit: mockEmit,
 };
 
 vi.mock("../useSocket", () => ({
@@ -87,6 +89,82 @@ describe("useChannelMemberTracking", () => {
       channelId: "ch-1",
       delta: -1,
     });
+  });
+
+  test("registers dm:created socket handler that dispatches addDm and joins channel room", () => {
+    mockDispatch.mockClear();
+    mockEmit.mockClear();
+    renderHook(() => useChannelMemberTracking("test-workspace"));
+
+    expect(socketHandlers["dm:created"]).toBeDefined();
+
+    const payload = {
+      channel: {
+        id: "dm-1",
+        name: "dm:user-1:user-2",
+        type: "dm",
+        workspaceId: "ws-1",
+        description: null,
+        displayName: null,
+        isArchived: false,
+        createdBy: "user-2",
+        createdAt: "2026-01-01T00:00:00Z",
+        memberCount: 2,
+      },
+      otherUser: { id: "user-2", displayName: "Alice", avatarUrl: null },
+    };
+
+    socketHandlers["dm:created"]!(payload);
+
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: "workspace/addDm",
+      dm: expect.objectContaining({
+        channel: expect.objectContaining({ id: "dm-1" }),
+        otherUser: expect.objectContaining({ id: "user-2", displayName: "Alice" }),
+      }),
+    });
+    expect(mockEmit).toHaveBeenCalledWith("channel:join", { channelId: "dm-1" });
+  });
+
+  test("registers group-dm:created socket handler that dispatches addGroupDm and joins channel room", () => {
+    mockDispatch.mockClear();
+    mockEmit.mockClear();
+    renderHook(() => useChannelMemberTracking("test-workspace"));
+
+    expect(socketHandlers["group-dm:created"]).toBeDefined();
+
+    const payload = {
+      channel: {
+        id: "gdm-1",
+        name: "group-dm",
+        type: "group_dm",
+        workspaceId: "ws-1",
+        description: null,
+        displayName: null,
+        isArchived: false,
+        createdBy: "user-2",
+        createdAt: "2026-01-01T00:00:00Z",
+        memberCount: 3,
+      },
+      members: [
+        { id: "user-1", displayName: "Me", avatarUrl: null },
+        { id: "user-2", displayName: "Alice", avatarUrl: null },
+        { id: "user-3", displayName: "Bob", avatarUrl: null },
+      ],
+    };
+
+    socketHandlers["group-dm:created"]!(payload);
+
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: "workspace/addGroupDm",
+      groupDm: expect.objectContaining({
+        channel: expect.objectContaining({ id: "gdm-1" }),
+        members: expect.arrayContaining([
+          expect.objectContaining({ id: "user-2", displayName: "Alice" }),
+        ]),
+      }),
+    });
+    expect(mockEmit).toHaveBeenCalledWith("channel:join", { channelId: "gdm-1" });
   });
 
   test("registers channel:updated socket handler that dispatches updateChannel", () => {

@@ -129,7 +129,7 @@ export async function acceptInvite(code: string, userId: string) {
         .onConflictDoNothing();
     }
 
-    // Auto-create self-DM
+    // Auto-create self-DM (may already exist if user is rejoining)
     const selfDmName = dmChannelName(userId, userId);
     const [selfDm] = await tx
       .insert(channels)
@@ -139,12 +139,25 @@ export async function acceptInvite(code: string, userId: string) {
         type: CHANNEL_TYPES.DM,
         createdBy: userId,
       })
+      .onConflictDoNothing()
       .returning();
-    if (selfDm) {
-      await tx.insert(channelMembers).values({ channelId: selfDm.id, userId });
+    const selfDmId = selfDm?.id ?? (
+      await tx.query.channels.findFirst({
+        where: and(
+          eq(channels.workspaceId, invite.workspaceId),
+          eq(channels.name, selfDmName),
+        ),
+        columns: { id: true },
+      })
+    )?.id;
+    if (selfDmId) {
+      await tx
+        .insert(channelMembers)
+        .values({ channelId: selfDmId, userId })
+        .onConflictDoNothing();
       await tx
         .insert(channelReadPositions)
-        .values({ userId, channelId: selfDm.id, lastReadAt: sql`now()` })
+        .values({ userId, channelId: selfDmId, lastReadAt: sql`now()` })
         .onConflictDoNothing();
     }
 

@@ -3,7 +3,7 @@ import { eq, and, sql } from "drizzle-orm";
 import { auth } from "../auth/middleware";
 import { BEARER_SECURITY, jsonBody, jsonContent } from "../lib/openapi-helpers";
 import { db } from "../db";
-import { pushTokens, notificationPreferences } from "./schema";
+import { pushTokens, voipPushTokens, notificationPreferences } from "./schema";
 import { rlRead, rlProfileUpdate } from "../rate-limit";
 import { okSchema } from "../openapi/schemas";
 import { jsonResponse } from "../openapi/responses";
@@ -79,6 +79,43 @@ const updateNotifPrefsRoute = createRoute({
   },
   responses: {
     200: jsonContent(notifPrefsSchema, "Updated notification preferences"),
+  },
+});
+
+const registerVoipTokenRoute = createRoute({
+  method: "post",
+  path: "/voip-tokens",
+  tags: ["Push"],
+  summary: "Register VoIP push token",
+  description: "Registers or updates a PushKit VoIP token for the current user (used for CallKit incoming call notifications).",
+  security: BEARER_SECURITY,
+  middleware: [auth, rlProfileUpdate] as const,
+  request: {
+    body: jsonBody(z.object({
+      token: z.string().min(1).describe("PushKit VoIP device token"),
+      platform: z.enum(["ios"]).describe("Device platform"),
+    })),
+  },
+  responses: {
+    200: jsonContent(okSchema, "VoIP token registered"),
+  },
+});
+
+const unregisterVoipTokenRoute = createRoute({
+  method: "delete",
+  path: "/voip-tokens",
+  tags: ["Push"],
+  summary: "Unregister VoIP push token",
+  description: "Removes a PushKit VoIP token (e.g., on sign-out).",
+  security: BEARER_SECURITY,
+  middleware: [auth, rlProfileUpdate] as const,
+  request: {
+    body: jsonBody(z.object({
+      token: z.string().min(1).describe("PushKit VoIP token to remove"),
+    })),
+  },
+  responses: {
+    200: jsonContent(okSchema, "VoIP token removed"),
   },
 });
 
@@ -163,6 +200,34 @@ const app = new OpenAPIHono()
       });
 
     return jsonResponse(c, { pushEnabled, soundEnabled }, 200);
+  })
+  .openapi(registerVoipTokenRoute, async (c) => {
+    const user = c.get("user");
+    const { token, platform } = c.req.valid("json");
+
+    await db
+      .insert(voipPushTokens)
+      .values({
+        userId: user.id,
+        token,
+        platform,
+      })
+      .onConflictDoUpdate({
+        target: voipPushTokens.token,
+        set: { userId: user.id, updatedAt: sql`now()` },
+      });
+
+    return c.json({ ok: true as const }, 200);
+  })
+  .openapi(unregisterVoipTokenRoute, async (c) => {
+    const user = c.get("user");
+    const { token } = c.req.valid("json");
+
+    await db
+      .delete(voipPushTokens)
+      .where(and(eq(voipPushTokens.userId, user.id), eq(voipPushTokens.token, token)));
+
+    return c.json({ ok: true as const }, 200);
   });
 
 export default app;

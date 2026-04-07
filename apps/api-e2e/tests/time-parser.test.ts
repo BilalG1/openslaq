@@ -132,10 +132,10 @@ describe("parseRemindTime", () => {
       expect(result!.getDay()).toBe(1);
       expect(result!.getHours()).toBe(9);
       expect(result!.getMinutes()).toBe(0);
-      // Should be 1-7 days in the future
+      // Should be 1-8 days in the future (can exceed 7.0 when run before 9am on the same weekday)
       const diffDays = (result!.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
       expect(diffDays).toBeGreaterThan(0);
-      expect(diffDays).toBeLessThanOrEqual(7);
+      expect(diffDays).toBeLessThanOrEqual(8);
     });
 
     test("next sunday", () => {

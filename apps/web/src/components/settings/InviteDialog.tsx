@@ -5,6 +5,7 @@ import { api } from "../../api";
 import { authorizedRequest } from "../../lib/api-client";
 import { AuthError, getErrorMessage } from "../../lib/errors";
 import { redirectToAuth } from "../../lib/auth";
+import { getWebOrigin } from "../../lib/web-url";
 import {
   Dialog,
   DialogContent,
@@ -102,7 +103,7 @@ export function InviteDialog({ open, onOpenChange, workspaceSlug }: InviteDialog
 
   const handleCopyInvite = useCallback(() => {
     if (invite) {
-      const link = `${window.location.origin}/invite/${invite.code}`;
+      const link = `${getWebOrigin()}/invite/${invite.code}`;
       void navigator.clipboard.writeText(link);
       setInviteCopied(true);
     }
@@ -110,7 +111,7 @@ export function InviteDialog({ open, onOpenChange, workspaceSlug }: InviteDialog
 
   if (!user) return null;
 
-  const inviteLink = invite ? `${window.location.origin}/invite/${invite.code}` : null;
+  const inviteLink = invite ? `${getWebOrigin()}/invite/${invite.code}` : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

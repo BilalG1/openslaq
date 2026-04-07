@@ -6,20 +6,30 @@ import { HuddleProvider } from "@/contexts/HuddleProvider";
 import { SocketProvider } from "@/contexts/SocketProvider";
 import { ConnectionStatusBanner } from "@/components/ui/ConnectionStatusBanner";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
-import { useServer } from "@/contexts/ServerContext";
+import { useVoipCallKit } from "@/hooks/useVoipCallKit";
+import { useHuddle } from "@/contexts/HuddleProvider";
+import { useApiDeps } from "@/hooks/useOperationDeps";
 
 function PushNotificationSetup() {
-  const { authProvider } = useAuth();
-  const { apiClient: api } = useServer();
   const { state } = useChatStore();
+  const { joinHuddle } = useHuddle();
   const params = useGlobalSearchParams<{ workspaceSlug?: string }>();
+  const deps = useApiDeps();
 
   const activeChannelId = (state.activeChannelId ?? state.activeDmId ?? null) as ChannelId | null;
+  const workspaceSlug = params.workspaceSlug ?? null;
 
   usePushNotifications({
-    deps: { api, auth: authProvider },
+    deps,
     activeChannelId,
-    workspaceSlug: params.workspaceSlug ?? null,
+    workspaceSlug,
+  });
+
+  useVoipCallKit({
+    deps,
+    joinHuddle,
+    huddleChannelId: state.currentHuddleChannelId as ChannelId | null,
+    workspaceSlug,
   });
 
   return null;
@@ -27,7 +37,6 @@ function PushNotificationSetup() {
 
 export default function AppLayout() {
   const { isAuthenticated, isLoading } = useAuth();
-
   if (isLoading) return null;
   if (!isAuthenticated) return <Redirect href="/(auth)/sign-in" />;
 

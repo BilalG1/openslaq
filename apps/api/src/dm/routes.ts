@@ -3,12 +3,14 @@ import { asUserId } from "@openslaq/shared";
 import { createDmSchema } from "./validation";
 import { BEARER_SECURITY, jsonBody, jsonContent } from "../lib/openapi-helpers";
 import { getOrCreateDm, listDms } from "./service";
+import { getUserById } from "../users/service";
 import type { WorkspaceMemberEnv } from "../workspaces/role-middleware";
 import { rlRead } from "../rate-limit";
 import { dmChannelResponseSchema, dmListItemSchema, errorSchema } from "../openapi/schemas";
 import { jsonResponse } from "../openapi/responses";
 import { BadRequestError } from "../errors";
 import { getWorkspaceMemberContext } from "../lib/context";
+import { emitToUser } from "../lib/emit";
 
 const createDmRoute = createRoute({
   method: "post",
@@ -53,6 +55,14 @@ const app = new OpenAPIHono<WorkspaceMemberEnv>()
 
     const body = { channel: result.channel, otherUser: result.otherUser };
     if (result.created) {
+      // Notify the target user about the new DM (swap otherUser perspective)
+      const currentUser = await getUserById(user.id);
+      if (currentUser) {
+        emitToUser(asUserId(targetUserId), "dm:created", {
+          channel: result.channel,
+          otherUser: { id: user.id, displayName: currentUser.displayName, avatarUrl: currentUser.avatarUrl },
+        });
+      }
       return jsonResponse(c, body, 201);
     }
     return jsonResponse(c, body, 200);

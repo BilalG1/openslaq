@@ -1,0 +1,1 @@
+ALTER TABLE "active_huddles" ADD COLUMN "call_uuid" text;

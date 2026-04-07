@@ -12,6 +12,10 @@ import {
   clearApnsSentLog,
   setRetryBaseMs,
   resetRetryBaseMs,
+  setVoipSender,
+  resetVoipSender,
+  getVoipSentLog,
+  clearVoipSentLog,
 } from "../push/apns";
 import type { ApnsResult } from "../push/apns";
 import { deliverPush } from "../push/service";
@@ -29,6 +33,7 @@ import { UnauthorizedError, NotFoundError, AppError } from "../errors";
 interface TestGlobals {
   __fakeApnsResponseSetter?: (r: ApnsResult) => void;
   __fakeApnsSequenceSetter?: (seq: ApnsResult[]) => void;
+  __fakeVoipResponseSetter?: (r: ApnsResult) => void;
 }
 
 const testGlobals = globalThis as unknown as TestGlobals;
@@ -224,6 +229,36 @@ const app = new Hono()
   })
   .post("/push/queue/process", async (c) => {
     await processDueItems();
+    return c.json({ ok: true });
+  })
+  // VoIP push notification test endpoints
+  .post("/voip-push/enable-fake", (c) => {
+    let fakeResponse: ApnsResult = { success: true, statusCode: 200 };
+    setVoipSender(async (_token, _payload) => {
+      return fakeResponse;
+    });
+    testGlobals.__fakeVoipResponseSetter = (r: ApnsResult) => {
+      fakeResponse = r;
+    };
+    return c.json({ ok: true });
+  })
+  .post("/voip-push/disable-fake", (c) => {
+    resetVoipSender();
+    delete testGlobals.__fakeVoipResponseSetter;
+    return c.json({ ok: true });
+  })
+  .post("/voip-push/set-fake-response", async (c) => {
+    const response = await c.req.json<ApnsResult>();
+    if (testGlobals.__fakeVoipResponseSetter) {
+      testGlobals.__fakeVoipResponseSetter(response);
+    }
+    return c.json({ ok: true });
+  })
+  .get("/voip-push/sent", (c) => {
+    return c.json(getVoipSentLog());
+  })
+  .post("/voip-push/clear", (c) => {
+    clearVoipSentLog();
     return c.json({ ok: true });
   })
   .post("/reminders/insert", async (c) => {

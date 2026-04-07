@@ -114,6 +114,8 @@ export { fetchBookmarks, addBookmarkOp, removeBookmarkOp } from "./bookmarks";
 export {
   registerPushToken,
   unregisterPushToken,
+  registerVoipToken,
+  unregisterVoipToken,
   getGlobalNotificationPrefs,
   updateGlobalNotificationPrefs,
 } from "./push";

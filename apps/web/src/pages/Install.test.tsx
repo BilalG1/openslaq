@@ -34,4 +34,10 @@ describe("InstallPage", () => {
     renderInstallPage();
     expect(screen.getByText("curl -fsSL https://openslaq.com/install.sh | sh")).toBeDefined();
   });
+
+  test("mobile section links to TestFlight", () => {
+    renderInstallPage();
+    const link = screen.getByRole("link", { name: /TestFlight/i });
+    expect(link.getAttribute("href")).toBe("https://testflight.apple.com/join/BUHUUBzA");
+  });
 });

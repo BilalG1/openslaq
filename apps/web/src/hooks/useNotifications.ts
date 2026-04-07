@@ -122,7 +122,7 @@ export function useNotifications() {
         };
       }
 
-      if (prefs.sound) {
+      if (prefs.sound && !isTauri()) {
         new Audio("/notification.mp3").play().catch(() => {});
       }
     },

@@ -1,9 +1,17 @@
-import type { ParticipantTrackInfo } from "@openslaq/huddle/client";
-import { VideoTile } from "./VideoTile";
+import type { TrackReferenceOrPlaceholder } from "@livekit/components-react";
+import { Track } from "livekit-client";
+import { VideoTile, type HuddleParticipant } from "./VideoTile";
+
+interface ParticipantEntry {
+  participant: HuddleParticipant;
+  isLocal: boolean;
+  /** Camera or screen share track for this participant, if any. */
+  trackRef?: TrackReferenceOrPlaceholder;
+}
 
 interface VideoGridProps {
-  localParticipant: ParticipantTrackInfo | null;
-  remoteParticipants: ParticipantTrackInfo[];
+  participants: ParticipantEntry[];
+  trackRefs: TrackReferenceOrPlaceholder[];
 }
 
 function getGridClass(count: number): string {
@@ -15,22 +23,31 @@ function getGridClass(count: number): string {
   return "grid-cols-4 grid-rows-3";
 }
 
-export function VideoGrid({ localParticipant, remoteParticipants }: VideoGridProps) {
-  // Find screen share participant
-  const screenSharer = [
-    ...(localParticipant ? [{ ...localParticipant, isLocal: true }] : []),
-    ...remoteParticipants.map((p) => ({ ...p, isLocal: false })),
-  ].find((p) => p.isScreenSharing);
+function findTrackRef(
+  trackRefs: TrackReferenceOrPlaceholder[],
+  identity: string,
+  source: Track.Source,
+): TrackReferenceOrPlaceholder | undefined {
+  return trackRefs.find(
+    (t) => t.participant.identity === identity && t.source === source,
+  );
+}
 
-  const allParticipants = [
-    ...(localParticipant ? [{ info: localParticipant, isLocal: true }] : []),
-    ...remoteParticipants.map((p) => ({ info: p, isLocal: false })),
-  ];
+export function VideoGrid({ participants, trackRefs }: VideoGridProps) {
+  // Find screen share participant
+  const screenSharer = participants.find(
+    (p) => findTrackRef(trackRefs, p.participant.identity, Track.Source.ScreenShare),
+  );
 
   // Presentation layout: screen share takes main area
   if (screenSharer) {
-    const thumbnails = allParticipants.filter(
-      (p) => !(p.info.userId === screenSharer.userId && p.info.isScreenSharing),
+    const screenTrackRef = findTrackRef(
+      trackRefs,
+      screenSharer.participant.identity,
+      Track.Source.ScreenShare,
+    );
+    const thumbnails = participants.filter(
+      (p) => p.participant.identity !== screenSharer.participant.identity || !screenTrackRef,
     );
 
     return (
@@ -38,12 +55,8 @@ export function VideoGrid({ localParticipant, remoteParticipants }: VideoGridPro
         {/* Main screen share area */}
         <div className="flex-1 min-w-0">
           <VideoTile
-            participant={{
-              ...screenSharer,
-              // Show screen track as the main video
-              cameraTrack: screenSharer.screenTrack,
-              screenTrack: null,
-            }}
+            participant={screenSharer.participant}
+            trackRef={screenTrackRef}
             isLocal={screenSharer.isLocal}
           />
         </div>
@@ -51,8 +64,12 @@ export function VideoGrid({ localParticipant, remoteParticipants }: VideoGridPro
         {thumbnails.length > 0 && (
           <div className="w-48 flex flex-col gap-3 overflow-y-auto">
             {thumbnails.map((p) => (
-              <div key={p.info.userId} className="aspect-video">
-                <VideoTile participant={p.info} isLocal={p.isLocal} />
+              <div key={p.participant.identity} className="aspect-video">
+                <VideoTile
+                  participant={p.participant}
+                  trackRef={findTrackRef(trackRefs, p.participant.identity, Track.Source.Camera)}
+                  isLocal={p.isLocal}
+                />
               </div>
             ))}
           </div>
@@ -62,13 +79,17 @@ export function VideoGrid({ localParticipant, remoteParticipants }: VideoGridPro
   }
 
   // Gallery layout
-  const totalCount = allParticipants.length;
-  const gridClass = getGridClass(totalCount);
+  const gridClass = getGridClass(participants.length);
 
   return (
     <div className={`grid gap-3 p-3 h-full ${gridClass}`} data-testid="video-grid">
-      {allParticipants.map((p) => (
-        <VideoTile key={p.info.userId} participant={p.info} isLocal={p.isLocal} />
+      {participants.map((p) => (
+        <VideoTile
+          key={p.participant.identity}
+          participant={p.participant}
+          trackRef={findTrackRef(trackRefs, p.participant.identity, Track.Source.Camera)}
+          isLocal={p.isLocal}
+        />
       ))}
     </div>
   );

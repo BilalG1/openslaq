@@ -138,6 +138,7 @@ export interface LeaveResult {
   messageId: string | null;
   startedAt: string | null;
   participantHistory: string[];
+  callUuid: string | null;
 }
 
 export async function leaveHuddle(userId: string): Promise<LeaveResult> {
@@ -147,7 +148,7 @@ export async function leaveHuddle(userId: string): Promise<LeaveResult> {
   });
 
   if (!participation) {
-    return { huddle: null, ended: false, channelId: null, messageId: null, startedAt: null, participantHistory: [] };
+    return { huddle: null, ended: false, channelId: null, messageId: null, startedAt: null, participantHistory: [], callUuid: null };
   }
 
   const channelId = participation.channelId;
@@ -191,10 +192,11 @@ export async function leaveHuddle(userId: string): Promise<LeaveResult> {
         messageId: huddleRow.messageId,
         startedAt: huddleRow.startedAt.toISOString(),
         participantHistory: huddleRow.participantHistory ?? [],
+        callUuid: huddleRow.callUuid,
       };
     }
 
-    return { huddle: null, ended: true, channelId: asChannelId(channelId), messageId: null, startedAt: null, participantHistory: [] };
+    return { huddle: null, ended: true, channelId: asChannelId(channelId), messageId: null, startedAt: null, participantHistory: [], callUuid: null };
   }
 
   const huddleRow = await db.query.activeHuddles.findFirst({
@@ -202,7 +204,7 @@ export async function leaveHuddle(userId: string): Promise<LeaveResult> {
   });
 
   if (!huddleRow) {
-    return { huddle: null, ended: false, channelId: asChannelId(channelId), messageId: null, startedAt: null, participantHistory: [] };
+    return { huddle: null, ended: false, channelId: asChannelId(channelId), messageId: null, startedAt: null, participantHistory: [], callUuid: null };
   }
 
   const huddle = toHuddleState(huddleRow, remaining);
@@ -213,6 +215,7 @@ export async function leaveHuddle(userId: string): Promise<LeaveResult> {
     messageId: huddleRow.messageId,
     startedAt: huddleRow.startedAt.toISOString(),
     participantHistory: [],
+    callUuid: huddleRow.callUuid,
   };
 }
 

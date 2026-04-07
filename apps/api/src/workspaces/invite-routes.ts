@@ -39,9 +39,9 @@ const listInvitesRoute = createRoute({
   path: "/",
   tags: ["Invites"],
   summary: "List workspace invites",
-  description: "Returns all invites for the workspace. Requires admin permissions.",
+  description: "Returns all invites for the workspace.",
   security: BEARER_SECURITY,
-  middleware: [requireRole(ROLES.ADMIN), rlRead] as const,
+  middleware: [requireRole(ROLES.MEMBER), rlRead] as const,
   responses: {
     200: jsonContent(z.array(workspaceInviteSchema), "Workspace invites"),
   },
@@ -52,9 +52,9 @@ const createInviteRoute = createRoute({
   path: "/",
   tags: ["Invites"],
   summary: "Create invite",
-  description: "Creates a new workspace invite link. Requires admin permissions.",
+  description: "Creates a new workspace invite link.",
   security: BEARER_SECURITY,
-  middleware: [requireRole(ROLES.ADMIN), rlInviteAdmin] as const,
+  middleware: [requireRole(ROLES.MEMBER), rlInviteAdmin] as const,
   request: {
     body: jsonBody(createInviteSchema),
   },

@@ -1,6 +1,6 @@
 {
   "name": "@openslaq/cli",
-  "version": "0.0.4",
+  "version": "0.0.6",
   "type": "module",
   "bin": {
     "openslaq": "./dist/index.js"
@@ -9,7 +9,7 @@
   "scripts": {
     "prebuild": "bun run scripts/generate-version.ts",
     "build": "bun run prebuild && bun build src/index.ts --outdir dist --target bun --minify && bun run scripts/prepend-shebang.ts",
-    "build:compile": "bun run prebuild && bun build --compile src/index.ts --outfile dist/openslaq-darwin-arm64 --target=bun-darwin-arm64 --minify && bun build --compile src/index.ts --outfile dist/openslaq-darwin-x64 --target=bun-darwin-x64 --minify && bun build --compile src/index.ts --outfile dist/openslaq-linux-x64 --target=bun-linux-x64 --minify && bun build --compile src/index.ts --outfile dist/openslaq-linux-arm64 --target=bun-linux-arm64 --minify",
+    "build:compile": "bun run prebuild && bun build --compile src/index.ts --outfile dist/openslaq-darwin-arm64 --target=bun-darwin-arm64 --minify --define 'process.env.SENTRY_DSN=\"https://b9f45dc90b35a5da51711a647892346b@o4511066422181888.ingest.us.sentry.io/4511176312356864\"' && bun build --compile src/index.ts --outfile dist/openslaq-darwin-x64 --target=bun-darwin-x64 --minify --define 'process.env.SENTRY_DSN=\"https://b9f45dc90b35a5da51711a647892346b@o4511066422181888.ingest.us.sentry.io/4511176312356864\"' && bun build --compile src/index.ts --outfile dist/openslaq-linux-x64 --target=bun-linux-x64 --minify --define 'process.env.SENTRY_DSN=\"https://b9f45dc90b35a5da51711a647892346b@o4511066422181888.ingest.us.sentry.io/4511176312356864\"' && bun build --compile src/index.ts --outfile dist/openslaq-linux-arm64 --target=bun-linux-arm64 --minify --define 'process.env.SENTRY_DSN=\"https://b9f45dc90b35a5da51711a647892346b@o4511066422181888.ingest.us.sentry.io/4511176312356864\"'",
     "prepublishOnly": "bun run build",
     "test": "bun --env-file=../../.env test",
     "typecheck": "tsgo --noEmit"

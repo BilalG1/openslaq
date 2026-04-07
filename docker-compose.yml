@@ -24,6 +24,7 @@ services:
       - "${PORT_PREFIX:-30}04:7880"
       - "${PORT_PREFIX:-30}05:7881"
       - "${PORT_PREFIX:-30}06:7882"
+      - "3478:3478/udp"
     volumes:
       - ./livekit.yaml:/etc/livekit.yaml
 

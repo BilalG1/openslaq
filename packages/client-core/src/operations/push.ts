@@ -25,6 +25,29 @@ export async function unregisterPushToken(
   );
 }
 
+export async function registerVoipToken(
+  deps: ApiDeps,
+  token: string,
+  platform: "ios" = "ios",
+): Promise<void> {
+  const { api, auth } = deps;
+
+  await authorizedRequest(auth, (headers) =>
+    api.api["voip-tokens"].$post({ json: { token, platform } }, { headers }),
+  );
+}
+
+export async function unregisterVoipToken(
+  deps: ApiDeps,
+  token: string,
+): Promise<void> {
+  const { api, auth } = deps;
+
+  await authorizedRequest(auth, (headers) =>
+    api.api["voip-tokens"].$delete({ json: { token } }, { headers }),
+  );
+}
+
 export async function getGlobalNotificationPrefs(
   deps: ApiDeps,
 ): Promise<GlobalNotificationPreferences> {

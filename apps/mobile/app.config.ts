@@ -43,6 +43,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     "expo-apple-authentication",
     "expo-notifications",
     "@config-plugins/react-native-webrtc",
+    "@config-plugins/react-native-callkeep",
+    "./plugins/withVoipPushNotification.js",
     "expo-av",
     [
       "expo-media-library",

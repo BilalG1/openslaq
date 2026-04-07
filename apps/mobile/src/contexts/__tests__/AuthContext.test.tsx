@@ -43,11 +43,27 @@ jest.mock("../../lib/auth-provider", () => ({
       onAuthRequired: jest.fn(),
     },
     setToken: mockSetToken,
+    destroy: jest.fn(),
   })),
 }));
 
 jest.mock("../../lib/dev-auth", () => ({
   performDevQuickSignIn: jest.fn(),
+  performDemoSignIn: jest.fn(),
+}));
+
+const mockEnv = {
+  EXPO_PUBLIC_API_URL: "http://localhost:3001",
+  EXPO_PUBLIC_WEB_URL: "http://localhost:3000",
+  EXPO_PUBLIC_STACK_PROJECT_ID: "",
+  EXPO_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY: "",
+  EXPO_PUBLIC_E2E_TEST_SECRET: undefined,
+  EXPO_PUBLIC_DEMO_EMAIL: undefined as string | undefined,
+};
+jest.mock("../../lib/env", () => ({
+  get env() {
+    return mockEnv;
+  },
 }));
 
 jest.mock("@openslaq/client-core", () => ({
@@ -82,21 +98,29 @@ const { signInAsync: appleSignInAsync } = require("expo-apple-authentication") a
 
 const setAuthToken = mockSetToken;
 
-const { performDevQuickSignIn } = require("../../lib/dev-auth") as {
+const { performDevQuickSignIn, performDemoSignIn } = require("../../lib/dev-auth") as {
   performDevQuickSignIn: jest.Mock;
+  performDemoSignIn: jest.Mock;
 };
 
 const { getCurrentUser } = require("@openslaq/client-core") as {
   getCurrentUser: jest.Mock;
 };
 
+let testEmail = "test@test.com";
+
 function TestConsumer() {
   const { isLoading, isAuthenticated, user, sendOtp, verifyOtp, signInWithApple, signOut, signInWithOAuth, devQuickSignIn } =
     useAuth();
 
   const handleSendOtp = async () => {
-    const nonce = await sendOtp("test@test.com");
+    const nonce = await sendOtp(testEmail);
     (globalThis as Record<string, unknown>).__testNonce = nonce;
+  };
+
+  const handleVerifyOtpWithNonce = async () => {
+    const nonce = (globalThis as Record<string, unknown>).__testNonce as string;
+    await verifyOtp("123456", nonce);
   };
 
   return (
@@ -127,6 +151,10 @@ function TestConsumer() {
       <TouchableOpacity
         testID="dev-sign-in"
         onPress={() => devQuickSignIn().catch(() => undefined)}
+      />
+      <TouchableOpacity
+        testID="verify-otp-with-nonce"
+        onPress={() => handleVerifyOtpWithNonce().catch(() => undefined)}
       />
       <TouchableOpacity testID="sign-out" onPress={() => signOut()} />
     </>
@@ -447,5 +475,80 @@ describe("AuthContext", () => {
     });
     expect(getTestIdText("authenticated")).toBe("false");
     expect(getCurrentUser).not.toHaveBeenCalled();
+  });
+
+  describe("demo sign-in", () => {
+    beforeEach(() => {
+      mockEnv.EXPO_PUBLIC_DEMO_EMAIL = "demo@openslaq.com";
+      testEmail = "demo@openslaq.com";
+    });
+
+    afterEach(() => {
+      mockEnv.EXPO_PUBLIC_DEMO_EMAIL = undefined;
+      testEmail = "test@test.com";
+    });
+
+    it("sendOtp returns __demo__ nonce for demo email", async () => {
+      render(
+        <AuthContextProvider>
+          <TestConsumer />
+        </AuthContextProvider>,
+      );
+
+      await waitFor(() => {
+        expect(getTestIdText("loading")).toBe("false");
+      });
+
+      await act(async () => {
+        fireEvent.press(screen.getByTestId("send-otp"));
+      });
+
+      // sendOtp should NOT call Stack Auth
+      expect(sendOtpCode).not.toHaveBeenCalled();
+      // Nonce should be the demo sentinel
+      expect((globalThis as Record<string, unknown>).__testNonce).toBe("__demo__");
+    });
+
+    it("verifyOtp calls performDemoSignIn when nonce is __demo__", async () => {
+      performDemoSignIn.mockResolvedValue({
+        userId: "demo-user-id",
+        accessToken: "demo-access-token",
+        refreshToken: "demo-refresh-token",
+      });
+
+      render(
+        <AuthContextProvider>
+          <TestConsumer />
+        </AuthContextProvider>,
+      );
+
+      await waitFor(() => {
+        expect(getTestIdText("loading")).toBe("false");
+      });
+
+      // First send OTP to set the __demo__ nonce
+      await act(async () => {
+        fireEvent.press(screen.getByTestId("send-otp"));
+      });
+
+      // Then verify with the stored nonce
+      await act(async () => {
+        fireEvent.press(screen.getByTestId("verify-otp-with-nonce"));
+      });
+
+      expect(performDemoSignIn).toHaveBeenCalledWith(
+        "http://localhost:3001",
+        "demo@openslaq.com",
+        "123456",
+      );
+      expect(verifyOtpCode).not.toHaveBeenCalled();
+      expect(setServerSession).toHaveBeenCalledWith("srv_test", {
+        accessToken: "demo-access-token",
+        refreshToken: "demo-refresh-token",
+        userId: "demo-user-id",
+      });
+      expect(getTestIdText("authenticated")).toBe("true");
+      expect(getTestIdText("user-id")).toBe("demo-user-id");
+    });
   });
 });

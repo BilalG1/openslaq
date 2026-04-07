@@ -11,6 +11,34 @@ import { router } from "expo-router";
 export interface MobileAuthHandle {
   provider: AuthProvider;
   setToken: (token: string | null) => void;
+  destroy: () => void;
+}
+
+/** Refresh buffer: refresh 5 minutes before actual expiry */
+const REFRESH_BUFFER_MS = 5 * 60 * 1000;
+
+/**
+ * Decode the `exp` claim from a JWT without verifying the signature.
+ * Returns the expiration time in milliseconds, or null if missing.
+ */
+function getTokenExpiryMs(token: string): number | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(
+      atob(parts[1]!.replace(/-/g, "+").replace(/_/g, "/")),
+    );
+    if (typeof payload.exp === "number") return payload.exp * 1000;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function isTokenExpired(token: string, bufferMs = REFRESH_BUFFER_MS): boolean {
+  const expiryMs = getTokenExpiryMs(token);
+  if (expiryMs == null) return false; // no exp claim — treat as valid
+  return Date.now() + bufferMs >= expiryMs;
 }
 
 export function createMobileAuthProvider(
@@ -21,26 +49,59 @@ export function createMobileAuthProvider(
   let cachedToken: string | null = null;
   let authInvalidated = false;
   let refreshInFlight: Promise<string | null> | null = null;
+  let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function clearRefreshTimer() {
+    if (refreshTimer) {
+      clearTimeout(refreshTimer);
+      refreshTimer = null;
+    }
+  }
+
+  function scheduleProactiveRefresh(token: string) {
+    clearRefreshTimer();
+    const expiryMs = getTokenExpiryMs(token);
+    if (expiryMs == null) return;
+    const delay = expiryMs - Date.now() - REFRESH_BUFFER_MS;
+    if (delay <= 0) return; // already within buffer — will refresh on next access
+    refreshTimer = setTimeout(() => {
+      void deduplicatedRefresh();
+    }, delay);
+  }
 
   function setToken(token: string | null) {
     cachedToken = token;
     refreshInFlight = null;
-    if (token) authInvalidated = false;
+    clearRefreshTimer();
+    if (token) {
+      authInvalidated = false;
+      scheduleProactiveRefresh(token);
+    }
   }
 
-  async function getValidToken(): Promise<string | null> {
-    if (authInvalidated) return null;
-    if (cachedToken) return cachedToken;
+  function destroy() {
+    clearRefreshTimer();
+  }
 
-    // Deduplicate concurrent refresh calls
+  async function deduplicatedRefresh(): Promise<string | null> {
     if (refreshInFlight) return refreshInFlight;
-
     refreshInFlight = doRefresh();
     try {
       return await refreshInFlight;
     } finally {
       refreshInFlight = null;
     }
+  }
+
+  async function getValidToken(): Promise<string | null> {
+    if (authInvalidated) return null;
+
+    // If cached token exists and is not expired/near-expiry, use it
+    if (cachedToken && !isTokenExpired(cachedToken)) return cachedToken;
+
+    // Token is missing or expired — refresh with deduplication
+    cachedToken = null;
+    return deduplicatedRefresh();
   }
 
   async function doRefresh(): Promise<string | null> {
@@ -56,8 +117,11 @@ export function createMobileAuthProvider(
         userId: refreshed.user_id,
       });
       cachedToken = newToken;
+      scheduleProactiveRefresh(newToken);
       return newToken;
     } catch {
+      // Refresh failed — session is unrecoverable, force sign-out
+      provider.onAuthRequired();
       return null;
     }
   }
@@ -71,11 +135,12 @@ export function createMobileAuthProvider(
     },
     refreshAccessToken: async () => {
       cachedToken = null;
-      return doRefresh();
+      return deduplicatedRefresh();
     },
     onAuthRequired: () => {
       cachedToken = null;
       authInvalidated = true;
+      clearRefreshTimer();
       void clearServerSession(serverId);
       if (onAuthRequired) {
         onAuthRequired();
@@ -85,5 +150,5 @@ export function createMobileAuthProvider(
     },
   };
 
-  return { provider, setToken };
+  return { provider, setToken, destroy };
 }

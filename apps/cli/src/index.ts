@@ -22,6 +22,7 @@ import { apiKeysCommand } from "./commands/api-keys";
 import { emojiCommand } from "./commands/emoji";
 import { filesCommand } from "./commands/files";
 import { presenceCommand } from "./commands/presence";
+import { updateCommand } from "./commands/update";
 import { usersCommand } from "./commands/users";
 import { printHelp } from "./output";
 import { checkForUpdate } from "./update-check";
@@ -48,6 +49,7 @@ function rootHelp() {
     { name: "upload", desc: "Upload a file" },
     { name: "api-keys", desc: "Manage API keys" },
     { name: "emoji", desc: "Manage custom emoji" },
+    { name: "update", desc: "Update CLI to latest version" },
   ];
   for (const cmd of cmds) {
     console.log(`  ${cmd.name.padEnd(12)}${cmd.desc}`);
@@ -73,4 +75,5 @@ run(rootHelp, {
   upload: uploadCommand,
   "api-keys": apiKeysCommand,
   emoji: emojiCommand,
+  update: updateCommand,
 });

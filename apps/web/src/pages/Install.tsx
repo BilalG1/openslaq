@@ -67,9 +67,11 @@ export function InstallPage() {
 
           <div className="rounded-xl border border-border-default bg-surface p-5" data-testid="install-mobile">
             <h2 className="text-lg font-semibold text-primary mb-2">Mobile</h2>
-            <p className="text-sm text-muted mb-4">iOS and Android apps coming soon.</p>
-            <Button className="w-full" disabled>
-              Coming soon
+            <p className="text-sm text-muted mb-4">iOS app via TestFlight — Android coming soon.</p>
+            <Button asChild className="w-full">
+              <a href="https://testflight.apple.com/join/BUHUUBzA" target="_blank" rel="noopener noreferrer">
+                Download for iOS (TestFlight)
+              </a>
             </Button>
           </div>
 

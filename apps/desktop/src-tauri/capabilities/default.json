@@ -1,9 +1,14 @@
 {
   "identifier": "default",
   "description": "Default permissions for the main window",
-  "windows": ["main"],
+  "windows": ["main", "huddle-*"],
+  "remote": {
+    "urls": ["http://localhost:3334/*", "http://localhost:3000/*", "https://api.openslaq.com/*", "https://*.openslaq.com/*"]
+  },
   "permissions": [
     "core:default",
+    "core:webview:allow-create-webview-window",
+    "core:window:allow-close",
     "core:window:allow-set-badge-count",
     "opener:default",
     "updater:default",

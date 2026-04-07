@@ -238,6 +238,60 @@ describe("invites", () => {
     expect(acceptRes.status).toBe(410);
   });
 
+  test("leave workspace then accept invite to rejoin → 200", async () => {
+    const uid = testId();
+    const { client: ownerClient } = await createTestClient({ id: `inv-rejoin-owner-${uid}`, email: `inv-rejoin-owner-${uid}@openslaq.dev` });
+    const ws = await createTestWorkspace(ownerClient);
+
+    // Create invite
+    const createRes = await ownerClient.api.workspaces[":slug"].invites.$post({
+      param: { slug: ws.slug },
+      json: {},
+    });
+    const invite = (await createRes.json()) as { code: string };
+
+    // Second user joins via invite
+    const { client: joinerClient } = await createTestClient({ id: `inv-rejoin-join-${uid}`, email: `inv-rejoin-join-${uid}@openslaq.dev` });
+    const acceptRes1 = await joinerClient.api.invites[":code"].accept.$post({
+      param: { code: invite.code },
+    });
+    expect(acceptRes1.status).toBe(200);
+
+    // Second user leaves the workspace
+    const leaveRes = await joinerClient.api.workspaces[":slug"].members.leave.$post({
+      param: { slug: ws.slug },
+    });
+    expect(leaveRes.status).toBe(200);
+
+    // Verify user is no longer a member
+    const membersRes1 = await ownerClient.api.workspaces[":slug"].members.$get({
+      param: { slug: ws.slug },
+      query: {},
+    });
+    const members1 = (await membersRes1.json()) as { id: string }[];
+    expect(members1.find((m) => m.id === `inv-rejoin-join-${uid}`)).toBeUndefined();
+
+    // Create a new invite and have the user rejoin
+    const createRes2 = await ownerClient.api.workspaces[":slug"].invites.$post({
+      param: { slug: ws.slug },
+      json: {},
+    });
+    const invite2 = (await createRes2.json()) as { code: string };
+
+    const acceptRes2 = await joinerClient.api.invites[":code"].accept.$post({
+      param: { code: invite2.code },
+    });
+    expect(acceptRes2.status).toBe(200);
+
+    // Verify user is a member again
+    const membersRes2 = await ownerClient.api.workspaces[":slug"].members.$get({
+      param: { slug: ws.slug },
+      query: {},
+    });
+    const members2 = (await membersRes2.json()) as { id: string }[];
+    expect(members2.find((m) => m.id === `inv-rejoin-join-${uid}`)).toBeDefined();
+  });
+
   test("revoke nonexistent invite → 404", async () => {
     const { client } = await createTestClient();
     const ws = await createTestWorkspace(client);

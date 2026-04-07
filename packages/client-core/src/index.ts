@@ -35,7 +35,7 @@ export type {
 
 export type { OperationDeps, ApiDeps } from "./operations";
 export type { WorkspaceMember, ChannelMember, WorkspaceListItem, BrowseChannel, UserProfile, SavedMessageItem, ScheduledMessageItem, DraftItem, FetchFilesParams, FetchFilesResult, UserThreadItem } from "./operations";
-export { normalizeChannel } from "./operations/normalize";
+export { normalizeChannel, normalizeDmConversation, normalizeGroupDmConversation } from "./operations/normalize";
 export {
   bootstrapWorkspace,
   loadChannelMessages,
@@ -143,6 +143,8 @@ export {
   removeBookmarkOp,
   registerPushToken,
   unregisterPushToken,
+  registerVoipToken,
+  unregisterVoipToken,
   getGlobalNotificationPrefs,
   updateGlobalNotificationPrefs,
   fetchSlashCommands,

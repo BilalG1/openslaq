@@ -90,4 +90,20 @@ describe("SignInScreen", () => {
 
     expect(mockDevQuickSignIn).toHaveBeenCalled();
   });
+
+  it("transitions to OTP step for demo email (same UI flow)", async () => {
+    mockSendOtp.mockResolvedValue("__demo__");
+    render(<SignInScreen />);
+
+    fireEvent.changeText(screen.getByTestId("email-input"), "demo@openslaq.com");
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId("submit-button"));
+    });
+
+    // Should transition to OTP step with verify button
+    expect(screen.getByTestId("otp-input")).toBeTruthy();
+    expect(screen.getByTestId("verify-button")).toBeTruthy();
+    expect(mockSendOtp).toHaveBeenCalledWith("demo@openslaq.com");
+  });
 });

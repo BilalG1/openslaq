@@ -179,7 +179,10 @@ export function setupSocketHandlers(
       if (!jwks || !jwtVerifyOptions) {
         return next(new Error("Stack Auth not configured"));
       }
-      const { payload } = await jose.jwtVerify(token, jwks, jwtVerifyOptions);
+      const verifyOpts = env.DEV_FAST_TOKEN_EXPIRY
+        ? { ...jwtVerifyOptions, maxTokenAge: "60s" }
+        : jwtVerifyOptions;
+      const { payload } = await jose.jwtVerify(token, jwks, verifyOpts);
       const parsed = socketJwtSchema.parse(payload);
       socket.data.userId = asUserId(parsed.sub);
       next();

@@ -6,7 +6,7 @@ const CACHE_DIR = join(homedir(), ".openslaq");
 const CACHE_FILE = join(CACHE_DIR, "update-check.json");
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 const GITHUB_API_URL =
-  "https://api.github.com/repos/bilalg1/openslaq/releases/latest";
+  "https://api.github.com/repos/bilalg1/openslaq/releases";
 
 interface CacheEntry {
   checkedAt: number;
@@ -37,28 +37,35 @@ async function writeCache(entry: CacheEntry): Promise<void> {
   await Bun.write(CACHE_FILE, JSON.stringify(entry));
 }
 
+/** Fetch the latest CLI version, using cache when fresh. Returns null on failure. */
+export async function fetchLatestVersion(): Promise<string | null> {
+  const cached = await readCache();
+  const now = Date.now();
+
+  if (cached && now - cached.checkedAt < CACHE_TTL_MS) {
+    return cached.latestVersion;
+  }
+
+  const res = await fetch(GITHUB_API_URL, {
+    headers: { Accept: "application/vnd.github+json" },
+  });
+  if (!res.ok) return null;
+  const releases = (await res.json()) as { tag_name: string }[];
+  const cliRelease = releases.find((r) => r.tag_name.startsWith("cli-v"));
+  if (!cliRelease) return null;
+  const latest = cliRelease.tag_name.replace(/^cli-v/, "");
+  await writeCache({ checkedAt: now, latestVersion: latest });
+  return latest;
+}
+
 /**
  * Check GitHub releases for a newer version and print a warning to stderr.
  * Fire-and-forget — never throws, never blocks the CLI.
  */
 export function checkForUpdate(): void {
   (async () => {
-    const cached = await readCache();
-    const now = Date.now();
-
-    let latest: string;
-    if (cached && now - cached.checkedAt < CACHE_TTL_MS) {
-      latest = cached.latestVersion;
-    } else {
-      const res = await fetch(GITHUB_API_URL, {
-        headers: { Accept: "application/vnd.github+json" },
-      });
-      if (!res.ok) return;
-      const data = (await res.json()) as { tag_name: string };
-      // tag format: cli-v1.2.3 → extract version
-      latest = data.tag_name.replace(/^cli-v/, "");
-      await writeCache({ checkedAt: now, latestVersion: latest });
-    }
+    const latest = await fetchLatestVersion();
+    if (!latest) return;
 
     if (compareSemver(VERSION, latest) > 0) {
       console.error(
